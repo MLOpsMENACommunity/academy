@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SessionAction } from '@/components/sessions/MySessions';
 import { DateBlock, DateTile, DayTime } from '@/components/sessions/SessionDate';
-import { buttonClass } from '@/components/ui/Button';
+import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
@@ -46,20 +46,20 @@ export default async function SessionsPage({ params }: Props) {
   return (
     <>
       <section className="border-b border-line bg-card">
-        <Container className="py-12 sm:py-16">
-          <h1 className="text-3xl font-semibold sm:text-5xl">{t('sessions.title')}</h1>
-          <p className="mt-4 max-w-2xl text-lg text-muted">{t('sessions.intro')}</p>
+        <Container className="flex flex-col gap-4 py-12 sm:py-16 lg:py-20">
+          <h1 className="text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{t('sessions.title')}</h1>
+          <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">{t('sessions.intro')}</p>
         </Container>
       </section>
 
-      <Container className="py-10 sm:py-14">
+      <Container className="py-12 sm:py-16 lg:py-20">
         {!next ? (
-          <div className="rounded-card border border-dashed border-line-strong px-6 py-12 text-center">
-            <h2 className="text-xl font-semibold">{t('sessions.empty')}</h2>
-            <p className="mx-auto mt-2 max-w-md text-muted">{t('sessions.emptyBody')}</p>
-            <Link href={`/${locale}/courses`} className={buttonClass('secondary', 'md', 'mt-6')}>
+          <div className="rounded-card border border-dashed border-line-strong/50 px-6 py-12 text-center sm:py-16">
+            <h2 className="text-xl sm:text-2xl">{t('sessions.empty')}</h2>
+            <p className="mx-auto mt-3 max-w-md leading-relaxed text-muted">{t('sessions.emptyBody')}</p>
+            <ButtonLink href={`/${locale}/courses`} variant="secondary" className="mt-6">
               {t('sessions.browseCourses')}
-            </Link>
+            </ButtonLink>
           </div>
         ) : (
           <>
@@ -70,16 +70,23 @@ export default async function SessionsPage({ params }: Props) {
               <div className="md:w-32 md:shrink-0 md:text-center">
                 <DateBlock iso={next.startsAt} className="md:items-center" />
               </div>
-              <div className="min-w-0 flex-1 space-y-2.5">
-                <p className="text-sm text-muted">
-                  {t('sessions.nextUp')} · {deliveryPlatformLabels[next.platform][locale]} · {courseLanguageLabels[next.language][locale]}
+              <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                  <span className="flex items-center gap-2 font-medium text-primary">
+                    <span aria-hidden className="size-2 rounded-full bg-logo-green" />
+                    {t('sessions.nextUp')}
+                  </span>
+                  <span aria-hidden>·</span>
+                  {deliveryPlatformLabels[next.platform][locale]}
+                  <span aria-hidden>·</span>
+                  {courseLanguageLabels[next.language][locale]}
                 </p>
-                <h2 id="next-up" className="text-2xl font-semibold sm:text-3xl">
+                <h2 id="next-up" className="text-2xl sm:text-[1.75rem]">
                   <Link href={`/${locale}/sessions/${next.slug}`} className="hover:text-primary">
                     {pick(locale, next.titleEn, next.titleAr)}
                   </Link>
                 </h2>
-                <p className="text-muted">
+                <p className="leading-relaxed text-muted">
                   {excerpt(pick(locale, next.descriptionEn, next.descriptionAr))} {speakerLine(next, locale)}
                 </p>
               </div>
@@ -89,16 +96,16 @@ export default async function SessionsPage({ params }: Props) {
             </article>
 
             {rest.length > 0 && (
-              <section aria-labelledby="coming-up" className="mt-12">
-                <h2 id="coming-up" className="text-xl font-semibold sm:text-2xl">
+              <section aria-labelledby="coming-up" className="mt-14 sm:mt-16">
+                <h2 id="coming-up" className="text-2xl sm:text-[1.75rem]">
                   {t('sessions.comingUp')}
                 </h2>
-                <ul className="mt-4 border-b border-line">
+                <ul className="mt-6">
                   {rest.map((e) => (
-                    <li key={e.slug} className="relative flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line py-5">
+                    <li key={e.slug} className="relative flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line py-5 last:border-b sm:py-6">
                       <DateTile iso={e.startsAt} />
                       <div className="min-w-0 flex-1 basis-56">
-                        <h3 className="text-base font-semibold">
+                        <h3 className="text-base font-medium sm:text-lg">
                           {/* The whole row is the tap target. */}
                           <Link href={`/${locale}/sessions/${e.slug}`} className="after:absolute after:inset-0 hover:text-primary">
                             {pick(locale, e.titleEn, e.titleAr)}

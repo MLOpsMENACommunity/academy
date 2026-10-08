@@ -56,7 +56,7 @@ export default function SessionRegistrations() {
   return (
     <div>
       <Link href={event ? `/${locale}/admin/sessions/${id}` : `/${locale}/admin/sessions`} className="inline-flex min-h-11 items-center text-sm text-muted hover:underline">
-        <span aria-hidden className="me-1 inline-block rtl:-scale-x-100">←</span>{event ? (locale === 'ar' && event.titleAr) || event.titleEn : t('admin.sessions.title')}
+        <span aria-hidden className="inline-block rtl:rotate-180">←</span> {event ? (locale === 'ar' && event.titleAr) || event.titleEn : t('admin.sessions.title')}
       </Link>
       <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.sessions.registrations')}</h1>
@@ -77,7 +77,7 @@ export default function SessionRegistrations() {
         </Alert>
       )}
       {!rows && !error && <p className="mt-5 text-muted">{t('admin.common.loading')}</p>}
-      {rows?.length === 0 && <p className="mt-5 rounded-card border border-dashed border-line-strong p-8 text-center text-muted">{t('admin.sessions.noRegistrations')}</p>}
+      {rows?.length === 0 && <p className="mt-5 rounded-card border border-dashed border-line-strong/50 p-8 text-center text-muted">{t('admin.sessions.noRegistrations')}</p>}
       {rows && rows.length > 0 && (
         <ul className="mt-5 divide-y divide-line rounded-card border border-line bg-card">
           <li aria-hidden className="hidden gap-4 bg-muted-bg px-4 py-2 text-xs text-muted md:grid md:grid-cols-[2fr_1fr_1fr_1fr]">
@@ -89,7 +89,7 @@ export default function SessionRegistrations() {
           {rows.map((r) => (
             <li key={r.userId} className="grid gap-1 p-4 text-sm md:grid-cols-[2fr_1fr_1fr_1fr] md:items-center md:gap-4">
               <div className="min-w-0">
-                <Link href={`/${locale}/admin/students/${r.userId}`} className="font-semibold text-primary hover:underline">
+                <Link href={`/${locale}/admin/students/${r.userId}`} className="font-medium text-primary hover:underline">
                   {r.name || r.email}
                 </Link>
                 <p className="truncate text-muted ltr-embed">{r.email}</p>

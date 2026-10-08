@@ -90,7 +90,7 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
       <fieldset>
-        <legend className="text-lg font-bold text-fg">{title}</legend>
+        <legend className="text-lg font-semibold text-fg">{title}</legend>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">{children}</div>
       </fieldset>
     </Card>
@@ -267,7 +267,7 @@ export function DeleteEvent({ event, onDone }: { event: Pick<AdminEvent, 'id' | 
       type="button"
       onClick={run}
       disabled={busy}
-      className="inline-flex min-h-11 items-center rounded-lg border border-danger/40 px-3 text-sm font-semibold text-danger hover:bg-danger-soft disabled:opacity-50"
+      className="inline-flex min-h-11 items-center rounded-full border border-danger/40 px-4 text-[0.9375rem] font-medium text-danger hover:bg-danger-soft disabled:opacity-50"
     >
       {busy ? t('admin.common.loading') : t('admin.common.delete')}
     </button>

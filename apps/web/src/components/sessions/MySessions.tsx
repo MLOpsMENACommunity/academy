@@ -38,7 +38,7 @@ export function forgetMySessions(): void {
 }
 
 const Arrow = () => (
-  <span aria-hidden className="inline-block rtl:-scale-x-100">
+  <span aria-hidden className="inline-block rtl:rotate-180">
     →
   </span>
 );
@@ -50,7 +50,7 @@ export function SessionAction({ slug, variant }: { slug: string; variant: 'link'
   const href = `/${locale}/sessions/${slug}`;
   if (mine?.some((e) => e.slug === slug)) {
     return (
-      <Link href={href} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline">
+      <Link href={href} className="relative inline-flex min-h-11 items-center gap-2 text-[0.9375rem] font-medium text-primary hover:underline">
         <span aria-hidden>✓</span>
         {t('sessions.registered')}
       </Link>
@@ -64,7 +64,7 @@ export function SessionAction({ slug, variant }: { slug: string; variant: 'link'
     );
   }
   return (
-    <Link href={href} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-fg hover:text-primary hover:underline">
+    <Link href={href} className="inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-medium text-fg hover:text-primary">
       {t('sessions.register')} <Arrow />
     </Link>
   );
@@ -77,9 +77,9 @@ export function MySessionsList() {
   if (items === null) return <div aria-hidden className="h-24" />;
   if (items.length === 0) {
     return (
-      <div className="rounded-card border border-dashed border-line-strong p-6">
-        <p className="text-sm text-muted">{t('dashboard.noSessions')}</p>
-        <Link href={`/${locale}/sessions`} className={buttonClass('secondary', 'md', 'mt-4')}>
+      <div className="rounded-card border border-dashed border-line-strong/50 p-8 text-center">
+        <p className="text-muted">{t('dashboard.noSessions')}</p>
+        <Link href={`/${locale}/sessions`} className={buttonClass('primary', 'md', 'mt-4')}>
           {t('dashboard.browseSessions')}
         </Link>
       </div>
@@ -89,16 +89,16 @@ export function MySessionsList() {
     <ul className="divide-y divide-line rounded-card border border-line bg-card">
       {items.map((e) => (
         <li key={e.slug}>
-          <Link href={`/${locale}/sessions/${e.slug}`} className="flex min-h-16 items-center gap-4 p-4 hover:bg-muted-bg">
+          <Link href={`/${locale}/sessions/${e.slug}`} className="flex min-h-16 items-center gap-4 px-5 py-4 hover:bg-muted-bg sm:px-6">
             <DateTile iso={e.startsAt} />
             <span className="min-w-0">
-              <span className="block font-semibold text-fg">{pick(locale, e.titleEn, e.titleAr)}</span>
+              <span className="block font-medium text-fg">{pick(locale, e.titleEn, e.titleAr)}</span>
               <span className="block text-sm text-muted">
                 <DayTime iso={e.startsAt} />
                 {e.status === 'CANCELLED' && <> · {t('sessions.cancelled')}</>}
               </span>
             </span>
-            {e.me?.liveUrl && <span className="ms-auto shrink-0 text-sm font-semibold text-primary">{t('sessions.join')}</span>}
+            {e.me?.liveUrl && <span className="ms-auto shrink-0 text-sm font-medium text-primary">{t('sessions.join')}</span>}
           </Link>
         </li>
       ))}

@@ -927,11 +927,8 @@
     "minutes": "{count} دقيقة",
     "timezoneNote": "المواعيد معروضة بتوقيتك ({tz}).",
     "facts": {
-      "when": "الموعد",
-      "duration": "المدة",
       "language": "اللغة",
       "where": "المنصة",
-      "price": "الرسوم",
       "seats": "المقاعد المتبقية"
     },
     "about": "عن الجلسة",

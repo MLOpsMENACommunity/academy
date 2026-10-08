@@ -18,9 +18,9 @@ export function DateBlock({ iso, className = '' }: { iso: string; className?: st
   const p = dateParts(iso, locale, useViewerTz());
   return (
     <time dateTime={iso} suppressHydrationWarning className={`flex flex-col ${className}`}>
-      <span className="text-sm font-semibold text-primary">{p.weekday}</span>
-      <span className="text-5xl leading-tight font-semibold text-fg sm:text-6xl">{p.day}</span>
-      <span className="text-sm text-muted">
+      <span className="text-[0.9375rem] font-medium text-primary">{p.weekday}</span>
+      <span className="text-[3.5rem] leading-[1.1] font-semibold text-fg">{p.day}</span>
+      <span className="text-[0.9375rem] text-muted">
         {p.month} · {p.time}
       </span>
     </time>

@@ -63,9 +63,8 @@ export default async function SessionPage({ params }: Props) {
   const seatsLeft = e.capacity !== null && !e.past && e.status === 'PUBLISHED' ? Math.max(0, e.capacity - e.registered) : null;
 
   const facts: [string, ReactNode][] = [
-    [t('sessions.facts.language'), courseLanguageLabels[e.language][locale]],
     [t('sessions.facts.where'), deliveryPlatformLabels[e.platform][locale]],
-    [t('sessions.facts.price'), t('sessions.free')],
+    [t('sessions.facts.language'), courseLanguageLabels[e.language][locale]],
     ...(seatsLeft !== null ? ([[t('sessions.facts.seats'), String(seatsLeft)]] as [string, ReactNode][]) : []),
   ];
 
@@ -111,79 +110,86 @@ export default async function SessionPage({ params }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(structured)} />
 
       <section className="border-b border-line bg-card">
-        <Container className="py-10 sm:py-14">
-          <nav aria-label={t('course.breadcrumbLabel')} className="text-sm text-muted">
-            <Link href={`/${locale}/sessions`} className="inline-flex min-h-11 items-center hover:text-primary hover:underline">
+        <Container className="flex flex-col gap-4 py-8 sm:gap-5 sm:py-14 lg:py-16">
+          <nav aria-label={t('course.breadcrumbLabel')} className="-ms-1 text-[0.9375rem] text-muted">
+            <Link href={`/${locale}/sessions`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 hover:text-fg">
+              <span aria-hidden className="inline-block rtl:rotate-180">
+                ←
+              </span>
               {t('sessions.title')}
             </Link>
           </nav>
-          <p className="mt-2 text-sm text-muted">
-            {deliveryPlatformLabels[e.platform][locale]} · {courseLanguageLabels[e.language][locale]} · {t('sessions.free')}
+          <p className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium text-primary">
+            <span aria-hidden className={`size-2 rounded-full ${e.status === 'CANCELLED' ? 'bg-line-strong' : 'bg-logo-green'}`} />
+            {t('sessions.free')}
           </p>
-          <h1 className="mt-3 max-w-3xl text-3xl font-semibold sm:text-5xl">{title}</h1>
-          <p className="mt-4 text-lg text-body">
-            <LocalTime iso={e.startsAt} style="weekday-datetime" />
-            <span className="text-muted"> · {t('sessions.minutes', { count: e.durationMin })}</span>
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            {tzBefore}
-            <ViewerTimezone />
-            {tzAfter}
-          </p>
+          <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
+          <div>
+            <p className="text-lg text-fg sm:text-[1.1875rem]">
+              <LocalTime iso={e.startsAt} style="weekday-datetime" />
+              <span className="text-muted"> · {t('sessions.minutes', { count: e.durationMin })}</span>
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              {tzBefore}
+              <ViewerTimezone />
+              {tzAfter}
+            </p>
+          </div>
           {speaker && (
-            <p className="mt-3 text-muted">{speakerTitle ? t('sessions.withTitle', { name: speaker, title: speakerTitle }) : t('sessions.with', { name: speaker })}</p>
+            <p className="text-[0.9375rem] text-muted">
+              {speakerTitle ? t('sessions.withTitle', { name: speaker, title: speakerTitle }) : t('sessions.with', { name: speaker })}
+            </p>
           )}
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 text-[0.9375rem] sm:flex sm:flex-wrap sm:gap-x-10">
+            {facts.map(([k, v]) => (
+              <div key={k} className="min-w-0">
+                <dt className="text-muted">{k}</dt>
+                <dd className="mt-1 font-medium text-fg">{v}</dd>
+              </div>
+            ))}
+          </dl>
         </Container>
       </section>
 
-      <Container className="grid gap-10 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <Container className="grid gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16">
         {/* First in the DOM so phones reach it right after the title; the side column on desktop. */}
         <aside className="lg:col-start-2 lg:row-start-1">
-          <div className="rounded-card border border-line bg-card p-5 lg:sticky lg:top-24">
+          <div className="rounded-card border border-line bg-card p-5 sm:p-7 lg:sticky lg:top-8">
             <RegisterPanel initial={e} title={title} pageUrl={url} />
           </div>
         </aside>
 
-        <div className="min-w-0 space-y-10 lg:col-start-1 lg:row-start-1">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
-            {facts.map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-xs text-muted">{k}</dt>
-                <dd className="mt-0.5 font-semibold text-fg">{v}</dd>
-              </div>
-            ))}
-          </dl>
-
+        <div className="min-w-0 space-y-14 sm:space-y-16 lg:col-start-1 lg:row-start-1">
           {description && (
-            <section aria-labelledby="about" className="border-t border-line pt-8">
-              <h2 id="about" className="text-2xl font-semibold">
+            <section aria-labelledby="about">
+              <h2 id="about" className="text-[1.5rem] sm:text-[1.625rem]">
                 {t('sessions.about')}
               </h2>
-              <div className="mt-4">
+              <div className="mt-5">
                 <Markdown>{description}</Markdown>
               </div>
             </section>
           )}
 
           {speaker && (
-            <section aria-labelledby="speaker" className="border-t border-line pt-8">
-              <h2 id="speaker" className="text-2xl font-semibold">
+            <section aria-labelledby="speaker">
+              <h2 id="speaker" className="text-[1.5rem] sm:text-[1.625rem]">
                 {t('sessions.speaker')}
               </h2>
-              <div className="mt-4 flex items-center gap-4">
+              <div className="mt-5 flex items-center gap-4">
                 {e.speakerPhotoUrl ? (
                   // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
                   <Image src={e.speakerPhotoUrl} alt="" width={64} height={64} unoptimized className="size-16 shrink-0 rounded-full object-cover" />
                 ) : (
-                  <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-primary-soft text-xl font-semibold text-primary">
+                  <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-logo-cyan-soft text-xl font-semibold text-primary">
                     {speaker.charAt(0)}
                   </span>
                 )}
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold text-fg">{speaker}</p>
-                  {speakerTitle && <p className="text-sm text-muted">{speakerTitle}</p>}
+                  <p className="text-lg font-medium text-fg">{speaker}</p>
+                  {speakerTitle && <p className="text-[0.9375rem] text-muted">{speakerTitle}</p>}
                   {e.speakerLinkedinUrl && (
-                    <a href={e.speakerLinkedinUrl} rel="noopener noreferrer" target="_blank" className="inline-flex min-h-11 items-center text-sm text-primary underline">
+                    <a href={e.speakerLinkedinUrl} rel="noopener noreferrer" target="_blank" className="inline-flex min-h-11 items-center text-[0.9375rem] text-primary underline">
                       LinkedIn
                     </a>
                   )}

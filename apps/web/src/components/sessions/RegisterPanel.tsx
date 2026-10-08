@@ -129,10 +129,10 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
   // Always in the DOM, so screen readers announce what we put in them.
   const liveRegions = (
     <>
-      <div role="status" aria-live="polite" className={status ? 'rounded-lg border border-success/30 bg-success-soft p-4 text-sm text-success' : 'sr-only'}>
+      <div role="status" aria-live="polite" className={status ? 'rounded-xl bg-success-soft p-4 text-[0.9375rem] text-success' : 'sr-only'}>
         {status}
       </div>
-      <div role="alert" className={error ? 'rounded-lg border border-danger/30 bg-danger-soft p-4 text-sm text-danger' : 'sr-only'}>
+      <div role="alert" className={error ? 'rounded-xl bg-danger-soft p-4 text-[0.9375rem] text-danger' : 'sr-only'}>
         {error}
       </div>
     </>
@@ -144,11 +144,11 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
         <p>{t(state === 'cancelled' ? 'sessions.cancelledBody' : 'sessions.endedBody')}</p>
         <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
           {state === 'ended' && event.recordingUrl && (
-            <a href={event.recordingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline">
+            <a href={event.recordingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium underline">
               {t('sessions.recording')}
             </a>
           )}
-          <Link href={`/${locale}/sessions`} className="inline-flex min-h-11 items-center font-semibold underline">
+          <Link href={`/${locale}/sessions`} className="inline-flex min-h-11 items-center font-medium underline">
             {t('sessions.allSessions')}
           </Link>
         </p>
@@ -165,7 +165,7 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
       {liveRegions}
 
       {registered && (
-        <p ref={registeredRef} tabIndex={-1} className="flex items-center gap-2 font-semibold text-primary focus:outline-none">
+        <p ref={registeredRef} tabIndex={-1} className="flex items-center gap-2 font-medium text-primary focus:outline-none">
           <span aria-hidden>✓</span>
           {t('sessions.registered')}
         </p>
@@ -178,7 +178,7 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
       )}
 
       {state === 'registered' && event.me && (
-        <p className="text-sm text-muted">
+        <p className="text-[0.9375rem] leading-relaxed text-muted">
           {linkDue ? (
             t('sessions.linkSoon')
           ) : (
@@ -208,11 +208,11 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
               {t('sessions.registerFree')}
             </Link>
           )}
-          <p className="text-center text-xs text-muted">{user || loading ? t('sessions.freeNote') : t('sessions.loginNote')}</p>
+          <p className="text-center text-sm text-muted">{user || loading ? t('sessions.freeNote') : t('sessions.loginNote')}</p>
         </>
       )}
 
-      {state === 'full' && <p className="rounded-lg bg-muted-bg p-3 text-center font-semibold text-fg">{t('sessions.full')}</p>}
+      {state === 'full' && <p className="rounded-xl bg-muted-bg p-3 text-center font-medium text-fg">{t('sessions.full')}</p>}
 
       {/* Calendar entries point at the public page, never at the join link. */}
       <a

@@ -927,11 +927,8 @@
     "minutes": "{count} min",
     "timezoneNote": "Times are shown in your time zone ({tz}).",
     "facts": {
-      "when": "When",
-      "duration": "Duration",
       "language": "Language",
       "where": "Where",
-      "price": "Price",
       "seats": "Seats left"
     },
     "about": "About this session",

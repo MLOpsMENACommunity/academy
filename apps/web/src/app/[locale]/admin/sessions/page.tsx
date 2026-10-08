@@ -38,7 +38,7 @@ export default function AdminSessions() {
         </Alert>
       )}
       {!rows && !error && <p className="mt-5 text-muted">{t('admin.common.loading')}</p>}
-      {rows?.length === 0 && <p className="mt-5 rounded-card border border-dashed border-line-strong p-8 text-center text-muted">{t('admin.common.none')}</p>}
+      {rows?.length === 0 && <p className="mt-5 rounded-card border border-dashed border-line-strong/50 p-8 text-center text-muted">{t('admin.common.none')}</p>}
       {rows && rows.length > 0 && (
         <ul className="mt-5 divide-y divide-line rounded-card border border-line bg-card">
           {rows.map((e) => {
@@ -47,7 +47,7 @@ export default function AdminSessions() {
             return (
               <li key={e.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 p-4">
                 <div className="min-w-0 flex-1 basis-64">
-                  <Link href={`/${locale}/admin/sessions/${e.id}`} className="font-semibold text-primary hover:underline">
+                  <Link href={`/${locale}/admin/sessions/${e.id}`} className="font-medium text-primary hover:underline">
                     {(locale === 'ar' && e.titleAr) || e.titleEn}
                   </Link>
                   <p className="mt-0.5 text-sm text-muted">{formatDateTime(e.startsAt, locale, viewerTimezone())}</p>
@@ -56,7 +56,7 @@ export default function AdminSessions() {
                     {ended && <Badge>{t('admin.sessions.ended')}</Badge>}
                   </div>
                 </div>
-                <Link href={`/${locale}/admin/sessions/${e.id}/registrations`} className="inline-flex min-h-11 items-center text-sm font-semibold text-fg hover:text-primary hover:underline">
+                <Link href={`/${locale}/admin/sessions/${e.id}/registrations`} className="inline-flex min-h-11 items-center text-[0.9375rem] font-medium text-fg hover:text-primary hover:underline">
                   {e.capacity ? t('admin.sessions.ofCapacity', { count, capacity: e.capacity }) : t('admin.sessions.registeredCount', { count })}
                 </Link>
                 <div className="flex gap-2">
