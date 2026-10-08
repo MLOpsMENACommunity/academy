@@ -6,9 +6,13 @@ export function formatDate(iso: string | Date, locale: Locale, timeZone = DEFAUL
 }
 
 export function formatDateTime(iso: string | Date, locale: Locale, timeZone = DEFAULT_TIMEZONE): string {
+  // dateStyle/timeStyle can't be combined with timeZoneName, so list the parts.
   return new Intl.DateTimeFormat(intlLocale(locale), {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
     timeZone,
     timeZoneName: 'short',
   }).format(new Date(iso));

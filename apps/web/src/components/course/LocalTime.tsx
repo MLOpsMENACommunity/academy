@@ -15,7 +15,8 @@ function fmt(iso: string, locale: 'en' | 'ar', style: Style, timeZone: string): 
         ? { timeStyle: 'short' }
         : style === 'weekday-datetime'
           ? { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }
-          : { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' };
+          : // dateStyle/timeStyle can't be combined with timeZoneName.
+            { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
   return new Intl.DateTimeFormat(intlLocale(locale), { ...opts, timeZone }).format(new Date(iso));
 }
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ApplicationsModule } from './applications/applications.module';
 import { AuthGuard } from './common/auth.guard';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { AuditModule } from './audit/audit.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     CoursesModule,
+    ApplicationsModule,
     JobsModule,
   ],
   controllers: [HealthController],

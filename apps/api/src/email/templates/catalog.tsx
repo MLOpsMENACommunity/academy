@@ -1,4 +1,4 @@
-import { applicationStatusLabels, type ApplicationStatus, type Locale } from '@academy/shared';
+import { applicationStatusLabels, applicationStatusMessages, type ApplicationStatus, type Locale } from '@academy/shared';
 import type { ReactElement } from 'react';
 import { Layout } from './Layout';
 
@@ -37,33 +37,7 @@ const footer: Record<Locale, string> = {
 };
 
 function statusCopy(status: ApplicationStatus, locale: Locale, reason?: string | null): string[] {
-  const en: Record<ApplicationStatus, string[]> = {
-    SUBMITTED: ["We've received your application. We'll email you as soon as it has been reviewed."],
-    SHORTLISTED: ["Good news: you've been shortlisted. We'll confirm your place shortly."],
-    AWAITING_PAYMENT: [
-      "You've been accepted. To confirm your seat, complete the payment and upload your proof of payment from your dashboard.",
-    ],
-    PAYMENT_SUBMITTED: ["We've received your payment proof. An admin will verify it, usually within 2 working days."],
-    PAYMENT_REJECTED: [
-      "We couldn't verify your payment, so it wasn't accepted. You can submit a new proof of payment from your dashboard.",
-    ],
-    ENROLLED: ["You're enrolled. Session links, the schedule and calendar invites are on your course page."],
-    REJECTED: [
-      "Thank you for applying. Unfortunately we can't offer you a place in this cohort. We hope to see you in a future course.",
-    ],
-    WAITLISTED: ["The course is currently full, so you've been placed on the waitlist. We'll email you if a seat opens up."],
-  };
-  const ar: Record<ApplicationStatus, string[]> = {
-    SUBMITTED: ['استلمنا طلبك. سنراسلك فور الانتهاء من مراجعته.'],
-    SHORTLISTED: ['أخبار سارة: أنت ضمن القائمة المختصرة. سنؤكد مقعدك قريبًا.'],
-    AWAITING_PAYMENT: ['تم قبولك. لتأكيد مقعدك، أكمل الدفع وارفع إثبات الدفع من لوحة التحكم.'],
-    PAYMENT_SUBMITTED: ['استلمنا إثبات الدفع. سيتحقق منه أحد المسؤولين عادةً خلال يومي عمل.'],
-    PAYMENT_REJECTED: ['لم نتمكن من التحقق من عملية الدفع، لذا لم يتم قبولها. يمكنك إرسال إثبات دفع جديد من لوحة التحكم.'],
-    ENROLLED: ['تم تسجيلك. روابط الجلسات والجدول ودعوات التقويم موجودة في صفحة الدورة.'],
-    REJECTED: ['شكرًا لتقديمك. للأسف لا يمكننا منحك مقعدًا في هذه المجموعة، ونأمل أن نراك في دورة قادمة.'],
-    WAITLISTED: ['الدورة مكتملة حاليًا، لذا تمت إضافتك إلى قائمة الانتظار. سنراسلك إذا توفر مقعد.'],
-  };
-  const lines = [...(locale === 'ar' ? ar : en)[status]];
+  const lines = [applicationStatusMessages[status][locale]];
   if (reason) lines.push(locale === 'ar' ? `السبب: ${reason}` : `Reason: ${reason}`);
   return lines;
 }
