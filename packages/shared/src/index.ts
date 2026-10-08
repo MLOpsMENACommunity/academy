@@ -14,3 +14,4 @@ export * from './course';
 export * from './application';
 export * from './messages';
 export * from './payment';
+export * from './learn';

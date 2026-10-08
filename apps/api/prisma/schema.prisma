@@ -737,13 +737,15 @@ model SessionFeedback {
   course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   /// Null for end-of-course feedback.
   sessionId String?
+  /// sessionId, or "course" for end-of-course feedback: one row per student per scope.
+  scopeKey  String         @default("course")
   session   CourseSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   rating    Int
   comment   String?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  /// One feedback per session per student (end-of-course feedback, sessionId NULL, is enforced in code).
+  @@unique([userId, courseId, scopeKey])
   @@unique([userId, sessionId])
   @@index([courseId, sessionId])
   @@index([userId])
