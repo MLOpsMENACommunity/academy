@@ -124,6 +124,9 @@ jobs:
           ACADEMY_HOSTNAME: ${{ vars.ACADEMY_HOSTNAME }}
           ACADEMY_REDIRECT_HOSTS: ${{ vars.ACADEMY_REDIRECT_HOSTS }}
           SENTRY_ENVIRONMENT: ${{ vars.SENTRY_ENVIRONMENT }}
+          # Staging only (ignored for production): testers who get their own staging email.
+          EMAIL_ALLOWLIST: ${{ vars.EMAIL_ALLOWLIST }}
+          EMAIL_REDIRECT_TO: ${{ vars.EMAIL_REDIRECT_TO }}
         run: node configure-host.mjs "$TARGET"
 
       - name: Ensure private R2 bucket
