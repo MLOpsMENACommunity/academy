@@ -15,6 +15,7 @@ import { notFound } from 'next/navigation';
 import { CourseCard } from '@/components/course/CourseCard';
 import { buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
+import { inputClass } from '@/components/ui/input';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
@@ -48,12 +49,12 @@ export default async function CatalogPage({ params, searchParams }: Props) {
   const filtered = Object.keys(q).length > 0;
 
   const select = (name: string, label: string, values: readonly string[], labels: Record<string, Localized>) => (
-    <label className="block text-sm">
-      <span className="mb-1 block font-semibold text-fg">{label}</span>
+    <label className="block min-w-0 text-sm">
+      <span className="mb-1.5 block font-medium text-fg">{label}</span>
       <select
         name={name}
         defaultValue={(q as Record<string, string>)[name] ?? ''}
-        className="block min-h-11 w-full rounded-lg border border-line-strong bg-card px-3 text-base"
+        className={inputClass}
       >
         <option value="">{t('catalog.any')}</option>
         {values.map((v) => (
@@ -66,45 +67,51 @@ export default async function CatalogPage({ params, searchParams }: Props) {
   );
 
   return (
-    <Container className="py-10">
-      <h1 className="text-3xl sm:text-4xl">{t('catalog.title')}</h1>
-      <p className="mt-2 max-w-2xl text-muted">{t('catalog.subtitle')}</p>
+    <>
+      <section className="border-b border-line bg-card">
+        <Container className="py-10 sm:py-14">
+          <h1 className="text-[2rem] sm:text-[2.5rem]">{t('catalog.title')}</h1>
+          <p className="mt-3 max-w-2xl text-lg leading-relaxed text-muted">{t('catalog.subtitle')}</p>
 
-      <form method="get" className="mt-8 rounded-card border border-line bg-card p-4" aria-label={t('catalog.filters')}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {select('availability', t('catalog.status'), ['OPEN', 'UPCOMING', 'CLOSED'], courseAvailabilityLabels)}
-          {select('type', t('catalog.price'), ['FREE', 'PAID'], courseTypeLabels)}
-          {select('level', t('catalog.level'), COURSE_LEVELS, courseLevelLabels)}
-          {select('language', t('catalog.language'), COURSE_LANGUAGES, courseLanguageLabels)}
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button type="submit" className={buttonClass('primary', 'md')}>
-            {t('catalog.apply')}
-          </button>
-          {filtered && (
-            <Link href={`/${locale}/courses`} className={buttonClass('ghost', 'md')}>
-              {t('catalog.reset')}
-            </Link>
-          )}
-        </div>
-      </form>
+          <form method="get" className="mt-8" aria-label={t('catalog.filters')}>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end">
+              {select('availability', t('catalog.status'), ['OPEN', 'UPCOMING', 'CLOSED'], courseAvailabilityLabels)}
+              {select('type', t('catalog.price'), ['FREE', 'PAID'], courseTypeLabels)}
+              {select('level', t('catalog.level'), COURSE_LEVELS, courseLevelLabels)}
+              {select('language', t('catalog.language'), COURSE_LANGUAGES, courseLanguageLabels)}
+              <div className="col-span-2 flex flex-wrap gap-2 lg:col-span-1">
+                <button type="submit" className={buttonClass('primary', 'md')}>
+                  {t('catalog.apply')}
+                </button>
+                {filtered && (
+                  <Link href={`/${locale}/courses`} className={buttonClass('ghost', 'md')}>
+                    {t('catalog.reset')}
+                  </Link>
+                )}
+              </div>
+            </div>
+          </form>
+        </Container>
+      </section>
 
-      <p className="mt-6 text-sm text-muted" role="status">
-        {t('catalog.results', { count: courses.length })}
-      </p>
-      {courses.length === 0 ? (
-        <p className="mt-6 rounded-card border border-dashed border-line-strong p-10 text-center text-muted">
-          {filtered ? t('catalog.empty') : t('catalog.emptyAll')}
+      <Container className="py-10 sm:py-14">
+        <p className="text-[0.9375rem] text-muted" role="status">
+          {t('catalog.results', { count: courses.length })}
         </p>
-      ) : (
-        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => (
-            <li key={c.id} className="flex">
-              <CourseCard course={c} locale={locale} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </Container>
+        {courses.length === 0 ? (
+          <p className="mt-5 rounded-card border border-dashed border-line-strong/50 p-10 text-center text-muted">
+            {filtered ? t('catalog.empty') : t('catalog.emptyAll')}
+          </p>
+        ) : (
+          <ul className="mt-5 grid gap-5 sm:gap-7 md:grid-cols-2">
+            {courses.map((c) => (
+              <li key={c.id} className="flex">
+                <CourseCard course={c} locale={locale} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Container>
+    </>
   );
 }

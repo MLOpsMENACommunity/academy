@@ -24,7 +24,7 @@ export function MyCourses() {
   if (!apps) return <p className="text-muted">{t('common.loading')}</p>;
   if (!apps.length) {
     return (
-      <div className="rounded-card border border-dashed border-line-strong p-8 text-center">
+      <div className="rounded-card border border-dashed border-line-strong/50 p-8 text-center">
         <p className="text-muted">{t('dashboard.noCourses')}</p>
         <Link href={`/${locale}/courses`} className={buttonClass('primary', 'md', 'mt-4')}>
           {t('dashboard.browse')}

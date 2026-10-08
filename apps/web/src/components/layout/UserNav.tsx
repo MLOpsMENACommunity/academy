@@ -28,20 +28,23 @@ export function UserNav() {
     };
   }, [open]);
 
-  if (loading) return <span className="inline-block h-9 w-20" aria-hidden />;
+  if (loading) return <span className="hidden h-10 w-24 md:inline-block" aria-hidden />;
 
   if (!user) {
     return (
       <>
         <Link
           href={`/${locale}/login`}
-          className="hidden min-h-9 items-center rounded-lg px-3 text-sm font-semibold text-fg hover:bg-muted-bg sm:inline-flex"
+          className="hidden min-h-10 items-center rounded-full px-3 text-[0.9375rem] font-medium text-fg hover:bg-muted-bg md:inline-flex"
         >
           {t('nav.login')}
         </Link>
-        <Link href={`/${locale}/register`} className={buttonClass('primary', 'sm')}>
-          {t('nav.register')}
-        </Link>
+        {/* Wrapped: buttonClass sets its own display, so `hidden` can't sit on the link itself. */}
+        <span className="hidden md:inline-flex">
+          <Link href={`/${locale}/register`} className={buttonClass('primary', 'sm')}>
+            {t('nav.register')}
+          </Link>
+        </span>
       </>
     );
   }
@@ -56,29 +59,30 @@ export function UserNav() {
   return (
     <>
       <NotificationsBell />
-      <div className="relative" ref={menu}>
+      {/* On phones the account links live in the menu button instead (MobileMenu). */}
+      <div className="relative hidden md:block" ref={menu}>
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label={t('nav.menu')}
-          className="grid size-10 place-items-center rounded-full bg-ink text-sm font-bold text-white"
+          className="grid size-10 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary hover:bg-[#d7f0f3]"
         >
           {initial}
         </button>
         {open && (
-          <div role="menu" className="absolute end-0 z-50 mt-2 w-56 rounded-card border border-line bg-card py-1 shadow-lg">
-            <p className="truncate px-4 py-2 text-xs text-muted ltr-embed">{user.email}</p>
+          <div role="menu" className="absolute end-0 z-50 mt-2 w-60 rounded-card border border-line bg-card p-1.5 shadow-[0_12px_32px_-12px_rgba(19,35,63,0.2)]">
+            <p className="truncate px-3 py-2 text-sm text-muted ltr-embed">{user.email}</p>
             {links.map(([href, label]) => (
-              <Link key={href} role="menuitem" href={href} onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-muted-bg">
+              <Link key={href} role="menuitem" href={href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 text-[0.9375rem] hover:bg-muted-bg">
                 {label}
               </Link>
             ))}
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-4 py-2.5 text-start text-sm text-danger hover:bg-muted-bg"
+              className="block w-full rounded-xl px-3 py-2.5 text-start text-[0.9375rem] text-danger hover:bg-muted-bg"
               onClick={async () => {
                 setOpen(false);
                 await logout();

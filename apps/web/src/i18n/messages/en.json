@@ -34,7 +34,8 @@
     "logout": "Log out",
     "mainSite": "mlopsmena.com",
     "menu": "Menu",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "primary": "Main"
   },
   "footer": {
     "about": "The course platform of MLOps MENA Community, a bilingual community for ML, MLOps and AI engineers across the MENA region.",
@@ -59,7 +60,10 @@
     "step2Body": "Answer a few short questions so instructors can shape each cohort.",
     "step3Title": "Learn live",
     "step3Body": "Join live sessions, catch up on recordings, and track your progress.",
-    "featured": "Open courses"
+    "featured": "Open courses",
+    "coursesTitle": "Courses",
+    "allCourses": "All courses",
+    "viewCourse": "View course"
   },
   "errors": {
     "notFoundTitle": "Page not found",
@@ -303,7 +307,8 @@
     "weeks": "{count} weeks",
     "seatsLeft": "{count} seats left",
     "full": "Full",
-    "viewCourse": "View course"
+    "viewCourse": "View course",
+    "details": "Details and how to apply"
   },
   "course": {
     "breadcrumb": "Courses",

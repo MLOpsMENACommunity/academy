@@ -13,7 +13,7 @@ export function YouTubeFacade({ id, title }: { id: string; title: string }) {
   const { t } = useI18n();
   const [playing, setPlaying] = useState(false);
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-ink">
+    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-ink">
       {playing ? (
         <iframe
           // Keyboard users keep their place: focus moves into the player that replaced the button.

@@ -5,17 +5,19 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent';
 type Size = 'sm' | 'md' | 'lg';
 
 const base =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 select-none';
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 select-none';
 const variants: Record<Variant, string> = {
   primary: 'bg-ink text-white hover:bg-ink-soft',
-  accent: 'bg-primary text-white hover:bg-primary-hover',
-  secondary: 'border border-line-strong bg-card text-fg hover:bg-muted-bg',
+  // The one main call to action on a page: the logo's orange with ink text.
+  accent: 'bg-cta text-cta-text font-semibold hover:bg-cta-hover',
+  secondary: 'border border-line-strong/60 bg-card text-fg hover:border-line-strong hover:bg-muted-bg',
   ghost: 'text-fg hover:bg-muted-bg',
   danger: 'bg-danger text-white hover:opacity-90',
 };
+// Every size keeps a 44px tap target on touch screens.
 const sizes: Record<Size, string> = {
-  sm: 'min-h-9 px-3 text-sm',
-  md: 'min-h-11 px-4 text-sm',
+  sm: 'min-h-11 px-4 text-sm sm:min-h-10',
+  md: 'min-h-11 px-5 text-[0.9375rem]',
   lg: 'min-h-12 px-6 text-base',
 };
 

@@ -51,21 +51,21 @@ export default function AdminHome() {
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <p className="text-sm text-muted">{t('admin.dashboard.pendingPayments')}</p>
-          <p className="mt-1 text-4xl font-bold text-fg">{d?.pendingPayments ?? '–'}</p>
+          <p className="mt-1 text-4xl font-semibold text-fg">{d?.pendingPayments ?? '–'}</p>
           <Link href={`/${locale}/admin/payments`} className={buttonClass('primary', 'sm', 'mt-4')}>
             {t('admin.nav.payments')}
           </Link>
         </Card>
         <Card>
           <p className="text-sm text-muted">{t('admin.dashboard.newApplications')}</p>
-          <p className="mt-1 text-4xl font-bold text-fg">{d?.newApplications7d ?? '–'}</p>
+          <p className="mt-1 text-4xl font-semibold text-fg">{d?.newApplications7d ?? '–'}</p>
           <Link href={`/${locale}/admin/applications?status=SUBMITTED`} className={buttonClass('secondary', 'sm', 'mt-4')}>
             {t('admin.nav.applications')}
           </Link>
         </Card>
         <Card>
           <p className="text-sm text-muted">{t('admin.dashboard.courses')}</p>
-          <p className="mt-1 text-4xl font-bold text-fg">{d?.courseCount ?? '–'}</p>
+          <p className="mt-1 text-4xl font-semibold text-fg">{d?.courseCount ?? '–'}</p>
           <Link href={`/${locale}/admin/courses`} className={buttonClass('secondary', 'sm', 'mt-4')}>
             {t('admin.nav.courses')}
           </Link>
@@ -95,7 +95,7 @@ export default function AdminHome() {
                         className="flex justify-between rounded-lg bg-muted-bg px-3 py-2 hover:bg-line"
                       >
                         <span>{applicationStatusLabels[s][locale]}</span>
-                        <span className="font-bold">{c.statusCounts[s]}</span>
+                        <span className="font-semibold">{c.statusCounts[s]}</span>
                       </Link>
                     </li>
                   ))}

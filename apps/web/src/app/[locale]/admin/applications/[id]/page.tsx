@@ -160,7 +160,7 @@ export default function ApplicationDetailAdmin() {
                   aria-controls="profile-panel"
                   tabIndex={tab === k ? 0 : -1}
                   onClick={() => setTab(k)}
-                  className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${tab === k ? 'bg-ink text-white' : 'bg-muted-bg'}`}>
+                  className={`min-h-10 rounded-full px-4 text-sm font-medium ${tab === k ? 'bg-primary-soft text-primary' : 'bg-muted-bg text-body'}`}>
                   {t(`admin.apps.${k}`)}
                 </button>
               ))}

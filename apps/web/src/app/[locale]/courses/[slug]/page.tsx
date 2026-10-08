@@ -1,4 +1,5 @@
 import {
+  courseAvailabilityLabels,
   courseLanguageLabels,
   courseLevelLabels,
   deliveryPlatformLabels,
@@ -17,7 +18,6 @@ import { CourseViewTracker } from '@/components/course/CourseViewTracker';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
@@ -56,14 +56,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="border-t border-line pt-8">
-      <h2 id={id} className="text-2xl">
+    <section aria-labelledby={id}>
+      <h2 id={id} className="text-[1.5rem] sm:text-[1.625rem]">
         {title}
       </h2>
-      <div className="mt-4">{children}</div>
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
+
+/** Status line colour (AA text) and its small logo-colour marker. */
+const availabilityStyle = {
+  OPEN: { text: 'text-primary', dot: 'bg-logo-green' },
+  UPCOMING: { text: 'text-accent', dot: 'bg-logo-amber' },
+  CLOSED: { text: 'text-muted', dot: 'bg-line-strong/50' },
+} as const;
+
+/** Rows of a list separated by hairlines instead of boxes. */
+const rowClass = 'border-t border-line last:border-b';
 
 export default async function CoursePage({ params }: Props) {
   const { locale, slug } = await params;
@@ -190,54 +200,54 @@ export default async function CoursePage({ params }: Props) {
       <CourseViewTracker slug={c.slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(structured)} />
 
-      <section className="bg-ink text-white">
-        <Container className="py-10 sm:py-14">
-          <nav aria-label={t('course.breadcrumbLabel')} className="text-sm text-white/70">
-            <Link href={`/${locale}/courses`} className="hover:text-white hover:underline">
+      <section className="border-b border-line bg-card">
+        <Container className="flex flex-col gap-4 py-8 sm:gap-5 sm:py-14 lg:py-16">
+          <nav aria-label={t('course.breadcrumbLabel')} className="-ms-1 text-[0.9375rem] text-muted">
+            <Link href={`/${locale}/courses`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 hover:text-fg">
+              <span aria-hidden className="flip-rtl inline-block">
+                ←
+              </span>
               {t('course.breadcrumb')}
             </Link>
-            <span aria-hidden className="mx-2">
-              /
-            </span>
-            <span aria-current="page">{title}</span>
           </nav>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge tone={c.type === 'FREE' ? 'primary' : 'accent'}>{price}</Badge>
-            <Badge>{courseLevelLabels[c.level][locale]}</Badge>
-            <Badge>{courseLanguageLabels[c.language][locale]}</Badge>
-          </div>
-          <h1 className="mt-4 max-w-3xl text-3xl text-white sm:text-5xl">{title}</h1>
-          <p className="mt-4 max-w-2xl text-lg text-white/80">{pick(locale, c.shortDescriptionEn, c.shortDescriptionAr)}</p>
+          <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${availabilityStyle[c.availability].text}`}>
+            <span aria-hidden className={`size-2 rounded-full ${availabilityStyle[c.availability].dot}`} />
+            {courseAvailabilityLabels[c.availability][locale]}
+            <span aria-hidden>·</span>
+            {price}
+          </p>
+          <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
+          <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">
+            {pick(locale, c.shortDescriptionEn, c.shortDescriptionAr)}
+          </p>
           {c.instructors.length > 0 && (
-            <p className="mt-4 text-sm text-white/70">
+            <p className="text-[0.9375rem] text-muted">
               {c.instructors.length > 1 ? t('course.instructors') : t('course.instructor')}:{' '}
-              {c.instructors.map((i) => pick(locale, i.name, i.nameAr)).join('، ')}
+              <span className="text-fg">{c.instructors.map((i) => pick(locale, i.name, i.nameAr)).join('، ')}</span>
             </p>
           )}
-        </Container>
-        <div aria-hidden className="h-1 w-full" style={{ background: 'var(--brand-gradient)' }} />
-      </section>
-
-      <Container className="grid gap-10 py-10 lg:grid-cols-[1fr_20rem]">
-        <div className="min-w-0 space-y-10">
-          <dl className="grid grid-cols-2 gap-4 rounded-card border border-line bg-card p-5 sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 text-[0.9375rem] sm:flex sm:flex-wrap sm:gap-x-10">
             {facts.map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-xs text-muted">{k}</dt>
-                <dd className="mt-0.5 font-semibold text-fg">{v}</dd>
+              <div key={k} className="min-w-0">
+                <dt className="text-muted">{k}</dt>
+                <dd className="mt-1 font-medium text-fg">{v}</dd>
               </div>
             ))}
           </dl>
+        </Container>
+      </section>
 
+      <Container className="grid gap-14 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16">
+        <div className="min-w-0 space-y-14 sm:space-y-16">
           {outcomes.length > 0 && (
             <Section id="outcomes" title={t('course.outcomes')}>
-              <ul className="grid gap-3 sm:grid-cols-2">
+              <ul className="space-y-3">
                 {outcomes.map((o) => (
-                  <li key={o} className="flex gap-3 rounded-lg bg-primary-soft/50 p-3 text-sm">
-                    <span aria-hidden className="text-primary">
+                  <li key={o} className="flex gap-3 leading-relaxed">
+                    <span aria-hidden className="mt-[0.15em] grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs text-primary">
                       ✓
                     </span>
-                    {o}
+                    <span className="min-w-0">{o}</span>
                   </li>
                 ))}
               </ul>
@@ -253,23 +263,23 @@ export default async function CoursePage({ params }: Props) {
               {(audience || notFor) && (
                 <div className={`grid gap-4 ${audience && notFor ? 'md:grid-cols-2' : ''}`}>
                   {audience && (
-                    <div className="rounded-card border border-success/30 bg-success-soft/40 p-4">
+                    <div className="rounded-card bg-logo-green-soft p-5 sm:p-6">
                       <h3 className="text-base text-success">{t('course.audience')}</h3>
-                      <p className="mt-2 text-sm">{audience}</p>
+                      <p className="mt-2 leading-relaxed">{audience}</p>
                     </div>
                   )}
                   {notFor && (
-                    <div className="rounded-card border border-line bg-muted-bg/50 p-4">
+                    <div className="rounded-card bg-muted-bg p-5 sm:p-6">
                       <h3 className="text-base">{t('course.notFor')}</h3>
-                      <p className="mt-2 text-sm">{notFor}</p>
+                      <p className="mt-2 leading-relaxed">{notFor}</p>
                     </div>
                   )}
                 </div>
               )}
               {prereqs.length > 0 && (
                 <>
-                  <h3 className="mt-6 text-lg">{t('course.prerequisites')}</h3>
-                  <ul className="mt-2 list-disc space-y-1 ps-5 text-sm">
+                  <h3 className="mt-8 text-lg">{t('course.prerequisites')}</h3>
+                  <ul className="mt-3 list-disc space-y-2 ps-5 leading-relaxed marker:text-logo-cyan">
                     {prereqs.map((p) => (
                       <li key={p}>{p}</li>
                     ))}
@@ -280,20 +290,25 @@ export default async function CoursePage({ params }: Props) {
           )}
 
           {preparation && (
-            <Section id="preparation" title={t('course.preparation')}>
-              <Markdown>{preparation}</Markdown>
-            </Section>
+            <section aria-labelledby="preparation" className="rounded-card border border-line bg-card p-5 sm:p-8">
+              <h2 id="preparation" className="text-[1.375rem]">
+                {t('course.preparation')}
+              </h2>
+              <div className="mt-3">
+                <Markdown>{preparation}</Markdown>
+              </div>
+            </section>
           )}
 
           {c.outline.length > 0 && (
             <Section id="syllabus" title={t('course.syllabus')}>
-              <ol className="space-y-3">
+              <ol>
                 {c.outline.map((m, i) => (
-                  <li key={i} className="rounded-card border border-line bg-card p-4">
-                    <p className="text-xs font-semibold text-primary">{t('course.module', { n: i + 1 })}</p>
-                    <h3 className="mt-1 text-base">{pick(locale, m.titleEn, m.titleAr)}</h3>
+                  <li key={i} className={`${rowClass} py-5`}>
+                    <p className="text-sm font-medium text-primary">{t('course.module', { n: i + 1 })}</p>
+                    <h3 className="mt-1 text-[1.0625rem]">{pick(locale, m.titleEn, m.titleAr)}</h3>
                     {(m.descriptionEn || m.descriptionAr) && (
-                      <p className="mt-1 text-sm text-muted">{pick(locale, m.descriptionEn ?? '', m.descriptionAr)}</p>
+                      <p className="mt-1.5 leading-relaxed text-muted">{pick(locale, m.descriptionEn ?? '', m.descriptionAr)}</p>
                     )}
                   </li>
                 ))}
@@ -303,29 +318,29 @@ export default async function CoursePage({ params }: Props) {
 
           {c.sessions.length > 0 && (
             <Section id="schedule" title={t('course.schedule')}>
-              <p className="-mt-2 mb-4 text-sm text-muted">
+              <p className="-mt-1 mb-5 text-[0.9375rem] text-muted">
                 {t('course.scheduleNote', { tz: '\u0000' }).split('\u0000')[0]}
                 <ViewerTimezone />
                 {t('course.scheduleNote', { tz: '\u0000' }).split('\u0000')[1]}
               </p>
-              <ol className="divide-y divide-line rounded-card border border-line bg-card">
+              <ol>
                 {c.sessions.map((s) => (
-                  <li key={s.id} className="p-4">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-semibold text-fg">
+                  <li key={s.id} className={`${rowClass} flex flex-col gap-1 py-4 sm:flex-row sm:gap-6`}>
+                    <span className="shrink-0 text-[0.9375rem] text-muted sm:w-64">
+                      <LocalTime iso={s.startsAt} style="weekday-datetime" /> · {t('course.minutes', { count: s.durationMin })}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-fg">
                         <span className="me-2 text-muted">{s.order}.</span>
                         {pick(locale, s.titleEn, s.titleAr)}
-                      </span>
-                      <span className="text-sm text-body">
-                        <LocalTime iso={s.startsAt} style="weekday-datetime" /> · {t('course.minutes', { count: s.durationMin })}
-                      </span>
+                      </p>
+                      {pick(locale, s.descriptionEn ?? '', s.descriptionAr) && (
+                        <details className="mt-1 text-[0.9375rem]">
+                          <summary className="inline-flex min-h-11 cursor-pointer items-center text-primary">{t('course.sessionTopics')}</summary>
+                          <p className="mt-1 leading-relaxed whitespace-pre-line text-body">{pick(locale, s.descriptionEn ?? '', s.descriptionAr)}</p>
+                        </details>
+                      )}
                     </div>
-                    {pick(locale, s.descriptionEn ?? '', s.descriptionAr) && (
-                      <details className="mt-2 text-sm">
-                        <summary className="cursor-pointer text-primary">{t('course.sessionTopics')}</summary>
-                        <p className="mt-2 whitespace-pre-line text-body">{pick(locale, s.descriptionEn ?? '', s.descriptionAr)}</p>
-                      </details>
-                    )}
                   </li>
                 ))}
               </ol>
@@ -334,23 +349,23 @@ export default async function CoursePage({ params }: Props) {
 
           {c.instructors.length > 0 && (
             <Section id="instructors" title={c.instructors.length > 1 ? t('course.instructors') : t('course.instructor')}>
-              <ul className="space-y-4">
+              <ul className="space-y-10">
                 {c.instructors.map((i) => (
-                  <li key={i.id} className="flex gap-4 rounded-card border border-line bg-card p-5">
+                  <li key={i.id} className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                     {i.photoUrl ? (
                       // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
                       <Image src={i.photoUrl} alt="" width={72} height={72} unoptimized className="size-18 shrink-0 rounded-full object-cover" />
                     ) : (
-                      <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-ink text-xl font-bold text-white">
+                      <span aria-hidden className="grid size-18 shrink-0 place-items-center rounded-full bg-logo-cyan-soft text-2xl font-semibold text-primary">
                         {i.name.replace(/\[.*?\]\s*/, '').charAt(0)}
                       </span>
                     )}
-                    <div>
-                      <h3 className="text-lg">{pick(locale, i.name, i.nameAr)}</h3>
-                      <p className="text-sm font-semibold text-primary">{pick(locale, i.titleEn, i.titleAr)}</p>
-                      <p className="mt-2 text-sm whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>
+                    <div className="min-w-0">
+                      <h3 className="text-xl">{pick(locale, i.name, i.nameAr)}</h3>
+                      <p className="mt-1 text-muted">{pick(locale, i.titleEn, i.titleAr)}</p>
+                      <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>
                       {i.linkedinUrl && (
-                        <a href={i.linkedinUrl} rel="noopener" className="mt-2 inline-block text-sm text-primary underline">
+                        <a href={i.linkedinUrl} rel="noopener" className="mt-2 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">
                           LinkedIn
                         </a>
                       )}
@@ -362,10 +377,10 @@ export default async function CoursePage({ params }: Props) {
           )}
 
           <Section id="included" title={t('course.included')}>
-            <ul className="grid gap-2 sm:grid-cols-2">
+            <ul className="grid gap-3 sm:grid-cols-2">
               {included.map(([k, label]) => (
-                <li key={k} className="flex items-center gap-2 text-sm">
-                  <span aria-hidden className="grid size-6 place-items-center rounded-full bg-primary-soft text-xs text-primary">
+                <li key={k} className="flex items-start gap-3 leading-relaxed">
+                  <span aria-hidden className="mt-[0.15em] grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs text-primary">
                     ✓
                   </span>
                   {label}
@@ -373,7 +388,7 @@ export default async function CoursePage({ params }: Props) {
               ))}
             </ul>
             {includedNote && (
-              <Alert tone="info" className="mt-4">
+              <Alert tone="info" className="mt-5">
                 {includedNote}
               </Alert>
             )}
@@ -381,18 +396,16 @@ export default async function CoursePage({ params }: Props) {
 
           {c.faq.length > 0 && (
             <Section id="faq" title={t('course.faq')}>
-              <div className="space-y-2">
+              <div>
                 {c.faq.map((f, i) => (
-                  <details key={i} className="group rounded-card border border-line bg-card p-4 open:shadow-sm">
-                    <summary className="cursor-pointer list-none font-semibold text-fg marker:hidden">
-                      <span className="flex items-center justify-between gap-3">
-                        {pick(locale, f.questionEn, f.questionAr)}
-                        <span aria-hidden className="transition-transform group-open:rotate-45">
-                          +
-                        </span>
+                  <details key={i} className={`group ${rowClass}`}>
+                    <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-medium text-fg marker:hidden [&::-webkit-details-marker]:hidden">
+                      {pick(locale, f.questionEn, f.questionAr)}
+                      <span aria-hidden className="text-xl leading-none text-muted transition-transform group-open:rotate-45">
+                        +
                       </span>
                     </summary>
-                    <p className="mt-3 text-sm">{pick(locale, f.answerEn, f.answerAr)}</p>
+                    <p className="pb-5 leading-relaxed text-muted">{pick(locale, f.answerEn, f.answerAr)}</p>
                   </details>
                 ))}
               </div>
@@ -400,9 +413,9 @@ export default async function CoursePage({ params }: Props) {
           )}
 
           {c.type === 'PAID' && (
-            <p className="text-sm text-muted">
+            <p className="text-[0.9375rem] text-muted">
               {t('course.paidNote', { refund: '\u0000' }).split('\u0000')[0]}
-              <Link href={`/${locale}/refund-policy`} className="text-primary underline">
+              <Link href={`/${locale}/refund-policy`} className="text-primary underline underline-offset-4">
                 {t('footer.refund')}
               </Link>
               {t('course.paidNote', { refund: '\u0000' }).split('\u0000')[1]}
@@ -410,16 +423,21 @@ export default async function CoursePage({ params }: Props) {
           )}
         </div>
 
-        {/* Desktop: sticky side card. Mobile: fixed bottom bar (one primary CTA, always reachable). */}
+        {/* Desktop: sticky side card. Phones: a bar pinned to the bottom (one primary CTA, always reachable). */}
         <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-card border border-line bg-card p-5 shadow-sm">
-            <p className="text-2xl font-bold text-fg">{price}</p>
-            <div className="mt-4">{cta}</div>
+          <div className="sticky top-8 flex flex-col gap-4 rounded-card border border-line bg-card p-7">
+            <p className="text-[1.75rem] font-semibold text-fg">{price}</p>
+            {c.applicationDeadline && c.availability === 'OPEN' && (
+              <p className="leading-relaxed text-muted">
+                {t('course.facts.deadline')}: <span className="font-medium text-fg">{formatDateTime(c.applicationDeadline, locale)}</span>
+              </p>
+            )}
+            {cta}
           </div>
         </aside>
       </Container>
       {/* Sticky (not fixed) inside <main>: it follows the visitor down the page and stops above the footer. */}
-      <div className="sticky bottom-0 z-30 border-t border-line bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      <div className="sticky bottom-0 z-30 border-t border-line bg-card/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         {cta}
       </div>
     </>

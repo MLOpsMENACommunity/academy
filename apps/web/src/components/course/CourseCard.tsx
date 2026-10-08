@@ -8,12 +8,12 @@ import {
 import Link from 'next/link';
 import { createTranslator } from '@/i18n/translator';
 import { formatDate, formatMoney } from '@/lib/format';
-import { Badge, type Tone } from '../ui/Badge';
 
-const availabilityTone: Record<CourseSummaryDto['availability'], Tone> = {
-  OPEN: 'success',
-  UPCOMING: 'info',
-  CLOSED: 'neutral',
+/** Status line colour (AA text) and its small logo-colour marker. */
+const availabilityStyle: Record<CourseSummaryDto['availability'], { text: string; dot: string }> = {
+  OPEN: { text: 'text-primary', dot: 'bg-logo-green' },
+  UPCOMING: { text: 'text-accent', dot: 'bg-logo-amber' },
+  CLOSED: { text: 'text-muted', dot: 'bg-line-strong/50' },
 };
 
 export function priceLabel(c: Pick<CourseSummaryDto, 'type' | 'price' | 'currency'>, locale: Locale): string {
@@ -27,20 +27,22 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
   const t = createTranslator(locale);
   const H = headingLevel;
   const title = locale === 'ar' ? c.titleAr : c.titleEn;
+  const status = availabilityStyle[c.availability];
   return (
-    <article className="group relative flex w-full flex-col rounded-card border border-line bg-card p-5 transition-shadow hover:shadow-md">
-      <div className="flex flex-wrap gap-2">
-        <Badge tone={availabilityTone[c.availability]}>{courseAvailabilityLabels[c.availability][locale]}</Badge>
-        <Badge tone={c.type === 'FREE' ? 'primary' : 'accent'}>{priceLabel(c, locale)}</Badge>
-        <Badge>{courseLevelLabels[c.level][locale]}</Badge>
-      </div>
-      <H className="mt-3 text-lg">
-        <Link href={`/${locale}/courses/${c.slug}`} className="after:absolute after:inset-0 focus-visible:outline-none">
+    <article className="group relative flex w-full flex-col gap-3 rounded-card border border-line bg-card p-6 transition-colors hover:border-line-strong/40 sm:p-8">
+      <p className={`flex flex-wrap items-center gap-x-2 text-sm font-medium ${status.text}`}>
+        <span aria-hidden className={`size-2 rounded-full ${status.dot}`} />
+        {courseAvailabilityLabels[c.availability][locale]}
+        <span aria-hidden>·</span>
+        {priceLabel(c, locale)}
+      </p>
+      <H className="text-xl">
+        <Link href={`/${locale}/courses/${c.slug}`} className="after:absolute after:inset-0 after:rounded-card focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-primary">
           {title}
         </Link>
       </H>
-      <p className="mt-2 line-clamp-3 text-sm text-muted">{locale === 'ar' ? c.shortDescriptionAr : c.shortDescriptionEn}</p>
-      <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1 pt-4 text-xs text-body">
+      <p className="line-clamp-3 leading-relaxed text-muted">{locale === 'ar' ? c.shortDescriptionAr : c.shortDescriptionEn}</p>
+      <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
         {c.startDate && (
           <div>
             <dt className="sr-only">{t('course.facts.start')}</dt>
@@ -54,18 +56,27 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
           </div>
         )}
         <div>
+          <dt className="sr-only">{t('course.facts.level')}</dt>
+          <dd>{courseLevelLabels[c.level][locale]}</dd>
+        </div>
+        <div>
           <dt className="sr-only">{t('course.facts.language')}</dt>
           <dd>{courseLanguageLabels[c.language][locale]}</dd>
         </div>
         {c.seatsRemaining !== null && c.availability === 'OPEN' && (
           <div>
             <dt className="sr-only">{t('course.facts.seats')}</dt>
-            <dd className={c.seatsRemaining === 0 ? 'font-semibold text-danger' : ''}>
+            <dd className={c.seatsRemaining === 0 ? 'font-medium text-danger' : ''}>
               {c.seatsRemaining === 0 ? t('catalog.full') : t('catalog.seatsLeft', { count: c.seatsRemaining })}
             </dd>
           </div>
         )}
       </dl>
+      {/* Visual cue only: the title link above already covers the whole card. */}
+      <span aria-hidden className="mt-auto inline-flex items-center gap-1.5 pt-2 font-medium text-fg group-hover:text-primary">
+        {t('catalog.details')}
+        <span className="flip-rtl inline-block">→</span>
+      </span>
     </article>
   );
 }

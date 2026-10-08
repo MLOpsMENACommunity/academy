@@ -74,19 +74,19 @@ export function NotificationsBell() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={`${t('nav.notifications')}${unread ? ` (${t('notifications.unread', { count: unread })})` : ''}`}
-        className="relative grid size-10 place-items-center rounded-lg text-fg hover:bg-muted-bg"
+        className="relative grid size-11 place-items-center rounded-full text-fg hover:bg-muted-bg md:size-10"
       >
-        <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </svg>
         {unread > 0 && (
-          <span className="absolute -end-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
+          <span className="absolute end-0.5 top-0.5 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[11px] font-semibold text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute end-0 z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-card border border-line bg-card shadow-lg">
+        <div className="fixed inset-x-4 top-[4.25rem] z-50 rounded-card md:absolute md:inset-x-auto md:end-0 md:top-auto md:mt-2 md:w-[22rem] border border-line bg-card shadow-[0_12px_32px_-12px_rgba(19,35,63,0.2)]">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <h2 className="text-sm">{t('notifications.title')}</h2>
             {unread > 0 && (

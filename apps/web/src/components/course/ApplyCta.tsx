@@ -89,12 +89,12 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
     <div className="space-y-2">
       {status?.status && (
         <p className="text-sm">
-          {t('course.statusPrefix')} <strong>{applicationStatusLabels[status.status][locale]}</strong>
+          {t('course.statusPrefix')} <strong className="font-medium text-fg">{applicationStatusLabels[status.status][locale]}</strong>
         </p>
       )}
       {action}
       {!status?.status && availability === 'OPEN' && (
-        <p className="text-center text-xs text-muted">
+        <p className="text-center text-sm leading-relaxed text-muted">
           {priceText} · {requiresApproval ? t('course.screened') : t('course.instant')}
         </p>
       )}
