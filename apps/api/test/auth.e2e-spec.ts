@@ -1,0 +1,146 @@
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import request from 'supertest';
+import { sha256 } from '../src/common/crypto';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { cookieHeader, createTestApp, uniqueEmail } from './helpers';
+
+describe('auth & profile (e2e)', () => {
+  let app: NestExpressApplication;
+  let prisma: PrismaService;
+  const email = uniqueEmail();
+  const password = 'correct-horse-battery';
+  let cookies = '';
+
+  beforeAll(async () => {
+    ({ app, prisma } = await createTestApp());
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const http = () => request(app.getHttpServer());
+
+  it('registers, signs in, and sends a verification email', async () => {
+    const res = await http()
+      .post('/api/auth/register')
+      .send({ email: email.toUpperCase(), password, locale: 'ar', returnTo: '/ar/courses/kubernetes' })
+      .expect(201);
+    expect(res.body).toMatchObject({ email, locale: 'ar', emailVerified: false, role: 'STUDENT' });
+    const set = res.headers['set-cookie'] as unknown as string[];
+    expect(set.find((c) => c.startsWith('access_token='))).toMatch(/HttpOnly/);
+    expect(set.find((c) => c.startsWith('refresh_token='))).toMatch(/Path=\/api\/auth/);
+    cookies = cookieHeader(set);
+    const tokens = await prisma.emailVerificationToken.count({ where: { email } });
+    expect(tokens).toBe(1);
+  });
+
+  it('rejects a duplicate registration with EMAIL_TAKEN', async () => {
+    const res = await http().post('/api/auth/register').send({ email, password }).expect(409);
+    expect(res.body.code).toBe('EMAIL_TAKEN');
+  });
+
+  it('rejects wrong passwords without revealing whether the email exists', async () => {
+    const a = await http().post('/api/auth/login').send({ email, password: 'wrong-password!' }).expect(401);
+    const b = await http().post('/api/auth/login').send({ email: uniqueEmail(), password }).expect(401);
+    expect(a.body.code).toBe('INVALID_CREDENTIALS');
+    expect(b.body.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('requires auth for /me and private routes', async () => {
+    await http().get('/api/auth/me').expect(401);
+    await http().get('/api/me/profile').expect(401);
+    await http().get('/api/auth/me').set('Cookie', cookies).expect(200);
+  });
+
+  it('rotates refresh tokens and revokes the family when an old one is reused', async () => {
+    const first = await http().post('/api/auth/refresh').set('Cookie', cookies).expect(200);
+    const rotated = cookieHeader(first.headers['set-cookie'] as unknown as string[], cookies);
+    // Simulate theft: the old refresh token is replayed after the grace window.
+    const oldToken = /refresh_token=([^;]+)/.exec(cookies)![1]!;
+    await prisma.refreshToken.update({
+      where: { tokenHash: sha256(oldToken) },
+      data: { rotatedAt: new Date(Date.now() - 60_000) },
+    });
+    await http().post('/api/auth/refresh').set('Cookie', cookies).expect(401);
+    // The legitimate (rotated) token is now revoked too.
+    await http().post('/api/auth/refresh').set('Cookie', rotated).expect(401);
+    const login = await http().post('/api/auth/login').send({ email, password }).expect(200);
+    cookies = cookieHeader(login.headers['set-cookie'] as unknown as string[]);
+  });
+
+  it('verifies the email with a single-use token', async () => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const token = 'x'.repeat(43);
+    await prisma.emailVerificationToken.create({
+      data: { userId: user.id, email, tokenHash: sha256(token), returnTo: '/ar/courses/kubernetes', expiresAt: new Date(Date.now() + 60_000) },
+    });
+    const res = await http().post('/api/auth/verify-email').send({ token }).expect(200);
+    expect(res.body.returnTo).toBe('/ar/courses/kubernetes');
+    await http().post('/api/auth/verify-email').send({ token }).expect(400);
+    const me = await http().get('/api/auth/me').set('Cookie', cookies).expect(200);
+    expect(me.body.emailVerified).toBe(true);
+  });
+
+  it('validates and saves the core profile, then computes completeness', async () => {
+    const bad = await http().put('/api/me/profile/core').set('Cookie', cookies).send({ fullNameEn: 'A' }).expect(400);
+    expect(bad.body.errors.length).toBeGreaterThan(3);
+    const res = await http()
+      .put('/api/me/profile/core')
+      .set('Cookie', cookies)
+      .send({
+        fullNameEn: 'Test Student',
+        phone: '+201001234567',
+        country: 'EG',
+        city: 'Cairo',
+        timezone: 'Africa/Cairo',
+        employmentStatus: 'EMPLOYED_FULL_TIME',
+        jobTitle: 'ML Engineer',
+        experienceYears: 'Y3_5',
+        primaryArea: 'MLOPS',
+        googleEmail: 'student@gmail.com',
+        preferredLanguage: 'ar',
+        acceptTerms: true,
+      })
+      .expect(200);
+    expect(res.body).toMatchObject({ coreComplete: true, completeness: 60 });
+    const skills = await http()
+      .put('/api/me/profile/skills')
+      .set('Cookie', cookies)
+      .send({ skills: { KUBERNETES: 3, PYTHON: 5 }, cloudPlatforms: ['AWS'], productionTools: ['MLflow'] })
+      .expect(200);
+    expect(skills.body.skills).toEqual({ KUBERNETES: 3, PYTHON: 5 });
+    expect(skills.body.completeness).toBeGreaterThan(60);
+  });
+
+  it('rejects a CV that is not really a PDF', async () => {
+    const res = await http()
+      .post('/api/me/profile/cv')
+      .set('Cookie', cookies)
+      .attach('file', Buffer.from('<html>not a pdf</html>'), { filename: 'cv.pdf', contentType: 'application/pdf' })
+      .expect(400);
+    expect(res.body.code).toBe('FILE_TYPE');
+  });
+
+  it('exports the student data as JSON', async () => {
+    const res = await http().get('/api/me/export').set('Cookie', cookies).expect(200);
+    expect(res.headers['content-disposition']).toMatch(/attachment/);
+    expect(res.body.account.email).toBe(email);
+    expect(res.body.profile.fullNameEn).toBe('Test Student');
+    expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|tokenHash/);
+  });
+
+  it('soft-deletes the account, blocks login, and anonymises it later', async () => {
+    await http().post('/api/me/delete').set('Cookie', cookies).send({ confirm: 'DELETE', password: 'nope' }).expect(401);
+    await http().post('/api/me/delete').set('Cookie', cookies).send({ confirm: 'DELETE', password }).expect(200);
+    await http().post('/api/auth/login').send({ email, password }).expect(401);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    await prisma.user.update({ where: { id: user.id }, data: { deletedAt: new Date(Date.now() - 31 * 86_400_000) } });
+    const { AccountService } = await import('../src/users/account.service');
+    await app.get(AccountService).anonymizeDue();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toMatch(/@anonymised\.invalid$/);
+    expect(after.anonymizedAt).not.toBeNull();
+    expect(await prisma.profile.count({ where: { userId: user.id } })).toBe(0);
+  });
+});

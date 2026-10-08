@@ -257,5 +257,10 @@
     "empty": "You're all caught up.",
     "markAll": "Mark all as read",
     "unread": "{count} unread"
+  },
+  "uploads": {
+    "tooLarge": "The file must be 5 MB or smaller.",
+    "pdfOnly": "Please choose a PDF file.",
+    "imageOrPdf": "Please choose a JPG, PNG or PDF file."
   }
 }

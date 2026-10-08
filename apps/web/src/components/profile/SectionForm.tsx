@@ -143,12 +143,15 @@ export function SectionForm({
   section,
   profile,
   onSaved,
+  onProfileChange,
   submitLabel,
   secondary,
 }: {
   section: ProfileSection;
   profile: ProfileDto;
   onSaved: (p: ProfileDto) => void;
+  /** Side updates that are not a form submit (e.g. CV upload). Defaults to onSaved. */
+  onProfileChange?: (p: ProfileDto) => void;
   submitLabel?: string;
   /** Extra action next to submit (e.g. "Skip for now" in onboarding). */
   secondary?: ReactNode;
@@ -373,7 +376,7 @@ export function SectionForm({
               <TextField key={k} label={f(k)} type="url" inputMode="url" placeholder="https://" value={str(k)} onChange={set(k)} error={errors[k]} />
             ))}
           </div>
-          <CvUpload profile={profile} onChange={onSaved} />
+          <CvUpload profile={profile} onChange={onProfileChange ?? onSaved} />
         </div>
       );
       break;

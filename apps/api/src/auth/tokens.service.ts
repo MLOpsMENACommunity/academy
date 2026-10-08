@@ -50,20 +50,22 @@ export class TokensService {
       where: { tokenHash: sha256(token) },
       include: { user: true },
     });
-    if (!existing || existing.expiresAt < new Date()) return { ok: false, reason: 'invalid' };
-    if (existing.revokedAt) {
-      if (Date.now() - existing.revokedAt.getTime() < CONCURRENT_REFRESH_GRACE_MS) {
+    if (!existing || existing.expiresAt < new Date() || existing.revokedAt || existing.user.deletedAt) {
+      return { ok: false, reason: 'invalid' };
+    }
+    if (existing.rotatedAt) {
+      if (Date.now() - existing.rotatedAt.getTime() < CONCURRENT_REFRESH_GRACE_MS) {
         return { ok: false, reason: 'concurrent' };
       }
+      // An old token came back after it was replaced: assume it was stolen.
       await this.revokeFamily(existing.family);
       return { ok: false, reason: 'reused' };
     }
-    if (existing.user.deletedAt) return { ok: false, reason: 'invalid' };
 
     // Atomic claim: only one request can rotate a given token.
     const claimed = await this.prisma.refreshToken.updateMany({
-      where: { id: existing.id, revokedAt: null },
-      data: { revokedAt: new Date() },
+      where: { id: existing.id, rotatedAt: null, revokedAt: null },
+      data: { rotatedAt: new Date() },
     });
     if (claimed.count === 0) return { ok: false, reason: 'concurrent' };
 

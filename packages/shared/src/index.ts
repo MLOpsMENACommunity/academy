@@ -9,3 +9,4 @@ export * from './settings';
 export * from './course-content';
 export * from './auth';
 export * from './profile';
+export * from './funnel';
