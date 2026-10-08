@@ -16,9 +16,11 @@
     "db:seed": "pnpm --filter @academy/api db:seed",
     "db:reset": "pnpm --filter @academy/api db:reset",
     "infra:up": "docker compose up -d postgres minio mailpit",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "^9.39.5",
     "@next/eslint-plugin-next": "15.5.27",
     "@playwright/test": "1.56.1",

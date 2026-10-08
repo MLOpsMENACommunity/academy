@@ -5,6 +5,7 @@ import '@fontsource/ibm-plex-sans-arabic/700.css';
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { Analytics } from '@/components/layout/Analytics';
 import { Footer } from '@/components/layout/Footer';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { VerifyBanner } from '@/components/auth/VerifyBanner';
@@ -92,6 +93,7 @@ export default async function LocaleLayout({
           // JSON.stringify output is safe here: no user-controlled strings.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }}
         />
+        <Analytics />
       </body>
     </html>
   );
