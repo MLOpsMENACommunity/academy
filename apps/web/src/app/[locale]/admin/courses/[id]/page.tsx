@@ -119,7 +119,7 @@ function CourseEditor() {
             role="tab"
             type="button"
             aria-selected={tab === k}
-            aria-controls={`panel-${k}`}
+            aria-controls={tab === k ? `panel-${k}` : undefined}
             tabIndex={tab === k ? 0 : -1}
             onClick={() => go(k)}
             className={`min-h-10 border-b-2 px-3 text-sm font-semibold whitespace-nowrap ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'}`}
@@ -135,7 +135,7 @@ function CourseEditor() {
         {tab === 'details' && <CourseForm initial={toForm(course)} courseId={course.id} onSaved={refresh} />}
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
-        {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} />}
+        {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
         {tab === 'feedback' && <FeedbackPanel courseId={course.id} />}
       </div>
     </div>

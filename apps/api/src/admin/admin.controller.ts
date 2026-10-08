@@ -189,6 +189,12 @@ export class AdminController {
     return this.courses.setDriveAccess(id, body.granted, user);
   }
 
+  @Post('enrollments/:id/drive-removed')
+  @HttpCode(204)
+  async driveRemoved(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.courses.markDriveRemoved(id, user);
+  }
+
   @Get('courses/:id/feedback')
   feedback(@Param('id') id: string) {
     return this.courses.feedback(id);

@@ -29,7 +29,7 @@ function translateIssue(i: ZodIssue, t: Translate): string {
       return i.type === 'string' ? t('forms.errors.tooLong', { max: Number(i.maximum) }) : t('forms.errors.invalid');
     case 'invalid_string':
       if (i.validation === 'email') return t('forms.errors.email');
-      if (i.validation === 'url') return t('forms.errors.url');
+      if (i.validation === 'url' || i.message.includes('http(s)')) return t('forms.errors.url');
       return t('forms.errors.invalid');
     case 'invalid_enum_value':
       return t('forms.errors.choose');

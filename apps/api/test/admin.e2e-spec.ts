@@ -154,6 +154,42 @@ describe('admin panel API (e2e)', () => {
     expect(csv.text).toContain(`g.${s.email}`);
   });
 
+  it('keeps deleted students listed until their old Drive address is removed', async () => {
+    const course = await createCourse(prisma);
+    const s = await createUser(app, prisma, { prefix: 'leaver' });
+    const e = await prisma.enrollment.create({ data: { userId: s.id, courseId: course.id, driveAccessGranted: false, driveRevokeEmail: 'leaver@gmail.com' } });
+    await prisma.user.update({ where: { id: s.id }, data: { deletedAt: new Date() } });
+    const list = await as(admin.cookie).get(`/api/admin/courses/${course.id}/enrollments?driveAccess=pending`).expect(200);
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0]).toMatchObject({ deleted: true, driveRevokeEmail: 'leaver@gmail.com', name: null, email: null, phone: null });
+    const csv = await as(admin.cookie).get(`/api/admin/courses/${course.id}/enrollments.csv`).expect(200);
+    expect(csv.text).toContain('leaver@gmail.com');
+    expect(csv.text).not.toContain(s.email);
+    await as(admin.cookie).post(`/api/admin/enrollments/${e.id}/drive-removed`).expect(204);
+    expect((await as(admin.cookie).get(`/api/admin/courses/${course.id}/enrollments`)).body).toHaveLength(0);
+    await as(admin.cookie).post(`/api/admin/enrollments/${e.id}/drive-removed`).expect(404);
+  });
+
+  it('hides accounts pending deletion from applications and their CVs', async () => {
+    const course = await createCourse(prisma);
+    const s = await createUser(app, prisma, { prefix: 'pending-del' });
+    await http().post('/api/applications').set('Cookie', s.cookie).send({ courseSlug: course.slug, answers: { [course.questionId]: true } }).expect(201);
+    await prisma.profile.update({ where: { userId: s.id }, data: { cvKey: 'cv/test.pdf' } });
+    await prisma.user.update({ where: { id: s.id }, data: { deletedAt: new Date() } });
+    expect((await as(admin.cookie).get(`/api/admin/applications?courseId=${course.id}`)).body.total).toBe(0);
+    expect((await as(admin.cookie).get(`/api/admin/applications.csv?courseId=${course.id}`)).text).not.toContain(s.email);
+    await as(admin.cookie).get(`/api/admin/students/${s.id}/cv`).expect(404);
+  });
+
+  it('refuses to delete a screening question that has answers', async () => {
+    const course = await createCourse(prisma);
+    const s = await createUser(app, prisma, { prefix: 'answered' });
+    await http().post('/api/applications').set('Cookie', s.cookie).send({ courseSlug: course.slug, answers: { [course.questionId]: true } }).expect(201);
+    const res = await as(admin.cookie).put(`/api/admin/courses/${course.id}/questions`).send({ questions: [] }).expect(409);
+    expect(res.body.code).toBe('QUESTION_ANSWERED');
+    expect(await prisma.screeningQuestion.count({ where: { courseId: course.id } })).toBe(1);
+  });
+
   it('shows the dashboard funnel, feedback, audit log and private saved views', async () => {
     const course = await createCourse(prisma);
     await http().post('/api/funnel/events').send({ courseSlug: course.slug, event: 'COURSE_VIEW', anonymousId: 'a1' }).expect(204);

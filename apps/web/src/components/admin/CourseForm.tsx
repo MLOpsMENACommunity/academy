@@ -148,10 +148,15 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
 
   async function addInstructor() {
     if (!newInstructor.name.trim() || !newInstructor.titleEn.trim() || !newInstructor.bioEn.trim()) return;
-    const created = await api<InstructorDto>('/admin/instructors', { method: 'POST', json: newInstructor });
-    setInstructors((xs) => [...xs, created]);
-    set('instructorIds')([...v.instructorIds, created.id]);
-    setNewInstructor({ name: '', titleEn: '', bioEn: '' });
+    setFormError(null);
+    try {
+      const created = await api<InstructorDto>('/admin/instructors', { method: 'POST', json: newInstructor });
+      setInstructors((xs) => [...xs, created]);
+      set('instructorIds')([...v.instructorIds, created.id]);
+      setNewInstructor({ name: '', titleEn: '', bioEn: '' });
+    } catch (err) {
+      setFormError(errorMessage(err, t));
+    }
   }
 
   const isPaidDrive = v.type === 'PAID' && v.recordingsPlatform === 'GOOGLE_DRIVE';
@@ -207,7 +212,7 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
           </div>
         </div>
         {isPaidDrive && (
-          <Alert tone="warning" title="Checklist">
+          <Alert tone="warning" title={t('admin.courses.checklist')}>
             <ul className="list-disc ps-5">
               <li>{t('admin.courses.driveWarning')}</li>
               <li>{t('admin.courses.driveChecklist')}</li>
@@ -288,10 +293,10 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
         <details className="rounded-lg border border-line p-3">
           <summary className="cursor-pointer text-sm font-semibold text-primary">{t('admin.courses.newInstructor')}</summary>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <TextField label="Name" required value={newInstructor.name} onChange={(x) => setNewInstructor({ ...newInstructor, name: x })} />
-            <TextField label="Title (EN)" required value={newInstructor.titleEn} onChange={(x) => setNewInstructor({ ...newInstructor, titleEn: x })} />
+            <TextField label={t('admin.courses.instructorName')} required value={newInstructor.name} onChange={(x) => setNewInstructor({ ...newInstructor, name: x })} />
+            <TextField label={t('admin.courses.instructorTitle')} required value={newInstructor.titleEn} onChange={(x) => setNewInstructor({ ...newInstructor, titleEn: x })} />
             <div className="sm:col-span-2">
-              <TextAreaField label="Bio (EN)" required value={newInstructor.bioEn} onChange={(x) => setNewInstructor({ ...newInstructor, bioEn: x })} rows={3} />
+              <TextAreaField label={t('admin.courses.instructorBio')} required value={newInstructor.bioEn} onChange={(x) => setNewInstructor({ ...newInstructor, bioEn: x })} rows={3} />
             </div>
           </div>
           <Button type="button" size="sm" variant="secondary" className="mt-2" onClick={addInstructor}>

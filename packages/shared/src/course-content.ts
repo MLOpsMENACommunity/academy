@@ -45,6 +45,6 @@ export type QuestionOption = z.infer<typeof questionOptionSchema>;
 export const materialSchema = z.object({
   labelEn: z.string().min(1),
   labelAr: z.string().min(1),
-  url: z.string().url(),
+  url: z.string().url().regex(/^https?:\/\//i, 'Must be an http(s) URL'),
 });
 export type Material = z.infer<typeof materialSchema>;

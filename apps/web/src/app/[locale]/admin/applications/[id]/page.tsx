@@ -136,14 +136,33 @@ export default function ApplicationDetailAdmin() {
             </dl>
           </Card>
           <Card>
-            <div role="tablist" className="flex gap-2">
+            <div
+              role="tablist"
+              aria-label={t('admin.apps.snapshot')}
+              className="flex gap-2"
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                const next = tab === 'snapshot' ? 'current' : 'snapshot';
+                setTab(next);
+                document.getElementById(`profile-tab-${next}`)?.focus();
+              }}
+            >
               {(['snapshot', 'current'] as const).map((k) => (
-                <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${tab === k ? 'bg-ink text-white' : 'bg-muted-bg'}`}>
+                <button
+                  key={k}
+                  id={`profile-tab-${k}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === k}
+                  aria-controls="profile-panel"
+                  tabIndex={tab === k ? 0 : -1}
+                  onClick={() => setTab(k)}
+                  className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${tab === k ? 'bg-ink text-white' : 'bg-muted-bg'}`}>
                   {t(`admin.apps.${k}`)}
                 </button>
               ))}
             </div>
-            <div role="tabpanel" className="mt-4">
+            <div role="tabpanel" id="profile-panel" aria-labelledby={`profile-tab-${tab}`} className="mt-4">
               <ProfileView profile={tab === 'snapshot' ? a.profileSnapshot : a.currentProfile} />
             </div>
           </Card>

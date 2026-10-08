@@ -98,7 +98,8 @@ export const studentFilterSchema = profileFilterSchema.extend({
 export type StudentFilter = z.infer<typeof studentFilterSchema>;
 
 export const bulkTransitionSchema = z.object({
-  ids: z.array(z.string().min(1).max(40)).min(1).max(500),
+  // One page of results at most (pageSize ≤ 200), so a bulk request stays short.
+  ids: z.array(z.string().min(1).max(40)).min(1).max(200),
   event: z.enum(ADMIN_APPLICATION_EVENTS),
   reason: z.string().trim().max(1000).optional(),
 });
@@ -122,11 +123,13 @@ const slug = z
   .toLowerCase()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, digits and dashes only')
   .max(80);
+/** Links students click: http(s) only (no javascript:, data:, …). */
 const optionalUrl = z
   .string()
   .trim()
   .url()
   .max(500)
+  .regex(/^https?:\/\//i, 'Must be an http(s) URL')
   .nullish()
   .or(z.literal('').transform(() => null));
 const optionalDate = z.coerce.date().nullish().or(z.literal('').transform(() => null));

@@ -64,10 +64,16 @@ export default function StudentDetail() {
                 variant="secondary"
                 loading={cvBusy}
                 onClick={async () => {
+                  // Open the tab inside the click (popup blockers), then point it at the signed URL.
+                  const tab = window.open('', '_blank');
+                  if (tab) tab.opener = null;
                   setCvBusy(true);
                   try {
                     const r = await api<{ url: string }>(`/admin/students/${s.id}/cv`);
-                    window.open(r.url, '_blank', 'noopener,noreferrer');
+                    if (tab) tab.location.href = r.url;
+                    else window.location.href = r.url;
+                  } catch {
+                    tab?.close();
                   } finally {
                     setCvBusy(false);
                   }

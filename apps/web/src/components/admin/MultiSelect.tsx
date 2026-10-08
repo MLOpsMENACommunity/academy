@@ -20,10 +20,12 @@ export function MultiSelect({ label, options, value, onChange }: { label: string
       </span>
       <details className="group relative">
         <summary
-          aria-labelledby={`${id}-label`}
+          aria-labelledby={`${id}-label ${id}-value`}
           className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-line-strong bg-card px-3 text-sm marker:hidden"
         >
-          <span className="truncate">{summary}</span>
+          <span id={`${id}-value`} className="truncate">
+            {summary}
+          </span>
           <span aria-hidden className="text-muted group-open:rotate-180">▾</span>
         </summary>
         <div className="absolute z-30 mt-1 max-h-64 w-full min-w-56 overflow-y-auto rounded-lg border border-line bg-card p-2 shadow-lg">

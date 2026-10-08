@@ -182,7 +182,7 @@ export class ProfileService {
         entityId: e.id,
         metadata: { courseId: e.course.id },
       });
-      const link = `/admin/courses/${e.course.id}/enrollments?driveAccess=pending`;
+      const link = `/admin/courses/${e.course.id}?tab=enrolled&driveAccess=pending`;
       const copy =
         reason === 'changed'
           ? {

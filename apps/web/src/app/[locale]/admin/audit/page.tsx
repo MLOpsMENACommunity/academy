@@ -26,6 +26,7 @@ function AuditLog() {
   const [data, setData] = useState<{ total: number; page: number; items: Row[] } | null>(null);
   const [error, setError] = useState(false);
   const [action, setAction] = useState(params.action ?? '');
+  useEffect(() => setAction(params.action ?? ''), [params.action]);
 
   useEffect(() => {
     let current = true;
@@ -86,7 +87,7 @@ function AuditLog() {
             {data?.items.map((r) => (
               <tr key={r.id} className="border-t border-line align-top">
                 <td className="p-3 whitespace-nowrap">{formatDateTime(r.createdAt, locale)}</td>
-                <td className="p-3">{r.actor ?? 'system'}</td>
+                <td className="p-3">{r.actor ?? t('admin.audit.system')}</td>
                 <td className="p-3 font-mono text-xs">{r.action}</td>
                 <td className="p-3 text-xs">
                   {r.entityType}
