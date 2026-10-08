@@ -56,6 +56,11 @@ describe('transition', () => {
     expect(transition(S.SHORTLISTED, 'ACCEPT', full(free))).toEqual(ok(S.ENROLLED));
   });
 
+  it('fails instead of no-op when promoting from a full waitlist', () => {
+    expect(transition(S.WAITLISTED, 'SHORTLIST', full(paid))).toEqual({ ok: false, error: 'Course is full' });
+    expect(transition(S.WAITLISTED, 'ACCEPT', full(paid))).toEqual({ ok: false, error: 'Course is full' });
+  });
+
   it('promotes from the waitlist once a seat frees up', () => {
     expect(transition(S.WAITLISTED, 'ACCEPT', paid)).toEqual(ok(S.AWAITING_PAYMENT));
   });

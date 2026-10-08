@@ -7,7 +7,11 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/en/admin', '/ar/admin', '/en/dashboard', '/ar/dashboard', '/en/profile', '/ar/profile', '/en/learn', '/ar/learn'],
+        disallow: [
+          '/api/',
+          ...['admin', 'dashboard', 'profile', 'learn', 'onboarding'].flatMap((p) => [`/en/${p}`, `/ar/${p}`]),
+          '/*/courses/*/apply',
+        ],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,

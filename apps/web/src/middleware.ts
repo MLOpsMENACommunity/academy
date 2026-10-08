@@ -11,7 +11,14 @@ import { defaultLocale, isLocale, LOCALE_COOKIE } from './i18n/config';
 const PROTECTED = /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
 
 export function middleware(req: NextRequest) {
-  const { pathname, search } = req.nextUrl;
+  const { search } = req.nextUrl;
+  let pathname = req.nextUrl.pathname;
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // malformed escape: match on the raw path
+  }
+  pathname = pathname.replace(/\/{2,}/g, '/');
   const first = pathname.split('/')[1];
 
   if (!isLocale(first)) {
@@ -19,7 +26,11 @@ export function middleware(req: NextRequest) {
     const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
     const url = req.nextUrl.clone();
     url.pathname = `/${locale}${pathname === '/' ? '' : pathname}`;
-    return NextResponse.redirect(url, 308);
+    // Temporary (307): the target depends on the locale cookie, so it must not be cached.
+    const res = NextResponse.redirect(url);
+    res.headers.set('Cache-Control', 'private, no-store');
+    res.headers.set('Vary', 'Cookie');
+    return res;
   }
 
   if (PROTECTED.test(pathname)) {
@@ -41,5 +52,5 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Skip API proxy, Next internals and files with an extension (images, robots.txt, sitemap.xml…).
-  matcher: ['/((?!api/|_next/|.*\\.[\\w]+$).*)'],
+  matcher: ['/((?!api(?:/|$)|_next/|.*\\.[\\w]+$).*)'],
 };

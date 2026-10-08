@@ -19,11 +19,17 @@ async function seedAdmin(): Promise<void> {
     console.warn('SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD not set; skipping admin user');
     return;
   }
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    // Never promote an existing account: someone could have registered the admin email first.
+    if (existing.role !== 'ADMIN') {
+      console.warn(`WARNING: ${email} exists but is not an admin; NOT promoting it. Resolve manually.`);
+    }
+    return;
+  }
   const passwordHash = await hash(password);
-  await prisma.user.upsert({
-    where: { email },
-    update: { role: 'ADMIN' },
-    create: {
+  await prisma.user.create({
+    data: {
       email,
       passwordHash,
       role: 'ADMIN',
@@ -56,10 +62,12 @@ async function seedCatalog(): Promise<void> {
       included: course.included,
     } as unknown as Prisma.CourseCreateInput;
 
+    // Placeholder courses must not go live by accident: in production they start as drafts.
+    const status = process.env.NODE_ENV === 'production' ? 'DRAFT' : course.status;
     const saved = await prisma.course.upsert({
       where: { slug: course.slug },
       update: {},
-      create: { ...course, ...json },
+      create: { ...course, ...json, status },
       include: { _count: { select: { instructors: true, screeningQuestions: true, sessions: true } } },
     });
 
