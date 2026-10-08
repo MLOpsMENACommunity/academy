@@ -81,7 +81,7 @@ export const coreSectionSchema = z.object({
 });
 export type CoreSection = z.infer<typeof coreSectionSchema>;
 
-const requiredText = (max: number) => z.string().trim().min(2).max(max);
+const requiredText = (max: number) => z.string().trim().min(1).max(max);
 
 /** Required (no skip): admins screen and filter applicants on these. */
 export const professionalSectionSchema = z.object({

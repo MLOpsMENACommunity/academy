@@ -149,18 +149,27 @@ export class AdminCoursesService {
         message: 'This course has applicants or students, so it can only be archived (their records are kept).',
       });
     }
-    await this.prisma.course.delete({ where: { id } });
+    try {
+      await this.prisma.course.delete({ where: { id } });
+    } catch (err) {
+      // An application arrived since the check (the foreign key blocks the delete), or it's already gone.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        throw new ConflictException({ code: 'COURSE_HAS_APPLICANTS', message: 'This course has applicants or students, so it can only be archived.' });
+      }
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') throw new NotFoundException('Course not found');
+      throw err;
+    }
     await this.audit.log({ actorId: admin.id, action: 'course.deleted', entityType: 'Course', entityId: id, metadata: { slug: c.slug } });
   }
 
   /** Hides a course from the catalog without touching its records. */
   async archive(id: string, admin: Actor) {
-    const r = await this.prisma.course.updateMany({ where: { id, status: { not: 'ARCHIVED' } }, data: { status: 'ARCHIVED', archivedAt: new Date() } });
-    if (!r.count) {
-      if (!(await this.prisma.course.findUnique({ where: { id }, select: { id: true } }))) throw new NotFoundException('Course not found');
-      return;
-    }
-    await this.audit.log({ actorId: admin.id, action: 'course.archived', entityType: 'Course', entityId: id });
+    const before = await this.prisma.course.findUnique({ where: { id }, select: { status: true } });
+    if (!before) throw new NotFoundException('Course not found');
+    if (before.status === 'ARCHIVED') return;
+    await this.prisma.course.update({ where: { id }, data: { status: 'ARCHIVED', archivedAt: new Date() } });
+    // The previous status says what to restore if this was a mistake.
+    await this.audit.log({ actorId: admin.id, action: 'course.archived', entityType: 'Course', entityId: id, metadata: { from: before.status } });
   }
 
   /** Replaces the question list; existing questions keep their ids so stored answers stay readable. */

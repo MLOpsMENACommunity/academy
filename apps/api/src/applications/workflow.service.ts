@@ -1,5 +1,7 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  DEFAULT_TIMEZONE,
+  isValidTimezone,
   applicationStatusLabels,
   applicationStatusMessages,
   SEAT_HOLDING_STATUSES,
@@ -174,6 +176,8 @@ export class ApplicationWorkflow {
                 id: true,
                 slug: true,
                 type: true,
+                recordingsPlatform: true,
+                youtubePlaylistUrl: true,
                 titleEn: true,
                 titleAr: true,
                 startDate: true,
@@ -198,6 +202,8 @@ export class ApplicationWorkflow {
     course: {
       slug: string;
       type: Course['type'];
+      recordingsPlatform: Course['recordingsPlatform'];
+      youtubePlaylistUrl: string | null;
       titleEn: string;
       titleAr: string;
       startDate: Date | null;
@@ -213,7 +219,8 @@ export class ApplicationWorkflow {
     const label = applicationStatusLabels[app.status];
     const msg = applicationStatusMessages[app.status];
     const rejected = app.status === 'REJECTED';
-    const withReason = (text: string, prefix: string) => (reason ? `${text}\n\n${prefix}${reason}` : text);
+    // Feedback first: the notification bell shows only the first lines.
+    const withReason = (text: string, prefix: string) => (reason ? `${prefix}${reason}\n\n${text}` : text);
     const [notified, emailed] = await Promise.allSettled([
       this.notifications.create(user.id, {
       type: `application.${app.status.toLowerCase()}`,
@@ -232,7 +239,7 @@ export class ApplicationWorkflow {
         courseUrl: this.email.url(user.locale, app.status === 'ENROLLED' ? `/learn/${course.slug}` : `/courses/${course.slug}`),
         browseUrl: this.email.url(user.locale, '/courses'),
         startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
-        isFree: course.type === 'FREE',
+        recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
         hasPreparation: hasText(course.preparation),
       }),
     ]);
@@ -242,10 +249,11 @@ export class ApplicationWorkflow {
   }
 }
 
-/** "on Sunday 18 October at 19:00 (Cairo time)" in the student's language and time zone. */
+/** "on Sunday 18 October, 19:00 EEST" in the student's language and time zone (Cairo if unknown). */
 function formatStart(at: Date | null, locale: 'en' | 'ar', timezone: string | null | undefined): string | null {
-  if (!at) return null;
-  const timeZone = timezone || 'Africa/Cairo';
+  // Nothing to announce for a course that already started (late enrolment).
+  if (!at || at.getTime() < Date.now()) return null;
+  const timeZone = timezone && isValidTimezone(timezone) ? timezone : DEFAULT_TIMEZONE;
   try {
     const when = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', {
       weekday: 'long',

@@ -369,7 +369,7 @@
     "yes": "Yes",
     "no": "No",
     "verifyFirst": "Confirm your email address before applying. We sent a link to {email}.",
-    "profileFirst": "Complete the required part of your profile before applying. It takes about 3 minutes.",
+    "profileFirst": "Complete the required parts of your profile (basics, professional background and education) before applying. It takes about 5 minutes.",
     "completeProfile": "Complete my profile",
     "closed": "Applications for this course are closed.",
     "already": "You've already applied to this course.",
@@ -774,7 +774,7 @@
       },
       "delete": {
         "confirm": "Delete \"{title}\" permanently? Its sessions, questions and announcements are deleted too. This can’t be undone.",
-        "hasApplicants": "\"{title}\" has applicants or students, so it can’t be deleted (their records must be kept). Archive it instead? Archived courses disappear from the catalog but stay in the admin panel."
+        "hasApplicants": "\"{title}\" has applicants or students, so it can’t be deleted (their records must be kept). To archive it instead (it disappears from the catalog and applicants can no longer reach it), type its slug: {slug}"
       }
     },
     "settings": {

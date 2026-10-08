@@ -11,16 +11,21 @@ import { errorMessage } from '@/lib/errors';
  */
 export function DeleteCourse({
   courseId,
-  title,
+  title: titleEn,
+  titleAr,
+  slug,
   onDone,
   className = '',
 }: {
   courseId: string;
   title: string;
+  titleAr?: string;
+  slug: string;
   onDone: (result: 'deleted' | 'archived') => void;
   className?: string;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const title = (locale === 'ar' && titleAr) || titleEn;
   const d = (k: string, v?: Record<string, string>) => t(`admin.courses.delete.${k}`, v);
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +37,9 @@ export function DeleteCourse({
       onDone('deleted');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'COURSE_HAS_APPLICANTS') {
-        if (window.confirm(d('hasApplicants', { title }))) {
+        // Archiving a course people applied to hides it from them: make it deliberate.
+        const typed = window.prompt(d('hasApplicants', { title, slug }));
+        if (typed !== null && typed.trim() === slug) {
           try {
             await api(`/admin/courses/${courseId}/archive`, { method: 'POST' });
             onDone('archived');

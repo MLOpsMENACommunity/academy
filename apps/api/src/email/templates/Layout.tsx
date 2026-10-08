@@ -73,7 +73,8 @@ export function Layout({ locale, preview, heading, paragraphs, cta, note, footer
             <Section
               style={{
                 backgroundColor: '#f8fafc',
-                borderInlineStart: `4px solid ${brand.primary}`,
+                // Physical side: Outlook and Gmail ignore logical properties like border-inline-start.
+                ...(locale === 'ar' ? { borderRight: `4px solid ${brand.primary}` } : { borderLeft: `4px solid ${brand.primary}` }),
                 borderRadius: 6,
                 padding: '12px 16px',
                 margin: '12px 0',

@@ -101,7 +101,7 @@ export default function AdminCourses() {
                       <Link href={`/${locale}/admin/courses/${c.id}`} className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-semibold">
                         {t('admin.common.edit')}
                       </Link>
-                      <DeleteCourse courseId={c.id} title={c.titleEn} onDone={load} />
+                      <DeleteCourse courseId={c.id} title={c.titleEn} titleAr={c.titleAr} slug={c.slug} onDone={load} />
                     </div>
                   </td>
                 </tr>

@@ -21,7 +21,8 @@ export type EmailTemplate =
       browseUrl?: string;
       /** First session or start date, already formatted in the student's time zone. */
       startsAt?: string | null;
-      isFree?: boolean;
+      /** The course's recordings are public on YouTube (free courses). */
+      recordingsPublic?: boolean;
       /** The course page has a "Before the course starts" section. */
       hasPreparation?: boolean;
     }
@@ -137,7 +138,7 @@ function applicationEmail(t: StatusTemplate, locale: Locale, base: { locale: Loc
         ],
         callout: t.reason ? { title: ar ? 'ملاحظات من فريق الدورة' : 'Feedback from the course team', body: t.reason } : undefined,
         after: [
-          ...(t.isFree
+          ...(t.recordingsPublic
             ? [
                 ar
                   ? 'ما زال بإمكانك التعلم معنا: تُنشر تسجيلات جلسات هذه الدورة على YouTube.'

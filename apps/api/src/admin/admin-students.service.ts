@@ -132,7 +132,7 @@ export class AdminStudentsService {
     });
     const header = [
       'Student ID', 'Registered', 'Name (EN)', 'Name (AR)', 'Email', 'Phone', 'Country', 'City', 'Employment', 'Job title', 'Company',
-      'Industry', 'Experience', 'ML experience', 'Seniority', 'Primary area', 'Secondary areas', 'Education', 'Skills (1-5)', 'Cloud',
+      'Industry', 'Experience', 'ML experience', 'Seniority', 'Primary area', 'Secondary areas', 'Education', 'Field of study', 'Institution', 'Skills (1-5)', 'Cloud',
       'Tools', 'Goals', 'Topics', 'Weekly hours', 'Preferred times', 'Format', 'Open to opportunities', 'Share with partners',
       'Marketing emails', 'LinkedIn', 'GitHub', 'Completeness %',
     ];
@@ -141,7 +141,7 @@ export class AdminStudentsService {
       return [
         u.id, u.createdAt.toISOString(), p?.fullNameEn, p?.fullNameAr, u.email, p?.phone, p?.country, p?.city, p?.employmentStatus,
         p?.jobTitle, p?.company, p?.industry, p?.experienceYears, p?.mlExperienceYears, p?.seniority, p?.primaryArea, p?.secondaryAreas,
-        p?.educationLevel, (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.productionTools,
+        p?.educationLevel, p?.fieldOfStudy, p?.university, (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.productionTools,
         p?.learningGoals, p?.interestedTopics, p?.weeklyHours, p?.preferredTimes, p?.preferredFormat, p?.openToOpportunities,
         p?.shareWithPartners, p?.marketingEmails, p?.linkedinUrl, p?.githubUrl, p?.completeness,
       ];

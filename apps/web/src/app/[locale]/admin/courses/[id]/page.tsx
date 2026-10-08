@@ -119,7 +119,10 @@ function CourseEditor() {
           <DeleteCourse
             courseId={course.id}
             title={course.titleEn}
-            onDone={(r) => (r === 'deleted' ? router.push(`/${locale}/admin/courses`) : refresh())}
+            titleAr={course.titleAr}
+            slug={course.slug}
+            // Back to the list either way: the open Details form still holds the old status.
+            onDone={() => router.push(`/${locale}/admin/courses`)}
           />
         </div>
       </div>
