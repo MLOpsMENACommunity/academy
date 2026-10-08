@@ -15,10 +15,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <RequireAuth role="ADMIN">
       {() => (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8 lg:flex-row lg:gap-10">
           <nav aria-label={t('admin.title')} className="lg:w-52 lg:shrink-0">
-            <p className="mb-2 hidden text-xs font-semibold tracking-wide text-muted uppercase lg:block">{t('admin.title')}</p>
-            <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:px-0">
+            <p className="mb-3 hidden px-3 text-sm font-medium text-muted lg:block">{t('admin.title')}</p>
+            <ul className="-mx-5 flex gap-1 overflow-x-auto px-5 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-col lg:px-0 lg:pb-0">
               {ADMIN_NAV.map((key) => {
                 const href = key === 'dashboard' ? `/${locale}/admin` : `/${locale}/admin/${key}`;
                 const active = key === 'dashboard' ? pathname === href : pathname.startsWith(href);
@@ -27,8 +27,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     <Link
                       href={href}
                       aria-current={active ? 'page' : undefined}
-                      className={`block min-h-10 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap ${
-                        active ? 'bg-ink text-white' : 'text-body hover:bg-muted-bg'
+                      className={`flex min-h-11 items-center rounded-full px-4 text-[0.9375rem] whitespace-nowrap lg:min-h-10 lg:rounded-xl lg:px-3 ${
+                        active ? 'bg-primary-soft font-medium text-primary' : 'text-body hover:bg-muted-bg'
                       }`}
                     >
                       {t(`admin.nav.${key}`)}

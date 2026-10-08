@@ -88,7 +88,7 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
       <fieldset>
-        <legend className="text-lg font-bold text-fg">{title}</legend>
+        <legend className="text-lg font-semibold text-fg">{title}</legend>
         <div className="mt-4 space-y-4">{children}</div>
       </fieldset>
     </Card>

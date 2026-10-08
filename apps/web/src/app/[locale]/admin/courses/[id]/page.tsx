@@ -104,7 +104,7 @@ function CourseEditor() {
   return (
     <div>
       <Link href={`/${locale}/admin/courses`} className="text-sm text-muted hover:underline">
-        ← {t('admin.courses.title')}
+        <span aria-hidden className="inline-block rtl:rotate-180">←</span> {t('admin.courses.title')}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="text-3xl">{(locale === 'ar' && course.titleAr) || course.titleEn}</h1>

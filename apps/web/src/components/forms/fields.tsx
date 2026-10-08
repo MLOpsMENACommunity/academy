@@ -2,10 +2,7 @@
 
 import { useId, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
 import { useI18n } from '@/i18n/client';
-
-/** Shared input styling; 16px text avoids iOS zoom on focus. */
-export const inputClass =
-  'block w-full min-h-11 rounded-lg border border-line-strong bg-card px-3 py-2 text-base text-fg placeholder:text-muted/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 aria-[invalid=true]:border-danger disabled:bg-muted-bg';
+import { inputClass } from '../ui/input';
 
 export interface Option {
   value: string;

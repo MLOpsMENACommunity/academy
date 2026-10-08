@@ -69,11 +69,11 @@ export function StudentsDirectory() {
         >
           <label className="block min-w-64 flex-1">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.common.search')}</span>
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-sm" />
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-base md:text-sm" />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.sort')}</span>
-            <select className="block min-h-10 rounded-lg border border-line-strong bg-card px-2 text-sm" value={params.sort ?? 'newest'} onChange={(e) => set({ sort: e.target.value })}>
+            <select className="block min-h-10 rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm" value={params.sort ?? 'newest'} onChange={(e) => set({ sort: e.target.value })}>
               {(['newest', 'oldest', 'name', 'experience'] as const).map((s) => (
                 <option key={s} value={s}>
                   {t(`admin.apps.sorts.${s}`)}

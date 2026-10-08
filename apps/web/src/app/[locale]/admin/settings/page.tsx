@@ -63,7 +63,7 @@ export default function AdminSettings() {
       {GROUPS.map((g) => (
         <Card key={g.title}>
           <fieldset>
-            <legend className="text-lg font-bold text-fg">{t(`admin.settings.${g.title}`)}</legend>
+            <legend className="text-lg font-semibold text-fg">{t(`admin.settings.${g.title}`)}</legend>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {g.keys.map((k) => (
                 <TextField

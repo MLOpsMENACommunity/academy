@@ -2,43 +2,60 @@
 
 /*
  * Brand tokens: the ONLY place colours are defined. Swap these to re-skin the
- * academy. Values follow mlopsmena.com (navy ink + the logo's teal/cyan/amber),
- * with accents darkened where they sit on white so text keeps WCAG AA contrast.
+ * academy. "Calm" palette: warm off-white page, white surfaces, navy ink used
+ * sparingly (home hero, footer, primary buttons), and the logo's colours
+ * (cyan, green, amber, orange) as soft fills and small markers. Text colours
+ * are tuned for WCAG AA on white, on the page colour and on their soft fills.
  */
 :root {
-  --brand-ink: #08142e; /* headings, primary buttons, header */
-  --brand-ink-soft: #16294d;
-  --brand-primary: #0b7a71; /* teal, AA on white (5.3:1) */
-  --brand-primary-hover: #09695f;
-  --brand-primary-soft: #e6f6f4;
-  --brand-accent: #8f5207; /* amber: AA for small text on white and on accent-soft */
-  --brand-accent-soft: #fdf3e3;
-  --brand-cyan: #0e7c99;
-  --brand-gradient: linear-gradient(120deg, #33cec0 0%, #2cacd1 55%, #ec9723 100%);
+  --brand-ink: #13233f; /* home hero, footer, primary buttons */
+  --brand-ink-soft: #1f3358;
+  --brand-primary: #097a88; /* teal text and links: AA on white (5.1:1) and on primary-soft (4.6:1) */
+  --brand-primary-hover: #07636f;
+  --brand-primary-soft: #e9f7f9;
+  --brand-primary-soft-hover: #d7f0f3;
+  --brand-accent: #a35c00; /* amber text: AA on white (5.1:1) and on accent-soft */
+  --brand-accent-soft: #fdf3e2;
+  --brand-cyan: #097a88; /* focus rings on custom controls: 3:1+ against white */
 
-  --surface-page: #fafbfd;
+  /* Logo colours: decorative fills, dots and the orange call to action only, never small text on white. */
+  --logo-cyan: #16c6d8;
+  --logo-green: #72b97b;
+  --logo-amber: #e5a13a;
+  --logo-orange: #ff9912;
+  --logo-cyan-soft: #e9f7f9;
+  --logo-green-soft: #eef6ef;
+  --logo-amber-soft: #fdf3e2;
+  --cta: #ff9912; /* main call to action, with ink text (7.3:1) */
+  --cta-hover: #f08a00;
+  --cta-text: #13233f;
+
+  --surface-page: #fafaf7;
   --surface-card: #ffffff;
-  --surface-muted: #f1f5fa;
-  --border: rgba(15, 33, 64, 0.12);
-  --border-strong: rgba(15, 33, 64, 0.22);
+  --surface-muted: #f4f3ee;
+  --border: #ecebe6;
+  --border-strong: #8e95a1; /* form controls: 3:1 against white */
 
-  --text: #08142e;
-  --text-body: #33415a;
-  --text-muted: #566580; /* 5.9:1 on white */
+  --text: #13233f;
+  --text-body: #2b3240;
+  --text-muted: #5e6675; /* 5.5:1 on the page colour */
+  --text-on-dark: #c6cfdc;
+  --text-on-dark-accent: #9fdde6;
 
-  --success: #0f7a3d;
-  --success-soft: #e7f6ee;
+  --success: #1f7a3d;
+  --success-soft: #eef6ef;
   --warning: #8a4f06;
-  --warning-soft: #fff4dc;
+  --warning-soft: #fcf4e6;
   --danger: #b4232f;
   --danger-soft: #fdecee;
-  --info: #0e6a8a;
-  --info-soft: #e6f3f8;
+  --info: #0a6f7c;
+  --info-soft: #e9f7f9;
 
-  --focus-ring: #2cacd1;
-  --radius: 0.75rem;
+  --focus-ring: #097a88;
+  --focus-ring-on-dark: #16c6d8;
+  --radius: 1rem;
 
-  --font-latin: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-latin: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-arabic: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
   --font-body: var(--font-latin), var(--font-arabic);
 }
@@ -54,9 +71,22 @@ html[lang='ar'] {
   --color-primary: var(--brand-primary);
   --color-primary-hover: var(--brand-primary-hover);
   --color-primary-soft: var(--brand-primary-soft);
+  --color-primary-soft-hover: var(--brand-primary-soft-hover);
   --color-accent: var(--brand-accent);
   --color-accent-soft: var(--brand-accent-soft);
   --color-cyan: var(--brand-cyan);
+  --color-logo-cyan: var(--logo-cyan);
+  --color-logo-green: var(--logo-green);
+  --color-logo-amber: var(--logo-amber);
+  --color-logo-orange: var(--logo-orange);
+  --color-logo-cyan-soft: var(--logo-cyan-soft);
+  --color-logo-green-soft: var(--logo-green-soft);
+  --color-logo-amber-soft: var(--logo-amber-soft);
+  --color-cta: var(--cta);
+  --color-cta-hover: var(--cta-hover);
+  --color-cta-text: var(--cta-text);
+  --color-on-dark: var(--text-on-dark);
+  --color-on-dark-accent: var(--text-on-dark-accent);
   --color-page: var(--surface-page);
   --color-card: var(--surface-card);
   --color-muted-bg: var(--surface-muted);
@@ -80,17 +110,21 @@ html[lang='ar'] {
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    scroll-padding-top: 5rem;
+    scroll-padding-top: 1.5rem;
+    /* Nothing may push the page sideways on a phone. */
+    overflow-x: clip;
   }
   body {
     background: var(--surface-page);
     color: var(--text-body);
     font-family: var(--font-body);
-    line-height: 1.6;
+    font-size: 1rem;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
+    overflow-wrap: break-word;
   }
   html[lang='ar'] body {
-    line-height: 1.8;
+    line-height: 1.85;
   }
   h1,
   h2,
@@ -98,13 +132,50 @@ html[lang='ar'] {
   h4 {
     color: var(--text);
     line-height: 1.25;
-    font-weight: 700;
+    font-weight: 600;
     text-wrap: balance;
   }
+  html[lang='ar'] :is(h1, h2, h3, h4) {
+    line-height: 1.5;
+  }
+  a,
+  button,
+  summary,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
   :focus-visible {
-    outline: 3px solid var(--focus-ring);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  /* Navy areas (home hero, footer): a lighter ring that stays visible on dark. */
+  .on-dark :focus-visible {
+    outline-color: var(--focus-ring-on-dark);
+  }
+  /* A light surface inside a navy area (e.g. the hero's course card) gets the normal ring back. */
+  .on-dark .on-light :focus-visible {
+    outline-color: var(--focus-ring);
+  }
+  /* Only 400/500/600 are loaded: keep bold text on a real weight instead of a synthesized one. */
+  b,
+  strong,
+  th {
+    font-weight: 600;
+  }
+  /*
+   * Phones: form controls default to 16px so iOS Safari doesn't zoom in on focus.
+   * In the base layer, so a size utility can still override it (dense admin
+   * filters use `text-base md:text-sm`).
+   */
+  @media (max-width: 47.99rem) {
+    input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+    select,
+    textarea {
+      font-size: 1rem;
+    }
   }
   /* Keep LTR fragments (emails, URLs, phone numbers, code) readable inside RTL text. */
   [dir='rtl'] .ltr-embed,
@@ -129,17 +200,21 @@ html[lang='ar'] {
 @layer components {
   .prose-academy {
     color: var(--text-body);
+    line-height: 1.75;
   }
   .prose-academy p {
-    margin-block: 0.75em;
+    margin-block: 0.85em;
   }
   .prose-academy h2 {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     margin-block: 1.5em 0.5em;
   }
   .prose-academy h3 {
     font-size: 1.1rem;
     margin-block: 1.25em 0.5em;
+  }
+  .prose-academy li + li {
+    margin-top: 0.35em;
   }
   .prose-academy ul {
     list-style: disc;
@@ -164,13 +239,16 @@ html[lang='ar'] {
   }
   .prose-academy pre {
     background: var(--surface-muted);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    max-width: 100%;
     margin-block: 0.75em;
     overflow-x: auto;
     font-size: 0.85em;
-    line-height: 1.5;
+    line-height: 1.6;
+    /* Code reads left to right even on Arabic pages. */
+    direction: ltr;
+    text-align: left;
   }
   .prose-academy pre code {
     background: none;
@@ -180,10 +258,5 @@ html[lang='ar'] {
   .prose-academy strong {
     color: var(--text);
   }
-  .text-gradient {
-    background: var(--brand-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
 }
+

@@ -25,13 +25,18 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     : 'Live ML, MLOps & AI engineering courses';
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#08142e', color: 'white', padding: 72 }}>
-        <div style={{ display: 'flex', fontSize: 30, color: '#33cec0', fontWeight: 700 }}>MLOps MENA Academy</div>
-        <div style={{ display: 'flex', flex: 1, alignItems: 'center', fontSize: title.length > 40 ? 64 : 80, fontWeight: 800, lineHeight: 1.1 }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#13233f', color: 'white', padding: 72 }}>
+        <div style={{ display: 'flex', fontSize: 30, color: '#9fdde6', fontWeight: 600 }}>MLOps MENA Academy</div>
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center', fontSize: title.length > 40 ? 64 : 80, fontWeight: 700, lineHeight: 1.1 }}>
           {title}
         </div>
-        <div style={{ display: 'flex', fontSize: 30, color: 'rgba(255,255,255,0.8)' }}>{meta}</div>
-        <div style={{ display: 'flex', marginTop: 32, height: 10, width: '100%', background: 'linear-gradient(90deg,#33cec0,#2cacd1,#ec9723)' }} />
+        <div style={{ display: 'flex', fontSize: 30, color: '#c6cfdc' }}>{meta}</div>
+        {/* The logo's four colours as flat segments. */}
+        <div style={{ display: 'flex', marginTop: 32, height: 8, width: '100%', gap: 8 }}>
+          {['#16c6d8', '#72b97b', '#e5a13a', '#ff9912'].map((color) => (
+            <div key={color} style={{ display: 'flex', flex: 1, background: color, borderRadius: 4 }} />
+          ))}
+        </div>
       </div>
     ),
     size,

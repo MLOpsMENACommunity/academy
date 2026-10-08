@@ -129,12 +129,12 @@ export function ApplicationsTable() {
           >
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.common.search')}</span>
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-sm" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-base md:text-sm" />
             </label>
           </form>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.course')}</span>
-            <select className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-sm" value={params.courseId ?? ''} onChange={(e) => set({ courseId: e.target.value })}>
+            <select className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm" value={params.courseId ?? ''} onChange={(e) => set({ courseId: e.target.value })}>
               <option value="">{t('admin.common.any')}</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -151,19 +151,19 @@ export function ApplicationsTable() {
           />
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.ref')}</span>
-            <input value={ref} onChange={(e) => setRef(e.target.value)} onBlur={() => ref !== (params.ref ?? '') && set({ ref })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-sm" />
+            <input value={ref} onChange={(e) => setRef(e.target.value)} onBlur={() => ref !== (params.ref ?? '') && set({ ref })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-base md:text-sm" />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.from')}</span>
-            <input type="date" value={params.from ?? ''} onChange={(e) => set({ from: e.target.value })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-sm" />
+            <input type="date" value={params.from ?? ''} onChange={(e) => set({ from: e.target.value })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm" />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.to')}</span>
-            <input type="date" value={params.to ?? ''} onChange={(e) => set({ to: e.target.value })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-sm" />
+            <input type="date" value={params.to ?? ''} onChange={(e) => set({ to: e.target.value })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm" />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.sort')}</span>
-            <select className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-sm" value={params.sort ?? 'newest'} onChange={(e) => set({ sort: e.target.value })}>
+            <select className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm" value={params.sort ?? 'newest'} onChange={(e) => set({ sort: e.target.value })}>
               {(['newest', 'oldest', 'name', 'experience'] as const).map((s) => (
                 <option key={s} value={s}>
                   {t(`admin.apps.sorts.${s}`)}
@@ -187,11 +187,11 @@ export function ApplicationsTable() {
       </div>
 
       {selected.size > 0 && (
-        <div className="sticky top-16 z-20 mt-4 flex flex-wrap items-end gap-3 rounded-card border border-primary/40 bg-primary-soft p-3" role="region" aria-label={t('admin.apps.bulk')}>
+        <div className="sticky top-2 z-20 mt-4 flex flex-wrap items-end gap-3 rounded-card border border-primary/40 bg-primary-soft p-3" role="region" aria-label={t('admin.apps.bulk')}>
           <span className="text-sm font-semibold">{t('admin.common.selected', { count: selected.size })}</span>
           <label className="block">
             <span className="sr-only">{t('admin.apps.bulk')}</span>
-            <select value={event} onChange={(e) => setEvent(e.target.value as AdminApplicationEvent)} className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-sm">
+            <select value={event} onChange={(e) => setEvent(e.target.value as AdminApplicationEvent)} className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm">
               {(['SHORTLIST', 'ACCEPT', 'REJECT', 'WAITLIST'] as const).map((ev) => (
                 <option key={ev} value={ev}>
                   {t(`admin.apps.events.${ev}`)}
@@ -206,7 +206,7 @@ export function ApplicationsTable() {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={1000}
-              className="min-h-10 min-w-64 rounded-lg border border-line-strong bg-card px-3 text-sm"
+              className="min-h-10 min-w-64 rounded-lg border border-line-strong bg-card px-3 text-base md:text-sm"
             />
           )}
           <Button size="sm" loading={busy} onClick={runBulk}>

@@ -167,7 +167,7 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
       {canSubmit && (
         <div className="rounded-card border border-accent/40 bg-accent-soft/40 p-5">
           <p className="text-sm text-muted">{t('payment.amountDue')}</p>
-          <p className="text-3xl font-bold text-fg">{due}</p>
+          <p className="text-3xl font-semibold text-fg">{due}</p>
           <h3 className="mt-4 text-base">{t('payment.howTo')}</h3>
           <ol className="mt-2 list-decimal space-y-1 ps-5 text-sm">
             <li>{t('payment.step1', { amount: due })}</li>
@@ -261,7 +261,7 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
               aria-invalid={errors.screenshot ? true : undefined}
               aria-required="true"
               aria-describedby={errors.screenshot ? 'payment-file-hint payment-file-error' : 'payment-file-hint'}
-              className="block w-full text-sm file:me-3 file:min-h-10 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:font-semibold file:text-white"
+              className="block w-full text-sm file:me-3 file:min-h-11 file:rounded-full file:border-0 file:bg-ink file:px-5 file:font-medium file:text-white"
             />
             <p id="payment-file-hint" className="mt-1 text-xs text-muted">
               🔒 {t('payment.screenshotHint')}

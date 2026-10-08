@@ -1,7 +1,10 @@
-import '@fontsource-variable/inter';
+// IBM Plex Sans (Latin) and IBM Plex Sans Arabic, self-hosted: no third-party font requests, CSP stays 'self'.
+import '@fontsource/ibm-plex-sans/latin-400.css';
+import '@fontsource/ibm-plex-sans/latin-500.css';
+import '@fontsource/ibm-plex-sans/latin-600.css';
 import '@fontsource/ibm-plex-sans-arabic/400.css';
+import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
-import '@fontsource/ibm-plex-sans-arabic/700.css';
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -20,7 +23,7 @@ export function generateStaticParams() {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#08142e',
+  themeColor: '#ffffff',
   width: 'device-width',
   initialScale: 1,
 };
@@ -75,7 +78,7 @@ export default async function LocaleLayout({
       <body className="flex min-h-screen flex-col">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:text-fg focus:shadow-md"
         >
           {t('common.skipToContent')}
         </a>

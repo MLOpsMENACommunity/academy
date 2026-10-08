@@ -31,7 +31,7 @@ export function SavedViews({ scope, query, onApply }: { scope: 'APPLICATIONS' | 
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.common.savedViews')}</span>
         <select
-          className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-sm"
+          className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm"
           value=""
           onChange={(e) => {
             const v = views.find((x) => x.id === e.target.value);
@@ -56,7 +56,7 @@ export function SavedViews({ scope, query, onApply }: { scope: 'APPLICATIONS' | 
       >
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.common.viewName')}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-sm" />
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm" />
         </label>
         <button type="submit" disabled={!name.trim()} className="min-h-10 rounded-lg border border-line-strong px-3 text-sm font-semibold disabled:opacity-50">
           {t('admin.common.saveView')}
