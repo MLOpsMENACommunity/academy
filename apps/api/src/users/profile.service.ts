@@ -168,12 +168,12 @@ export class ProfileService {
     });
     if (!enrollments.length) return;
 
+    // The address to remove lives on the enrolment (shown on the admin's enrolled-students
+    // page and cleared on anonymisation), never in notifications or emails, which persist.
     await this.prisma.enrollment.updateMany({
       where: { id: { in: enrollments.map((e) => e.id) } },
-      data: { driveAccessGranted: false, driveAccessGrantedAt: null },
+      data: { driveAccessGranted: false, driveAccessGrantedAt: null, driveRevokeEmail: oldGoogleEmail },
     });
-    // Admins need the old address to remove it from the folder (it is wiped on anonymisation).
-    const old = oldGoogleEmail ?? 'unknown';
     for (const e of enrollments) {
       await this.audit.log({
         actorId: userId,
@@ -188,14 +188,14 @@ export class ProfileService {
           ? {
               titleEn: 'Drive access needs updating',
               titleAr: 'يجب تحديث صلاحية الوصول إلى Drive',
-              bodyEn: `An enrolled student in "${e.course.titleEn}" changed their Google account. Share the Drive folder with the new account and remove ${old}.`,
-              bodyAr: `غيّر طالب مسجل في "${e.course.titleAr}" حساب Google الخاص به. شارك مجلد Drive مع الحساب الجديد واحذف ${old}.`,
+              bodyEn: `An enrolled student in "${e.course.titleEn}" changed their Google account. Share the Drive folder with the new account and remove the old one (see the enrolled students page).`,
+              bodyAr: `غيّر طالب مسجل في "${e.course.titleAr}" حساب Google الخاص به. شارك مجلد Drive مع الحساب الجديد واحذف القديم (راجع صفحة الطلاب المسجلين).`,
             }
           : {
               titleEn: 'Remove Drive access',
               titleAr: 'أزل صلاحية الوصول إلى Drive',
-              bodyEn: `A student enrolled in "${e.course.titleEn}" deleted their account. Remove ${old} from the Drive folder.`,
-              bodyAr: `حذف طالب مسجل في "${e.course.titleAr}" حسابه. أزل ${old} من مجلد Drive.`,
+              bodyEn: `A student enrolled in "${e.course.titleEn}" deleted their account. Remove their Google account from the Drive folder (see the enrolled students page).`,
+              bodyAr: `حذف طالب مسجل في "${e.course.titleAr}" حسابه. أزل حساب Google الخاص به من مجلد Drive (راجع صفحة الطلاب المسجلين).`,
             };
       const admins = await this.notifications.notifyAdmins({ type: `admin.drive_access_${reason}`, ...copy, link });
       for (const a of admins) {

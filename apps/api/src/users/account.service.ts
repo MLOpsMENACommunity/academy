@@ -10,6 +10,7 @@ import { verify } from '@node-rs/argon2';
 import type { Locale } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
+import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -32,14 +33,15 @@ export class AccountService {
   ) {}
 
   /**
-   * Re-authentication for sensitive changes. Users with a password re-enter it;
-   * Google-only users must have signed in with Google in the last few minutes,
-   * so a stolen session alone can't take over the account.
+   * Re-authentication for sensitive changes. Users with a password re-enter it.
+   * Google-only users must be on a session that itself signed in with Google in
+   * the last few minutes (checked on the session, not the account, so another
+   * device's fresh sign-in doesn't unlock an old or stolen session).
    */
-  private async checkPassword(userId: string, password: string | undefined): Promise<void> {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  private async checkPassword(session: AuthUser, password: string | undefined): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: session.id } });
     if (!user.passwordHash) {
-      const fresh = user.lastLoginAt && Date.now() - user.lastLoginAt.getTime() < REAUTH_WINDOW_MS;
+      const fresh = session.amr === 'google' && Date.now() - session.authTime.getTime() < REAUTH_WINDOW_MS;
       if (!fresh) {
         throw new ForbiddenException({ code: 'REAUTH_REQUIRED', message: 'Sign in with Google again to confirm it is you' });
       }
@@ -54,8 +56,9 @@ export class AccountService {
     await this.prisma.user.update({ where: { id: userId }, data: { locale } });
   }
 
-  async changePassword(userId: string, current: string | undefined, next: string): Promise<void> {
-    await this.checkPassword(userId, current);
+  async changePassword(session: AuthUser, current: string | undefined, next: string): Promise<void> {
+    await this.checkPassword(session, current);
+    const userId = session.id;
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash: await this.auth.hashPassword(next) },
@@ -71,8 +74,9 @@ export class AccountService {
   }
 
   /** Login-email change: takes effect only after the new address is verified. */
-  async requestEmailChange(userId: string, newEmail: string, password: string | undefined): Promise<void> {
-    await this.checkPassword(userId, password);
+  async requestEmailChange(session: AuthUser, newEmail: string, password: string | undefined): Promise<void> {
+    await this.checkPassword(session, password);
+    const userId = session.id;
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (newEmail === user.email) throw new BadRequestException({ code: 'SAME_EMAIL', message: 'This is already your email' });
     const taken = await this.prisma.user.findUnique({ where: { email: newEmail } });
@@ -147,8 +151,9 @@ export class AccountService {
   }
 
   /** Soft delete: sign-in is blocked now; personal data is anonymised after 30 days. */
-  async deleteAccount(userId: string, password: string | undefined): Promise<void> {
-    await this.checkPassword(userId, password);
+  async deleteAccount(session: AuthUser, password: string | undefined): Promise<void> {
+    await this.checkPassword(session, password);
+    const userId = session.id;
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { deletedAt: new Date() },
@@ -202,6 +207,7 @@ export class AccountService {
         data: { reason: null },
       }),
       this.prisma.adminNote.deleteMany({ where: { subjectUserId: userId } }),
+      this.prisma.enrollment.updateMany({ where: { userId }, data: { driveRevokeEmail: null } }),
       this.prisma.profile.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
       this.prisma.refreshToken.deleteMany({ where: { userId } }),
@@ -227,6 +233,8 @@ export class AccountService {
     const due = await this.prisma.user.findMany({
       where: { deletedAt: { lte: cutoff }, anonymizedAt: null },
       select: { id: true },
+      // Oldest first, so one account that keeps failing can't starve the rest forever.
+      orderBy: { deletedAt: 'asc' },
       take: 200,
     });
     for (const { id } of due) {

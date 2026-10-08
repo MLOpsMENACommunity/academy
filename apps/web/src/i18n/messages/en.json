@@ -119,7 +119,8 @@
       "rateLimited": "Too many attempts. Please wait a minute and try again.",
       "REAUTH_REQUIRED": "For your security, sign in with Google again, then retry.",
       "TOO_MANY_ATTEMPTS": "Too many failed attempts. Wait 15 minutes or reset your password.",
-      "CROSS_SITE": "This request was blocked for your security. Reload the page and try again."
+      "CROSS_SITE": "This request was blocked for your security. Reload the page and try again.",
+      "WRONG_ACCOUNT": "This link was sent to a different account. Sign out, then sign in to the account you're confirming."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”."

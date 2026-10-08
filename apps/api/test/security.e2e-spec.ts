@@ -19,10 +19,10 @@ describe('auth security (e2e)', () => {
     await app.close();
   });
 
-  async function sessionFor(userId: string): Promise<string> {
+  async function sessionFor(userId: string, amr: 'pwd' | 'google' = 'pwd', authTime = new Date()): Promise<string> {
     const tokens = app.get(TokensService);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    return `access_token=${await tokens.signAccess(user)}`;
+    return `access_token=${await tokens.signAccess(user, { amr, authTime })}`;
   }
 
   it('Google sign-in on a never-verified account evicts the pre-registered password and sessions', async () => {
@@ -36,6 +36,15 @@ describe('auth security (e2e)', () => {
 
     await http().post('/api/auth/login').send({ email: victim, password: attackerPassword }).expect(401);
     await http().post('/api/auth/refresh').set('Cookie', attackerCookies).expect(401);
+    // The attacker's still-unexpired access token is dead too (token version bumped).
+    await http().get('/api/auth/me').set('Cookie', attackerCookies).expect(401);
+    await http()
+      .post('/api/me/password')
+      .set('Cookie', attackerCookies)
+      .send({ newPassword: 'attacker-new-password' })
+      .expect(401);
+    const profile = await prisma.profile.findUniqueOrThrow({ where: { userId: (await prisma.user.findUniqueOrThrow({ where: { email: victim } })).id } });
+    expect(profile.googleEmail).toBe(victim);
     const user = await prisma.user.findUniqueOrThrow({ where: { email: victim } });
     expect(user.passwordHash).toBeNull();
     expect(user.emailVerifiedAt).not.toBeNull();
@@ -76,19 +85,45 @@ describe('auth security (e2e)', () => {
     await http().get('/api/health').set('Origin', 'https://evil.example').expect(200);
   });
 
-  it('requires a fresh Google sign-in before Google-only users change sensitive settings', async () => {
+  it('requires this session to have signed in with Google recently before Google-only users change sensitive settings', async () => {
     const { user } = await auth.loginWithGoogle(
       { sub: `g4-${Date.now()}`, email: uniqueEmail('gonly'), emailVerified: true, name: null },
       'en',
     );
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(Date.now() - 60 * 60 * 1000) } });
-    const cookie = await sessionFor(user.id);
-    const res = await http().post('/api/me/delete').set('Cookie', cookie).send({ confirm: 'DELETE' }).expect(403);
+    // An old Google session: the account's fresh lastLoginAt (from another device) must not help.
+    const old = await sessionFor(user.id, 'google', new Date(Date.now() - 60 * 60 * 1000));
+    const res = await http().post('/api/me/delete').set('Cookie', old).send({ confirm: 'DELETE' }).expect(403);
     expect(res.body.code).toBe('REAUTH_REQUIRED');
-    await http().post('/api/me/password').set('Cookie', cookie).send({ newPassword: 'brand-new-password' }).expect(403);
+    // A password-method session can't stand in for Google re-auth either.
+    const pwd = await sessionFor(user.id, 'pwd');
+    await http().post('/api/me/password').set('Cookie', pwd).send({ newPassword: 'brand-new-password' }).expect(403);
 
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    await http().post('/api/me/password').set('Cookie', cookie).send({ newPassword: 'brand-new-password' }).expect(200);
+    const fresh = await sessionFor(user.id, 'google', new Date());
+    await http().post('/api/me/password').set('Cookie', fresh).send({ newPassword: 'brand-new-password' }).expect(200);
+    // Changing the password ended every session, including this one.
+    await http().get('/api/auth/me').set('Cookie', fresh).expect(401);
+  });
+
+  it('refuses verification links opened in another account', async () => {
+    const owner = await http().post('/api/auth/register').send({ email: uniqueEmail('own'), password: 'owner-password-12' }).expect(201);
+    const ownerId = owner.body.id as string;
+    const token = 'v'.repeat(43);
+    const { sha256 } = await import('../src/common/crypto');
+    const ownerUser = await prisma.user.findUniqueOrThrow({ where: { id: ownerId } });
+    await prisma.emailVerificationToken.create({
+      data: { userId: ownerId, email: ownerUser.email, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60_000) },
+    });
+    const other = await http().post('/api/auth/register').send({ email: uniqueEmail('oth'), password: 'other-password-12' }).expect(201);
+    const otherCookie = cookieHeader(other.headers['set-cookie'] as unknown as string[]);
+    const res = await http().post('/api/auth/verify-email').set('Cookie', otherCookie).send({ token }).expect(403);
+    expect(res.body.code).toBe('WRONG_ACCOUNT');
+  });
+
+  it('rate limits signed-in users per account, not per shared IP', async () => {
+    const { AppThrottlerGuard } = await import('../src/common/throttler.guard');
+    const guard = Object.create(AppThrottlerGuard.prototype) as { getTracker: (r: unknown) => Promise<string> };
+    await expect(guard.getTracker({ ip: '1.2.3.4', user: { id: 'u1' } })).resolves.toBe('user:u1');
+    await expect(guard.getTracker({ ip: '1.2.3.4' })).resolves.toBe('ip:1.2.3.4');
   });
 
   it('locks an account after repeated failed logins', async () => {

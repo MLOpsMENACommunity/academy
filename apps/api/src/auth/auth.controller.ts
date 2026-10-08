@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
   forgotPasswordSchema,
   isLocaleValue,
@@ -30,7 +30,7 @@ import {
   setOAuthStateCookie,
 } from './cookies';
 import { GoogleService } from './google.service';
-import { TokensService } from './tokens.service';
+import { TokensService, type SessionInfo } from './tokens.service';
 import { z } from 'zod';
 
 const oauthStateSchema = z.object({ nonce: z.string(), returnTo: z.string(), locale: z.enum(['en', 'ar']) });
@@ -48,9 +48,10 @@ export class AuthController {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  private async startSession(res: Response, user: User, req: Request): Promise<void> {
-    const access = await this.tokens.signAccess(user);
-    const refresh = await this.tokens.issueRefresh(user.id, req.headers['user-agent']);
+  private async startSession(res: Response, user: User, req: Request, amr: SessionInfo['amr']): Promise<void> {
+    const session: SessionInfo = { amr, authTime: new Date() };
+    const access = await this.tokens.signAccess(user, session);
+    const refresh = await this.tokens.issueRefresh(user.id, req.headers['user-agent'], session);
     setAuthCookies(res, this.env, access, refresh);
   }
 
@@ -64,7 +65,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<MeResponse> {
     const user = await this.auth.register(body);
-    await this.startSession(res, user, req);
+    await this.startSession(res, user, req, 'pwd');
     return this.auth.me(user.id);
   }
 
@@ -78,7 +79,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<MeResponse> {
     const user = await this.auth.login(body);
-    await this.startSession(res, user, req);
+    await this.startSession(res, user, req, 'pwd');
     return this.auth.me(user.id);
   }
 
@@ -104,7 +105,7 @@ export class AuthController {
       res.status(401);
       return { ok: false, reason: result.reason };
     }
-    setAuthCookies(res, this.env, await this.tokens.signAccess(result.user), result.refreshToken);
+    setAuthCookies(res, this.env, await this.tokens.signAccess(result.user, result.session), result.refreshToken);
     return { ok: true };
   }
 
@@ -119,17 +120,23 @@ export class AuthController {
   }
 
   @Get('me')
+  @SkipThrottle()
   me(@CurrentUser() user: AuthUser): Promise<MeResponse> {
     return this.auth.me(user.id);
   }
 
-  @Public()
+  /**
+   * Requires being signed in to the same account: otherwise someone who
+   * pre-registered your address could get you to "verify" their account just by
+   * clicking the email we send you.
+   */
   @Post('verify-email')
   @HttpCode(200)
   async verifyEmail(
+    @CurrentUser() user: AuthUser,
     @Body(new ZodPipe(verifyEmailSchema)) body: { token: string },
   ): Promise<{ ok: true; returnTo: string | null }> {
-    const { returnTo } = await this.auth.verifyEmail(body.token);
+    const { returnTo } = await this.auth.verifyEmail(body.token, user.id);
     return { ok: true, returnTo };
   }
 
@@ -168,6 +175,7 @@ export class AuthController {
   // ------------------------------------------------------------------ Google
 
   @Public()
+  @SkipThrottle()
   @Get('google/enabled')
   googleEnabled(): { enabled: boolean } {
     return { enabled: this.google.enabled };
@@ -175,6 +183,7 @@ export class AuthController {
 
   /** Browser navigates here; we bounce to Google with a CSRF nonce bound to a cookie. */
   @Public()
+  @SkipThrottle()
   @Get('google')
   googleStart(
     @Query('returnTo') returnTo: string | undefined,
@@ -193,6 +202,7 @@ export class AuthController {
   }
 
   @Public()
+  @SkipThrottle()
   @Get('google/callback')
   async googleCallback(
     @Query('code') code: string | undefined,
@@ -215,7 +225,7 @@ export class AuthController {
     try {
       const identity = await this.google.exchange(code);
       const { user } = await this.auth.loginWithGoogle(identity, lang);
-      await this.startSession(res, user, req);
+      await this.startSession(res, user, req, 'google');
       res.redirect(`${this.env.WEB_URL}${safeReturnTo(state.returnTo, `/${lang}/dashboard`)}`);
     } catch (err) {
       const e = err as Error;

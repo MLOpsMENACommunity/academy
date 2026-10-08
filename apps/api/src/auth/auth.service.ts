@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { hash, verify } from '@node-rs/argon2';
 import type { User } from '@prisma/client';
 import { safeReturnTo, type Locale, type LoginInput, type MeResponse, type RegisterInput } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
+import { StorageService } from '../storage/storage.service';
 import { randomToken, sha256 } from '../common/crypto';
 import { EmailService } from '../email/email.service';
 import { courseSlugFromPath, FunnelService } from '../funnel/funnel.service';
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly email: EmailService,
     private readonly funnel: FunnelService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
   ) {}
 
   hashPassword(password: string): Promise<string> {
@@ -82,14 +84,23 @@ export class AuthService {
     if (byEmail) {
       if (byEmail.deletedAt) throw new UnauthorizedException('Account deleted');
       const wasVerified = Boolean(byEmail.emailVerifiedAt);
+      let staleCvKey: string | null = null;
       // Google has proven who owns this inbox. If the account was never verified,
       // whoever registered it may not be the owner (pre-registration takeover):
       // drop their password, sessions and outstanding links before linking.
       const user = await this.prisma.$transaction(async (tx) => {
         if (!wasVerified) {
-          await tx.refreshToken.updateMany({ where: { userId: byEmail.id, revokedAt: null }, data: { revokedAt: new Date() } });
+          // Ends the pre-registrant's sessions, including issued access tokens.
+          await this.tokens.revokeAllForUser(byEmail.id, tx);
           await tx.emailVerificationToken.deleteMany({ where: { userId: byEmail.id } });
           await tx.passwordResetToken.deleteMany({ where: { userId: byEmail.id } });
+          // Their profile (phone, Google address, CV) is not the owner's: start fresh.
+          const old = await tx.profile.findUnique({ where: { userId: byEmail.id }, select: { cvKey: true } });
+          if (old?.cvKey) staleCvKey = old.cvKey;
+          await tx.profile.deleteMany({ where: { userId: byEmail.id } });
+          await tx.profile.create({
+            data: { userId: byEmail.id, fullNameEn: g.name, googleEmail: g.email, preferredLanguage: locale },
+          });
         }
         return tx.user.update({
           where: { id: byEmail.id },
@@ -103,6 +114,7 @@ export class AuthService {
       });
       if (!wasVerified) {
         await this.audit.log({ actorId: user.id, action: 'auth.google_claimed_unverified_account', entityType: 'User', entityId: user.id });
+        if (staleCvKey) await this.storage.delete(staleCvKey).catch(() => undefined);
       }
       await this.prisma.profile.updateMany({
         where: { userId: user.id, googleEmail: null },
@@ -156,13 +168,16 @@ export class AuthService {
     await this.sendVerification(user, user.pendingEmail ?? user.email, null);
   }
 
-  async verifyEmail(token: string): Promise<{ returnTo: string | null; user: User }> {
+  async verifyEmail(token: string, sessionUserId: string): Promise<{ returnTo: string | null; user: User }> {
     const record = await this.prisma.emailVerificationToken.findUnique({
       where: { tokenHash: sha256(token) },
       include: { user: true },
     });
     if (!record || record.usedAt || record.expiresAt < new Date() || record.user.deletedAt) {
       throw new BadRequestException({ code: 'TOKEN_INVALID', message: 'This link is invalid or has expired' });
+    }
+    if (record.userId !== sessionUserId) {
+      throw new ForbiddenException({ code: 'WRONG_ACCOUNT', message: 'Sign in to the account this link was sent for' });
     }
     const { user } = record;
     let updated: User;
@@ -230,6 +245,8 @@ export class AuthService {
       this.prisma.passwordResetToken.updateMany({ where: { userId: record.userId, usedAt: null }, data: { usedAt: new Date() } }),
     ]);
     await this.tokens.revokeAllForUser(record.userId);
+    // The lockout message tells people to reset their password, so a reset unlocks.
+    this.loginLimiter.reset(record.user.email);
   }
 
   // ------------------------------------------------------------------ me

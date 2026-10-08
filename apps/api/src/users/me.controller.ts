@@ -94,7 +94,7 @@ export class MeController {
     @Body(new ZodPipe(changePasswordSchema)) body: z.infer<typeof changePasswordSchema>,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ ok: true }> {
-    await this.account.changePassword(user.id, body.currentPassword, body.newPassword);
+    await this.account.changePassword(user, body.currentPassword, body.newPassword);
     // All sessions were revoked; the user signs in again with the new password.
     clearAuthCookies(res, this.env);
     return { ok: true };
@@ -107,7 +107,7 @@ export class MeController {
     @CurrentUser() user: AuthUser,
     @Body(new ZodPipe(changeEmailSchema)) body: z.infer<typeof changeEmailSchema>,
   ): Promise<{ ok: true }> {
-    await this.account.requestEmailChange(user.id, body.newEmail, body.password);
+    await this.account.requestEmailChange(user, body.newEmail, body.password);
     return { ok: true };
   }
 
@@ -133,7 +133,7 @@ export class MeController {
     @Body(new ZodPipe(deleteAccountSchema)) body: z.infer<typeof deleteAccountSchema>,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ ok: true }> {
-    await this.account.deleteAccount(user.id, body.password);
+    await this.account.deleteAccount(user, body.password);
     clearAuthCookies(res, this.env);
     return { ok: true };
   }

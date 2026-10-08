@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AuthGuard } from './common/auth.guard';
+import { AppThrottlerGuard } from './common/throttler.guard';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from './config/config.module';
@@ -19,7 +21,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule,
     PrismaModule,
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     AuditModule,
     EmailModule,
     StorageModule,
@@ -30,7 +32,11 @@ import { UsersModule } from './users/users.module';
     JobsModule,
   ],
   controllers: [HealthController],
-  // Every route is rate limited (120/min per IP by default); auth and uploads set stricter limits.
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  // Order matters: AuthGuard first (sets req.user), then the throttler keys by user or IP.
+  // Default 300/min; auth, uploads and account changes set stricter limits.
+  providers: [
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
+  ],
 })
 export class AppModule {}

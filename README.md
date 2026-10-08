@@ -144,9 +144,11 @@ Nest 12, Prisma 7+ and TypeScript 7 is a deliberate, separate task.
   cookies. Refresh tokens are opaque, stored hashed, scoped to `/api/auth`, and
   rotated on every use. Replaying an old refresh token revokes the whole login
   family; these events are logged as "Refresh token reuse detected".
-- **Revocation lag.** Revocation (logout, password change, account deletion)
-  takes effect at the next refresh. An already-issued access token stays valid
-  for up to 15 minutes.
+- **Immediate revocation.** Access tokens carry the user's `tokenVersion`, and
+  the guard checks it, along with deletion and the current role, on every
+  authenticated request. Changing the password or email, deleting the account,
+  Google claiming an unverified account, and refresh-token theft all bump the
+  version, so every issued token stops working at once.
 - **CSRF.** The API parses JSON bodies only, and rejects writes whose `Origin`
   isn't `WEB_URL` (or `CORS_ORIGINS`) or whose `Sec-Fetch-Site` is
   `cross-site`.
@@ -155,10 +157,16 @@ Nest 12, Prisma 7+ and TypeScript 7 is a deliberate, separate task.
   password and sessions on it are removed first, so pre-registering someone
   else's email gives no access.
 - **Re-authentication.** Changing the email or password, or deleting the
-  account, requires the current password. Google-only accounts must instead
-  have signed in with Google within the last 10 minutes. The account's
+  account, requires the current password. Google-only accounts must use a
+  session that itself signed in with Google within the last 10 minutes; each
+  session's sign-in method and time are carried through refresh. The account's
   address is emailed after every password or email change.
-- **Rate limits.** 120 requests/min per IP globally. Stricter limits apply to
-  auth, uploads and account deletion, plus a per-account lockout after 10
-  failed logins in 15 minutes. The lockout lives in memory, so it assumes a
-  single API instance.
+- **Email verification** only works while signed in to the account the link
+  was sent for, so clicking a link for someone else's pre-registration of your
+  address does nothing.
+- **Rate limits.** 300 requests/min, counted per account when signed in and per
+  IP otherwise (students often share carrier NAT addresses). Session checks,
+  health and the Google redirects aren't limited. Stricter limits apply to
+  auth, uploads and account changes, plus a per-account lockout after 10
+  failed logins in 15 minutes, which a password reset clears. The lockout lives
+  in memory, so it assumes a single API instance.

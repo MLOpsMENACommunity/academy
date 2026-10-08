@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
-import { AuthGuard } from '../common/auth.guard';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { AuthController } from './auth.controller';
@@ -22,7 +20,7 @@ import { TokensService } from './tokens.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, TokensService, GoogleService, { provide: APP_GUARD, useClass: AuthGuard }],
+  providers: [AuthService, TokensService, GoogleService],
   exports: [AuthService, TokensService],
 })
 export class AuthModule {}
