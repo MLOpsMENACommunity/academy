@@ -107,8 +107,8 @@ describe('auth security (e2e)', () => {
   it('refuses verification links opened in another account', async () => {
     const owner = await http().post('/api/auth/register').send({ email: uniqueEmail('own'), password: 'owner-password-12' }).expect(201);
     const ownerId = owner.body.id as string;
-    const token = 'v'.repeat(43);
-    const { sha256 } = await import('../src/common/crypto');
+    const { randomToken, sha256 } = await import('../src/common/crypto');
+    const token = randomToken();
     const ownerUser = await prisma.user.findUniqueOrThrow({ where: { id: ownerId } });
     await prisma.emailVerificationToken.create({
       data: { userId: ownerId, email: ownerUser.email, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60_000) },
