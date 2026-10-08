@@ -8,6 +8,7 @@ import { ApplicationsModule } from './applications/applications.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
+import { CalendarModule } from './calendar/calendar.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { CoursesModule } from './courses/courses.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './users/users.module';
     SettingsModule,
     AuthModule,
     UsersModule,
+    CalendarModule,
     CoursesModule,
     ApplicationsModule,
     PaymentsModule,

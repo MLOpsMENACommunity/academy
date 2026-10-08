@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { RadioGroup, TextField } from '@/components/forms/fields';
+import { CalendarFeedPanel } from '@/components/profile/CalendarFeedPanel';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
@@ -172,6 +173,10 @@ export function AccountPanel({ user }: { user: MeResponse }) {
           </div>
         </form>
         {note('password')}
+      </Block>
+
+      <Block title={t('account.calendarTitle')}>
+        <CalendarFeedPanel />
       </Block>
 
       <Block title={t('account.exportTitle')}>

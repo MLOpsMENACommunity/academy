@@ -1,6 +1,6 @@
 'use client';
 
-import { googleCalendarUrl, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
+import { googleCalendarLink, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
 import { useState } from 'react';
 import { LocalTime } from '@/components/course/LocalTime';
 import { Badge } from '@/components/ui/Badge';
@@ -26,7 +26,7 @@ export function SessionCard({
   const title = locale === 'ar' ? s.titleAr : s.titleEn;
   const desc = locale === 'ar' ? s.descriptionAr : s.descriptionEn;
   const courseTitle = locale === 'ar' ? course.titleAr : course.titleEn;
-  const pageUrl = typeof window !== 'undefined' ? window.location.href.split('#')[0]! : '';
+  const pageUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
 
   async function toggle(next: boolean) {
     setCompleted(next);
@@ -65,20 +65,20 @@ export function SessionCard({
         ))}
 
       {s.phase === 'upcoming' && (
-        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 text-sm">
           <button
             type="button"
-            className="text-primary underline"
+            className="inline-flex min-h-11 items-center text-primary underline"
             onClick={() => downloadViaApi(`/learn/${course.slug}/sessions/${s.id}/calendar.ics`, `${course.slug}-${s.order}.ics`).catch(() => undefined)}
           >
             {t('learn.downloadIcs')}
           </button>
           <span aria-hidden>·</span>
           <a
-            href={googleCalendarUrl({ title: `${courseTitle}: ${title}`, startsAt: s.startsAt, durationMin: s.durationMin, details: pageUrl })}
+            href={googleCalendarLink({ title: `${courseTitle}: ${title}`, start: s.startsAt, end: new Date(new Date(s.startsAt).getTime() + s.durationMin * 60_000), details: pageUrl, location: pageUrl ? `${pageUrl}#session-${s.order}` : undefined })}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary underline"
+            className="inline-flex min-h-11 items-center text-primary underline"
           >
             {t('learn.googleCalendar')}
           </a>

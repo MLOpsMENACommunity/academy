@@ -20,3 +20,21 @@ export function googleCalendarLink(e: CalendarEntry): string {
   if (e.location) q.set('location', e.location);
   return `https://calendar.google.com/calendar/render?${q.toString()}`;
 }
+
+/**
+ * The `webcal://` form of an http(s) calendar feed. Apple Calendar and Outlook
+ * open it as a subscription (they keep polling it) rather than a one-off import.
+ */
+export function webcalUrl(feedUrl: string): string {
+  return feedUrl.replace(/^https?:\/\//i, 'webcal://');
+}
+
+/**
+ * Google Calendar "add calendar from URL" link for a subscription feed. Google
+ * shows a confirmation, then polls the feed (only https feeds work, and Google
+ * can take several hours, sometimes a day, to pick up changes). The feed goes
+ * in `cid` in its webcal:// form, percent-encoded.
+ */
+export function googleCalendarSubscribeLink(feedUrl: string): string {
+  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl(feedUrl))}`;
+}
