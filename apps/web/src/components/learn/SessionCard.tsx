@@ -3,11 +3,12 @@
 import { googleCalendarUrl, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
 import { useState } from 'react';
 import { LocalTime } from '@/components/course/LocalTime';
-import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
+import { downloadViaApi } from '@/lib/download';
+import { DriveNote } from './DriveNote';
 import { FeedbackForm } from './FeedbackForm';
 import { YouTubeFacade } from './YouTubeFacade';
 
@@ -65,9 +66,13 @@ export function SessionCard({
 
       {s.phase === 'upcoming' && (
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
-          <a href={`/api/learn/${course.slug}/sessions/${s.id}/calendar.ics`} className="text-primary underline" download>
+          <button
+            type="button"
+            className="text-primary underline"
+            onClick={() => downloadViaApi(`/learn/${course.slug}/sessions/${s.id}/calendar.ics`, `${course.slug}-${s.order}.ics`).catch(() => undefined)}
+          >
             {t('learn.downloadIcs')}
-          </a>
+          </button>
           <span aria-hidden>·</span>
           <a
             href={googleCalendarUrl({ title: `${courseTitle}: ${title}`, startsAt: s.startsAt, durationMin: s.durationMin, details: pageUrl })}
@@ -97,7 +102,7 @@ export function SessionCard({
               <a href={s.recording.url} target="_blank" rel="noopener noreferrer" className={buttonClass('primary', 'md')}>
                 {t('learn.openDrive')}
               </a>
-              <Alert tone="info">{course.googleEmail ? t('learn.driveNote', { email: course.googleEmail }) : t('learn.driveNoEmail')}</Alert>
+              <DriveNote course={course} />
             </div>
           ) : (
             <a href={s.recording.url} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary', 'md', 'mt-2')}>

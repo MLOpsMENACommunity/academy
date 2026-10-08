@@ -519,6 +519,8 @@
     "playlist": "YouTube playlist",
     "folder": "Course folder (Google Drive)",
     "nextTitle": "Next sessions",
-    "nextNone": "No upcoming sessions."
+    "nextNone": "No upcoming sessions.",
+    "driveSetup": "We're giving your Google account ({email}) access to the recordings. This is done by hand and can take up to a day after enrolment.",
+    "addGoogleEmail": "Add it in your profile"
   }
 }

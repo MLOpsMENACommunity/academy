@@ -79,6 +79,8 @@ export interface LearnCourseDto {
   /** Paid Drive courses: the folder shared with the student's Google account. */
   driveFolderUrl: string | null;
   googleEmail: string | null;
+  /** v1 sharing is manual: false until an admin ticks "Drive access granted". */
+  driveAccessGranted: boolean;
   liveLinkRevealMinutes: number;
   emailReminders: boolean;
   progress: { completed: number; total: number; percent: number };
