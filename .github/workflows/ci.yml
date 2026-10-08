@@ -4,12 +4,21 @@ on:
   pull_request:
   push:
     branches: [main]
+  # release-staging.yml runs CI on a tag whose commit has no passing CI run yet.
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to test (defaults to the triggering commit)
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # github.workflow is the caller's name when called, so a release never cancels main's CI.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,6 +39,8 @@ jobs:
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -71,6 +82,8 @@ jobs:
       actions: write # gha build cache
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
       - uses: docker/setup-buildx-action@v3
       - name: Build API image
         uses: docker/build-push-action@v6

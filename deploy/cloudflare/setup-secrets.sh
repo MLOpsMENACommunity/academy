@@ -1,8 +1,12 @@
 #!/bin/sh
-# One-time setup: reads ~/.config/mlops-academy/deploy.env, generates the secrets
-# you don't need to choose (JWT, jobs token, admin password), and uploads everything
-# to this repo's GitHub Actions secrets (staging environment). Nothing is printed
-# except the admin login, which you need to sign in.
+# PRODUCTION secrets: reads ~/.config/mlops-academy/deploy.env, generates the secrets you
+# don't need to choose (JWT, jobs token, admin password) if missing, and uploads every
+# value that is filled in to the GitHub "production" environment, plus the subset the
+# nightly backup needs to "production-backup". Values left empty or as "..." are skipped,
+# so they never overwrite a real secret. No secret value is printed.
+# Staging has its own script and file: setup-staging.sh, ~/.config/mlops-academy/staging.env.
+#
+#   deploy/cloudflare/setup-secrets.sh [file]
 set -eu
 FILE="${1:-$HOME/.config/mlops-academy/deploy.env}"
 REPO="MLOpsMENACommunity/academy"
@@ -15,17 +19,25 @@ add_if_missing JWT_ACCESS_SECRET "$(gen 64)"
 add_if_missing JOBS_TOKEN "$(gen 48)"
 add_if_missing SEED_ADMIN_EMAIL "admin@mlopsmena.com"
 add_if_missing SEED_ADMIN_PASSWORD "$(gen 20)"
-add_if_missing SEED_PLACEHOLDER_STATUS "OPEN"
 
 # R2's S3 endpoint is derived from the account id.
 ACCOUNT_ID=$(grep '^CLOUDFLARE_ACCOUNT_ID=' "$FILE" | cut -d= -f2-)
-add_if_missing S3_ENDPOINT "https://$ACCOUNT_ID.r2.cloudflarestorage.com"
+case "$ACCOUNT_ID" in ''|'...') ;; *) add_if_missing S3_ENDPOINT "https://$ACCOUNT_ID.r2.cloudflarestorage.com" ;; esac
 
-gh api -X PUT "repos/$REPO/environments/staging" >/dev/null
-# ACADEMY_HOSTNAME is configured in wrangler.jsonc, not as a secret.
-grep -v '^ACADEMY_HOSTNAME=' "$FILE" | grep -E '^[A-Z_]+=.+' > "$FILE.upload"
-gh secret set -R "$REPO" --env staging -f "$FILE.upload"
-rm -f "$FILE.upload"
+for env in production production-backup; do
+  gh api "repos/$REPO/environments/$env" >/dev/null 2>&1 \
+    || { echo "The GitHub environment '$env' doesn't exist yet (see DEPLOY.md, 'Environments')"; exit 1; }
+done
 
-echo "Secrets uploaded to the 'staging' environment of $REPO."
-echo "Admin login: $(grep '^SEED_ADMIN_EMAIL=' "$FILE" | cut -d= -f2-) / $(grep '^SEED_ADMIN_PASSWORD=' "$FILE" | cut -d= -f2-)"
+umask 077
+UPLOAD=$(mktemp)
+trap 'rm -f "$UPLOAD" "$UPLOAD.b"' EXIT
+# Hostnames are GitHub variables, not secrets. Skip blanks and "..." placeholders.
+grep -E '^[A-Z_]+=.+' "$FILE" | grep -v '^ACADEMY_HOSTNAME=' | grep -vE '^[A-Z_]+=\.\.\.$' > "$UPLOAD" || true
+gh secret set -R "$REPO" --env production -f "$UPLOAD"
+grep -E '^(DIRECT_DATABASE_URL|S3_ENDPOINT|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY|BACKUP_PASSPHRASE)=' "$UPLOAD" > "$UPLOAD.b" || true
+if [ -s "$UPLOAD.b" ]; then gh secret set -R "$REPO" --env production-backup -f "$UPLOAD.b"; fi
+
+echo "Uploaded to 'production' (and the backup subset to 'production-backup'): $(cut -d= -f1 "$UPLOAD" | tr '\n' ' ')"
+echo "Skipped (empty or '...'): $(grep -E '^[A-Z_]+=(\.\.\.)?$' "$FILE" | cut -d= -f1 | tr '\n' ' ')"
+echo "The admin login (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) is in $FILE."

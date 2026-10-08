@@ -32,6 +32,13 @@ const envSchema = z.object({
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().int().default(1025),
   RESEND_API_KEY: z.string().optional(),
+  /**
+   * Non-production safety net (set on staging only). Mail to anyone not on EMAIL_ALLOWLIST
+   * (comma-separated addresses or "@domain" entries) goes to EMAIL_REDIRECT_TO instead, with
+   * the original recipient in the subject; with no EMAIL_REDIRECT_TO it is dropped.
+   */
+  EMAIL_ALLOWLIST: z.string().default(''),
+  EMAIL_REDIRECT_TO: z.string().email().optional(),
 
   S3_ENDPOINT: z.string().url().optional(),
   /** Host used in signed URLs when the API reaches storage on an internal hostname (Docker). */

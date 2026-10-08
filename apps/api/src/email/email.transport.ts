@@ -73,6 +73,60 @@ export class ResendTransport extends EmailTransport {
   }
 }
 
+export interface EmailGuardOptions {
+  /** Comma-separated addresses or "@domain" entries that receive their own mail. */
+  allowlist: string;
+  /** Where everyone else's mail goes; without it, their mail is dropped. */
+  redirectTo?: string;
+}
+
+/**
+ * Wraps the real transport outside production (staging) so it never emails arbitrary
+ * people: allowlisted recipients get their mail, everyone else's is redirected to one
+ * address with the original recipient in the subject, or dropped if there is no redirect.
+ */
+export class GuardedTransport extends EmailTransport {
+  private readonly logger = new Logger('Email');
+  private readonly addresses = new Set<string>();
+  private readonly domains = new Set<string>();
+  private readonly redirectTo?: string;
+
+  constructor(
+    private readonly inner: EmailTransport,
+    opts: EmailGuardOptions,
+  ) {
+    super();
+    for (const raw of opts.allowlist.split(',')) {
+      const entry = raw.trim().toLowerCase();
+      if (!entry) continue;
+      if (entry.startsWith('@')) this.domains.add(entry.slice(1));
+      else this.addresses.add(entry);
+    }
+    this.redirectTo = opts.redirectTo?.trim() || undefined;
+    if (this.redirectTo) this.addresses.add(this.redirectTo.toLowerCase());
+  }
+
+  /** True when either option is set, i.e. the guard should be installed. */
+  static enabled(opts: EmailGuardOptions): boolean {
+    return Boolean(opts.allowlist.trim() || opts.redirectTo?.trim());
+  }
+
+  allows(to: string): boolean {
+    const address = to.trim().toLowerCase();
+    return this.addresses.has(address) || this.domains.has(address.slice(address.lastIndexOf('@') + 1));
+  }
+
+  async send(m: EmailMessage): Promise<void> {
+    if (this.allows(m.to)) return this.inner.send(m);
+    if (!this.redirectTo) {
+      // Never log the address itself.
+      this.logger.warn(`[email guard] dropped "${m.subject}": recipient not on EMAIL_ALLOWLIST`);
+      return;
+    }
+    await this.inner.send({ ...m, to: this.redirectTo, subject: `[to ${m.to}] ${m.subject}` });
+  }
+}
+
 /** Development fallback: logs the subject only (never addresses or bodies). */
 export class LogTransport extends EmailTransport {
   private readonly logger = new Logger('Email');

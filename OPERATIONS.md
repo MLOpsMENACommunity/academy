@@ -13,17 +13,18 @@ Two layers:
 | **Neon point-in-time restore** | Any moment inside the plan's history window (short on the free plan, days on paid plans; check Neon console → Settings) | Neon console → Branches → Restore |
 | **Daily encrypted dumps** | Daily snapshots for `BACKUP_RETENTION_DAYS` (default 30), and survives losing the Neon project | R2, prefix `backups/` (bucket `BACKUP_BUCKET`, default `academy-private`) |
 
-The dumps come from `.github/workflows/backup.yml`, which runs daily at 01:30 UTC (it can also be run by hand from the Actions tab). It:
+The dumps come from `.github/workflows/backup.yml`, which runs daily at 01:30 UTC (it can also be run by hand from the Actions tab). It backs up **production** only, from the `production-backup` GitHub environment, and:
 1. runs `pg_dump --format=custom` over `DIRECT_DATABASE_URL`;
 2. checks that `pg_restore --list` can read the dump, so a broken backup fails the run instead of failing on restore day;
 3. encrypts it with AES-256 (`gpg --symmetric`) using `BACKUP_PASSPHRASE`;
 4. uploads it to R2 and deletes dumps older than the retention window.
 
-**One-time setup** (GitHub → Settings → Environments → `staging`):
+**One-time setup** (GitHub → Settings → Environments → `production-backup`; `deploy/cloudflare/setup-secrets.sh` fills it from `deploy.env`):
 - Secret `BACKUP_PASSPHRASE`: generate it with `openssl rand -base64 32`, and keep a copy in your password manager. **Without it the dumps can't be decrypted.**
 - Secret `DIRECT_DATABASE_URL`: Neon's **unpooled** connection string (Connect → connection pooling off; the host has no `-pooler`). The deploy uses it too, for migrations.
 - Recommended: a separate R2 bucket (for example `academy-backups`) with its own R2 API token scoped to it. Add the variable `BACKUP_BUCKET` and the secrets `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY`. Then a leaked app credential can't read or delete backups. Without these, the app's bucket and token are used.
-- If the `staging` environment requires reviewers, scheduled backup runs wait for approval. Keep it limited to the `main` branch, without required reviewers.
+- `production-backup` is a separate environment so the schedule never waits for a release approval: it holds only the secrets above, is limited to the `main` branch, and has no required reviewers. Keep it that way.
+- Staging's database isn't backed up: it holds test data only.
 
 **Privacy:** dumps contain whatever was in the database that day, so data from a deleted account can survive in them for up to `BACKUP_RETENTION_DAYS` after anonymisation. The privacy policy says so ("How long we keep it").
 
@@ -50,7 +51,7 @@ docker run --rm -v "$PWD:/in" postgres:17-alpine \
 psql "<TARGET_DIRECT_URL>" -c 'SELECT count(*) FROM "User";' -c 'SELECT max("createdAt") FROM "Application";'
 ```
 
-Then point the app at the restored database: update `DATABASE_URL` and `DIRECT_DATABASE_URL` in the GitHub environment and run **Deploy to Cloudflare**. Migrations that are already applied are skipped.
+Then point the app at the restored database: update `DATABASE_URL` and `DIRECT_DATABASE_URL` in the `production` environment (and `DIRECT_DATABASE_URL` in `production-backup`), and run **Release to production** again with the current tag (see DEPLOY.md, "Releasing"). Migrations that are already applied are skipped.
 
 **Restore drill:** once a quarter, restore the latest dump into a scratch Neon branch and run the sanity checks. Delete the branch afterwards.
 
@@ -89,14 +90,14 @@ The API writes one JSON line per request:
 - **No personal data.** The route **pattern** is logged, never the URL (query strings can hold emails or tokens). No IPs, user ids or bodies are logged.
 - Every response carries `X-Request-Id`. When a user reports an error, ask for the time and match it in the logs.
 - 5xx responses log at `error`, other 4xx (except 401 and 404) at `warn`. Health checks aren't logged.
-- To watch live: `pnpm --filter @academy/deploy-cloudflare exec wrangler tail`. Or use Cloudflare dashboard → Workers & Pages → mlops-academy → **Logs** (observability is on).
+- To watch live: `pnpm --filter @academy/deploy-cloudflare exec wrangler tail --env=""` (staging: `--env staging`). Or use Cloudflare dashboard → Workers & Pages → `mlops-academy` (staging: `mlops-academy-staging`) → **Logs** (observability is on).
 - `LOG_JSON=false` switches to readable text, which is the default outside production.
 
 ## Error tracking (Sentry, optional)
 
 Off unless `SENTRY_DSN` is set. To turn it on:
 1. Create a free Sentry project (platform: Node.js / NestJS) and copy its DSN.
-2. Add `SENTRY_DSN` to the GitHub `staging` environment, then redeploy. Events are tagged with `SENTRY_ENVIRONMENT` (`staging` in `wrangler.jsonc`; change it to `production` when you go live).
+2. Add `SENTRY_DSN` to the GitHub `production` environment (and `staging`, if you want staging errors too), then release a tag. Events are tagged with `SENTRY_ENVIRONMENT`: `production` or `staging`.
 
 Only unexpected errors are reported (not 4xx). User info, cookies, headers, bodies, query strings and console breadcrumbs are all stripped before anything leaves the server, and email addresses and phone numbers in error text are masked (`apps/api/src/instrument.ts`). Prisma errors use the minimal format, so query arguments aren't in them either. Performance tracing is off. An unhandled promise rejection still crashes the process (Sentry `strict` mode), so the container restarts.
 
@@ -159,12 +160,14 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 | `BACKUP_PASSPHRASE` | Only new dumps use it | **Keep the old passphrase** until every dump encrypted with it has aged out |
 | Admin password | — | Sign in → Profile → Account → change password |
 
+"Redeploy" means: change the secret in the `production` environment (Settings → Environments), then run **Release to production** again with the current tag. Staging has its own `JWT_ACCESS_SECRET`, `JOBS_TOKEN`, database and R2 keys; rotate those in the `staging` environment and re-run **Release to staging**.
+
 To sign a compromised account out everywhere, have that user change their password: it revokes all of their sessions.
 
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included), then `wrangler tail` and `wrangler containers list`.
-2. **Bad deploy?** Workers & Pages → mlops-academy → Deployments → roll back. Database migrations are additive and stay in place. One exception: versions from before the "Coming soon" course status (PR #13) don't know that value. Before rolling back past it, run this on Neon (SQL editor):
+2. **Bad deploy?** Run **Release to production** with the previous tag (DEPLOY.md, "Roll back"); in a hurry, Workers & Pages → `mlops-academy` → Deployments → roll back first. Database migrations are forward-only and stay in place, which is why schema changes are released as expand, then contract. One exception: versions from before the "Coming soon" course status (PR #13) don't know that value. Before rolling back past it, run this on Neon (SQL editor):
    ```sql
    UPDATE "Course" SET status = 'DRAFT' WHERE status = 'COMING_SOON';
    ```

@@ -19,7 +19,9 @@ concurrency:
 jobs:
   backup:
     runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
-    environment: staging
+    # production-backup: production database + R2 only, limited to main, no reviewers, so the
+    # nightly schedule never waits for an approval (release-production uses "production").
+    environment: production-backup
     timeout-minutes: 30
     env:
       # Recommended: a separate bucket and R2 token for backups (BACKUP_BUCKET var,

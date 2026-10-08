@@ -1,0 +1,102 @@
+name: Release to production
+
+# Step 2 of a release: promote a tag that is already tested on staging.
+#   Actions → Release to production → Run workflow
+#     Use workflow from: Tags → v2026.10.08-1   (the production environment only accepts v* tags)
+#     tag: v2026.10.08-1
+# or: gh workflow run release-production.yml --ref v2026.10.08-1 -f tag=v2026.10.08-1
+#
+# Refuses unless the tag's commit has a successful "Release to staging" run. Deploys the
+# exact same commit to production, then creates a GitHub Release for the tag.
+# Roll back by running this again with the previous tag (see DEPLOY.md, "Roll back").
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to promote, e.g. v2026.10.08-1 (pick the same tag under "Use workflow from")
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify the tag was released to staging
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
+    permissions:
+      contents: read
+      deployments: read
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      - name: Verify
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          RUN_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9A-Za-z._+-]+$ ]] || { echo "::error::'$TAG' is not a v* release tag"; exit 1; }
+          sha=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha) \
+            || { echo "::error::Tag $TAG does not exist"; exit 1; }
+          if [ "$RUN_REF" != "refs/tags/$TAG" ]; then
+            echo "::error::Run this workflow from the tag itself: Use workflow from → Tags → $TAG (it was run from $RUN_REF). The production environment only accepts v* tags."
+            exit 1
+          fi
+          # Any successful staging release of this exact commit (older ones are marked
+          # inactive by newer releases, so look at every status, not just the latest).
+          ok=false
+          for id in $(gh api "repos/$REPO/deployments?environment=staging&task=release:staging&sha=$sha&per_page=100" --jq '.[].id'); do
+            if gh api "repos/$REPO/deployments/$id/statuses?per_page=100" --jq '[.[].state] | index("success") != null' | grep -q true; then
+              ok=true; break
+            fi
+          done
+          if [ "$ok" != true ]; then
+            echo "::error::$TAG ($sha) has no successful staging release. Push the tag (or run Release to staging with it), test it on staging, then promote it."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "$TAG ($sha) was released to staging: promoting it to production"
+
+  deploy:
+    name: Deploy
+    needs: verify
+    uses: ./.github/workflows/deploy-cloudflare.yml
+    with:
+      environment: production
+      ref: ${{ inputs.tag }}
+      sha: ${{ needs.verify.outputs.sha }}
+
+  release:
+    name: GitHub Release
+    needs: [verify, deploy]
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      URL: ${{ needs.deploy.outputs.url }}
+      SHA: ${{ needs.verify.outputs.sha }}
+    steps:
+      - name: Create the release (skipped when re-promoting, e.g. a rollback)
+        run: |
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Release $TAG already exists (re-promotion or rollback): leaving it as is"
+          else
+            gh release create "$TAG" --repo "$REPO" --verify-tag --generate-notes --title "$TAG"
+          fi
+          {
+            echo "## $TAG is live"
+            echo
+            echo "- URL: $URL"
+            echo "- Commit: \`$SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
