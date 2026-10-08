@@ -771,7 +771,7 @@ model ReminderPreference {
   @@id([userId, courseId])
 }
 
-/// Private calendar subscription link (webcal) for a student's course sessions.
+/// Private calendar subscription link (webcal) for a student's course and live sessions.
 /// The token is HMAC(server key, userId:version): it can be shown again without
 /// being stored, and bumping `version` resets the link. Only its SHA-256 is
 /// stored, to look the feed up from an incoming request.

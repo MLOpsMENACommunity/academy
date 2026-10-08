@@ -99,6 +99,43 @@ describe('calendar feed (e2e)', () => {
     expect((await prisma.calendarFeed.findUniqueOrThrow({ where: { userId: student.id } })).lastFetchedAt).not.toBeNull();
   });
 
+  it('includes registered live sessions (cancelled ones marked), never their join links', async () => {
+    const student = await createUser(app, prisma);
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const event = (slug: string, status: 'PUBLISHED' | 'CANCELLED' | 'DRAFT', liveUrl: string) =>
+      prisma.liveEvent.create({ data: { slug: `${slug}-${stamp}`, status, titleEn: `Live ${slug}`, titleAr: `مباشر ${slug}`, startsAt: new Date(Date.now() + 5 * DAY), liveUrl } });
+    const [mine, cancelled, notMine, draft] = await Promise.all([
+      event('mine', 'PUBLISHED', 'https://meet.google.com/live-mine-secret'),
+      event('called-off', 'CANCELLED', 'https://meet.google.com/live-cancelled-secret'),
+      event('other', 'PUBLISHED', 'https://meet.google.com/live-other-secret'),
+      event('draft', 'DRAFT', 'https://meet.google.com/live-draft-secret'),
+    ]);
+    await prisma.eventRegistration.createMany({
+      data: [mine, cancelled, draft].map((e) => ({ eventId: e.id, userId: student.id })),
+    });
+
+    const { url } = (await http().post('/api/me/calendar-feed').set('Cookie', student.cookie).expect(200)).body as { url: string };
+    const ics = (await http().get(pathOf(url)).expect(200)).text.replace(/\r\n /g, '');
+    // Same UID scheme as the per-session .ics download, so calendars match them up.
+    expect(ics).toContain(`UID:event-${mine.id}@academy.mlopsmena.com`);
+    expect(ics).toContain(`URL:http://localhost:3000/en/sessions/${mine.slug}`);
+    const block = (id: string) => ics.slice(ics.indexOf(`UID:event-${id}@`), ics.indexOf('END:VEVENT', ics.indexOf(`UID:event-${id}@`)));
+    expect(block(cancelled.id)).toContain('STATUS:CANCELLED');
+    expect(block(mine.id)).not.toContain('STATUS:CANCELLED');
+    expect(ics).not.toContain(notMine.id);
+    expect(ics).not.toContain(draft.id);
+    expect(ics).not.toContain('meet.google.com');
+    expect(ics).not.toContain('secret');
+
+    // A reschedule bumps SEQUENCE.
+    const seq = (s: string, id: string) => Number(/SEQUENCE:(\d+)/.exec(s.slice(s.indexOf(`UID:event-${id}@`)))![1]);
+    const before = seq(ics, mine.id);
+    await new Promise((r) => setTimeout(r, 1100));
+    await prisma.liveEvent.update({ where: { id: mine.id }, data: { startsAt: new Date(Date.now() + 6 * DAY) } });
+    const after = (await http().get(pathOf(url)).expect(200)).text.replace(/\r\n /g, '');
+    expect(seq(after, mine.id)).toBeGreaterThan(before);
+  });
+
   it('returns 404 for unknown or malformed tokens', async () => {
     await http().get(`/api/calendar/${'A'.repeat(43)}.ics`).expect(404);
     await http().get('/api/calendar/short.ics').expect(404);

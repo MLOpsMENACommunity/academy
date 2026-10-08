@@ -5,6 +5,7 @@ import { sha256 } from '../common/crypto';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { buildIcs, type IcsEvent } from '../learn/ics';
+import { liveEventIcsEvent } from '../events/event-calendar';
 import { courseSessionEvent } from '../learn/session-event';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -120,18 +121,21 @@ export class CalendarFeedService {
     const owner: FeedOwner = { id: feed.user.id, locale: feed.user.locale };
     const description =
       owner.locale === 'ar'
-        ? 'جلسات دوراتك في أكاديمية MLOps MENA. هذا الرابط خاص بك، فلا تشاركه.'
-        : 'Your MLOps MENA Academy course sessions. This link is private to you; please do not share it.';
+        ? 'جلسات دوراتك والجلسات المباشرة في أكاديمية MLOps MENA. هذا الرابط خاص بك، فلا تشاركه.'
+        : 'Your MLOps MENA Academy course sessions and live sessions. This link is private to you; please do not share it.';
     return buildIcs(FEED_NAME, await this.collectEvents(owner), now, { refreshInterval: REFRESH_INTERVAL, description });
   }
 
   /**
-   * Every event in a student's feed. This is the extension point: each source
-   * returns its own events (with UIDs that can't collide, e.g. `event-<id>` for
-   * live-session registrations) and they are merged here.
+   * Every event in a student's feed. Each source returns its own events, with
+   * UIDs that can't collide (course sessions use the session id, live sessions
+   * `event-<id>`), and they are merged here. Add new kinds of events as sources.
    */
   async collectEvents(owner: FeedOwner): Promise<IcsEvent[]> {
-    const sources: Array<(o: FeedOwner) => Promise<IcsEvent[]>> = [(o) => this.courseSessionEvents(o)];
+    const sources: Array<(o: FeedOwner) => Promise<IcsEvent[]>> = [
+      (o) => this.courseSessionEvents(o),
+      (o) => this.liveSessionEvents(o),
+    ];
     const events = (await Promise.all(sources.map((source) => source(owner)))).flat();
     return events.sort((a, b) => a.start.getTime() - b.start.getTime());
   }
@@ -158,5 +162,23 @@ export class CalendarFeedService {
       orderBy: { startsAt: 'asc' },
     });
     return sessions.map((s) => courseSessionEvent(s, s.course, owner.locale, this.env.WEB_URL));
+  }
+
+  /**
+   * Live sessions the student registered for. Published ones appear as normal;
+   * cancelled ones stay with STATUS:CANCELLED so calendars show them called off.
+   * Unregistering, or an admin deleting a draft, drops the event from the feed.
+   */
+  private async liveSessionEvents(owner: FeedOwner): Promise<IcsEvent[]> {
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: { userId: owner.id, event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } },
+      // An explicit select keeps liveUrl out by construction.
+      select: {
+        event: {
+          select: { id: true, slug: true, status: true, titleEn: true, titleAr: true, startsAt: true, durationMin: true, updatedAt: true },
+        },
+      },
+    });
+    return registrations.map((r) => liveEventIcsEvent(r.event, owner.locale, this.env.WEB_URL));
   }
 }

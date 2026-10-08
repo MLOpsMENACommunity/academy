@@ -4,6 +4,7 @@ import { PROFILE_REVIEW_DAYS, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { MyCourses } from '@/components/applications/MyCourses';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { NextSessions } from '@/components/learn/NextSessions';
 import { MySessionsList } from '@/components/sessions/MySessions';
 import { Alert } from '@/components/ui/Alert';
@@ -84,6 +85,9 @@ function Home({ user }: { user: MeResponse }) {
         <h2 id="my-sessions" className="text-xl">
           {t('dashboard.mySessions')}
         </h2>
+        <div className="mt-1">
+          <CalendarMenu align="start" />
+        </div>
         <div className="mt-4">
           <MySessionsList />
         </div>

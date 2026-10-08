@@ -91,7 +91,7 @@ The API writes one JSON line per request:
 - 5xx responses log at `error`, other 4xx (except 401 and 404) at `warn`. Health checks aren't logged.
 - To watch live: `pnpm --filter @academy/deploy-cloudflare exec wrangler tail`. Or use Cloudflare dashboard → Workers & Pages → mlops-academy → **Logs** (observability is on).
 - `LOG_JSON=false` switches to readable text, which is the default outside production.
-- **Cloudflare request logs contain private calendar feed URLs.** Workers Logs (observability) record the full URL of every request, including `/api/calendar/<token>.ics` each time a calendar app polls. They are kept for 7 days and readable only by members of the Cloudflare account; keep that membership small. A leaked feed URL shows that student's session titles and times (never join links). The student revokes it with **Profile → Account → Calendar → Reset link** (the old URL returns 404 at once); rotating `JWT_ACCESS_SECRET` revokes every link (see below).
+- **Cloudflare request logs contain private calendar feed URLs.** Workers Logs (observability) record the full URL of every request, including `/api/calendar/<token>.ics` each time a calendar app polls. They are kept for 7 days and readable only by members of the Cloudflare account; keep that membership small. A leaked feed URL shows that student's course and live session titles and times (never join links). The student revokes it with **Profile → Account → Calendar → Reset link** (the old URL returns 404 at once); rotating `JWT_ACCESS_SECRET` revokes every link (see below).
 
 ## Error tracking (Sentry, optional)
 
@@ -140,7 +140,7 @@ If you ever add a tool that sets non-essential cookies (marketing pixels, chat w
 
 ## Calendar feeds (cost)
 
-Students can subscribe to a private feed of their course sessions. The feed asks clients to poll every 6 hours (`REFRESH-INTERVAL`/`X-PUBLISHED-TTL` `PT6H`). Apple and Outlook follow that; Google polls on its own schedule (often every 12–24 hours). Each poll wakes the API container and the database, so many subscribers mean the containers sleep less often. A shorter interval would keep them awake around the clock. Last-minute session changes reach students through the reminder emails, not the feed.
+Students can subscribe to a private feed of their course sessions and the live sessions they registered for. The feed asks clients to poll every 6 hours (`REFRESH-INTERVAL`/`X-PUBLISHED-TTL` `PT6H`). Apple and Outlook follow that; Google polls on its own schedule (often every 12–24 hours). Each poll wakes the API container and the database, so many subscribers mean the containers sleep less often. A shorter interval would keep them awake around the clock. Last-minute session changes reach students through the reminder emails, not the feed.
 
 ## Rate limits
 

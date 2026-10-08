@@ -2,6 +2,7 @@
 
 import { googleCalendarSubscribeLink, webcalUrl, type CalendarFeedDto } from '@academy/shared';
 import { useCallback, useEffect, useId, useRef, useState, type FocusEvent } from 'react';
+import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
@@ -85,13 +86,10 @@ export function FeedLinkField({ url }: { url: string }) {
           dir="ltr"
           value={url}
           onFocus={(e) => e.currentTarget.setSelectionRange(0, url.length)}
-          className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-muted-bg px-3 font-mono text-xs text-fg"
+          // 16px on phones keeps iOS from zooming on focus (same convention as other inputs).
+          className="block min-h-11 w-full min-w-0 flex-1 rounded-xl border border-line-strong bg-muted-bg px-3 font-mono text-base text-fg focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none md:text-sm"
         />
-        <button
-          type="button"
-          onClick={onCopy}
-          className="min-h-11 shrink-0 rounded-lg border border-line-strong bg-card px-3 text-sm font-semibold text-fg hover:bg-muted-bg"
-        >
+        <button type="button" onClick={onCopy} className={buttonClass('secondary', 'md', 'shrink-0')}>
           {t('learn.calendar.copy')}
         </button>
       </div>
@@ -105,10 +103,11 @@ export function FeedLinkField({ url }: { url: string }) {
 
 /**
  * "Add all sessions to your calendar": subscribe in Google, Apple or Outlook
- * Calendar through the student's private feed (all their courses, kept up to
- * date), or download a one-off .ics for this course.
+ * Calendar through the student's private feed (all their course sessions and
+ * live sessions, kept up to date). On a course page (`slug` set) it also offers
+ * a one-off .ics download of that course.
  */
-export function CalendarMenu({ slug }: { slug: string }) {
+export function CalendarMenu({ slug, align = 'end' }: { slug?: string; /** Where the panel lines up from `sm` up (always the start on phones). */ align?: 'start' | 'end' }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [showLink, setShowLink] = useState(false);
@@ -179,7 +178,7 @@ export function CalendarMenu({ slug }: { slug: string }) {
   }
 
   return (
-    <div ref={wrapper} className="relative" onBlur={onBlur}>
+    <div ref={wrapper} className="relative inline-block" onBlur={onBlur}>
       <button
         ref={trigger}
         type="button"
@@ -188,7 +187,7 @@ export function CalendarMenu({ slug }: { slug: string }) {
         onClick={() => setOpen((o) => !o)}
         className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary underline"
       >
-        {t('learn.wholeCourse')}
+        {slug ? t('learn.wholeCourse') : t('learn.calendar.subscribe')}
         <span aria-hidden className={`text-xs transition-transform ${open ? 'rotate-180' : ''}`}>
           ▾
         </span>
@@ -197,7 +196,7 @@ export function CalendarMenu({ slug }: { slug: string }) {
         <div
           id={panelId}
           // Narrower than the viewport by the page and card padding, so it never overflows at 360px (LTR or RTL).
-          className="absolute start-0 z-40 mt-1 w-[min(22rem,calc(100vw-5rem))] rounded-card border border-line bg-card p-2 text-start shadow-lg sm:start-auto sm:end-0"
+          className={`absolute start-0 z-40 mt-1 w-[min(22rem,calc(100vw-5rem))] rounded-card border border-line bg-card p-2 text-start shadow-lg ${align === 'end' ? 'sm:start-auto sm:end-0' : ''}`}
         >
           <p className="px-3 pt-1 pb-2 text-xs text-muted">{t('learn.calendar.subscribeHint')}</p>
           {url ? (
@@ -231,13 +230,15 @@ export function CalendarMenu({ slug }: { slug: string }) {
           <p role="status" className={`px-3 text-sm ${state === 'error' ? 'py-2 text-danger' : 'text-muted'} ${state === 'loading' ? 'py-2' : ''}`}>
             {state === 'loading' ? t('learn.calendar.loading') : state === 'error' ? t('learn.calendar.error') : ''}
           </p>
-          <button
-            type="button"
-            className={item}
-            onClick={() => downloadViaApi(`/learn/${slug}/calendar.ics`, `${slug}.ics`).catch(() => undefined)}
-          >
-            {t('learn.calendar.download')}
-          </button>
+          {slug && (
+            <button
+              type="button"
+              className={item}
+              onClick={() => downloadViaApi(`/learn/${slug}/calendar.ics`, `${slug}.ics`).catch(() => undefined)}
+            >
+              {t('learn.calendar.download')}
+            </button>
+          )}
           <div className="space-y-1 border-t border-line px-3 pt-2 pb-1 text-xs text-muted">
             <p>{t('learn.calendar.googleDelay')}</p>
             <p>{t('learn.calendar.phoneHint')}</p>

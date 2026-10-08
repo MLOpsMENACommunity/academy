@@ -169,7 +169,7 @@
     "deleteCta": "Delete my account",
     "deleted": "Your account has been deleted.",
     "calendarTitle": "Calendar",
-    "calendarBody": "A private link that keeps Google, Apple or Outlook Calendar in sync with your course sessions. Live-session links are never included.",
+    "calendarBody": "A private link that keeps Google, Apple or Outlook Calendar in sync with your course sessions and live sessions. Join links are never included.",
     "calendarNone": "You don't have a calendar link yet.",
     "calendarCreate": "Create calendar link",
     "calendarReset": "Reset link",
@@ -900,7 +900,7 @@
     "googleCalendar": "Add to Google Calendar",
     "wholeCourse": "Add all sessions to your calendar",
     "calendar": {
-      "subscribeHint": "Subscribe once: sessions from all your courses appear, and changes follow automatically.",
+      "subscribeHint": "Subscribe once: your course sessions and live sessions appear, and changes follow automatically.",
       "google": "Google Calendar",
       "apple": "Apple Calendar or Outlook",
       "showLink": "Show calendar link",
@@ -914,7 +914,8 @@
       "phoneHint": "On a phone, add it from Google Calendar on a computer, or use the Apple/Outlook option.",
       "duplicatesNote": "Already imported the .ics file? Delete those events after subscribing, or you'll see each session twice.",
       "loading": "Preparing your calendar link…",
-      "error": "We couldn't prepare your calendar link. You can still download the file."
+      "error": "We couldn't prepare your calendar link. You can still download the file.",
+      "subscribe": "Add your sessions to your calendar"
     },
     "reminders": "Email me reminders 24 hours and 1 hour before each session",
     "remindersSaved": "Reminder preference saved.",
