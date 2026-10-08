@@ -22,8 +22,11 @@ const HOP_BY_HOP = [
 const SPOOFABLE = ['x-forwarded-for', 'x-real-ip', 'forwarded', 'x-forwarded-host', 'x-forwarded-proto'];
 
 /**
- * The client IP as seen by the nearest hop. Next appends the socket address to
- * X-Forwarded-For, so the last entry is the one no client can forge.
+ * The client IP as reported by the nearest trusted hop. This is only reliable
+ * behind a reverse proxy that rewrites X-Forwarded-For (Caddy does): Next.js
+ * fills the header from the socket only when it is absent, so with Next as the
+ * edge a client could choose this value. Production routes /api straight from
+ * Caddy to the API, so rate limiting never depends on this proxy.
  */
 function clientIp(req: NextRequest): string | null {
   const parts = (req.headers.get('x-forwarded-for') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
