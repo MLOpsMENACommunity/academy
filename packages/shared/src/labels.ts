@@ -11,6 +11,7 @@ import type {
   DeliveryPlatform,
   EducationLevel,
   EmploymentStatus,
+  EventStatus,
   ExperienceRange,
   Industry,
   LearningFormat,
@@ -211,6 +212,12 @@ export const courseStatusLabels: LabelMap<CourseStatus> = {
   OPEN: { en: 'Open', ar: 'مفتوح' },
   CLOSED: { en: 'Closed', ar: 'مغلق' },
   ARCHIVED: { en: 'Archived', ar: 'مؤرشف' },
+};
+
+export const eventStatusLabels: LabelMap<EventStatus> = {
+  DRAFT: { en: 'Draft', ar: 'مسودة' },
+  PUBLISHED: { en: 'Published', ar: 'منشورة' },
+  CANCELLED: { en: 'Cancelled', ar: 'ملغاة' },
 };
 
 export const courseAvailabilityLabels: LabelMap<CourseAvailability> = {

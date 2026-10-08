@@ -1,4 +1,5 @@
 import { applicationStatusLabels, applicationStatusMessages, type ApplicationStatus, type Locale } from '@academy/shared';
+import { Link } from '@react-email/components';
 import type { ReactElement } from 'react';
 import { Layout } from './Layout';
 
@@ -40,10 +41,31 @@ export type EmailTemplate =
   /** Sent to the account's (old) address after a sensitive change. */
   | { name: 'securityNotice'; kind: 'emailChanged' | 'passwordChanged'; url: string }
   | { name: 'adminAlert'; message: string; url: string }
+  /** Registration confirmation for a free live session. */
+  /** Live sessions. calendarUrl/icsUrl point at the public page, never at the join link. */
+  | { name: 'eventRegistered'; title: string; when: string; url: string; calendarUrl: string; icsUrl: string }
+  | { name: 'eventRescheduled'; title: string; when: string; url: string; calendarUrl: string; icsUrl: string }
+  | { name: 'eventCancelled'; title: string; when: string; url: string }
+  | { name: 'eventReminder'; title: string; when: string; hoursBefore: 24 | 1; url: string }
   /** Sent by an admin to a course's students. */
   | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string };
 
 type Built = { subject: string; element: ReactElement };
+
+/** "Add to Google Calendar · Download the calendar file (.ics)". */
+function calendarLinks(t: { calendarUrl: string; icsUrl: string }, ar: boolean): ReactElement {
+  return (
+    <>
+      <Link href={t.calendarUrl} style={{ textDecoration: 'underline' }}>
+        {ar ? 'أضف إلى تقويم Google' : 'Add to Google Calendar'}
+      </Link>
+      {' · '}
+      <Link href={t.icsUrl} style={{ textDecoration: 'underline' }}>
+        {ar ? 'نزّل ملف التقويم (ics)' : 'Download the calendar file (.ics)'}
+      </Link>
+    </>
+  );
+}
 
 const footer: Record<Locale, string> = {
   en: 'MLOps MENA Academy · academy.mlopsmena.com. You are receiving this because you have an account with us.',
@@ -273,6 +295,91 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 ? `يظهر رابط الجلسة المباشرة في صفحة الدورة قبل بدايتها. لإيقاف التذكيرات لهذه الدورة: ${t.unsubscribeUrl}`
                 : `The live link appears on the course page shortly before the session starts. To stop reminders for this course: ${t.unsubscribeUrl}`
             }
+          />
+        ),
+      };
+    }
+    case 'eventRegistered': {
+      const subject = ar ? `تم تسجيلك: ${t.title}` : `You're registered: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'تم تسجيلك!' : "You're registered!", tone: 'success' }}
+            heading={t.title}
+            paragraphs={[
+              ar ? `الجلسة المباشرة يوم ${t.when}.` : `The live session is on ${t.when}.`,
+              ar
+                ? 'سنرسل إليك تذكيرًا قبلها بـ 24 ساعة وبساعة واحدة. يظهر رابط الانضمام في صفحة الجلسة قبل بدايتها بوقت قصير.'
+                : "We'll remind you 24 hours and 1 hour before. The join link appears on the session page shortly before it starts.",
+              calendarLinks(t, ar),
+            ]}
+            cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'eventRescheduled': {
+      const subject = ar ? `موعد جديد: ${t.title}` : `New time: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'تغيّر موعد الجلسة' : 'The session has moved', tone: 'info' }}
+            heading={t.title}
+            paragraphs={[
+              ar ? `الموعد الجديد: ${t.when}.` : `The new time is ${t.when}.`,
+              ar
+                ? 'ما زلت مسجّلًا، ولا تحتاج إلى فعل أي شيء. إذا أضفت الجلسة إلى تقويمك، فاحذف الموعد القديم وأضف الجديد:'
+                : "You're still registered and don't need to do anything. If you added the session to your calendar, remove the old entry and add the new one:",
+              calendarLinks(t, ar),
+              ar
+                ? 'سنرسل إليك تذكيرًا قبل الموعد الجديد بـ 24 ساعة وبساعة واحدة.'
+                : "We'll remind you 24 hours and 1 hour before the new time.",
+            ]}
+            cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'eventCancelled': {
+      const subject = ar ? `أُلغيت الجلسة: ${t.title}` : `Cancelled: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'أُلغيت الجلسة' : 'This session is cancelled', tone: 'neutral' }}
+            heading={t.title}
+            paragraphs={[
+              ar ? `نأسف لإبلاغك بإلغاء الجلسة التي كانت مقررة يوم ${t.when}.` : `We're sorry: the session planned for ${t.when} is cancelled.`,
+              ar
+                ? 'إذا أضفتها إلى تقويمك، يمكنك حذفها. نتمنى أن نراك في جلسة قادمة.'
+                : 'If you added it to your calendar, you can remove it. We hope to see you at another session soon.',
+            ]}
+            cta={{ label: ar ? 'تصفّح الجلسات القادمة' : 'See upcoming sessions', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'eventReminder': {
+      const when = ar ? (t.hoursBefore === 24 ? 'غدًا' : 'خلال ساعة') : t.hoursBefore === 24 ? 'tomorrow' : 'in 1 hour';
+      const subject = ar ? `تذكير: ${t.title} ${when}` : `Reminder: ${t.title} starts ${when}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={t.title}
+            paragraphs={[t.when]}
+            cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
+            note={ar ? 'يظهر رابط الانضمام في صفحة الجلسة قبل بدايتها بوقت قصير.' : 'The join link appears on the session page shortly before it starts.'}
           />
         ),
       };

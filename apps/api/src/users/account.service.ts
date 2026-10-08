@@ -120,6 +120,7 @@ export class AccountService {
         sessionFeedback: true,
         reminderPreferences: true,
         notifications: { select: { titleEn: true, bodyEn: true, createdAt: true, readAt: true } },
+        eventRegistrations: { select: { createdAt: true, event: { select: { slug: true, titleEn: true, startsAt: true } } } },
       },
     });
     return {
@@ -147,6 +148,7 @@ export class AccountService {
       feedback: user.sessionFeedback,
       reminderPreferences: user.reminderPreferences,
       notifications: user.notifications,
+      liveSessionRegistrations: user.eventRegistrations.map((r) => ({ session: r.event, registeredAt: r.createdAt })),
     };
   }
 
@@ -160,6 +162,8 @@ export class AccountService {
       include: { profile: { select: { googleEmail: true } } },
     });
     await this.tokens.revokeAllForUser(userId);
+    // Free their seats in live sessions that haven't started (past ones stay until anonymisation).
+    await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
     await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted' });
@@ -211,6 +215,9 @@ export class AccountService {
       this.prisma.enrollment.updateMany({ where: { userId }, data: { driveRevokeEmail: null } }),
       this.prisma.profile.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
+      this.prisma.eventRegistration.deleteMany({ where: { userId } }),
+      this.prisma.eventReminderLog.deleteMany({ where: { userId } }),
+      this.prisma.eventConfirmation.deleteMany({ where: { userId } }),
       this.prisma.refreshToken.deleteMany({ where: { userId } }),
       this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
       this.prisma.passwordResetToken.deleteMany({ where: { userId } }),

@@ -35,6 +35,7 @@
     "mainSite": "mlopsmena.com",
     "menu": "Menu",
     "notifications": "Notifications",
+    "sessions": "Live sessions",
     "primary": "Main"
   },
   "footer": {
@@ -92,7 +93,8 @@
       "mustAccept": "You must accept this to continue.",
       "driveUrl": "Must be a Google Drive link (https://drive.google.com/…)",
       "price": "Paid courses need a price above 0; free courses must be 0",
-      "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only."
+      "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only.",
+      "liveLinkToPublish": "Add the live link before publishing."
     }
   },
   "auth": {
@@ -274,7 +276,10 @@
     "browse": "Browse courses",
     "browseBody": "Find an open course and apply.",
     "myCourses": "My courses",
-    "noCourses": "You haven't applied to any course yet."
+    "noCourses": "You haven't applied to any course yet.",
+    "mySessions": "My live sessions",
+    "noSessions": "You haven't registered for a live session yet. They're free and open to everyone.",
+    "browseSessions": "See live sessions"
   },
   "notifications": {
     "title": "Notifications",
@@ -463,7 +468,8 @@
       "students": "Students",
       "courses": "Courses",
       "settings": "Settings",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "sessions": "Live sessions"
     },
     "payments": {
       "title": "Payment review",
@@ -805,6 +811,60 @@
       "details": "Details",
       "filterAction": "Action starts with…",
       "system": "System"
+    },
+    "sessions": {
+      "title": "Live sessions",
+      "new": "New session",
+      "intro": "Free standalone sessions: talks, workshops and open Q&As. Published sessions appear on the public Live sessions page.",
+      "viewPublic": "View public page",
+      "registrations": "Registrations",
+      "registeredCount": "{count} registered",
+      "ofCapacity": "{count} of {capacity} registered",
+      "ended": "Ended",
+      "deleteConfirm": "Delete \"{title}\"? This can't be undone.",
+      "csv": "Download CSV",
+      "noRegistrations": "No one has registered yet.",
+      "basics": "Basics",
+      "schedule": "Date and delivery",
+      "speaker": "Speaker",
+      "links": "Links",
+      "fields": {
+        "slug": "URL slug",
+        "status": "Status",
+        "titleEn": "Title (English)",
+        "titleAr": "Title (Arabic)",
+        "titleArHint": "Required to publish.",
+        "descriptionEn": "Description (English)",
+        "descriptionAr": "Description (Arabic)",
+        "speakerName": "Speaker name (English)",
+        "speakerNameAr": "Speaker name (Arabic)",
+        "speakerTitleEn": "Speaker title (English)",
+        "speakerTitleAr": "Speaker title (Arabic)",
+        "speakerPhoto": "Speaker photo URL",
+        "speakerLinkedin": "Speaker LinkedIn URL",
+        "startsAt": "Starts at",
+        "startsAtHint": "In your time zone ({tz}).",
+        "durationMin": "Duration (minutes)",
+        "language": "Language",
+        "platform": "Platform",
+        "liveUrl": "Live link",
+        "liveUrlHint": "Required to publish. Shown only to registered people, shortly before the start.",
+        "recordingUrl": "Recording URL",
+        "coverImage": "Cover image URL",
+        "capacity": "Capacity",
+        "capacityHint": "Leave empty for no limit.",
+        "statusHint": "Cancelling, or changing the time of, a published session emails everyone registered."
+      },
+      "columns": {
+        "session": "Session",
+        "date": "Date",
+        "name": "Name",
+        "email": "Email",
+        "country": "Country",
+        "jobTitle": "Job title",
+        "registeredAt": "Registered"
+      },
+      "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email."
     }
   },
   "learn": {
@@ -847,5 +907,56 @@
     "driveSetup": "We're giving your Google account ({email}) access to the recordings. This is done by hand and can take up to a day after enrolment.",
     "addGoogleEmail": "Add it in your profile",
     "announcements": "Announcements"
+  },
+  "sessions": {
+    "title": "Live sessions",
+    "intro": "Free talks, workshops and open Q&As with practitioners from the region. Register once: you get a confirmation with calendar links, reminders 24 hours and 1 hour before, and the join link on the session page shortly before it starts.",
+    "metaDescription": "Free live talks, workshops and open Q&As on MLOps and AI engineering, hosted by MLOps MENA Community.",
+    "nextUp": "Next up",
+    "comingUp": "Coming up",
+    "register": "Register",
+    "registerFree": "Register for free",
+    "registered": "You're registered",
+    "details": "Details",
+    "with": "With {name}",
+    "withTitle": "With {name}, {title}",
+    "empty": "No sessions are scheduled right now",
+    "emptyBody": "New talks and workshops are announced here and on our community channels. Check back soon.",
+    "browseCourses": "Browse courses",
+    "free": "Free",
+    "minutes": "{count} min",
+    "timezoneNote": "Times are shown in your time zone ({tz}).",
+    "facts": {
+      "language": "Language",
+      "where": "Where",
+      "seats": "Seats left"
+    },
+    "about": "About this session",
+    "speaker": "Speaker",
+    "addToCalendar": "Download .ics file",
+    "cancelRegistration": "Cancel registration",
+    "cancelConfirm": "Cancel your registration for this session?",
+    "join": "Join the session",
+    "linkFrom": "The join link appears here from {time}.",
+    "reminderNote": "We'll also email you reminders 24 hours and 1 hour before.",
+    "full": "This session is full",
+    "freeNote": "Free. You'll get a confirmation with calendar links, and reminders 24 hours and 1 hour before.",
+    "loginNote": "You'll log in or create a free account first.",
+    "registeredNow": "You're in. See you there!",
+    "ended": "This session has ended",
+    "endedBody": "Thanks to everyone who joined. Have a look at what's coming up next.",
+    "recording": "Watch the recording",
+    "cancelled": "This session was cancelled",
+    "cancelledBody": "We're sorry for the change. Have a look at the other upcoming sessions.",
+    "allSessions": "All live sessions",
+    "errors": {
+      "EVENT_FULL": "This session just filled up.",
+      "EVENT_CLOSED": "Registration for this session is closed.",
+      "EMAIL_NOT_VERIFIED": "Confirm your email address first, then register."
+    },
+    "addToGoogle": "Add to Google Calendar",
+    "calendarDetails": "Free live session by MLOps MENA Academy. The join link appears on the session page shortly before it starts.",
+    "linkSoon": "The join link will be posted here shortly.",
+    "confirmHint": "Ready when you are: register with one click."
   }
 }

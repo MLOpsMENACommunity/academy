@@ -8,6 +8,8 @@ export interface IcsEvent {
   durationMin: number;
   /** Drives SEQUENCE/LAST-MODIFIED so calendars apply reschedules. */
   updatedAt?: Date;
+  /** Marks the entry cancelled so calendars that re-import the file drop it. */
+  cancelled?: boolean;
 }
 
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -51,6 +53,7 @@ export function buildIcs(calendarName: string, events: IcsEvent[], now = new Dat
       `SUMMARY:${escape(e.title)}`,
       `DESCRIPTION:${escape(e.description)}`,
       `URL:${e.url}`,
+      ...(e.cancelled ? ['STATUS:CANCELLED'] : []),
       'BEGIN:VALARM',
       'TRIGGER:-PT30M',
       'ACTION:DISPLAY',

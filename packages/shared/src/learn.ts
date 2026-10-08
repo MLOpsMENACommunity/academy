@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CourseType, DeliveryPlatform, RecordingsPlatform } from './enums';
 import type { Material } from './course-content';
+import { googleCalendarLink } from './calendar';
 
 export type RecordingKind = 'youtube' | 'drive' | 'link';
 
@@ -113,9 +114,6 @@ export const reminderPreferenceSchema = z.object({ emailReminders: z.boolean() }
 
 /** Google Calendar "add event" link (no live link inside: it points at the course page). */
 export function googleCalendarUrl(e: { title: string; startsAt: string; durationMin: number; details: string }): string {
-  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const start = new Date(e.startsAt);
-  const end = new Date(start.getTime() + e.durationMin * 60_000);
-  const q = new URLSearchParams({ action: 'TEMPLATE', text: e.title, dates: `${fmt(start)}/${fmt(end)}`, details: e.details });
-  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+  return googleCalendarLink({ title: e.title, start, end: new Date(start.getTime() + e.durationMin * 60_000), details: e.details });
 }

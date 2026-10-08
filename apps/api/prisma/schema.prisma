@@ -295,6 +295,9 @@ model User {
   notifications           Notification[]
   announcementsAuthored   Announcement[]           @relation("AnnouncementAuthor")
   announcementDeliveries  AnnouncementRecipient[]
+  eventRegistrations      EventRegistration[]
+  eventReminders          EventReminderLog[]
+  eventConfirmations      EventConfirmation[]
   refreshTokens           RefreshToken[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
@@ -904,4 +907,83 @@ model AnnouncementRecipient {
 
   @@unique([announcementId, userId])
   @@index([status, announcementId])
+}
+
+// ------------------------------------------------------------------ live sessions (free events)
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+/// A standalone free live session (talk, workshop, AMA), not part of a course.
+model LiveEvent {
+  id                String              @id @default(cuid())
+  slug              String              @unique
+  status            EventStatus         @default(DRAFT)
+  titleEn           String
+  titleAr           String              @default("")
+  /// Markdown.
+  descriptionEn     String              @default("")
+  descriptionAr     String              @default("")
+  speakerName       String              @default("")
+  speakerNameAr     String              @default("")
+  speakerTitleEn    String              @default("")
+  speakerTitleAr    String              @default("")
+  speakerPhotoUrl   String?
+  speakerLinkedinUrl String?
+  startsAt          DateTime
+  durationMin       Int                 @default(60)
+  language          CourseLanguage      @default(BILINGUAL)
+  platform          DeliveryPlatform    @default(GOOGLE_MEET)
+  /// Shown to registered people shortly before the start (same reveal window as courses).
+  liveUrl           String?
+  /// Public once set.
+  recordingUrl      String?
+  coverImageUrl     String?
+  /// Empty = unlimited.
+  capacity          Int?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  registrations     EventRegistration[]
+  reminders         EventReminderLog[]
+  confirmations     EventConfirmation[]
+
+  @@index([status, startsAt])
+}
+
+model EventRegistration {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     LiveEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+model EventReminderLog {
+  eventId String
+  event   LiveEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind    ReminderKind
+  sentAt  DateTime     @default(now())
+
+  @@id([eventId, userId, kind])
+}
+
+/// The registration confirmation goes out once per person and session, even if they unregister and register again.
+model EventConfirmation {
+  eventId String
+  event   LiveEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentAt  DateTime  @default(now())
+
+  @@id([eventId, userId])
+  @@index([userId])
 }

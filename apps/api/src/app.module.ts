@@ -15,6 +15,7 @@ import { EmailModule } from './email/email.module';
 import { FunnelModule } from './funnel/funnel.module';
 import { HealthController } from './health/health.controller';
 import { JobsModule } from './jobs/jobs.module';
+import { EventsModule } from './events/events.module';
 import { LearnModule } from './learn/learn.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     ApplicationsModule,
     PaymentsModule,
     LearnModule,
+    EventsModule,
     AdminModule,
     JobsModule,
   ],

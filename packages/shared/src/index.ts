@@ -14,5 +14,7 @@ export * from './course';
 export * from './application';
 export * from './messages';
 export * from './payment';
+export * from './calendar';
 export * from './learn';
 export * from './admin';
+export * from './events';

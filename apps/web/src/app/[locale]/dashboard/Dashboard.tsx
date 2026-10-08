@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MyCourses } from '@/components/applications/MyCourses';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { NextSessions } from '@/components/learn/NextSessions';
+import { MySessionsList } from '@/components/sessions/MySessions';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -76,6 +77,15 @@ function Home({ user }: { user: MeResponse }) {
         </h2>
         <div className="mt-4">
           <MyCourses />
+        </div>
+      </section>
+
+      <section aria-labelledby="my-sessions" className="mt-10">
+        <h2 id="my-sessions" className="text-xl">
+          {t('dashboard.mySessions')}
+        </h2>
+        <div className="mt-4">
+          <MySessionsList />
         </div>
       </section>
     </Container>

@@ -10,7 +10,10 @@ export interface NavItem {
   label: string;
 }
 
-export const PRIMARY_NAV: readonly NavItem[] = [{ path: '/courses', label: 'nav.courses' }];
+export const PRIMARY_NAV: readonly NavItem[] = [
+  { path: '/courses', label: 'nav.courses' },
+  { path: '/sessions', label: 'nav.sessions' },
+];
 
 /** True when `pathname` is the item's page or one of its sub-pages. */
 export function isActive(pathname: string, locale: string, path: string): boolean {

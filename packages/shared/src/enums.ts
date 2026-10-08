@@ -277,3 +277,9 @@ export function isLocaleValue(v: unknown): v is Locale {
 export const DELIVERY_STATUSES = ['PENDING', 'SENT', 'FAILED', 'SKIPPED'] as const;
 export const DeliveryStatus = defineEnum(DELIVERY_STATUSES);
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+// ---------------------------------------------------------------- Live sessions
+
+export const EVENT_STATUSES = ['DRAFT', 'PUBLISHED', 'CANCELLED'] as const;
+export const EventStatus = defineEnum(EVENT_STATUSES);
+export type EventStatus = (typeof EVENT_STATUSES)[number];

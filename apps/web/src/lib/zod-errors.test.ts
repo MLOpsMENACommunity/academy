@@ -1,4 +1,4 @@
-import { coreSectionSchema } from '@academy/shared';
+import { coreSectionSchema, eventInputSchema } from '@academy/shared';
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '@/i18n/translator';
 import { issuesToErrors } from './zod-errors';
@@ -14,5 +14,22 @@ describe('issuesToErrors', () => {
     expect(errors.country).toBe('هذا الحقل مطلوب.');
     // No English leaks through.
     for (const msg of Object.values(errors)) expect(msg).not.toMatch(/\b(Enter|Choose|Required|must)\b/i);
+  });
+
+  it('explains what a session needs before it can be published', () => {
+    const r = eventInputSchema.safeParse({
+      slug: 'ama',
+      status: 'PUBLISHED',
+      titleEn: 'AMA',
+      titleAr: '',
+      startsAt: '2026-11-01T17:00:00Z',
+      durationMin: 60,
+      language: 'EN',
+      platform: 'GOOGLE_MEET',
+      liveUrl: '',
+    });
+    const errors = issuesToErrors(r.error!.issues, createTranslator('en'));
+    expect(errors.liveUrl).toBe('Add the live link before publishing.');
+    expect(errors.titleAr).toContain('goes public');
   });
 });
