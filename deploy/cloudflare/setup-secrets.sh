@@ -32,12 +32,13 @@ done
 umask 077
 UPLOAD=$(mktemp)
 trap 'rm -f "$UPLOAD" "$UPLOAD.b"' EXIT
-# Hostnames are GitHub variables, not secrets. Skip blanks and "..." placeholders.
-grep -E '^[A-Z_]+=.+' "$FILE" | grep -v '^ACADEMY_HOSTNAME=' | grep -vE '^[A-Z_]+=\.\.\.$' > "$UPLOAD" || true
+# Hostnames are GitHub variables, not secrets. Skip blanks and anything still holding a
+# "..." placeholder (e.g. the DEPLOY.md template's postgresql://...neon.tech/...).
+grep -E '^[A-Z_]+=.+' "$FILE" | grep -v '^ACADEMY_HOSTNAME=' | grep -vF '...' > "$UPLOAD" || true
 gh secret set -R "$REPO" --env production -f "$UPLOAD"
-grep -E '^(DIRECT_DATABASE_URL|S3_ENDPOINT|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY|BACKUP_PASSPHRASE)=' "$UPLOAD" > "$UPLOAD.b" || true
+grep -E '^(DIRECT_DATABASE_URL|S3_ENDPOINT|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY|BACKUP_PASSPHRASE|BACKUP_S3_ACCESS_KEY_ID|BACKUP_S3_SECRET_ACCESS_KEY)=' "$UPLOAD" > "$UPLOAD.b" || true
 if [ -s "$UPLOAD.b" ]; then gh secret set -R "$REPO" --env production-backup -f "$UPLOAD.b"; fi
 
 echo "Uploaded to 'production' (and the backup subset to 'production-backup'): $(cut -d= -f1 "$UPLOAD" | tr '\n' ' ')"
-echo "Skipped (empty or '...'): $(grep -E '^[A-Z_]+=(\.\.\.)?$' "$FILE" | cut -d= -f1 | tr '\n' ' ')"
+echo "Skipped (empty or still '...'): $({ grep -E '^[A-Z_]+=$' "$FILE"; grep -E '^[A-Z_]+=' "$FILE" | grep -F '...'; } | cut -d= -f1 | tr '\n' ' ')"
 echo "The admin login (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) is in $FILE."
