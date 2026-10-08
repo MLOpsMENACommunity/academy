@@ -13,10 +13,20 @@ describe('payments (e2e)', () => {
   let prisma: PrismaService;
   const http = () => request(app.getHttpServer());
 
+  let savedSettings: { key: string; value: unknown }[] = [];
+  const setPaymentDetails = async (handle: string, number: string) => {
+    for (const [key, value] of [['instapayHandle', handle], ['vodafoneCashNumber', number]] as const) {
+      await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+    }
+  };
+
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
+    savedSettings = await prisma.setting.findMany({ where: { key: { in: ['instapayHandle', 'vodafoneCashNumber'] } } });
+    await setPaymentDetails('academy@instapay', '01000000000');
   });
   afterAll(async () => {
+    for (const s of savedSettings) await prisma.setting.update({ where: { key: s.key }, data: { value: s.value as string } });
     await app.close();
   });
 
@@ -120,12 +130,49 @@ describe('payments (e2e)', () => {
   it('deletes old screenshots but keeps the payment record', async () => {
     const { student, applicationId } = await awaitingPayment();
     const p = await submit(student.cookie, applicationId, proof(`RT-${Date.now()}`), png(`rt${Date.now()}`)).expect(201);
+    // Still under review: kept regardless of age.
     await prisma.payment.update({ where: { id: p.body.id }, data: { createdAt: new Date(Date.now() - 200 * 86_400_000) } });
+    await app.get(PaymentsService).purgeOldScreenshots(180);
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: p.body.id } })).screenshotKey).not.toBeNull();
+    await prisma.payment.update({ where: { id: p.body.id }, data: { status: 'APPROVED' } });
     const removed = await app.get(PaymentsService).purgeOldScreenshots(180);
     expect(removed).toBeGreaterThanOrEqual(1);
     const row = await prisma.payment.findUniqueOrThrow({ where: { id: p.body.id } });
     expect(row.screenshotKey).toBeNull();
     expect(row.screenshotDeletedAt).not.toBeNull();
     expect(row.transactionRef).toMatch(/^RT-/);
+  });
+
+  it('refuses payments while the payment details are still placeholders', async () => {
+    const { student, applicationId } = await awaitingPayment();
+    await setPaymentDetails('[PLACEHOLDER]@instapay', '01000000000');
+    try {
+      const ins = await http().get(`/api/me/applications/${applicationId}/payment-instructions`).set('Cookie', student.cookie).expect(200);
+      expect(ins.body.configured).toBe(false);
+      const res = await submit(student.cookie, applicationId, proof(`PH-${Date.now()}`), png(`ph${Date.now()}`)).expect(503);
+      expect(res.body.code).toBe('PAYMENTS_NOT_CONFIGURED');
+    } finally {
+      await setPaymentDetails('academy@instapay', '01000000000');
+    }
+  });
+
+  it('stops admins from reviewing their own payment', async () => {
+    const course = await createCourse(prisma, { type: 'PAID', price: 100 });
+    const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin' });
+    const r = await http().post('/api/applications').set('Cookie', admin.cookie).send({ courseSlug: course.slug, answers: { [course.questionId]: true } }).expect(201);
+    const other = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin2' });
+    await http().post(`/api/admin/applications/${r.body.id}/transition`).set('Cookie', other.cookie).send({ event: 'ACCEPT' }).expect(200);
+    const p = await submit(admin.cookie, r.body.id, proof(`SELF-${Date.now()}`, '100'), png(`self${Date.now()}`)).expect(201);
+    const res = await http().post(`/api/admin/payments/${p.body.id}/approve`).set('Cookie', admin.cookie).send({ verifiedInHistory: true }).expect(403);
+    expect(res.body.code).toBe('SELF_REVIEW');
+    await http().post(`/api/admin/payments/${p.body.id}/approve`).set('Cookie', other.cookie).send({ verifiedInHistory: true }).expect(200);
+  });
+
+  it('pages the queue and counts without per-row queries', async () => {
+    const { admin } = await awaitingPayment();
+    const count = await http().get('/api/admin/payments-count?status=PENDING_REVIEW').set('Cookie', admin.cookie).expect(200);
+    expect(typeof count.body.count).toBe('number');
+    const page = await http().get('/api/admin/payments?status=PENDING_REVIEW&page=1').set('Cookie', admin.cookie).expect(200);
+    expect(Array.isArray(page.body)).toBe(true);
   });
 });

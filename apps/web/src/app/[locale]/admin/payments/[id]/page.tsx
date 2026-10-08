@@ -103,7 +103,7 @@ export default function PaymentReview() {
             {row(t('payment.senderPhone'), <span className="ltr-embed">{p.senderPhone}</span>)}
             {row(t('payment.paidAt'), formatDate(p.paidAt, locale))}
             {row(t('admin.payments.submittedAt'), formatDateTime(p.createdAt, locale))}
-            {row(t('admin.payments.course'), p.course.titleEn)}
+            {row(t('admin.payments.course'), locale === 'ar' ? p.course.titleAr : p.course.titleEn)}
           </dl>
         </Card>
         <Card>

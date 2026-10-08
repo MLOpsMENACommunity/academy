@@ -17,7 +17,10 @@ import { ZodPipe } from '../common/zod.pipe';
 import { MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { PaymentsService } from './payments.service';
 
-const queueQuerySchema = z.object({ status: z.enum(PAYMENT_STATUSES).default('PENDING_REVIEW') });
+const queueQuerySchema = z.object({
+  status: z.enum(PAYMENT_STATUSES).default('PENDING_REVIEW'),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+});
 
 @ApiTags('payments')
 @Controller()
@@ -53,8 +56,14 @@ export class PaymentsController {
 
   @Roles('ADMIN')
   @Get('admin/payments')
-  queue(@Query(new ZodPipe(queueQuerySchema)) q: { status: PaymentStatus }): Promise<AdminPaymentDto[]> {
-    return this.payments.queue(q.status);
+  queue(@Query(new ZodPipe(queueQuerySchema)) q: { status: PaymentStatus; page: number }): Promise<AdminPaymentDto[]> {
+    return this.payments.queue(q.status, q.page);
+  }
+
+  @Roles('ADMIN')
+  @Get('admin/payments-count')
+  async count(@Query(new ZodPipe(queueQuerySchema)) q: { status: PaymentStatus }): Promise<{ count: number }> {
+    return { count: await this.payments.count(q.status) };
   }
 
   @Roles('ADMIN')

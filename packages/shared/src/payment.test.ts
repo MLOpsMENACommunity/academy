@@ -13,6 +13,7 @@ describe('paymentProofSchema', () => {
     expect(paymentProofSchema.safeParse({ ...ok, paidAt: new Date(Date.now() + 3 * 86_400_000).toISOString() }).success).toBe(false);
     expect(paymentProofSchema.safeParse({ ...ok, transactionRef: '<script>' }).success).toBe(false);
     expect(paymentProofSchema.safeParse({ ...ok, amount: '0' }).success).toBe(false);
+    expect(paymentProofSchema.safeParse({ ...ok, transactionRef: '-- --' }).success).toBe(false);
   });
 });
 
