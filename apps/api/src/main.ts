@@ -19,10 +19,15 @@ async function bootstrap(): Promise<void> {
   });
   const env = app.get<Env>(ENV);
   configureApp(app);
-  setupSwagger(app);
+  const docs = setupSwagger(app);
   app.enableShutdownHooks();
   await app.listen(env.PORT);
-  Logger.log(`API listening on :${env.PORT} (docs at /api/docs)`, 'Bootstrap');
+  Logger.log(`API listening on :${env.PORT}${docs ? ' (docs at /api/docs)' : ''}`, 'Bootstrap');
 }
 
-void bootstrap();
+// Any startup failure (bad config, database unreachable) must stop the process so
+// the platform restarts it; don't rely on Node's default for unhandled rejections.
+bootstrap().catch((err: unknown) => {
+  Logger.error(`Startup failed: ${(err as Error)?.message ?? err}`, 'Bootstrap');
+  process.exit(1);
+});

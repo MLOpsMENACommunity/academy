@@ -10,8 +10,8 @@ Two layers:
 
 | Layer | What it covers | Where |
 |---|---|---|
-| **Neon point-in-time restore** | Any moment in the last few days (7 days on the free tier, longer on paid plans) | Neon console → Branches → Restore |
-| **Daily encrypted dumps** | Daily snapshots for `BACKUP_RETENTION_DAYS` (default 30), and survives losing the Neon project | R2 bucket `academy-private`, prefix `backups/` |
+| **Neon point-in-time restore** | Any moment inside the plan's history window (short on the free plan, days on paid plans; check Neon console → Settings) | Neon console → Branches → Restore |
+| **Daily encrypted dumps** | Daily snapshots for `BACKUP_RETENTION_DAYS` (default 30), and survives losing the Neon project | R2, prefix `backups/` (bucket `BACKUP_BUCKET`, default `academy-private`) |
 
 The dumps come from `.github/workflows/backup.yml`, which runs daily at 01:30 UTC (it can also be run by hand from the Actions tab). It:
 1. runs `pg_dump --format=custom` over `DIRECT_DATABASE_URL`;
@@ -19,7 +19,13 @@ The dumps come from `.github/workflows/backup.yml`, which runs daily at 01:30 UT
 3. encrypts it with AES-256 (`gpg --symmetric`) using `BACKUP_PASSPHRASE`;
 4. uploads it to R2 and deletes dumps older than the retention window.
 
-**One-time setup:** add the secret `BACKUP_PASSPHRASE` to the GitHub `staging` environment. Generate it with `openssl rand -base64 32`. Also keep a copy in your password manager: **without it the dumps can't be decrypted.** The other secrets (`DIRECT_DATABASE_URL`, `S3_*`) are already there for the deploy.
+**One-time setup** (GitHub → Settings → Environments → `staging`):
+- Secret `BACKUP_PASSPHRASE`: generate it with `openssl rand -base64 32`, and keep a copy in your password manager. **Without it the dumps can't be decrypted.**
+- Secret `DIRECT_DATABASE_URL`: Neon's **unpooled** connection string (Connect → connection pooling off; the host has no `-pooler`). The deploy uses it too, for migrations.
+- Recommended: a separate R2 bucket (for example `academy-backups`) with its own R2 API token scoped to it. Add the variable `BACKUP_BUCKET` and the secrets `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY`. Then a leaked app credential can't read or delete backups. Without these, the app's bucket and token are used.
+- If the `staging` environment requires reviewers, scheduled backup runs wait for approval. Keep it limited to the `main` branch, without required reviewers.
+
+**Privacy:** dumps contain whatever was in the database that day, so data from a deleted account can survive in them for up to `BACKUP_RETENTION_DAYS` after anonymisation. The privacy policy should say so (see the `[PLACEHOLDER]` policy text).
 
 Payment screenshots and CVs in R2 are **not** backed up on purpose. The retention job deletes them after the configured period, and backing them up would keep personal data longer than the privacy policy allows.
 
@@ -90,9 +96,9 @@ The API writes one JSON line per request:
 
 Off unless `SENTRY_DSN` is set. To turn it on:
 1. Create a free Sentry project (platform: Node.js / NestJS) and copy its DSN.
-2. Add `SENTRY_DSN` to the GitHub `staging` environment, then redeploy.
+2. Add `SENTRY_DSN` to the GitHub `staging` environment, then redeploy. Events are tagged with `SENTRY_ENVIRONMENT` (`staging` in `wrangler.jsonc`; change it to `production` when you go live).
 
-Only unexpected errors are reported (not 4xx). User info, cookies, headers, bodies, query strings and console breadcrumbs are all stripped before anything leaves the server (`apps/api/src/instrument.ts`). Performance tracing is off.
+Only unexpected errors are reported (not 4xx). User info, cookies, headers, bodies, query strings and console breadcrumbs are all stripped before anything leaves the server, and email addresses and phone numbers in error text are masked (`apps/api/src/instrument.ts`). Prisma errors use the minimal format, so query arguments aren't in them either. Performance tracing is off. An unhandled promise rejection still crashes the process (Sentry `strict` mode), so the container restarts.
 
 ## Analytics (optional, cookieless)
 
@@ -113,6 +119,7 @@ Both tools are cookieless, so **no cookie banner is needed.** The academy's own 
 | `refresh_token` | Renews the session; only sent to `/api/auth` (httpOnly) | 30 days |
 | `has_session` | Lets the page know a session exists, no secret inside | 30 days |
 | `oauth_state` | Protects Google sign-in against forgery (httpOnly) | 10 minutes |
+| `NEXT_LOCALE` | Remembers the chosen language (English / Arabic) | 1 year |
 
 If you ever add a tool that sets non-essential cookies (marketing pixels, chat widgets), you'll need a consent banner first.
 
@@ -133,7 +140,7 @@ If you ever add a tool that sets non-essential cookies (marketing pixels, chat w
 Per signed-in user, otherwise per IP. The default is 300 requests per minute. Stricter limits apply to:
 - login and registration;
 - password reset, verification email and resend;
-- profile changes, CV upload and account deletion;
+- email and password changes, CV upload and account deletion;
 - applying;
 - uploading payment proof.
 

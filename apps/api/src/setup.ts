@@ -53,9 +53,9 @@ export function configureApp(app: NestExpressApplication): void {
 }
 
 /** API docs at /api/docs: on outside production, or with API_DOCS=true. */
-export function setupSwagger(app: INestApplication): void {
+export function setupSwagger(app: INestApplication): boolean {
   const env = app.get<Env>(ENV);
-  if (env.NODE_ENV === 'production' && !env.API_DOCS) return;
+  if (env.NODE_ENV === 'production' && !env.API_DOCS) return false;
   const config = new DocumentBuilder()
     .setTitle('MLOps MENA Academy API')
     .setDescription('REST API for academy.mlopsmena.com')
@@ -63,4 +63,5 @@ export function setupSwagger(app: INestApplication): void {
     .addCookieAuth('access_token')
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));
+  return true;
 }

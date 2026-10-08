@@ -11,7 +11,8 @@
   "vars": {
     "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
     "EMAIL_FROM": "MLOps MENA Academy <academy@mlopsmena.com>",
-    "S3_BUCKET": "academy-private"
+    "S3_BUCKET": "academy-private",
+    "SENTRY_ENVIRONMENT": "staging"
   },
 
   "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],

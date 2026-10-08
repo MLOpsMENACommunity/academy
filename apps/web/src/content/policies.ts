@@ -66,7 +66,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Your rights',
           body: [
-            'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting.',
+            'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting. Encrypted database backups are kept for up to 30 days, so deleted data disappears from them within 30 days after anonymisation.',
             'To exercise any other right, contact academy@mlopsmena.com.',
           ],
         },
@@ -122,7 +122,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'حقوقك',
           body: [
-            'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.',
+            'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية. نحتفظ بنسخ احتياطية مشفرة من قاعدة البيانات لمدة أقصاها 30 يومًا، لذا تختفي البيانات المحذوفة منها خلال 30 يومًا بعد التجهيل.',
             'لممارسة أي حق آخر، تواصل معنا عبر academy@mlopsmena.com.',
           ],
         },

@@ -88,7 +88,10 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  if (previousSettings) await admin.put('/api/admin/settings', { headers: JSON_HEADERS, data: previousSettings });
+  if (previousSettings) {
+    const restored = await admin.put('/api/admin/settings', { headers: JSON_HEADERS, data: previousSettings });
+    expect(restored.ok(), 'restore payment settings').toBeTruthy();
+  }
   // Keep the catalog clean for the next run.
   if (courseId) await admin.put(`/api/admin/courses/${courseId}`, { headers: JSON_HEADERS, data: { ...(await (await admin.get(`/api/admin/courses/${courseId}`)).json()), status: 'ARCHIVED' } }).catch(() => undefined);
   await admin.dispose();

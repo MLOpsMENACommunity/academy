@@ -22,10 +22,13 @@ jobs:
     environment: staging
     timeout-minutes: 30
     env:
-      BUCKET: ${{ vars.S3_BUCKET || 'academy-private' }}
+      # Recommended: a separate bucket and R2 token for backups (BACKUP_BUCKET var,
+      # BACKUP_S3_* secrets), so the app's own credentials can't read or delete them.
+      # Falls back to the app's bucket and token.
+      BUCKET: ${{ vars.BACKUP_BUCKET || vars.S3_BUCKET || 'academy-private' }}
       RETENTION_DAYS: ${{ vars.BACKUP_RETENTION_DAYS || '30' }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID || secrets.S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY || secrets.S3_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
       AWS_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT }}
       # R2 doesn't need the newer default request checksums.
