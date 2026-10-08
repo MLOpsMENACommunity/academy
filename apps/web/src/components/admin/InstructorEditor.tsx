@@ -56,7 +56,16 @@ function InstructorForm({ initial, id, onSaved, onCancel }: { initial: Instructo
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-line bg-page p-3">
+    <div
+      className="space-y-3 rounded-lg border border-line bg-page p-3"
+      // Inside the course <form>: Enter in a text field saves the instructor, not the course.
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+          void save();
+        }
+      }}
+    >
       {error && <Alert tone="danger">{error}</Alert>}
       {id && <Alert tone="info">{c('instructorShared')}</Alert>}
       <div className="grid gap-3 sm:grid-cols-2">

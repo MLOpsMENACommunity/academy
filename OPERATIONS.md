@@ -162,7 +162,11 @@ To sign a compromised account out everywhere, have that user change their passwo
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included), then `wrangler tail` and `wrangler containers list`.
-2. **Bad deploy?** Workers & Pages → mlops-academy → Deployments → roll back. Database migrations are additive and stay in place.
+2. **Bad deploy?** Workers & Pages → mlops-academy → Deployments → roll back. Database migrations are additive and stay in place. One exception: versions from before the "Coming soon" course status (PR #13) don't know that value. Before rolling back past it, run this on Neon (SQL editor):
+   ```sql
+   UPDATE "Course" SET status = 'DRAFT' WHERE status = 'COMING_SOON';
+   ```
+   Then set those courses back to "Coming soon" after rolling forward again. Since PR #13 the seed is best effort, so a seed error alone no longer stops the API from starting.
 3. **Data mistake?** Neon point-in-time restore into a new branch, then copy the needed rows back.
 4. **Leaked secret?** Rotate it (table above), then check the Admin → Audit log for anything unexpected.
 5. **Personal-data incident?** Note the time window and the data affected. Egypt's PDPL (Law 151/2020) requires notifying the data protection centre within 72 hours.

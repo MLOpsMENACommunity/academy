@@ -70,7 +70,7 @@ export default function AdminCourses() {
                 <tr key={c.id} className="border-t border-line hover:bg-muted-bg/50">
                   <td className="p-3">
                     <Link href={`/${locale}/admin/courses/${c.id}`} className="font-semibold text-primary hover:underline">
-                      {locale === 'ar' ? c.titleAr : c.titleEn}
+                      {(locale === 'ar' && c.titleAr) || c.titleEn}
                     </Link>
                     <p className="text-xs text-muted" dir="ltr">
                       /{c.slug} · {courseTypeLabels[c.type][locale]}

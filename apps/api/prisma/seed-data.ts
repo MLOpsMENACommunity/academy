@@ -115,6 +115,7 @@ Quiz links, the Assignments & Capstone Handbook and the submission forms are sha
     level: 'ADVANCED',
     language: 'BILINGUAL',
     startDate: new Date('2026-10-18T16:00:00Z'),
+    applicationsOpenAt: null,
     // Saturday 17 Oct 2026, 23:59 Cairo (UTC+3).
     applicationDeadline: new Date('2026-10-17T20:59:00Z'),
     durationWeeks: 7,
@@ -122,6 +123,8 @@ Quiz links, the Assignments & Capstone Handbook and the submission forms are sha
     deliveryPlatform: 'GOOGLE_MEET',
     recordingsPlatform: 'YOUTUBE',
     youtubePlaylistUrl: PLAYLIST,
+    driveFolderUrl: null,
+    coverImageUrl: null,
     targetAudience: {
       en: 'Mid-level and senior engineers (3+ years) in AI, ML, MLOps, backend or platform roles; engineers moving toward tech lead, staff or architect roles; and engineers who have built RAG apps or agents and want to design them for production at enterprise scale.',
       ar: 'المهندسون من المستوى المتوسط والخبراء (3 سنوات أو أكثر) في مجالات الذكاء الاصطناعي وتعلم الآلة وMLOps والـ Backend والمنصات؛ والمهندسون المتجهون إلى أدوار قائد تقني أو Staff أو معماري؛ والمهندسون الذين بنوا تطبيقات RAG أو وكلاء ويريدون تصميمها للإنتاج على مستوى المؤسسات.',
@@ -222,16 +225,10 @@ ai-architecture-portfolio/
       {
         titleEn: 'LLM & RAG Architecture',
         titleAr: 'معمارية LLM وRAG',
-        descriptionEn: 'Sun 1 Nov. Choosing models with evidence and designing retrieval that works.',
-        descriptionAr: 'الأحد 1 نوفمبر. اختيار النماذج بالأدلة وتصميم استرجاع يعمل فعلًا.',
-      },
-      {
-        titleEn: 'Midpoint break: Midpoint Quiz + Capstone Part 1',
-        titleAr: 'استراحة منتصف الدورة: اختبار المنتصف + الجزء الأول من المشروع الختامي',
         descriptionEn:
-          '8–14 Nov. No live session. Midpoint Quiz on Sessions 1–3, and Capstone Checkpoint 1 (framing, quality attributes, C4 diagrams, building blocks, cost estimate, LLM/RAG design) due Sat 14 Nov.',
+          'Sun 1 Nov. Choosing models with evidence and designing retrieval that works. Followed by the midpoint break (8–14 Nov): Midpoint Quiz and Capstone Part 1, no live session.',
         descriptionAr:
-          '8–14 نوفمبر. لا توجد جلسة مباشرة. اختبار منتصف الدورة على الجلسات 1–3، وتسليم المرحلة الأولى من المشروع الختامي (الإطار، وسمات الجودة، ومخططات C4، والمكونات الأساسية، وتقدير التكلفة، وتصميم LLM/RAG) يوم السبت 14 نوفمبر.',
+          'الأحد 1 نوفمبر. اختيار النماذج بالأدلة وتصميم استرجاع يعمل فعلًا. يليها أسبوع استراحة منتصف الدورة (8–14 نوفمبر): اختبار المنتصف والجزء الأول من المشروع الختامي، بدون جلسة مباشرة.',
       },
       {
         titleEn: 'Agentic AI Architecture',
@@ -248,14 +245,8 @@ ai-architecture-portfolio/
       {
         titleEn: 'Enterprise Case Studies',
         titleAr: 'دراسات حالة مؤسسية',
-        descriptionEn: "Sun 29 Nov. How real systems were designed, and what we'd change.",
-        descriptionAr: 'الأحد 29 نوفمبر. كيف صُممت أنظمة حقيقية، وما الذي كنا سنغيّره.',
-      },
-      {
-        titleEn: 'Capstone submission',
-        titleAr: 'تسليم المشروع الختامي',
-        descriptionEn: 'Due Sun 13 Dec 2026. A score of 70/100 or higher is required for the certificate.',
-        descriptionAr: 'آخر موعد الأحد 13 ديسمبر 2026. يلزم الحصول على 70/100 أو أعلى لنيل الشهادة.',
+        descriptionEn: "Sun 29 Nov. How real systems were designed, and what we'd change. Capstone due Sun 13 Dec.",
+        descriptionAr: 'الأحد 29 نوفمبر. كيف صُممت أنظمة حقيقية، وما الذي كنا سنغيّره. تسليم المشروع الختامي الأحد 13 ديسمبر.',
       },
     ],
     faq: [
@@ -351,7 +342,7 @@ Before Unifonic, at DocuSign he designed an AI contract-negotiation system proce
 He holds an MSc in Artificial Intelligence from the University of Colorado Boulder and engineering leadership training from Cornell University.`,
     bioAr: `يمتلك سامح خبرة تتجاوز 20 عامًا في هندسة البرمجيات والذكاء الاصطناعي، وقرابة عقد في بناء فرق الذكاء الاصطناعي وأنظمته في بيئة الإنتاج في الشرق الأوسط وأوروبا.
 
-في Unifonic أسّس قسم الذكاء الاصطناعي من الصفر. أطلق محركًا لمعالجة اللغة الطبيعية بالعربية والإنجليزية، وبنى مصنّفًا فوريًا لرسائل SMS يعالج 5,000 رسالة في الثانية، ووسّع فريق الذكاء الاصطناعي إلى 6 فرق تضم أكثر من 20 مهندسًا تقدم خدمات RAG والتلخيص وتوليد النصوص. ويقود اليوم شركة Unifonic الناشئة في مجال الوكلاء الذكيين (Agentic AI)، التي تتيح للعملاء بناء وكلاء يعملون فعليًا في أقل من ساعة.
+في Unifonic أسّس قسم الذكاء الاصطناعي من الصفر. أطلق محركًا لمعالجة اللغة الطبيعية بالعربية والإنجليزية، وبنى مصنّفًا فوريًا لرسائل SMS يعالج 5,000 رسالة في الثانية، ووسّع فريق الذكاء الاصطناعي إلى 6 فرق تضم أكثر من 20 مهندسًا تقدم خدمات RAG والتلخيص وتوليد النصوص. ويقود اليوم الشركة الناشئة التابعة لـ Unifonic في مجال الوكلاء الذكيين (Agentic AI)، التي تتيح للعملاء بناء وكلاء يعملون فعليًا في أقل من ساعة.
 
 قبل Unifonic، صمّم في DocuSign نظامًا للتفاوض على العقود بالذكاء الاصطناعي يعالج أكثر من 100 ألف عقد. وفي Etisalat قدّم أول روبوت محادثة يعتمد على معالجة اللغة الطبيعية في الشركة، ومحرك توصيات رفع التفاعل الرقمي بنسبة 70%، وأتمتة المستندات بتقنية التعرف الضوئي على الحروف (OCR)، وتسجيل الدخول ببصمة الوجه باستخدام التعلم العميق.
 
@@ -592,7 +583,7 @@ const kubernetes: SeedCourse = {
     longDescriptionEn: `This course is coming soon. We're finalising the curriculum, the instructor and the dates.
 
 Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applications open.`,
-    longDescriptionAr: `هذه الدورة قريبًا. نعمل حاليًا على وضع اللمسات الأخيرة على المحتوى والمحاضر والمواعيد.
+    longDescriptionAr: `ستنطلق هذه الدورة قريبًا. نعمل حاليًا على وضع اللمسات الأخيرة على المحتوى والمحاضر والمواعيد.
 
 تابع MLOps MENA على LinkedIn أو Telegram أو Discord لتعرف أولًا عند فتح باب التقديم.`,
     // Price not set yet: shown as "Price to be announced" until it is.
@@ -602,6 +593,15 @@ Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applicatio
     requiresApproval: true,
     capacity: null,
     status: 'COMING_SOON',
+    // Explicit nulls: replacing the old placeholder must clear its dates, durations and Drive URL.
+    startDate: null,
+    applicationsOpenAt: null,
+    applicationDeadline: null,
+    durationWeeks: null,
+    hoursPerWeek: null,
+    driveFolderUrl: null,
+    youtubePlaylistUrl: null,
+    coverImageUrl: null,
     level: 'INTERMEDIATE',
     language: 'BILINGUAL',
     deliveryPlatform: 'GOOGLE_MEET',

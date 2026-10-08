@@ -12,7 +12,7 @@ describe('public catalog (e2e)', () => {
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
     for (const status of ['DRAFT', 'ARCHIVED', 'OPEN', 'COMING_SOON'] as const) {
-      const slug = `vis-${status.toLowerCase()}-${Date.now()}`;
+      const slug = `vis-${status.toLowerCase().replace('_', '-')}-${Date.now()}`;
       slugs[status] = slug;
       await prisma.course.create({
         data: {
@@ -61,8 +61,8 @@ describe('public catalog (e2e)', () => {
     const upcoming = (await http().get('/api/courses?availability=UPCOMING').expect(200)).body as { slug: string }[];
     expect(upcoming.map((c) => c.slug)).toContain(slugs.COMING_SOON);
     const student = await createUser(app, prisma, { prefix: 'soon' });
-    const res = await http().post('/api/applications').set('Cookie', student.cookie).send({ courseSlug: slugs.COMING_SOON, answers: {} });
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    const res = await http().post('/api/applications').set('Cookie', student.cookie).send({ courseSlug: slugs.COMING_SOON, answers: {} }).expect(409);
+    expect(res.body.code).toBe('COURSE_CLOSED');
     expect(await prisma.application.count({ where: { userId: student.id } })).toBe(0);
   });
 

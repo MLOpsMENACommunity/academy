@@ -105,7 +105,7 @@ function CourseEditor() {
         ← {t('admin.courses.title')}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl">{locale === 'ar' ? course.titleAr : course.titleEn}</h1>
+        <h1 className="text-3xl">{(locale === 'ar' && course.titleAr) || course.titleEn}</h1>
         <Badge tone={course.status === 'OPEN' ? 'success' : course.status === 'DRAFT' ? 'warning' : course.status === 'COMING_SOON' ? 'info' : 'neutral'}>{courseStatusLabels[course.status][locale]}</Badge>
         {(PUBLIC_COURSE_STATUSES as readonly string[]).includes(course.status) && (
           <a href={`/${locale}/courses/${course.slug}`} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">

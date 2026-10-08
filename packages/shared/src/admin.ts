@@ -179,8 +179,8 @@ export const courseInputSchema = z
         ctx.addIssue({ code: 'custom', path: ['shortDescriptionAr'], message: 'Arabic description is required to publish' });
       }
     }
-    // Paid courses need a price once applications can open (drafts and "coming soon" can wait).
-    if (c.type === 'PAID' && c.price <= 0 && c.status !== 'DRAFT' && c.status !== 'COMING_SOON') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
+    // Paid courses need a price while applications are open; other statuses can wait or no longer need it.
+    if (c.type === 'PAID' && c.price <= 0 && c.status === 'OPEN') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
     if (c.type === 'FREE' && c.price !== 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Free courses have price 0' });
     if (c.driveFolderUrl && !/^https:\/\/drive\.google\.com\//.test(c.driveFolderUrl)) {
       ctx.addIssue({ code: 'custom', path: ['driveFolderUrl'], message: 'Must be a drive.google.com link' });

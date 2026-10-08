@@ -198,8 +198,8 @@ function SessionForm({ initial, onSubmit, onCancel }: { initial: SessionDraft; o
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField label={c('sessionTitleEn')} required value={s.titleEn} onChange={set('titleEn')} error={errors.titleEn} />
         <TextField label={c('sessionTitleAr')} required dir="rtl" value={s.titleAr} onChange={set('titleAr')} error={errors.titleAr} />
-        <TextAreaField label={t('admin.courses.fields.moduleDescEn')} value={s.descriptionEn ?? ''} onChange={(x) => set('descriptionEn')(x || null)} rows={2} />
-        <TextAreaField label={t('admin.courses.fields.moduleDescAr')} value={s.descriptionAr ?? ''} onChange={(x) => set('descriptionAr')(x || null)} rows={2} />
+        <TextAreaField label={c('topicsEn')} hint={c('topicsHint')} value={s.descriptionEn ?? ''} onChange={(x) => set('descriptionEn')(x || null)} rows={6} />
+        <TextAreaField label={c('topicsAr')} hint={c('topicsHint')} dir="rtl" value={s.descriptionAr ?? ''} onChange={(x) => set('descriptionAr')(x || null)} rows={6} />
         <TextField label={c('startsAt')} required type="datetime-local" value={s.startsAt} onChange={set('startsAt')} error={errors.startsAt} />
         <TextField label={c('duration')} required type="number" min={15} value={String(s.durationMin)} onChange={(x) => set('durationMin')(Number(x || 0))} error={errors.durationMin} />
         <TextField label={c('liveUrl')} type="url" dir="ltr" value={s.liveUrl ?? ''} onChange={(x) => set('liveUrl')(x || null)} error={errors.liveUrl} />

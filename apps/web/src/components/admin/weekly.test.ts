@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
+// Cairo leaves DST on 29 Oct 2026, so this range always crosses a clock change.
+process.env.TZ = 'Africa/Cairo';
+
 import { weeklyDates } from './CourseTabs';
 
 describe('weeklyDates', () => {

@@ -190,22 +190,29 @@ export class AdminCoursesService {
     };
   }
 
+  /** Next free `order`, read under a course row lock so concurrent adds can't collide. */
+  private async nextOrder(tx: Prisma.TransactionClient, courseId: string): Promise<number> {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Course" WHERE id = ${courseId} FOR NO KEY UPDATE`;
+    if (!rows.length) throw new NotFoundException('Course not found');
+    const last = await tx.courseSession.aggregate({ where: { courseId }, _max: { order: true } });
+    return (last._max.order ?? 0) + 1;
+  }
+
   async createSession(courseId: string, s: SessionInput, admin: Actor) {
-    await this.ensure(courseId);
-    const last = await this.prisma.courseSession.aggregate({ where: { courseId }, _max: { order: true } });
-    const created = await this.prisma.courseSession.create({
-      data: { ...this.sessionData(s), courseId, order: (last._max.order ?? 0) + 1 },
+    const created = await this.prisma.$transaction(async (tx) => {
+      const order = await this.nextOrder(tx, courseId);
+      return tx.courseSession.create({ data: { ...this.sessionData(s), courseId, order } });
     });
     await this.audit.log({ actorId: admin.id, action: 'session.created', entityType: 'CourseSession', entityId: created.id });
     return created;
   }
 
   async createSessions(courseId: string, list: SessionInput[], admin: Actor) {
-    await this.ensure(courseId);
-    const last = await this.prisma.courseSession.aggregate({ where: { courseId }, _max: { order: true } });
-    const start = (last._max.order ?? 0) + 1;
-    await this.prisma.courseSession.createMany({
-      data: list.map((s, i) => ({ ...this.sessionData(s), courseId, order: start + i })),
+    await this.prisma.$transaction(async (tx) => {
+      const start = await this.nextOrder(tx, courseId);
+      await tx.courseSession.createMany({
+        data: list.map((s, i) => ({ ...this.sessionData(s), courseId, order: start + i })),
+      });
     });
     await this.audit.log({ actorId: admin.id, action: 'session.bulk_created', entityType: 'Course', entityId: courseId, metadata: { count: list.length } });
     return this.prisma.courseSession.findMany({ where: { courseId }, orderBy: { order: 'asc' } });
@@ -230,6 +237,12 @@ export class AdminCoursesService {
             slug: input.slug,
             titleEn: input.titleEn,
             status: 'DRAFT',
+            // Cohort-specific: the new cohort gets its own dates, folder and playlist.
+            startDate: null,
+            applicationsOpenAt: null,
+            applicationDeadline: null,
+            driveFolderUrl: null,
+            youtubePlaylistUrl: null,
             targetAudience: fields.targetAudience as Json,
             notFor: fields.notFor as Json,
             preparation: fields.preparation as Json,
@@ -253,10 +266,11 @@ export class AdminCoursesService {
           await tx.courseSession.createMany({
             data: sessions.map(({ id: _s, courseId: _cid, createdAt: _sc, updatedAt: _su, ...s }) => ({
               ...s,
-              materials: s.materials as Json,
-              // Links belong to the old cohort; the new one gets its own.
+              // Links belong to the old cohort (Meet, recordings, quizzes, forms); the new one gets its own.
+              materials: [] as Json,
               liveUrl: null,
               recordingUrl: null,
+              assignmentUrl: null,
               courseId: created.id,
             })),
           });

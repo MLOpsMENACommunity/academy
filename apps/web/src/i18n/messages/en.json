@@ -743,10 +743,13 @@
       },
       "duplicate": {
         "button": "Duplicate",
-        "help": "Copies the content, questions, sessions and instructors into a new draft. Applications and students are not copied; live and recording links are cleared.",
+        "help": "Copies the content, questions, sessions and instructors into a new draft. Not copied: applications and students, the course dates, Drive folder and playlist, and every session link and material (Meet, recordings, assignments, quizzes). Update the session dates afterwards.",
         "create": "Create copy",
         "slugTaken": "Another course already uses this slug."
-      }
+      },
+      "topicsEn": "Topics (English)",
+      "topicsAr": "Topics (Arabic)",
+      "topicsHint": "Shown publicly on the course page. Don’t put links or private details here; use the link fields and materials instead."
     },
     "settings": {
       "title": "Settings",

@@ -25,6 +25,7 @@ import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
+import { formatDateTime } from '@/lib/format';
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -99,7 +100,8 @@ export default async function CoursePage({ params }: Props) {
     [t('course.facts.language'), courseLanguageLabels[c.language][locale]],
     [t('course.facts.price'), price],
     ...(c.applicationDeadline
-      ? ([[t('course.facts.deadline'), <LocalTime key="d" iso={c.applicationDeadline} style="date" />]] as [string, ReactNode][])
+      ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
+        ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
     ...(c.seatsRemaining !== null
       ? ([[t('course.facts.seats'), full ? t('catalog.full') : t('catalog.seatsLeft', { count: c.seatsRemaining })]] as [string, ReactNode][])
@@ -133,8 +135,8 @@ export default async function CoursePage({ params }: Props) {
       offers: {
         '@type': 'Offer',
         category: c.type === 'FREE' ? 'Free' : 'Paid',
-        price: c.price,
-        priceCurrency: c.currency,
+        // No price yet (e.g. a paid course still "coming soon"): leave it out rather than claim 0.
+        ...(c.type === 'FREE' || c.price > 0 ? { price: c.price, priceCurrency: c.currency } : {}),
         availability: {
           OPEN: full ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
           UPCOMING: 'https://schema.org/PreOrder',
