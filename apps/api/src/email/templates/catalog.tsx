@@ -1,4 +1,5 @@
 import { applicationStatusLabels, applicationStatusMessages, type ApplicationStatus, type Locale } from '@academy/shared';
+import { Link } from '@react-email/components';
 import type { ReactElement } from 'react';
 import { Layout } from './Layout';
 
@@ -40,6 +41,10 @@ export type EmailTemplate =
   /** Sent to the account's (old) address after a sensitive change. */
   | { name: 'securityNotice'; kind: 'emailChanged' | 'passwordChanged'; url: string }
   | { name: 'adminAlert'; message: string; url: string }
+  /** Registration confirmation for a free live session. */
+  /** calendarUrl: a Google Calendar link pointing at the public page (never the join link). */
+  | { name: 'eventRegistered'; title: string; when: string; url: string; calendarUrl?: string }
+  | { name: 'eventReminder'; title: string; when: string; hoursBefore: 24 | 1; url: string }
   /** Sent by an admin to a course's students. */
   | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string };
 
@@ -273,6 +278,51 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 ? `يظهر رابط الجلسة المباشرة في صفحة الدورة قبل بدايتها. لإيقاف التذكيرات لهذه الدورة: ${t.unsubscribeUrl}`
                 : `The live link appears on the course page shortly before the session starts. To stop reminders for this course: ${t.unsubscribeUrl}`
             }
+          />
+        ),
+      };
+    }
+    case 'eventRegistered': {
+      const subject = ar ? `تم تسجيلك: ${t.title}` : `You're registered: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'تم تسجيلك!' : "You're registered!", tone: 'success' }}
+            heading={t.title}
+            paragraphs={[
+              ar ? `الجلسة المباشرة يوم ${t.when}.` : `The live session is on ${t.when}.`,
+              ar
+                ? 'يظهر رابط الانضمام في صفحة الجلسة قبل بدايتها بوقت قصير، وسنرسل لك تذكيرًا قبلها بـ 24 ساعة وبساعة واحدة. يمكنك أيضًا إضافتها إلى تقويمك من الصفحة.'
+                : "The join link appears on the session page shortly before it starts, and we'll remind you 24 hours and 1 hour before. You can also add it to your calendar from the page.",
+              ...(t.calendarUrl
+                ? [
+                    <Link key="gcal" href={t.calendarUrl} style={{ textDecoration: 'underline' }}>
+                      {ar ? 'أضف الجلسة إلى تقويم Google' : 'Add it to Google Calendar'}
+                    </Link>,
+                  ]
+                : []),
+            ]}
+            cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'eventReminder': {
+      const when = ar ? (t.hoursBefore === 24 ? 'غدًا' : 'خلال ساعة') : t.hoursBefore === 24 ? 'tomorrow' : 'in 1 hour';
+      const subject = ar ? `تذكير: ${t.title} ${when}` : `Reminder: ${t.title} starts ${when}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={t.title}
+            paragraphs={[t.when]}
+            cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
+            note={ar ? 'يظهر رابط الانضمام في صفحة الجلسة قبل بدايتها بوقت قصير.' : 'The join link appears on the session page shortly before it starts.'}
           />
         ),
       };

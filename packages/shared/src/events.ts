@@ -1,0 +1,83 @@
+import { z } from 'zod';
+import { COURSE_LANGUAGES, DELIVERY_PLATFORMS, EVENT_STATUSES, type CourseLanguage, type DeliveryPlatform, type EventStatus } from './enums';
+
+/** Links people click: http(s) only. */
+const optionalUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(500)
+  .regex(/^https?:\/\//i, 'Must be an http(s) URL')
+  .nullish()
+  .or(z.literal('').transform(() => null));
+
+/** Admin input for a free live session (talk, workshop, AMA). */
+export const eventInputSchema = z
+  .object({
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, digits and dashes only')
+      .max(80),
+    status: z.enum(EVENT_STATUSES),
+    titleEn: z.string().trim().min(2).max(160),
+    titleAr: z.string().trim().max(160).default(''),
+    descriptionEn: z.string().trim().max(20_000).default(''),
+    descriptionAr: z.string().trim().max(20_000).default(''),
+    speakerName: z.string().trim().max(120).default(''),
+    speakerNameAr: z.string().trim().max(120).default(''),
+    speakerTitleEn: z.string().trim().max(160).default(''),
+    speakerTitleAr: z.string().trim().max(160).default(''),
+    speakerPhotoUrl: optionalUrl,
+    speakerLinkedinUrl: optionalUrl,
+    startsAt: z.coerce.date(),
+    durationMin: z.coerce.number().int().min(15).max(600),
+    language: z.enum(COURSE_LANGUAGES),
+    platform: z.enum(DELIVERY_PLATFORMS),
+    liveUrl: optionalUrl,
+    recordingUrl: optionalUrl,
+    coverImageUrl: optionalUrl,
+    capacity: z.coerce.number().int().min(1).max(100_000).nullish().or(z.literal('').transform(() => null)),
+  })
+  .superRefine((e, ctx) => {
+    // Published sessions are public, so they need Arabic too (drafts can wait).
+    if (e.status === 'PUBLISHED' && e.titleAr.length < 2) {
+      ctx.addIssue({ code: 'custom', path: ['titleAr'], message: 'Arabic title is required to publish' });
+    }
+  });
+export type EventInput = z.infer<typeof eventInputSchema>;
+
+/** A live session as the public sees it. The live link is only included for registered people near the start. */
+export interface PublicEventDto {
+  slug: string;
+  status: EventStatus;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  speakerName: string;
+  speakerNameAr: string;
+  speakerTitleEn: string;
+  speakerTitleAr: string;
+  speakerPhotoUrl: string | null;
+  speakerLinkedinUrl: string | null;
+  startsAt: string;
+  durationMin: number;
+  language: CourseLanguage;
+  platform: DeliveryPlatform;
+  coverImageUrl: string | null;
+  recordingUrl: string | null;
+  /** True once the session has ended. */
+  past: boolean;
+  capacity: number | null;
+  registered: number;
+  full: boolean;
+  /** Only for the signed-in viewer. */
+  me?: { registered: boolean; liveUrl: string | null; liveUrlFrom: string };
+}
+
+/** Ended = start + duration has passed. */
+export function eventEnded(startsAt: Date, durationMin: number, now = new Date()): boolean {
+  return now.getTime() > startsAt.getTime() + durationMin * 60_000;
+}
