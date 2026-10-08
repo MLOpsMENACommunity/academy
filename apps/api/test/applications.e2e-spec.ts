@@ -145,4 +145,13 @@ describe('applications (e2e)', () => {
     const res = await apply(s.cookie, course.slug, { [course.questionId]: true, [q.id]: '' }).expect(400);
     expect(res.body.errors[0].path).toBe(`answers.${q.id}`);
   });
+
+  it('audits admin decisions even on an admin\'s own application, but not the submission itself', async () => {
+    const course = await createCourse(prisma);
+    const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin' });
+    const r = await apply(admin.cookie, course.slug, { [course.questionId]: true }).expect(201);
+    expect(await prisma.auditLog.count({ where: { entityId: r.body.id } })).toBe(0);
+    await http().post(`/api/admin/applications/${r.body.id}/transition`).set('Cookie', admin.cookie).send({ event: 'SHORTLIST' }).expect(200);
+    expect(await prisma.auditLog.count({ where: { entityId: r.body.id, action: 'application.status_changed' } })).toBe(1);
+  });
 });

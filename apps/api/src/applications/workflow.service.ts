@@ -100,8 +100,9 @@ export class ApplicationWorkflow {
         create: { userId: app.userId, courseId: app.courseId, applicationId: app.id },
       });
     }
-    // Admin decisions about someone else's application (not an admin applying themselves).
-    if (actor?.role === 'ADMIN' && actor.id !== app.userId) {
+    // Every admin decision is audited. The only exception is an admin submitting their
+    // own application (from === null), which is a student action, not an admin decision.
+    if (actor?.role === 'ADMIN' && !(from === null && actor.id === app.userId)) {
       await this.audit.log(
         {
           actorId: actor.id,
@@ -125,7 +126,7 @@ export class ApplicationWorkflow {
     actor: Actor | null,
     opts: { reason?: string | null; within?: (tx: Tx, app: Application) => Promise<void> } = {},
   ): Promise<Application> {
-    const { app, from } = await this.prisma.$transaction(async (tx) => {
+    const { app, from, reason: cleanedReason } = await this.prisma.$transaction(async (tx) => {
       const current = await tx.application.findUnique({ where: { id: applicationId }, select: { courseId: true } });
       if (!current) throw new NotFoundException('Application not found');
       const course = await this.lockCourse(tx, current.courseId);
@@ -150,10 +151,10 @@ export class ApplicationWorkflow {
       });
       await this.recordChange(tx, updated, fresh.status, result.status, actor, reason);
       if (opts.within) await opts.within(tx, updated);
-      return { app: updated, from: fresh.status };
+      return { app: updated, from: fresh.status, reason };
     });
 
-    await this.afterChange(app, from, opts.reason);
+    await this.afterChange(app, from, cleanedReason);
     return app;
   }
 
@@ -206,8 +207,12 @@ export class ApplicationWorkflow {
         url: this.email.url(user.locale, link),
       }),
     ]);
-    if (notified.status === 'rejected' || emailed.status === 'rejected') {
-      this.logger.error(`Notifying the student failed for application ${app.id}`);
+    if (notified.status === 'rejected') {
+      this.logger.error(`In-app notification failed for application ${app.id}: ${(notified.reason as Error)?.name}`);
+    }
+    // EmailService.send reports failure by returning false rather than throwing.
+    if (emailed.status === 'rejected' || emailed.value === false) {
+      this.logger.error(`Status email failed for application ${app.id}`);
     }
   }
 }

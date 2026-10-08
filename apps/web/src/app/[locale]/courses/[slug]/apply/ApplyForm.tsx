@@ -137,11 +137,14 @@ function Inner({ user }: { user: MeResponse }) {
       router.replace(`/${locale}/dashboard/applications/${app.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.errors.length) {
-          setErrors(Object.fromEntries(err.errors.map((x) => [x.path.replace(/^answers\./, ''), x.message])));
-        }
         const known = err.code ? t(`apply.errors.${err.code}`) : '';
+        // Server field errors arrive in English: show the localized generic text per field.
+        if (err.errors.length) {
+          setErrors(Object.fromEntries(err.errors.map((x) => [x.path.replace(/^answers\./, ''), t('forms.errors.invalid')])));
+        }
         setFormError(known && known !== `apply.errors.${err.code}` ? known : errorMessage(err, t));
+        setAttempt((n) => n + 1);
+        focusFirstInvalid();
       } else setFormError(errorMessage(err, t));
       setBusy(false);
     }

@@ -42,7 +42,8 @@ export function buildAnswersSchema(questions: QuestionLike[]) {
             if (typeof v === 'string') {
               const t = v.trim();
               if (t === '') return undefined;
-              return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : v;
+              // Same shapes a <input type="number"> accepts: 7, -3.5, .5, 1e3.
+              return /^-?(\d+|\d*\.\d+)([eE][-+]?\d+)?$/.test(t) ? Number(t) : v;
             }
             return v;
           },

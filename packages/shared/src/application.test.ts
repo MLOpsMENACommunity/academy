@@ -31,6 +31,8 @@ describe('buildAnswersSchema', () => {
       expect(req.safeParse({ n: v }).success).toBe(false);
     }
     expect(req.parse({ n: '42' })).toEqual({ n: 42 });
+    expect(req.parse({ n: '1e3' })).toEqual({ n: 1000 });
+    expect(req.parse({ n: '.5' })).toEqual({ n: 0.5 });
     expect(req.parse({ n: -3.5 })).toEqual({ n: -3.5 });
     const opt = buildAnswersSchema([{ id: 'n', type: 'NUMBER', required: false, options: null }]);
     expect(opt.parse({ n: '' })).toEqual({});
