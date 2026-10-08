@@ -253,6 +253,11 @@ export class AdminController {
     return this.courses.instructors();
   }
 
+  @Get('instructors/:id')
+  instructor(@Param('id') id: string) {
+    return this.courses.instructor(id);
+  }
+
   @Post('instructors')
   createInstructor(@CurrentUser() user: AuthUser, @Body(new ZodPipe(instructorInputSchema)) body: InstructorInput) {
     return this.courses.saveInstructor(body, user);

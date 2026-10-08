@@ -376,7 +376,20 @@
     "breadcrumbLabel": "Breadcrumb",
     "priceTba": "Price to be announced",
     "preparation": "Before the course starts",
-    "sessionTopics": "Topics"
+    "sessionTopics": "Topics",
+    "completedBadge": "Cohort {n} · completed",
+    "completed": "Completed",
+    "ran": "Ran",
+    "range": "{start} – {end}",
+    "externalNote": "This cohort ran on {platform}.",
+    "recordings": "Recordings",
+    "recordingsNote": "Every lesson of this cohort, free to watch.",
+    "noRecording": "No public recording for this lesson.",
+    "lesson": "Lesson {n}",
+    "notifyCta": "Notify me about the next cohort",
+    "notifyNote": "Send us a one-line email and we'll tell you when the next cohort opens.",
+    "notifySubject": "Next cohort of {course}",
+    "notifyBody": "Please let me know when the next cohort of {course} opens."
   },
   "apply": {
     "title": "Apply: {course}",
@@ -477,7 +490,8 @@
       "courses": "Courses",
       "settings": "Settings",
       "audit": "Audit log",
-      "sessions": "Live sessions"
+      "sessions": "Live sessions",
+      "speakers": "Speakers"
     },
     "payments": {
       "title": "Payment review",
@@ -548,7 +562,8 @@
       "remove": "Remove",
       "selectAll": "Select all",
       "pagination": "Pagination",
-      "preview": "Preview"
+      "preview": "Preview",
+      "imported": "Imported"
     },
     "dashboard": {
       "pendingPayments": "Payments to review",
@@ -694,7 +709,16 @@
         "preparationEn": "Before the course starts (English, markdown)",
         "preparationAr": "Before the course starts (Arabic, markdown)",
         "preparationHint": "Shown right after the prerequisites, e.g. setup steps. Leave empty to hide.",
-        "markdownHint": "Markdown: ## headings, - lists, **bold**, [links](https://…), ``` code blocks."
+        "markdownHint": "Markdown: ## headings, - lists, **bold**, [links](https://…), ``` code blocks.",
+        "topics": "Tags",
+        "topicsHint": "Comma-separated, e.g. mlops, docker, model-serving.",
+        "cohortNumber": "Cohort number",
+        "endDate": "End date",
+        "externalPlatform": "Ran on another platform",
+        "externalPlatformHint": "e.g. zomra.io. Leave empty if it ran on the academy.",
+        "externalUrl": "Link to it on that platform",
+        "publicRecordings": "Recordings are public: shown on the course page and in the Recordings library once each lesson has ended",
+        "sessionTags": "Tags (Recordings filter)"
       },
       "driveWarning": "Share this folder ONLY with enrolled students' Google accounts. Never use \"Anyone with the link\": one student could forward it to everyone.",
       "driveChecklist": "In Drive → Share → Settings (gear), turn OFF \"Viewers and commenters can see the option to download, print, and copy\".",
@@ -793,7 +817,10 @@
       "delete": {
         "confirm": "Delete \"{title}\" permanently? Its sessions, questions and announcements are deleted too. This can’t be undone.",
         "hasApplicants": "\"{title}\" has applicants or students, so it can’t be deleted (their records must be kept). To archive it instead (it disappears from the catalog and applicants can no longer reach it), type its slug: {slug}"
-      }
+      },
+      "pastCohort": "Past cohort",
+      "pastCohortHint": "For a cohort that has ended (status Completed): the course page stays public with its recordings, and nobody can apply.",
+      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a course after an admin edits it or its sessions."
     },
     "settings": {
       "title": "Settings",
@@ -861,7 +888,13 @@
         "coverImage": "Cover image URL",
         "capacity": "Capacity",
         "capacityHint": "Leave empty for no limit.",
-        "statusHint": "Cancelling, or changing the time of, a published session emails everyone registered."
+        "statusHint": "Cancelling, or changing the time of, a published session emails everyone registered.",
+        "topics": "Tags",
+        "topicsHint": "Comma-separated, for the Recordings filter, e.g. docker, ci-cd, model-serving.",
+        "speakerProfile": "Speaker profile",
+        "speakerProfileHint": "Links the session to the speaker's page. Fields left empty below are filled from the profile.",
+        "noSpeakerProfile": "None",
+        "recordingUrlHint": "Paste the YouTube link once the session has ended: it then shows on the session page and in the Recordings library."
       },
       "columns": {
         "session": "Session",
@@ -872,7 +905,23 @@
         "jobTitle": "Job title",
         "registeredAt": "Registered"
       },
-      "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email."
+      "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email.",
+      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a session after an admin edits it."
+    },
+    "speakers": {
+      "title": "Speakers",
+      "new": "New speaker",
+      "intro": "Course instructors and live-session speakers. Everyone with a published session or a public course has a page at /speakers/{slug}.",
+      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a speaker after an admin edits it.",
+      "appearances": "{courses} courses · {events} sessions",
+      "viewPublic": "View public page",
+      "fields": {
+        "slug": "URL slug",
+        "slugHint": "Leave empty to make one from the name.",
+        "github": "GitHub URL",
+        "photoHint": "An https:// link, or an image on this site such as /speakers/name.webp (400px or smaller).",
+        "bioHint": "Optional for a one-off speaker: the page then shows their name, title and sessions."
+      }
     }
   },
   "learn": {
@@ -983,6 +1032,43 @@
     "addToGoogle": "Add to Google Calendar",
     "calendarDetails": "Free live session by MLOps MENA Academy. The join link appears on the session page shortly before it starts.",
     "linkSoon": "The join link will be posted here shortly.",
-    "confirmHint": "Ready when you are: register with one click."
+    "confirmHint": "Ready when you are: register with one click.",
+    "views": "Live sessions views",
+    "tabUpcoming": "Upcoming",
+    "tabRecordings": "Recordings",
+    "recordingsTitle": "Session recordings",
+    "recordingsIntro": "Every past live session and course lesson, free to watch. Filter by topic, or search by title or speaker.",
+    "recordingsMeta": "Free recordings of MLOps MENA live sessions and course lessons: MLOps, LLMOps, Kubernetes, CI/CD, model serving and more.",
+    "search": "Search recordings",
+    "searchPlaceholder": "Title, speaker or course",
+    "searchButton": "Search",
+    "topics": "Topics",
+    "allTopics": "All topics",
+    "recordingsCount": "{count} recordings",
+    "recordingsCountOne": "1 recording",
+    "noRecordings": "No recordings match",
+    "noRecordingsBody": "Try another topic, or clear the search.",
+    "clearFilters": "Show all recordings",
+    "lesson": "{course} · Lesson {n}",
+    "liveSession": "Live session",
+    "openRecording": "Open the recording",
+    "recorded": "Recorded session",
+    "recordingHeading": "Recording",
+    "recordingSoon": "The recording will be posted here soon.",
+    "endedRecordingBody": "Watch the recording here, or browse every past session.",
+    "browseRecordings": "Browse all recordings",
+    "durationHM": "{h} h {m} min",
+    "durationH": "{h} h",
+    "watchPast": "Watch past sessions",
+    "speakerPage": "{name}: speaker page"
+  },
+  "speakers": {
+    "breadcrumb": "Live sessions",
+    "sessions": "Sessions",
+    "courses": "Courses",
+    "upcoming": "Upcoming",
+    "hasRecording": "Recording",
+    "cancelled": "Cancelled",
+    "metaDescription": "{name}: talks, workshops and courses at MLOps MENA Academy."
   }
 }

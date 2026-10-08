@@ -212,6 +212,7 @@ export const courseStatusLabels: LabelMap<CourseStatus> = {
   OPEN: { en: 'Open', ar: 'مفتوح' },
   CLOSED: { en: 'Closed', ar: 'مغلق' },
   ARCHIVED: { en: 'Archived', ar: 'مؤرشف' },
+  COMPLETED: { en: 'Completed', ar: 'مكتمل' },
 };
 
 export const eventStatusLabels: LabelMap<EventStatus> = {

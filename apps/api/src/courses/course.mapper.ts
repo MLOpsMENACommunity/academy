@@ -1,5 +1,6 @@
 import {
   courseAvailability,
+  eventEnded,
   type CourseDetailDto,
   type CourseSummaryDto,
   type FaqItem,
@@ -23,6 +24,7 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 export function toInstructorDto(i: Instructor): InstructorDto {
   return {
     id: i.id,
+    slug: i.slug,
     name: i.name,
     nameAr: i.nameAr,
     titleEn: i.titleEn,
@@ -31,6 +33,7 @@ export function toInstructorDto(i: Instructor): InstructorDto {
     bioAr: i.bioAr,
     photoUrl: i.photoUrl,
     linkedinUrl: i.linkedinUrl,
+    githubUrl: i.githubUrl,
   };
 }
 
@@ -60,10 +63,22 @@ export function toCourseSummary(c: CourseWithRelations, seatsTaken: number): Cou
     availability: courseAvailability(c),
     seatsRemaining: c.capacity === null ? null : Math.max(0, c.capacity - seatsTaken),
     instructorNames: instructors.map((x) => x.instructor.name),
+    completed: c.status === 'COMPLETED',
+    cohortNumber: c.cohortNumber,
+    endDate: iso(c.endDate),
+    topics: c.topics,
   };
 }
 
-export function toCourseDetail(c: CourseWithRelations, seatsTaken: number): CourseDetailDto {
+/**
+ * Recordings are enrolled-only unless the course says otherwise (a completed cohort whose
+ * lessons are public on YouTube), and only once the lesson is over.
+ */
+export function publicRecording(c: Pick<Course, 'publicRecordings'>, s: Pick<CourseSession, 'recordingUrl' | 'startsAt' | 'durationMin'>, now = new Date()) {
+  return c.publicRecordings && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
+}
+
+export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now = new Date()): CourseDetailDto {
   return {
     ...toCourseSummary(c, seatsTaken),
     longDescriptionEn: c.longDescriptionEn,
@@ -81,6 +96,9 @@ export function toCourseDetail(c: CourseWithRelations, seatsTaken: number): Cour
     included: c.included as Included,
     deliveryPlatform: c.deliveryPlatform,
     recordingsPlatform: c.recordingsPlatform,
+    externalPlatform: c.externalPlatform,
+    externalUrl: c.externalUrl,
+    publicRecordings: c.publicRecordings,
     instructors: [...c.instructors].sort((a, b) => a.order - b.order).map((x) => toInstructorDto(x.instructor)),
     sessions: [...(c.sessions ?? [])]
       .sort((a, b) => a.order - b.order)
@@ -93,6 +111,8 @@ export function toCourseDetail(c: CourseWithRelations, seatsTaken: number): Cour
         descriptionAr: s.descriptionAr,
         startsAt: s.startsAt.toISOString(),
         durationMin: s.durationMin,
+        topics: s.topics,
+        recordingUrl: publicRecording(c, s, now),
       })),
     screeningQuestions: [...(c.screeningQuestions ?? [])]
       .sort((a, b) => a.order - b.order)

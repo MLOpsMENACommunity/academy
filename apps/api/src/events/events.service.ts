@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DEFAULT_TIMEZONE,
   eventEnded,
@@ -7,6 +7,7 @@ import {
   liveLinkVisible,
   type Locale,
   type PublicEventDto,
+  type SpeakerRefDto,
 } from '@academy/shared';
 import { Prisma, type LiveEvent } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -26,9 +27,24 @@ const MAX_DURATION_MS = 600 * 60_000;
 const RECENT_PAST_DAYS = 60;
 const RECENT_PAST_LIMIT = 20;
 
+/** The speaker profile fields a public page needs. */
+export const speakerRefSelect = {
+  slug: true,
+  name: true,
+  nameAr: true,
+  titleEn: true,
+  titleAr: true,
+  photoUrl: true,
+  linkedinUrl: true,
+} satisfies Prisma.InstructorSelect;
+type SpeakerRef = Prisma.InstructorGetPayload<{ select: typeof speakerRefSelect }>;
+
 /** Registrations that count: deleted accounts don't hold seats. */
-const withCount = { _count: { select: { registrations: { where: { user: { deletedAt: null } } } } } } satisfies Prisma.LiveEventInclude;
-type EventWithCount = LiveEvent & { _count: { registrations: number } };
+const withCount = {
+  _count: { select: { registrations: { where: { user: { deletedAt: null } } } } },
+  speaker: { select: speakerRefSelect },
+} satisfies Prisma.LiveEventInclude;
+type EventWithCount = LiveEvent & { _count: { registrations: number }; speaker: SpeakerRef | null };
 
 /** The viewer's side of one event, computed once per request. */
 interface ViewerContext {
@@ -49,6 +65,10 @@ export class EventsService {
 
   private toDto(e: EventWithCount, viewer?: ViewerContext, now = new Date()): PublicEventDto {
     const past = eventEnded(e.startsAt, e.durationMin, now);
+    // The session's own speaker fields win; the linked profile fills what they leave empty.
+    const sp = e.speaker;
+    const speakerName = e.speakerName || sp?.name || '';
+    const speakerTitleEn = e.speakerTitleEn || sp?.titleEn || '';
     const dto: PublicEventDto = {
       slug: e.slug,
       status: e.status,
@@ -56,12 +76,14 @@ export class EventsService {
       titleAr: e.titleAr || e.titleEn,
       descriptionEn: e.descriptionEn,
       descriptionAr: e.descriptionAr || e.descriptionEn,
-      speakerName: e.speakerName,
-      speakerNameAr: e.speakerNameAr || e.speakerName,
-      speakerTitleEn: e.speakerTitleEn,
-      speakerTitleAr: e.speakerTitleAr || e.speakerTitleEn,
-      speakerPhotoUrl: e.speakerPhotoUrl,
-      speakerLinkedinUrl: e.speakerLinkedinUrl,
+      speakerName,
+      speakerNameAr: e.speakerNameAr || (e.speakerName ? '' : sp?.nameAr) || speakerName,
+      speakerTitleEn,
+      speakerTitleAr: e.speakerTitleAr || (e.speakerTitleEn ? '' : sp?.titleAr) || speakerTitleEn,
+      speakerPhotoUrl: e.speakerPhotoUrl ?? sp?.photoUrl ?? null,
+      speakerLinkedinUrl: e.speakerLinkedinUrl ?? sp?.linkedinUrl ?? null,
+      speaker: sp ? toSpeakerRef(sp) : null,
+      topics: e.topics,
       startsAt: e.startsAt.toISOString(),
       durationMin: e.durationMin,
       language: e.language,
@@ -237,7 +259,7 @@ export class EventsService {
    * Creates or updates a session. A new time resets the reminders (so the 24h and 1h
    * reminders go out again for the new time) and tells registrants; cancelling tells them too.
    */
-  async save(input: Prisma.LiveEventCreateInput, actorId: string, id?: string): Promise<LiveEvent> {
+  async save(input: Prisma.LiveEventUncheckedCreateInput, actorId: string, id?: string): Promise<LiveEvent> {
     const before = id ? await this.prisma.liveEvent.findUnique({ where: { id } }) : null;
     if (id && !before) throw new NotFoundException('Session not found');
     let saved: LiveEvent;
@@ -254,6 +276,9 @@ export class EventsService {
         throw new ConflictException({ code: 'SLUG_TAKEN', message: 'Another session already uses this slug' });
       }
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') throw new NotFoundException('Session not found');
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        throw new BadRequestException({ code: 'SPEAKER_NOT_FOUND', message: 'The selected speaker no longer exists' });
+      }
       throw err;
     }
 
@@ -346,6 +371,10 @@ export class EventsService {
       registeredAt: r.createdAt.toISOString(),
     }));
   }
+}
+
+export function toSpeakerRef(s: Pick<SpeakerRef, 'slug' | 'name' | 'nameAr' | 'titleEn' | 'titleAr' | 'photoUrl'>): SpeakerRefDto {
+  return { slug: s.slug, name: s.name, nameAr: s.nameAr, titleEn: s.titleEn, titleAr: s.titleAr, photoUrl: s.photoUrl };
 }
 
 /** "Sunday 18 October, 19:00 EEST" in the reader's language and time zone. */

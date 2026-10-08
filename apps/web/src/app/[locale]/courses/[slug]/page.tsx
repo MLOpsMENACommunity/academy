@@ -6,12 +6,14 @@ import {
   recordingsPlatformLabels,
   type CourseDetailDto,
   type Locale,
+  youtubeId,
 } from '@academy/shared';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { ApplyCta } from '@/components/course/ApplyCta';
 import { availabilityStyle, priceLabel } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
@@ -25,7 +27,9 @@ import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
-import { formatDateTime } from '@/lib/format';
+import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
+import { formatDate, formatDateTime } from '@/lib/format';
+import { buttonClass } from '@/components/ui/Button';
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -37,6 +41,15 @@ async function load(slug: string): Promise<CourseDetailDto | null> {
 }
 
 const pick = (locale: Locale, en: string, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en);
+
+/** Until there is a waitlist: a prefilled email to the academy (the same inbox as the contact page). */
+const ACADEMY_EMAIL = 'academy@mlopsmena.com';
+function notifyHref(locale: Locale, course: string): string {
+  const t = createTranslator(locale);
+  const q = new URLSearchParams({ subject: t('course.notifySubject', { course }), body: t('course.notifyBody', { course }) });
+  // mailto wants %20, not "+", for spaces.
+  return `mailto:${ACADEMY_EMAIL}?${q.toString().replace(/\+/g, '%20')}`;
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
@@ -83,6 +96,9 @@ export default async function CoursePage({ params }: Props) {
   const notFor = pick(locale, c.notFor.en, c.notFor.ar).trim();
   const preparation = pick(locale, c.preparation?.en ?? '', c.preparation?.ar).trim();
   const lastSession = c.sessions.at(-1);
+  const completed = c.completed;
+  const recordings = c.sessions.filter((s) => s.recordingUrl);
+  const showRecordings = completed || recordings.length > 0;
 
   const included = (
     [
@@ -95,23 +111,38 @@ export default async function CoursePage({ params }: Props) {
   ).filter(([k]) => c.included[k]);
   const includedNote = locale === 'ar' ? c.included.notesAr : c.included.notesEn;
 
+  const ran =
+    completed && c.startDate
+      ? c.endDate
+        ? t('course.range', { start: formatDate(c.startDate, locale), end: formatDate(c.endDate, locale) })
+        : formatDate(c.startDate, locale)
+      : null;
   const facts: [string, ReactNode][] = [
-    ...(c.startDate ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
+    ...(ran ? ([[t('course.ran'), ran]] as [string, ReactNode][]) : []),
+    ...(c.startDate && !completed ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
     ...(c.durationWeeks ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
     ...(c.hoursPerWeek ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
     [t('course.facts.level'), courseLevelLabels[c.level][locale]],
     [t('course.facts.language'), courseLanguageLabels[c.language][locale]],
     [t('course.facts.price'), price],
-    ...(c.applicationDeadline
+    ...(c.applicationDeadline && !completed
       ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
         ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
-    ...(c.seatsRemaining !== null
+    ...(c.seatsRemaining !== null && !completed
       ? ([[t('course.facts.seats'), full ? t('catalog.full') : t('catalog.seatsLeft', { count: c.seatsRemaining })]] as [string, ReactNode][])
       : []),
   ];
 
-  const cta = (
+  const titleForMail = pick(locale, c.titleEn, c.titleAr);
+  const cta = completed ? (
+    <div className="space-y-2">
+      <a href={notifyHref(locale, titleForMail)} className={buttonClass('accent', 'lg', 'w-full')}>
+        {t('course.notifyCta')}
+      </a>
+      <p className="text-center text-sm leading-relaxed text-muted">{t('course.notifyNote')}</p>
+    </div>
+  ) : (
     <ApplyCta
       slug={c.slug}
       availability={c.availability}
@@ -152,7 +183,7 @@ export default async function CoursePage({ params }: Props) {
         courseMode: 'online',
         location: deliveryPlatformLabels[c.deliveryPlatform].en,
         ...(c.startDate ? { startDate: c.startDate } : {}),
-        ...(lastSession ? { endDate: lastSession.startsAt } : {}),
+        ...(c.endDate ? { endDate: c.endDate } : lastSession ? { endDate: lastSession.startsAt } : {}),
         // Total effort for the whole course.
         ...(c.hoursPerWeek && c.durationWeeks ? { courseWorkload: `PT${c.hoursPerWeek * c.durationWeeks}H` } : {}),
         courseSchedule: {
@@ -162,9 +193,28 @@ export default async function CoursePage({ params }: Props) {
           ...(c.durationWeeks ? { repeatCount: c.durationWeeks } : {}),
           ...(c.startDate ? { startDate: c.startDate } : {}),
         },
-        instructor: c.instructors.map((i) => ({ '@type': 'Person', name: i.name, jobTitle: i.titleEn })),
+        instructor: c.instructors.map((i) => ({
+          '@type': 'Person',
+          name: i.name,
+          jobTitle: i.titleEn,
+          ...(i.slug ? { url: absoluteUrl(speakerPath(locale, i.slug)) } : {}),
+        })),
       },
     },
+    ...recordings
+      .filter((s) => youtubeId(s.recordingUrl!))
+      .map((s) => ({
+        '@context': 'https://schema.org',
+        '@type': 'VideoObject',
+        name: `${title}: ${pick(locale, s.titleEn, s.titleAr)}`,
+        description: pick(locale, s.descriptionEn ?? '', s.descriptionAr).replace(/\s+/g, ' ').trim() || pick(locale, s.titleEn, s.titleAr),
+        thumbnailUrl: youtubeThumbnail(youtubeId(s.recordingUrl!)!),
+        uploadDate: s.startsAt,
+        duration: isoDuration(s.durationMin),
+        embedUrl: `https://www.youtube-nocookie.com/embed/${youtubeId(s.recordingUrl!)}`,
+        url: `${url}#lesson-${s.order}`,
+        isAccessibleForFree: true,
+      })),
     ...(c.faq.length
       ? [
           {
@@ -203,12 +253,21 @@ export default async function CoursePage({ params }: Props) {
               {t('course.breadcrumb')}
             </Link>
           </nav>
-          <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${availabilityStyle[c.availability].text}`}>
-            <span aria-hidden className={`size-2 rounded-full ${availabilityStyle[c.availability].dot}`} />
-            {courseAvailabilityLabels[c.availability][locale]}
-            <span aria-hidden>·</span>
-            {price}
-          </p>
+          {completed ? (
+            <p className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium text-success">
+              <span aria-hidden className="size-2 rounded-full bg-logo-green" />
+              {c.cohortNumber ? t('course.completedBadge', { n: c.cohortNumber }) : t('course.completed')}
+              <span aria-hidden>·</span>
+              {price}
+            </p>
+          ) : (
+            <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${availabilityStyle[c.availability].text}`}>
+              <span aria-hidden className={`size-2 rounded-full ${availabilityStyle[c.availability].dot}`} />
+              {courseAvailabilityLabels[c.availability][locale]}
+              <span aria-hidden>·</span>
+              {price}
+            </p>
+          )}
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
           <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">
             {pick(locale, c.shortDescriptionEn, c.shortDescriptionAr)}
@@ -216,7 +275,31 @@ export default async function CoursePage({ params }: Props) {
           {c.instructors.length > 0 && (
             <p className="text-[0.9375rem] text-muted">
               {c.instructors.length > 1 ? t('course.instructors') : t('course.instructor')}:{' '}
-              <span className="text-fg">{c.instructors.map((i) => pick(locale, i.name, i.nameAr)).join('، ')}</span>
+              {c.instructors.map((i, n) => (
+                <span key={i.id}>
+                  {n > 0 && (locale === 'ar' ? '، ' : ', ')}
+                  {i.slug ? (
+                    <Link href={speakerPath(locale, i.slug)} className="text-fg underline decoration-line-strong/60 underline-offset-4 hover:text-primary">
+                      {pick(locale, i.name, i.nameAr)}
+                    </Link>
+                  ) : (
+                    <span className="text-fg">{pick(locale, i.name, i.nameAr)}</span>
+                  )}
+                </span>
+              ))}
+            </p>
+          )}
+          {completed && c.externalPlatform && (
+            <p className="text-[0.9375rem] text-muted">
+              {t('course.externalNote', { platform: '\u0000' }).split('\u0000')[0]}
+              {c.externalUrl ? (
+                <a href={c.externalUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+                  {c.externalPlatform}
+                </a>
+              ) : (
+                c.externalPlatform
+              )}
+              {t('course.externalNote', { platform: '\u0000' }).split('\u0000')[1]}
             </p>
           )}
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 text-[0.9375rem] sm:flex sm:flex-wrap sm:gap-x-10">
@@ -232,6 +315,37 @@ export default async function CoursePage({ params }: Props) {
 
       <Container className="grid gap-14 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16">
         <div className="min-w-0 space-y-14 sm:space-y-16">
+          {showRecordings && (
+            <Section id="recordings" title={t('course.recordings')}>
+              {completed && <p className="-mt-1 mb-5 text-[0.9375rem] text-muted">{t('course.recordingsNote')}</p>}
+              <ol className="grid gap-6 sm:grid-cols-2">
+                {(completed ? c.sessions : recordings).map((s) => {
+                  const lessonTitle = pick(locale, s.titleEn, s.titleAr);
+                  return (
+                    <li key={s.id} id={`lesson-${s.order}`} className="flex min-w-0 scroll-mt-6 flex-col gap-3">
+                      {s.recordingUrl ? (
+                        <RecordingPlayer url={s.recordingUrl} youtubeId={youtubeId(s.recordingUrl)} title={lessonTitle} locale={locale} />
+                      ) : (
+                        <div className="grid aspect-video place-items-center rounded-xl border border-dashed border-line-strong/50 bg-muted-bg p-4 text-center text-sm text-muted">
+                          {t('course.noRecording')}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-primary">{t('course.lesson', { n: s.order })}</p>
+                        <h3 className="mt-0.5 text-[1.0625rem] leading-snug">{lessonTitle}</h3>
+                        <p className="mt-1 text-sm text-muted">
+                          <time dateTime={s.startsAt}>{formatDate(s.startsAt, locale)}</time>
+                          <span aria-hidden> · </span>
+                          {durationLabel(s.durationMin, locale)}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </Section>
+          )}
+
           {outcomes.length > 0 && (
             <Section id="outcomes" title={t('course.outcomes')}>
               <ul className="space-y-3">
@@ -309,7 +423,7 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          {c.sessions.length > 0 && (
+          {c.sessions.length > 0 && !completed && (
             <Section id="schedule" title={t('course.schedule')}>
               <p className="-mt-1 mb-5 text-[0.9375rem] text-muted">
                 {t('course.scheduleNote', { tz: '\u0000' }).split('\u0000')[0]}
@@ -354,7 +468,15 @@ export default async function CoursePage({ params }: Props) {
                       </span>
                     )}
                     <div className="min-w-0">
-                      <h3 className="text-xl">{pick(locale, i.name, i.nameAr)}</h3>
+                      <h3 className="text-xl">
+                        {i.slug ? (
+                          <Link href={speakerPath(locale, i.slug)} className="hover:text-primary">
+                            {pick(locale, i.name, i.nameAr)}
+                          </Link>
+                        ) : (
+                          pick(locale, i.name, i.nameAr)
+                        )}
+                      </h3>
                       <p className="mt-1 text-muted">{pick(locale, i.titleEn, i.titleAr)}</p>
                       <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>
                       {i.linkedinUrl && (
@@ -420,7 +542,7 @@ export default async function CoursePage({ params }: Props) {
         <aside className="hidden lg:block">
           <div className="sticky top-8 flex flex-col gap-4 rounded-card border border-line bg-card p-7">
             <p className="text-[1.75rem] font-semibold text-fg">{price}</p>
-            {c.applicationDeadline && c.availability === 'OPEN' && (
+            {c.applicationDeadline && c.availability === 'OPEN' && !completed && (
               <p className="leading-relaxed text-muted">
                 {t('course.facts.deadline')}: <span className="font-medium text-fg">{formatDateTime(c.applicationDeadline, locale)}</span>
               </p>

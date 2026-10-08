@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
+import { ArchiveModule } from './archive/archive.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     CalendarModule,
     CoursesModule,
+    ArchiveModule,
     ApplicationsModule,
     PaymentsModule,
     LearnModule,

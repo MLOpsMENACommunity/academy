@@ -36,7 +36,9 @@ export default function EditSession() {
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="min-w-0 text-3xl break-words">{(locale === 'ar' && event.titleAr) || event.titleEn}</h1>
         <Badge tone={eventStatusTone[event.status]}>{eventStatusLabels[event.status][locale]}</Badge>
+        {event.source === 'import' && <Badge tone="info">{t('admin.common.imported')}</Badge>}
       </div>
+      {event.source === 'import' && <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.sessions.importedHint')}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Link href={`/${locale}/admin/sessions/${event.id}/registrations`} className={buttonClass('secondary', 'md')}>
           {t('admin.sessions.registrations')} ({event._count.registrations})

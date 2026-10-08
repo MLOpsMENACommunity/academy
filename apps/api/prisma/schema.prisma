@@ -190,6 +190,8 @@ enum CourseStatus {
   OPEN
   CLOSED
   ARCHIVED
+  /// A past cohort that stays public: syllabus, recordings and instructors, no applications.
+  COMPLETED
 }
 
 enum CourseLevel {
@@ -467,20 +469,30 @@ model SkillRating {
 
 // ======================================================================= Courses
 
+/// A course instructor or a live-session speaker (one person, one public page at /speakers/{slug}).
 model Instructor {
   id         String   @id @default(cuid())
+  /// Public page /speakers/{slug}. Null only for rows created before speaker pages existed.
+  slug       String?  @unique
   name       String
   nameAr     String?
   titleEn    String
   titleAr    String?
   bioEn      String
   bioAr      String?
+  /// http(s) URL or a site path under /speakers/.
   photoUrl   String?
   linkedinUrl String?
+  githubUrl  String?
+  /// "import" when created by prisma/import-archive.ts; null when created by an admin or the seed.
+  source     String?
+  /// Hash of the imported entry: an unchanged entry is skipped on the next import.
+  importHash String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   courses CourseInstructor[]
+  events  LiveEvent[]
 }
 
 model Course {
@@ -528,6 +540,20 @@ model Course {
   /// Paid courses only. Must be shared with enrolled Google accounts, never "anyone with the link".
   driveFolderUrl      String?
   youtubePlaylistUrl  String?
+  /// Short filter tags, e.g. ["mlops", "docker"].
+  topics              String[]           @default([])
+  /// Which run of the course this is (shown as "Cohort 1 · completed").
+  cohortNumber        Int?
+  /// Last day of the cohort (completed courses).
+  endDate             DateTime?
+  /// Set when the cohort ran on another platform, e.g. "zomra.io".
+  externalPlatform    String?
+  externalUrl         String?
+  /// Session recordings are shown to everyone (public YouTube), not only to enrolled students.
+  publicRecordings    Boolean            @default(false)
+  /// "import" when created by prisma/import-archive.ts.
+  source              String?
+  importHash          String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   archivedAt          DateTime?
@@ -591,6 +617,8 @@ model CourseSession {
   /// [{ labelEn, labelAr, url }]
   materials     Json     @default("[]")
   assignmentUrl String?
+  /// Short filter tags for the recordings library.
+  topics        String[] @default([])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -949,6 +977,11 @@ model LiveEvent {
   speakerTitleAr    String              @default("")
   speakerPhotoUrl   String?
   speakerLinkedinUrl String?
+  /// The speaker's profile (page at /speakers/{slug}). The text fields above override it for this session.
+  speakerId         String?
+  speaker           Instructor?         @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  /// Short filter tags, e.g. ["docker", "ci-cd"].
+  topics            String[]            @default([])
   startsAt          DateTime
   durationMin       Int                 @default(60)
   language          CourseLanguage      @default(BILINGUAL)
@@ -960,6 +993,9 @@ model LiveEvent {
   coverImageUrl     String?
   /// Empty = unlimited.
   capacity          Int?
+  /// "import" when created by prisma/import-archive.ts.
+  source            String?
+  importHash        String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   registrations     EventRegistration[]
@@ -967,6 +1003,8 @@ model LiveEvent {
   confirmations     EventConfirmation[]
 
   @@index([status, startsAt])
+  @@index([speakerId])
+  @@index([topics], type: Gin)
 }
 
 model EventRegistration {

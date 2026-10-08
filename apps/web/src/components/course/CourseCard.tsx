@@ -30,9 +30,13 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
   const status = availabilityStyle[c.availability];
   return (
     <article className="group relative flex w-full flex-col gap-3 rounded-card border border-line bg-card p-6 transition-colors hover:border-line-strong/40 sm:p-8">
-      <p className={`flex flex-wrap items-center gap-x-2 text-sm font-medium ${status.text}`}>
-        <span aria-hidden className={`size-2 rounded-full ${status.dot}`} />
-        {courseAvailabilityLabels[c.availability][locale]}
+      <p className={`flex flex-wrap items-center gap-x-2 text-sm font-medium ${c.completed ? 'text-success' : status.text}`}>
+        <span aria-hidden className={`size-2 rounded-full ${c.completed ? 'bg-logo-green' : status.dot}`} />
+        {c.completed
+          ? c.cohortNumber
+            ? t('course.completedBadge', { n: c.cohortNumber })
+            : t('course.completed')
+          : courseAvailabilityLabels[c.availability][locale]}
         <span aria-hidden>·</span>
         {priceLabel(c, locale)}
       </p>
@@ -43,10 +47,16 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
       </H>
       <p className="line-clamp-3 leading-relaxed text-muted">{locale === 'ar' ? c.shortDescriptionAr : c.shortDescriptionEn}</p>
       <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-        {c.startDate && (
+        {c.startDate && !c.completed && (
           <div>
             <dt className="sr-only">{t('course.facts.start')}</dt>
             <dd>{t('catalog.starts', { date: formatDate(c.startDate, locale) })}</dd>
+          </div>
+        )}
+        {c.startDate && c.completed && (
+          <div>
+            <dt className="sr-only">{t('course.ran')}</dt>
+            <dd>{c.endDate ? t('course.range', { start: formatDate(c.startDate, locale), end: formatDate(c.endDate, locale) }) : formatDate(c.startDate, locale)}</dd>
           </div>
         )}
         {c.durationWeeks ? (

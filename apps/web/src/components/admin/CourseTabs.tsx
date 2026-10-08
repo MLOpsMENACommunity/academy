@@ -22,6 +22,7 @@ import { errorMessage } from '@/lib/errors';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 import { fromLocalInput, ListEditor, toLocalInput } from './CourseForm';
+import { TopicsField } from './TopicsField';
 
 // ------------------------------------------------------------------ screening questions
 
@@ -147,6 +148,7 @@ export interface SessionRow {
   recordingUrl: string | null;
   assignmentUrl: string | null;
   materials: Material[];
+  topics: string[];
 }
 
 type SessionDraft = Omit<SessionRow, 'id' | 'order' | 'startsAt'> & { startsAt: string };
@@ -162,6 +164,7 @@ const EMPTY_SESSION: SessionDraft = {
   recordingUrl: null,
   assignmentUrl: null,
   materials: [],
+  topics: [],
 };
 
 function SessionForm({ initial, onSubmit, onCancel }: { initial: SessionDraft; onSubmit: (s: SessionDraft) => Promise<void>; onCancel?: () => void }) {
@@ -205,6 +208,7 @@ function SessionForm({ initial, onSubmit, onCancel }: { initial: SessionDraft; o
         <TextField label={c('liveUrl')} type="url" dir="ltr" value={s.liveUrl ?? ''} onChange={(x) => set('liveUrl')(x || null)} error={errors.liveUrl} />
         <TextField label={c('recordingUrl')} type="url" dir="ltr" value={s.recordingUrl ?? ''} onChange={(x) => set('recordingUrl')(x || null)} error={errors.recordingUrl} />
         <TextField label={c('assignmentUrl')} type="url" dir="ltr" value={s.assignmentUrl ?? ''} onChange={(x) => set('assignmentUrl')(x || null)} error={errors.assignmentUrl} />
+        <TopicsField label={c('fields.sessionTags')} hint={t('admin.sessions.fields.topicsHint')} value={s.topics ?? []} onChange={set('topics')} error={errors.topics} />
       </div>
       <ListEditor<Material>
         title={c('materials')}

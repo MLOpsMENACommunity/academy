@@ -1,0 +1,69 @@
+{
+  "_note": "Video lengths read from YouTube watch pages on 2026-10-09, for archive-convert.ts durations. Missing ids were unavailable or private.",
+  "videos": {
+    "0ta-roIGJWc": {
+      "lengthSeconds": 4832,
+      "title": "The On-Prem MLOps Playbook: Bridging Traditional DevOps and Private AI Workloads"
+    },
+    "43MGkzT5bYQ": {
+      "lengthSeconds": 2643,
+      "title": "Kubernetes Deployment Strategies Explained Part 1 | Recreate, Rolling Update, Blue-Green"
+    },
+    "AFcoKDtyhec": {
+      "lengthSeconds": 10897,
+      "title": "handson docker mlops mena community"
+    },
+    "AzZy4wqDEWI": {
+      "lengthSeconds": 1243,
+      "title": "Uv for management legacy code and security"
+    },
+    "Gnro52bcUsg": {
+      "lengthSeconds": 9387,
+      "title": "MLOps #3 | Model Serving at Scale: BentoML, Triton & vLLM + Canary and Shadow Deployments"
+    },
+    "PXR2zcjaqWQ": {
+      "lengthSeconds": 2402,
+      "title": "Ruff: Python Linting, Formatting & CI Automation"
+    },
+    "W2xsdMvvvHI": {
+      "lengthSeconds": 1911,
+      "title": "Redis for semantic caching"
+    },
+    "Wx9RfYuO3WY": {
+      "lengthSeconds": 1467,
+      "title": "Kubernetes Deployment Strategies Explained Part2  | Canary, A/B Routing, Shadow Traffic"
+    },
+    "asIGEjkUQCI": {
+      "lengthSeconds": 13589,
+      "title": "Hands on FastAPI and backend For MLOps"
+    },
+    "cScwFf5q36Q": {
+      "lengthSeconds": 4832,
+      "title": "From DevOps To MLOps"
+    },
+    "g79F3WLZKSQ": {
+      "lengthSeconds": 11650,
+      "title": "MLOps #4 | Observability and Drift Detection"
+    },
+    "n9iphdrNfr8": {
+      "lengthSeconds": 5285,
+      "title": "Prometheus & Grafana Monitoring Stack: Architecture, Metrics & PromQL (Part 1)"
+    },
+    "pkZcMjF1znU": {
+      "lengthSeconds": 10976,
+      "title": "Hands on CI CD pipelines"
+    },
+    "rJFIn83w0Dc": {
+      "lengthSeconds": 11140,
+      "title": "MLOps #1 | From Notebook to Production-Ready ML Code | FastAPI, Docker & pytest"
+    },
+    "s2TxWGGYHbQ": {
+      "lengthSeconds": 821,
+      "title": "MLOps Practitioner Course - Final project Submission"
+    },
+    "slxkWpCAqI8": {
+      "lengthSeconds": 10351,
+      "title": "MLOps #2 | MLflow, DVC & GitHub Actions: Experiment Tracking and ML Pipeline Automation"
+    }
+  }
+}

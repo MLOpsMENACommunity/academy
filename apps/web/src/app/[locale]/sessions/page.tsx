@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SessionAction } from '@/components/sessions/MySessions';
 import { DateBlock, DateTile, DayTime } from '@/components/sessions/SessionDate';
+import { SessionsHeader } from '@/components/sessions/SessionsHeader';
 import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
@@ -45,21 +46,21 @@ export default async function SessionsPage({ params }: Props) {
 
   return (
     <>
-      <section className="border-b border-line bg-card">
-        <Container className="flex flex-col gap-4 py-12 sm:py-16 lg:py-20">
-          <h1 className="text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{t('sessions.title')}</h1>
-          <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">{t('sessions.intro')}</p>
-        </Container>
-      </section>
+      <SessionsHeader locale={locale} view="upcoming" />
 
       <Container className="py-12 sm:py-16 lg:py-20">
         {!next ? (
           <div className="rounded-card border border-dashed border-line-strong/50 px-6 py-12 text-center sm:py-16">
             <h2 className="text-xl sm:text-2xl">{t('sessions.empty')}</h2>
             <p className="mx-auto mt-3 max-w-md leading-relaxed text-muted">{t('sessions.emptyBody')}</p>
-            <ButtonLink href={`/${locale}/courses`} variant="secondary" className="mt-6">
-              {t('sessions.browseCourses')}
-            </ButtonLink>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <ButtonLink href={`/${locale}/sessions/recordings`} variant="secondary">
+                {t('sessions.watchPast')}
+              </ButtonLink>
+              <ButtonLink href={`/${locale}/courses`} variant="ghost">
+                {t('sessions.browseCourses')}
+              </ButtonLink>
+            </div>
           </div>
         ) : (
           <>
