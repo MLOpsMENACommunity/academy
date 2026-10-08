@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+
+/*
+ * Brand tokens: the ONLY place colours are defined. Swap these to re-skin the
+ * academy. Values follow mlopsmena.com (navy ink + the logo's teal/cyan/amber),
+ * with accents darkened where they sit on white so text keeps WCAG AA contrast.
+ */
+:root {
+  --brand-ink: #08142e; /* headings, primary buttons, header */
+  --brand-ink-soft: #16294d;
+  --brand-primary: #0b7a71; /* teal, AA on white (5.3:1) */
+  --brand-primary-hover: #09695f;
+  --brand-primary-soft: #e6f6f4;
+  --brand-accent: #a96208; /* amber, AA on white */
+  --brand-accent-soft: #fdf3e3;
+  --brand-cyan: #0e7c99;
+  --brand-gradient: linear-gradient(120deg, #33cec0 0%, #2cacd1 55%, #ec9723 100%);
+
+  --surface-page: #fafbfd;
+  --surface-card: #ffffff;
+  --surface-muted: #f1f5fa;
+  --border: rgba(15, 33, 64, 0.12);
+  --border-strong: rgba(15, 33, 64, 0.22);
+
+  --text: #08142e;
+  --text-body: #33415a;
+  --text-muted: #566580; /* 5.9:1 on white */
+
+  --success: #0f7a3d;
+  --success-soft: #e7f6ee;
+  --warning: #8a4f06;
+  --warning-soft: #fff4dc;
+  --danger: #b4232f;
+  --danger-soft: #fdecee;
+  --info: #0e6a8a;
+  --info-soft: #e6f3f8;
+
+  --focus-ring: #2cacd1;
+  --radius: 0.75rem;
+
+  --font-latin: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-arabic: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  --font-body: var(--font-latin), var(--font-arabic);
+}
+
+html[lang='ar'] {
+  /* Arabic first; Plex Arabic also carries Latin glyphs for embedded English terms. */
+  --font-body: var(--font-arabic), var(--font-latin);
+}
+
+@theme inline {
+  --color-ink: var(--brand-ink);
+  --color-ink-soft: var(--brand-ink-soft);
+  --color-primary: var(--brand-primary);
+  --color-primary-hover: var(--brand-primary-hover);
+  --color-primary-soft: var(--brand-primary-soft);
+  --color-accent: var(--brand-accent);
+  --color-accent-soft: var(--brand-accent-soft);
+  --color-cyan: var(--brand-cyan);
+  --color-page: var(--surface-page);
+  --color-card: var(--surface-card);
+  --color-muted-bg: var(--surface-muted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-body: var(--text-body);
+  --color-muted: var(--text-muted);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-body);
+  --radius-card: var(--radius);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    background: var(--surface-page);
+    color: var(--text-body);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  html[lang='ar'] body {
+    line-height: 1.8;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--text);
+    line-height: 1.25;
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* Keep LTR fragments (emails, URLs, phone numbers, code) readable inside RTL text. */
+  [dir='rtl'] .ltr-embed,
+  [dir='rtl'] input[type='email'],
+  [dir='rtl'] input[type='url'],
+  [dir='rtl'] input[type='tel'] {
+    direction: ltr;
+    unicode-bidi: plaintext;
+    text-align: end;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .prose-academy {
+    color: var(--text-body);
+  }
+  .prose-academy p {
+    margin-block: 0.75em;
+  }
+  .prose-academy h2 {
+    font-size: 1.25rem;
+    margin-block: 1.5em 0.5em;
+  }
+  .prose-academy h3 {
+    font-size: 1.1rem;
+    margin-block: 1.25em 0.5em;
+  }
+  .prose-academy ul {
+    list-style: disc;
+    padding-inline-start: 1.25rem;
+    margin-block: 0.75em;
+  }
+  .prose-academy ol {
+    list-style: decimal;
+    padding-inline-start: 1.25rem;
+    margin-block: 0.75em;
+  }
+  .prose-academy a {
+    color: var(--brand-primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .prose-academy code {
+    background: var(--surface-muted);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  .prose-academy strong {
+    color: var(--text);
+  }
+  .text-gradient {
+    background: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}

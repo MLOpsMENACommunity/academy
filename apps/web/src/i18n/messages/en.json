@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "siteName": "MLOps MENA Academy",
+    "tagline": "Live, cohort-based ML, MLOps and AI engineering courses for engineers across the Middle East and North Africa.",
+    "homeTitle": "MLOps MENA Academy: live ML, MLOps & AI engineering courses"
+  },
+  "common": {
+    "skipToContent": "Skip to main content",
+    "language": "Language",
+    "switchTo": "العربية",
+    "loading": "Loading…",
+    "save": "Save",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "edit": "Edit",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "optional": "optional",
+    "required": "required",
+    "free": "Free",
+    "placeholderNotice": "This page contains placeholder text pending legal review."
+  },
+  "nav": {
+    "courses": "Courses",
+    "dashboard": "Dashboard",
+    "profile": "My profile",
+    "admin": "Admin",
+    "login": "Log in",
+    "register": "Sign up",
+    "logout": "Log out",
+    "mainSite": "mlopsmena.com",
+    "menu": "Menu",
+    "notifications": "Notifications"
+  },
+  "footer": {
+    "about": "The course platform of MLOps MENA Community, a bilingual community for ML, MLOps and AI engineers across the MENA region.",
+    "policies": "Policies",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use",
+    "refund": "Refund Policy",
+    "conduct": "Code of Conduct",
+    "contact": "Contact & support",
+    "community": "Community",
+    "rights": "© {year} MLOps MENA Community"
+  },
+  "home": {
+    "eyebrow": "MLOps MENA Academy",
+    "title": "Learn to ship ML and AI systems to production, live, with engineers from the region",
+    "subtitle": "Cohort-based courses taught live by practitioners, in Arabic and English. Free community courses and paid deep-dives.",
+    "browse": "Browse courses",
+    "howTitle": "How it works",
+    "step1Title": "Create your profile",
+    "step1Body": "Tell us about your background and goals. It takes about five minutes.",
+    "step2Title": "Apply to a course",
+    "step2Body": "Answer a few short questions so instructors can shape each cohort.",
+    "step3Title": "Learn live",
+    "step3Body": "Join live sessions, catch up on recordings, and track your progress.",
+    "featured": "Open courses"
+  },
+  "errors": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you're looking for doesn't exist or has moved.",
+    "goHome": "Go to the homepage",
+    "generic": "Something went wrong. Please try again.",
+    "network": "We couldn't reach the server. Check your connection and try again."
+  }
+}

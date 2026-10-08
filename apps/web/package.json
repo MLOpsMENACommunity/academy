@@ -1,0 +1,30 @@
+{
+  "name": "@academy/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@academy/shared": "workspace:*",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/ibm-plex-sans-arabic": "^5.2.8",
+    "next": "15.5.27",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.18",
+    "@types/node": "^24.19.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "tailwindcss": "4.1.18",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,0 +1,835 @@
+// MLOps MENA Academy data model.
+// Enum values mirror packages/shared/src/enums.ts (enforced by test/enums-sync.spec.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======================================================================= Enums
+
+enum Locale {
+  en
+  ar
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum EmploymentStatus {
+  EMPLOYED_FULL_TIME
+  EMPLOYED_PART_TIME
+  FREELANCER
+  STUDENT
+  JOB_SEEKING
+  OTHER
+}
+
+enum ExperienceRange {
+  Y0_1
+  Y1_3
+  Y3_5
+  Y5_10
+  Y10_PLUS
+}
+
+enum Area {
+  ML_ENGINEERING
+  MLOPS
+  LLMOPS_AI_ENGINEERING
+  DATA_SCIENCE
+  DATA_ENGINEERING
+  SOFTWARE_BACKEND
+  DEVOPS_PLATFORM_SRE
+  RESEARCH
+  STUDENT
+  OTHER
+}
+
+enum Industry {
+  FINTECH
+  TELECOM
+  HEALTHCARE
+  ECOMMERCE
+  GOVERNMENT
+  CONSULTING
+  ACADEMIA
+  OTHER
+}
+
+enum CompanySize {
+  S1_10
+  S11_50
+  S51_200
+  S201_1000
+  S1000_PLUS
+}
+
+enum Seniority {
+  INTERN
+  JUNIOR
+  MID
+  SENIOR
+  LEAD_STAFF
+  MANAGER
+  HEAD_DIRECTOR
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  DIPLOMA
+  BACHELORS
+  MASTERS
+  PHD
+  BOOTCAMP_SELF_TAUGHT
+}
+
+enum Skill {
+  PYTHON
+  SQL
+  LINUX_BASH
+  GIT
+  DOCKER
+  KUBERNETES
+  CI_CD
+  AWS
+  GCP
+  AZURE
+  ML_FUNDAMENTALS
+  DEEP_LEARNING
+  LLMS_RAG
+  AGENTS
+  MLOPS_TOOLING
+  MONITORING_OBSERVABILITY
+}
+
+enum CloudPlatform {
+  AWS
+  GCP
+  AZURE
+  ORACLE
+  ALIBABA
+  OTHER
+}
+
+enum LearningGoal {
+  FIRST_ML_JOB
+  MOVE_TO_MLOPS
+  LEVEL_UP_SENIOR
+  LEAD_TEAM
+  BUILD_PRODUCT
+  FREELANCING
+  RESEARCH
+}
+
+enum Topic {
+  MLOPS
+  LLMOPS
+  KUBERNETES
+  RAG
+  AGENTS
+  AI_ARCHITECTURE
+  CLOUD
+  DATA_ENGINEERING
+  COMPUTER_VISION
+  NLP
+  DEEP_LEARNING
+  MONITORING
+  SECURITY_GOVERNANCE
+}
+
+enum WeeklyHours {
+  H_LT_2
+  H_2_5
+  H_5_10
+  H_10_PLUS
+}
+
+enum SessionTime {
+  WEEKDAY_MORNINGS
+  WEEKDAY_EVENINGS
+  WEEKEND_MORNINGS
+  WEEKEND_EVENINGS
+}
+
+enum LearningFormat {
+  LIVE
+  RECORDED
+  HYBRID
+}
+
+enum ReferralSource {
+  MAIN_SITE
+  LINKEDIN
+  FACEBOOK
+  X_TWITTER
+  YOUTUBE
+  DISCORD
+  TELEGRAM
+  WHATSAPP
+  FRIEND_COLLEAGUE
+  EVENT
+  SEARCH
+  OTHER
+}
+
+enum CourseType {
+  FREE
+  PAID
+}
+
+enum CourseStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+enum CourseLanguage {
+  EN
+  AR
+  BILINGUAL
+}
+
+enum DeliveryPlatform {
+  GOOGLE_MEET
+  YOUTUBE_LIVE
+}
+
+enum RecordingsPlatform {
+  YOUTUBE
+  GOOGLE_DRIVE
+}
+
+enum QuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  SINGLE_SELECT
+  MULTI_SELECT
+  YES_NO
+  NUMBER
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  SHORTLISTED
+  AWAITING_PAYMENT
+  PAYMENT_SUBMITTED
+  PAYMENT_REJECTED
+  ENROLLED
+  REJECTED
+  WAITLISTED
+}
+
+enum PaymentMethod {
+  INSTAPAY
+  VODAFONE_CASH
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum SavedFilterScope {
+  APPLICATIONS
+  STUDENTS
+}
+
+enum FunnelEvent {
+  COURSE_VIEW
+  APPLY_CLICKED
+  REGISTERED
+  PROFILE_COMPLETED
+  APPLICATION_SUBMITTED
+  SHORTLISTED
+  PAYMENT_SUBMITTED
+  ENROLLED
+}
+
+enum ReminderKind {
+  H24
+  H1
+}
+
+// ======================================================================= Users & auth
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  /// Set while a login-email change waits for verification.
+  pendingEmail    String?
+  passwordHash    String?
+  googleId        String?   @unique
+  emailVerifiedAt DateTime?
+  role            Role      @default(STUDENT)
+  locale          Locale    @default(en)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  /// Soft delete: login is blocked immediately; PII is anonymised 30 days later.
+  deletedAt       DateTime?
+  anonymizedAt    DateTime?
+
+  profile                 Profile?
+  applications            Application[]
+  enrollments             Enrollment[]
+  notifications           Notification[]
+  refreshTokens           RefreshToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  sessionProgress         SessionProgress[]
+  sessionFeedback         SessionFeedback[]
+  reminderPreferences     ReminderPreference[]
+  savedFilters            SavedFilter[]
+  auditLogs               AuditLog[]               @relation("AuditActor")
+  reviewedPayments        Payment[]                @relation("PaymentReviewer")
+  adminNotesWritten       AdminNote[]              @relation("AdminNoteAuthor")
+  adminNotesAbout         AdminNote[]              @relation("AdminNoteSubject")
+  statusChanges           ApplicationStatusHistory[]
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the opaque token; the token itself is never stored.
+  tokenHash  String    @unique
+  /// All tokens from one login share a family; reuse of a rotated token revokes the family.
+  family     String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  userAgent  String?
+
+  @@index([userId])
+  @@index([family])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  /// The address being verified (login email, or the pending new email).
+  email     String
+  returnTo  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ======================================================================= Profile
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ---- Required core
+  fullNameEn        String?
+  fullNameAr        String?
+  phone             String?
+  country           String? /// ISO 3166-1 alpha-2
+  city              String?
+  timezone          String?
+  employmentStatus  EmploymentStatus?
+  jobTitle          String?
+  experienceYears   ExperienceRange?
+  primaryArea       Area?
+  googleEmail       String?
+  preferredLanguage Locale?
+  acceptedTermsAt   DateTime?
+
+  // ---- Professional background
+  company         String?
+  industry        Industry?
+  companySize     CompanySize?
+  mlExperienceYears ExperienceRange?
+  seniority       Seniority?
+  secondaryAreas  Area[]
+
+  // ---- Education
+  educationLevel    EducationLevel?
+  fieldOfStudy      String?
+  university        String?
+  graduationYear    Int?
+  currentlyStudying Boolean?
+
+  // ---- Skills (ratings live in SkillRating)
+  cloudPlatforms CloudPlatform[]
+  productionTools String[]
+
+  // ---- Goals & availability
+  learningGoals     LearningGoal[]
+  interestedTopics  Topic[]
+  weeklyHours       WeeklyHours?
+  preferredTimes    SessionTime[]
+  preferredFormat   LearningFormat?
+
+  // ---- Links & portfolio
+  linkedinUrl    String?
+  githubUrl      String?
+  websiteUrl     String?
+  kaggleUrl      String?
+  huggingfaceUrl String?
+  /// Random object key in the private bucket; never the student's name.
+  cvKey          String?
+  cvUploadedAt   DateTime?
+
+  // ---- Community & consent (explicit, unticked by default)
+  referralSource         ReferralSource?
+  communityMember        Boolean?
+  openToOpportunities    Boolean  @default(false)
+  shareWithPartners      Boolean  @default(false)
+  marketingEmails        Boolean  @default(false)
+
+  /// 0–100, recomputed on every save so it can be filtered and sorted.
+  completeness       Int       @default(0)
+  coreCompletedAt    DateTime?
+  reviewPromptSentAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  skills SkillRating[]
+
+  @@index([country])
+  @@index([experienceYears])
+  @@index([mlExperienceYears])
+  @@index([seniority])
+  @@index([primaryArea])
+  @@index([employmentStatus])
+  @@index([educationLevel])
+  @@index([weeklyHours])
+  @@index([openToOpportunities])
+  @@index([secondaryAreas], type: Gin)
+  @@index([interestedTopics], type: Gin)
+  @@index([cloudPlatforms], type: Gin)
+}
+
+model SkillRating {
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill     Skill
+  /// 1–5
+  level     Int
+
+  @@id([profileId, skill])
+  @@index([skill, level])
+}
+
+// ======================================================================= Courses
+
+model Instructor {
+  id         String   @id @default(cuid())
+  name       String
+  nameAr     String?
+  titleEn    String
+  titleAr    String?
+  bioEn      String
+  bioAr      String?
+  photoUrl   String?
+  linkedinUrl String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  courses CourseInstructor[]
+}
+
+model Course {
+  id                  String             @id @default(cuid())
+  slug                String             @unique
+  titleEn             String
+  titleAr             String
+  shortDescriptionEn  String
+  shortDescriptionAr  String
+  /// Markdown
+  longDescriptionEn   String
+  longDescriptionAr   String
+  type                CourseType
+  /// Whole currency units (EGP has no fractional pricing in practice).
+  price               Int                @default(0)
+  currency            String             @default("EGP")
+  requiresApproval    Boolean            @default(true)
+  capacity            Int?
+  status              CourseStatus       @default(DRAFT)
+  level               CourseLevel        @default(ALL_LEVELS)
+  language            CourseLanguage     @default(BILINGUAL)
+  startDate           DateTime?
+  /// When the catalog switches from "Opening soon" to "Applications open".
+  applicationsOpenAt  DateTime?
+  applicationDeadline DateTime?
+  durationWeeks       Int?
+  hoursPerWeek        Int?
+  coverImageUrl       String?
+  /// Localized markdown blocks: { en, ar }
+  targetAudience      Json
+  notFor              Json
+  /// Localized lists: { en: string[], ar: string[] }
+  learningOutcomes    Json
+  prerequisites       Json
+  /// [{ titleEn, titleAr, descriptionEn?, descriptionAr? }]
+  outline             Json
+  /// [{ questionEn, questionAr, answerEn, answerAr }]
+  faq                 Json
+  /// { liveSessions, recordings, assignments, finalProject, certificate, notesEn?, notesAr? }
+  included            Json
+  deliveryPlatform    DeliveryPlatform   @default(GOOGLE_MEET)
+  recordingsPlatform  RecordingsPlatform @default(YOUTUBE)
+  /// Paid courses only. Must be shared with enrolled Google accounts, never "anyone with the link".
+  driveFolderUrl      String?
+  youtubePlaylistUrl  String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  archivedAt          DateTime?
+
+  instructors        CourseInstructor[]
+  screeningQuestions ScreeningQuestion[]
+  sessions           CourseSession[]
+  applications       Application[]
+  enrollments        Enrollment[]
+  feedback           SessionFeedback[]
+  funnelEvents       FunnelEventLog[]
+  reminderPreferences ReminderPreference[]
+
+  @@index([status])
+}
+
+model CourseInstructor {
+  courseId     String
+  course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  order        Int        @default(0)
+
+  @@id([courseId, instructorId])
+}
+
+model ScreeningQuestion {
+  id       String       @id @default(cuid())
+  courseId String
+  course   Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  type     QuestionType
+  labelEn  String
+  labelAr  String
+  helpEn   String?
+  helpAr   String?
+  /// For select types: [{ value, labelEn, labelAr }]
+  options  Json?
+  required Boolean      @default(true)
+  order    Int          @default(0)
+
+  @@index([courseId])
+}
+
+/// A live session/lecture. Named CourseSession to avoid confusion with auth sessions.
+model CourseSession {
+  id            String   @id @default(cuid())
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  order         Int
+  titleEn       String
+  titleAr       String
+  descriptionEn String?
+  descriptionAr String?
+  /// Stored in UTC.
+  startsAt      DateTime
+  durationMin   Int      @default(90)
+  /// Enrolled-only. Never returned to non-enrolled users.
+  liveUrl       String?
+  recordingUrl  String?
+  /// [{ labelEn, labelAr, url }]
+  materials     Json     @default("[]")
+  assignmentUrl String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  progress  SessionProgress[]
+  feedback  SessionFeedback[]
+  reminders ReminderLog[]
+
+  @@index([courseId, order])
+  @@index([startsAt])
+}
+
+// ======================================================================= Applications & payments
+
+model Application {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId        String
+  course          Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status          ApplicationStatus @default(SUBMITTED)
+  /// { [questionId]: string | string[] | number | boolean }
+  answers         Json
+  /// Copy of the profile at application time.
+  profileSnapshot Json
+  /// { ref, utm_source, ... }
+  source          Json              @default("{}")
+  /// Denormalised `source.ref` for filtering.
+  ref             String?
+  rejectionReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  history    ApplicationStatusHistory[]
+  payments   Payment[]
+  enrollment Enrollment?
+  notes      AdminNote[]
+
+  @@unique([userId, courseId])
+  @@index([courseId, status])
+  @@index([status])
+  @@index([createdAt])
+  @@index([ref])
+}
+
+model ApplicationStatusHistory {
+  id            String             @id @default(cuid())
+  applicationId String
+  application   Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  actorId       String?
+  actor         User?              @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  reason        String?
+  createdAt     DateTime           @default(now())
+
+  @@index([applicationId])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  applicationId     String
+  application       Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  method            PaymentMethod
+  amount            Int
+  currency          String        @default("EGP")
+  transactionRef    String
+  senderName        String
+  senderPhone       String
+  paidAt            DateTime
+  /// Random key in the private bucket. Cleared by the retention job; the record stays.
+  screenshotKey     String?
+  screenshotSha256  String?
+  screenshotMime    String?
+  screenshotDeletedAt DateTime?
+  status            PaymentStatus @default(PENDING_REVIEW)
+  verifiedInHistory Boolean       @default(false)
+  reviewedById      String?
+  reviewedBy        User?         @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  createdAt         DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([transactionRef])
+  @@index([screenshotSha256])
+  @@index([applicationId])
+}
+
+model Enrollment {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId             String
+  course               Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  applicationId        String?   @unique
+  application          Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  enrolledAt           DateTime  @default(now())
+  driveAccessGranted   Boolean   @default(false)
+  driveAccessGrantedAt DateTime?
+
+  projectSubmissions ProjectSubmission[]
+  certificate        Certificate?
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+}
+
+/// Reserved for v2 (no UI yet): a mandatory final project that gates the certificate.
+model ProjectSubmission {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  url          String
+  notes        String?
+  submittedAt  DateTime   @default(now())
+  reviewedAt   DateTime?
+  passed       Boolean?
+}
+
+/// Reserved for v2 (no UI yet).
+model Certificate {
+  id           String     @id @default(cuid())
+  enrollmentId String     @unique
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  serial       String     @unique
+  issuedAt     DateTime   @default(now())
+}
+
+// ======================================================================= Learning experience
+
+model SessionProgress {
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String
+  session     CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  completedAt DateTime      @default(now())
+
+  @@id([userId, sessionId])
+}
+
+model SessionFeedback {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Null for end-of-course feedback.
+  sessionId String?
+  session   CourseSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([courseId, sessionId])
+  @@index([userId])
+}
+
+model ReminderPreference {
+  userId         String
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  emailReminders Boolean @default(true)
+
+  @@id([userId, courseId])
+}
+
+/// Idempotency for reminder emails.
+model ReminderLog {
+  sessionId String
+  session   CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      ReminderKind
+  sentAt    DateTime      @default(now())
+
+  @@id([sessionId, userId, kind])
+}
+
+// ======================================================================= Platform
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  titleEn   String
+  titleAr   String
+  bodyEn    String
+  bodyAr    String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+model AdminNote {
+  id            String       @id @default(cuid())
+  authorId      String?
+  author        User?        @relation("AdminNoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  subjectUserId String
+  subjectUser   User         @relation("AdminNoteSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  body          String
+  createdAt     DateTime     @default(now())
+
+  @@index([subjectUserId])
+  @@index([applicationId])
+}
+
+model SavedFilter {
+  id        String           @id @default(cuid())
+  ownerId   String
+  owner     User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  scope     SavedFilterScope
+  name      String
+  filters   Json
+  createdAt DateTime         @default(now())
+
+  @@index([ownerId, scope])
+}
+
+model FunnelEventLog {
+  id          String      @id @default(cuid())
+  courseId    String
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  event       FunnelEvent
+  /// Random per-browser id for anonymous steps; userId once known.
+  anonymousId String?
+  userId      String?
+  createdAt   DateTime    @default(now())
+
+  @@index([courseId, event])
+  @@index([createdAt])
+}
