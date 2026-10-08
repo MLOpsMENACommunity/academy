@@ -11,8 +11,20 @@ export type EmailTemplate =
       name: 'applicationStatus';
       courseTitle: string;
       status: ApplicationStatus;
+      /** Admin feedback (rejections) or the reason a payment was rejected. */
       reason?: string | null;
+      /** The application page on the student's dashboard. */
       url: string;
+      /** Learning page (enrolled) or public course page. */
+      courseUrl?: string;
+      /** Catalog, for rejections. */
+      browseUrl?: string;
+      /** First session or start date, already formatted in the student's time zone. */
+      startsAt?: string | null;
+      /** The course's recordings are public on YouTube (free courses). */
+      recordingsPublic?: boolean;
+      /** The course page has a "Before the course starts" section. */
+      hasPreparation?: boolean;
     }
   | {
       name: 'sessionReminder';
@@ -38,10 +50,123 @@ const footer: Record<Locale, string> = {
   ar: 'أكاديمية MLOps MENA · academy.mlopsmena.com. وصلتك هذه الرسالة لأن لديك حسابًا لدينا.',
 };
 
-function statusCopy(status: ApplicationStatus, locale: Locale, reason?: string | null): string[] {
-  const lines = [applicationStatusMessages[status][locale]];
-  if (reason) lines.push(locale === 'ar' ? `السبب: ${reason}` : `Reason: ${reason}`);
-  return lines;
+type StatusTemplate = Extract<EmailTemplate, { name: 'applicationStatus' }>;
+
+/** One email per application status: clear, warm, and with the next step as the button. */
+function applicationEmail(t: StatusTemplate, locale: Locale, base: { locale: Locale; footer: string }): Built {
+  const ar = locale === 'ar';
+  const c = t.courseTitle;
+  const team = ar ? 'فريق أكاديمية MLOps MENA' : 'The MLOps MENA Academy team';
+  const dashboard = { label: ar ? 'عرض طلبك' : 'View your application', url: t.url };
+  const mk = (subject: string, props: Omit<Parameters<typeof Layout>[0], 'locale' | 'footer' | 'preview'>): Built => ({
+    subject,
+    element: <Layout {...base} preview={subject} {...props} />,
+  });
+
+  switch (t.status) {
+    case 'ENROLLED': {
+      const items = ar
+        ? [
+            'افتح صفحة الدورة لترى الجدول وأضف كل الجلسات إلى تقويمك. يظهر رابط الجلسة المباشرة هناك قبل بدايتها بوقت قصير.',
+            ...(t.hasPreparation ? ['اقرأ قسم «قبل بدء الدورة» في صفحة الدورة وأنجز ما يطلبه من تحضير.'] : []),
+            'تابع بريدك: سنرسل لك تذكيرًا قبل كل جلسة بـ 24 ساعة وبساعة واحدة، إضافة إلى إعلانات فريق الدورة.',
+          ]
+        : [
+            'Open your course page to see the schedule and add every session to your calendar. The live link appears there shortly before each session.',
+            ...(t.hasPreparation ? ['Read "Before the course starts" on the course page and do the setup it asks for.'] : []),
+            'Watch your inbox: we send reminders 24 hours and 1 hour before each session, plus announcements from the course team.',
+          ];
+      return mk(ar ? `🎉 تم قبولك في ${c}` : `🎉 You're accepted: ${c}`, {
+        banner: { text: ar ? 'مبروك، تم قبولك!' : "Congratulations, you're in!", tone: 'success' },
+        heading: c,
+        paragraphs: [
+          ar
+            ? `يسعدنا أن نخبرك بقبول طلبك في ${c}، وأصبحت الآن مسجلًا في الدورة.`
+            : `We're delighted to tell you that your application to ${c} was accepted, and you're now enrolled.`,
+          ...(t.startsAt ? [ar ? `تبدأ الدورة ${t.startsAt}.` : `The course starts ${t.startsAt}.`] : []),
+        ],
+        list: { title: ar ? 'قبل الجلسة الأولى:' : 'Before the first session:', items },
+        cta: { label: ar ? 'افتح صفحة الدورة' : 'Open your course page', url: t.courseUrl ?? t.url },
+        note: ar ? `نراك قريبًا! ${team}` : `See you there! ${team}`,
+      });
+    }
+    case 'AWAITING_PAYMENT':
+      return mk(ar ? `تم قبولك في ${c}: أكّد مقعدك` : `You're accepted: ${c}. Confirm your seat`, {
+        banner: { text: ar ? 'مبروك، تم قبولك!' : "Congratulations, you're accepted!", tone: 'success' },
+        heading: c,
+        paragraphs: [
+          ar
+            ? `قُبل طلبك في ${c}. لتأكيد مقعدك، أكمل الدفع عبر InstaPay أو فودافون كاش وارفع إثبات الدفع من صفحة طلبك.`
+            : `Your application to ${c} was accepted. To confirm your seat, pay by InstaPay or Vodafone Cash and upload your proof of payment from your application page.`,
+          ar ? 'يُحجز المقعد بعد تحقق الفريق من الدفع، عادةً خلال يومي عمل.' : 'Your seat is confirmed once the team verifies the payment, usually within 2 working days.',
+        ],
+        cta: { label: ar ? 'ادفع وأكّد مقعدك' : 'Pay and confirm your seat', url: t.url },
+      });
+    case 'SHORTLISTED':
+      return mk(ar ? `أنت ضمن القائمة المختصرة: ${c}` : `You're shortlisted: ${c}`, {
+        banner: { text: ar ? 'أخبار سارة: أنت ضمن القائمة المختصرة' : "Good news: you're on the shortlist", tone: 'info' },
+        heading: c,
+        paragraphs: [
+          ar
+            ? `لفت طلبك في ${c} انتباه الفريق، وأصبحت ضمن القائمة المختصرة. يعمل فريق الدورة على اختيار الدفعة النهائية، وسنراسلك بالقرار النهائي قريبًا.`
+            : `Your application to ${c} stood out, and you're on the shortlist. The course team is finalising the cohort and will email you the final decision soon.`,
+          ar ? 'لا تحتاج إلى فعل أي شيء الآن.' : 'There is nothing you need to do for now.',
+        ],
+        cta: dashboard,
+      });
+    case 'WAITLISTED':
+      return mk(ar ? `أنت على قائمة الانتظار: ${c}` : `You're on the waitlist: ${c}`, {
+        banner: { text: ar ? 'أنت على قائمة الانتظار' : "You're on the waitlist", tone: 'neutral' },
+        heading: c,
+        paragraphs: [
+          ar
+            ? `شكرًا لتقديمك على ${c}. اكتملت المقاعد حاليًا، لذا أضفناك إلى قائمة الانتظار، وسنراسلك فورًا إذا توفر مقعد.`
+            : `Thank you for applying to ${c}. The course is full for now, so you're on the waitlist. We'll email you right away if a seat opens up.`,
+        ],
+        cta: dashboard,
+      });
+    case 'REJECTED':
+      return mk(ar ? `بخصوص طلبك في ${c}` : `About your application to ${c}`, {
+        heading: ar ? 'شكرًا لتقديمك' : 'Thank you for applying',
+        paragraphs: [
+          ar
+            ? `شكرًا لاهتمامك بدورة ${c} وللوقت الذي خصصته لطلبك.`
+            : `Thank you for your interest in ${c}, and for the time you put into your application.`,
+          ar
+            ? 'نأسف لإبلاغك بأننا لا نستطيع منحك مقعدًا في هذه الدفعة. عدد المقاعد محدود، وكان القرار صعبًا.'
+            : "We're sorry to tell you that we can't offer you a place in this cohort. Seats are limited, and it wasn't an easy decision.",
+        ],
+        callout: t.reason ? { title: ar ? 'ملاحظات من فريق الدورة' : 'Feedback from the course team', body: t.reason } : undefined,
+        after: [
+          ...(t.recordingsPublic
+            ? [
+                ar
+                  ? 'ما زال بإمكانك التعلم معنا: تُنشر تسجيلات جلسات هذه الدورة على YouTube.'
+                  : 'You can still learn along: the recordings of this course are published on YouTube.',
+              ]
+            : []),
+          ar ? 'يسعدنا أن تتقدم إلى دفعة قادمة أو دورة أخرى.' : "We'd love to see you apply to a future cohort or another course.",
+        ],
+        cta: { label: ar ? 'تصفح الدورات' : 'Browse courses', url: t.browseUrl ?? t.url },
+        note: team,
+      });
+    case 'SUBMITTED':
+      return mk(ar ? `استلمنا طلبك: ${c}` : `We received your application: ${c}`, {
+        heading: c,
+        paragraphs: [
+          ar
+            ? `شكرًا لتقديمك على ${c}. استلمنا طلبك، وسيراجعه فريق الدورة ونراسلك فور اتخاذ القرار.`
+            : `Thank you for applying to ${c}. We've received your application; the course team will review it and email you as soon as there's a decision.`,
+        ],
+        cta: dashboard,
+      });
+    default: {
+      // Payment steps: short, with the payment reason when there is one.
+      const paragraphs = [applicationStatusMessages[t.status][locale]];
+      if (t.reason) paragraphs.push(ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`);
+      return mk(`${c}: ${applicationStatusLabels[t.status][locale]}`, { heading: c, paragraphs, cta: dashboard });
+    }
+  }
 }
 
 export function buildEmail(t: EmailTemplate, locale: Locale): Built {
@@ -121,22 +246,8 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
         ),
       };
     }
-    case 'applicationStatus': {
-      const statusLabel = applicationStatusLabels[t.status][locale];
-      const subject = ar ? `${t.courseTitle}: ${statusLabel}` : `${t.courseTitle}: ${statusLabel}`;
-      return {
-        subject,
-        element: (
-          <Layout
-            {...base}
-            preview={subject}
-            heading={t.courseTitle}
-            paragraphs={statusCopy(t.status, locale, t.reason)}
-            cta={{ label: ar ? 'افتح لوحة التحكم' : 'Open your dashboard', url: t.url }}
-          />
-        ),
-      };
-    }
+    case 'applicationStatus':
+      return applicationEmail(t, locale, base);
     case 'sessionReminder': {
       const when = ar
         ? t.hoursBefore === 24

@@ -104,7 +104,20 @@ describe('auth & profile (e2e)', () => {
         acceptTerms: true,
       })
       .expect(200);
-    expect(res.body).toMatchObject({ coreComplete: true, completeness: 60 });
+    // The basics alone are no longer enough: professional background and education are required too.
+    expect(res.body).toMatchObject({ coreComplete: false });
+    await http().put('/api/me/profile/professional').set('Cookie', cookies).send({ company: 'X' }).expect(400);
+    await http()
+      .put('/api/me/profile/professional')
+      .set('Cookie', cookies)
+      .send({ industry: 'TELECOM', mlExperienceYears: 'Y1_3', seniority: 'MID', secondaryAreas: [] })
+      .expect(200);
+    const edu = await http()
+      .put('/api/me/profile/education')
+      .set('Cookie', cookies)
+      .send({ educationLevel: 'BACHELORS', fieldOfStudy: 'Computer Science', university: 'Cairo University' })
+      .expect(200);
+    expect(edu.body).toMatchObject({ coreComplete: true, completeness: 60 });
     const skills = await http()
       .put('/api/me/profile/skills')
       .set('Cookie', cookies)

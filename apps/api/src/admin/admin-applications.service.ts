@@ -199,7 +199,7 @@ export class AdminApplicationsService {
     const header = [
       'Application ID', 'Applied at', 'Status', 'Course', 'Ref', 'UTM source', 'Name (EN)', 'Name (AR)', 'Email', 'Phone',
       'Country', 'City', 'Employment', 'Job title', 'Company', 'Experience', 'ML experience', 'Seniority', 'Primary area',
-      'Secondary areas', 'Education', 'Skills (1-5)', 'Cloud', 'Weekly hours', 'Topics', 'Open to opportunities',
+      'Secondary areas', 'Education', 'Field of study', 'Institution', 'Skills (1-5)', 'Cloud', 'Weekly hours', 'Topics', 'Open to opportunities',
       'Share with partners', 'Google email', 'LinkedIn', 'GitHub',
       ...questions.map((q) => `Q: ${q.labelEn}`),
     ];
@@ -210,7 +210,7 @@ export class AdminApplicationsService {
       return [
         a.id, a.createdAt.toISOString(), a.status, a.course.titleEn, a.ref, src.utm_source, p?.fullNameEn, p?.fullNameAr, a.user.email,
         p?.phone, p?.country, p?.city, p?.employmentStatus, p?.jobTitle, p?.company, p?.experienceYears, p?.mlExperienceYears,
-        p?.seniority, p?.primaryArea, p?.secondaryAreas, p?.educationLevel,
+        p?.seniority, p?.primaryArea, p?.secondaryAreas, p?.educationLevel, p?.fieldOfStudy, p?.university,
         (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.weeklyHours, p?.interestedTopics,
         p?.openToOpportunities, p?.shareWithPartners, p?.googleEmail, p?.linkedinUrl, p?.githubUrl,
         ...questions.map((q) => answers[q.id]),

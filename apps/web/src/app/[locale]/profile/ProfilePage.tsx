@@ -1,6 +1,6 @@
 'use client';
 
-import { computeCompleteness, PROFILE_SECTIONS, type MeResponse, type ProfileDto } from '@academy/shared';
+import { computeCompleteness, CORE_FIELD_SECTION, PROFILE_SECTIONS, type MeResponse, type ProfileDto } from '@academy/shared';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -63,6 +63,8 @@ function Tabs({ user }: { user: MeResponse }) {
   }
   if (!profile) return <PageSpinner />;
   const completeness = computeCompleteness(profile);
+  // Mark every required tab that still has a gap, not just Basics.
+  const missingSections = new Set<string>(completeness.missingCore.map((f) => CORE_FIELD_SECTION[f]));
 
   return (
     <Container className="max-w-4xl py-10">
@@ -105,7 +107,7 @@ function Tabs({ user }: { user: MeResponse }) {
             {s !== 'account' && completeness.incompleteSections.includes(s) && (
               <span className="ms-1.5 inline-block size-1.5 rounded-full bg-accent align-middle" aria-hidden />
             )}
-            {s === 'core' && !completeness.coreComplete && (
+            {missingSections.has(s) && (
               <span className="ms-1.5 inline-block size-1.5 rounded-full bg-danger align-middle" aria-hidden />
             )}
           </button>

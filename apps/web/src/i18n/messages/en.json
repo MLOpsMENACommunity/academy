@@ -166,7 +166,7 @@
   },
   "onboarding": {
     "title": "Complete your profile",
-    "subtitle": "The required step takes about 3 minutes. Everything else is optional but helps us shape courses for you.",
+    "subtitle": "The first three steps are required and take about 5 minutes. The rest is optional but helps us shape courses for you.",
     "step": "Step {current} of {total}",
     "skip": "Skip for now",
     "saveContinue": "Save and continue",
@@ -196,8 +196,8 @@
     },
     "sectionHints": {
       "core": "Required before applying to any course.",
-      "professional": "Helps instructors pitch sessions at the right level.",
-      "education": "Optional.",
+      "professional": "Required. Helps instructors pitch sessions at the right level.",
+      "education": "Required. Your highest degree or main way of learning.",
       "skills": "Rate yourself honestly; this is only used to plan courses and cohorts.",
       "goals": "Tells us which courses to build next.",
       "links": "Optional. Your CV is private and only visible to academy admins.",
@@ -228,7 +228,7 @@
       "secondaryAreas": "Secondary areas",
       "educationLevel": "Highest degree",
       "fieldOfStudy": "Field of study",
-      "university": "University / institution",
+      "university": "University, institution or learning platform",
       "graduationYear": "Graduation year",
       "currentlyStudying": "I'm currently studying",
       "skillsLegend": "Skills self-assessment (1–5)",
@@ -256,7 +256,8 @@
       "openToOpportunities": "I'm open to job opportunities",
       "shareWithPartners": "Share my profile with MLOps MENA hiring partners",
       "shareWithPartnersHint": "Only your profile (not your CV unless you upload one) is shared, and only with partners we vet. You can turn this off at any time.",
-      "marketingEmails": "Email me about new courses and events"
+      "marketingEmails": "Email me about new courses and events",
+      "universityHint": "For example your university, a bootcamp, or a platform such as Coursera."
     }
   },
   "dashboard": {
@@ -368,7 +369,7 @@
     "yes": "Yes",
     "no": "No",
     "verifyFirst": "Confirm your email address before applying. We sent a link to {email}.",
-    "profileFirst": "Complete the required part of your profile before applying. It takes about 3 minutes.",
+    "profileFirst": "Complete the required parts of your profile (basics, professional background and education) before applying. It takes about 5 minutes.",
     "completeProfile": "Complete my profile",
     "closed": "Applications for this course are closed.",
     "already": "You've already applied to this course.",
@@ -565,7 +566,7 @@
       "student": "Student",
       "applied": "Applied",
       "bulk": "Bulk action",
-      "reason": "Reason (optional, sent to student)",
+      "reason": "Feedback for the applicant (optional, shown in their rejection email)",
       "run": "Apply to selected",
       "bulkDone": "{ok} of {total} updated.",
       "events": {
@@ -579,7 +580,8 @@
       "current": "Current profile",
       "history": "Status history",
       "payments": "Payments",
-      "source": "Source"
+      "source": "Source",
+      "reasonPlaceholder": "e.g. We were looking for more hands-on production experience. Consider the recordings and apply to the next cohort."
     },
     "filters": {
       "country": "Country",
@@ -769,6 +771,10 @@
         "delivered": "Emailed {sent} of {count}",
         "failed": "{count} failed",
         "skipped": "{count} skipped (account deleted)"
+      },
+      "delete": {
+        "confirm": "Delete \"{title}\" permanently? Its sessions, questions and announcements are deleted too. This can’t be undone.",
+        "hasApplicants": "\"{title}\" has applicants or students, so it can’t be deleted (their records must be kept). To archive it instead (it disappears from the catalog and applicants can no longer reach it), type its slug: {slug}"
       }
     },
     "settings": {

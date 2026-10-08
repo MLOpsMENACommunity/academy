@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
 import { Announcements } from '@/components/admin/Announcements';
+import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor, type QuestionRow, type SessionRow } from '@/components/admin/CourseTabs';
@@ -113,8 +114,16 @@ function CourseEditor() {
             {t('admin.courses.viewPublic')} ↗
           </a>
         )}
-        <div className="ms-auto">
+        <div className="ms-auto flex items-start gap-2">
           <DuplicateCourse courseId={course.id} slug={course.slug} titleEn={course.titleEn} />
+          <DeleteCourse
+            courseId={course.id}
+            title={course.titleEn}
+            titleAr={course.titleAr}
+            slug={course.slug}
+            // Back to the list either way: the open Details form still holds the old status.
+            onDone={() => router.push(`/${locale}/admin/courses`)}
+          />
         </div>
       </div>
 

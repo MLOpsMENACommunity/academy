@@ -2,7 +2,8 @@
 
 import { courseStatusLabels, courseTypeLabels, type ApplicationStatus, type CourseStatus, type CourseType } from '@academy/shared';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
@@ -29,11 +30,12 @@ export default function AdminCourses() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api<Row[]>('/admin/courses')
       .then(setRows)
       .catch(() => setError(true));
   }, []);
+  useEffect(load, [load]);
 
   return (
     <div>
@@ -54,12 +56,13 @@ export default function AdminCourses() {
               <th className="p-3 text-start">{t('admin.nav.applications')}</th>
               <th className="p-3 text-start">{t('admin.courses.enrolled')}</th>
               <th className="p-3 text-start">{t('admin.courses.sessions')}</th>
+              <th className="p-3 text-end">{t('admin.common.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {rows?.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-muted">
+                <td colSpan={7} className="p-6 text-center text-muted">
                   {t('admin.common.none')}
                 </td>
               </tr>
@@ -93,6 +96,14 @@ export default function AdminCourses() {
                     {c.capacity ? ` / ${c.capacity}` : ''}
                   </td>
                   <td className="p-3">{c.sessions}</td>
+                  <td className="p-3">
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/${locale}/admin/courses/${c.id}`} className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-semibold">
+                        {t('admin.common.edit')}
+                      </Link>
+                      <DeleteCourse courseId={c.id} title={c.titleEn} titleAr={c.titleAr} slug={c.slug} onDone={load} />
+                    </div>
+                  </td>
                 </tr>
               );
             })}
