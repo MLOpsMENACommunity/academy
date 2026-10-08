@@ -3,22 +3,23 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Role } from '@academy/shared';
 import { ACCESS_COOKIE } from '../auth/cookies';
+import type { AccessPayload } from '../auth/tokens.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { IS_PUBLIC, ROLES_KEY, type AuthedRequest } from './decorators';
 
-interface AccessPayload {
-  sub: string;
-  role: Role;
-}
-
 /**
- * Global guard: every route requires a valid access token unless marked
- * @Public(). @Roles(...) additionally restricts by role.
+ * Global guard: every route requires a valid session unless marked @Public().
+ * The access token's signature is not enough: its token version must match the
+ * user's current one (bumped on password/email change, account claim, deletion
+ * and token theft), so revoked sessions stop working immediately. Role comes
+ * from the database, not the token.
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly jwt: JwtService,
     private readonly reflector: Reflector,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -30,7 +31,18 @@ export class AuthGuard implements CanActivate {
     if (typeof token === 'string' && token) {
       try {
         const payload = await this.jwt.verifyAsync<AccessPayload>(token);
-        req.user = { id: payload.sub, role: payload.role };
+        const user = await this.prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { role: true, tokenVersion: true, deletedAt: true },
+        });
+        if (user && !user.deletedAt && user.tokenVersion === payload.tv) {
+          req.user = {
+            id: payload.sub,
+            role: user.role,
+            amr: payload.amr === 'google' ? 'google' : 'pwd',
+            authTime: new Date((payload.at ?? 0) * 1000),
+          };
+        }
       } catch {
         // Expired or invalid: public routes continue anonymously.
       }

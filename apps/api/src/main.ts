@@ -9,7 +9,8 @@ import type { Env } from './config/env';
 import { configureApp, setupSwagger } from './setup';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // JSON bodies only (see configureApp): no form-encoded bodies means no login CSRF via HTML forms.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   const env = app.get<Env>(ENV);
   configureApp(app);
   setupSwagger(app);

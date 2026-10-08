@@ -31,7 +31,9 @@ export class EmailService {
       await this.transport.send({ to, subject, html, text });
       return true;
     } catch (err) {
-      this.logger.error(`Failed to send "${template.name}" email: ${(err as Error).message}`);
+      // Provider messages often contain the recipient address: log only the error type/code.
+      const e = err as { name?: string; code?: string; responseCode?: number };
+      this.logger.error(`Failed to send "${template.name}" email: ${e.name ?? 'Error'} ${e.code ?? e.responseCode ?? ''}`.trim());
       return false;
     }
   }

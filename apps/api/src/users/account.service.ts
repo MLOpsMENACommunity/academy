@@ -1,14 +1,23 @@
-import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { verify } from '@node-rs/argon2';
 import type { Locale } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
+import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileService, toProfileDto } from './profile.service';
 
 export const ANONYMIZE_AFTER_DAYS = 30;
+const REAUTH_WINDOW_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class AccountService {
@@ -23,10 +32,21 @@ export class AccountService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Users with a password must re-enter it for sensitive changes; Google-only users can't. */
-  private async checkPassword(userId: string, password: string | undefined): Promise<void> {
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!user.passwordHash) return;
+  /**
+   * Re-authentication for sensitive changes. Users with a password re-enter it.
+   * Google-only users must be on a session that itself signed in with Google in
+   * the last few minutes (checked on the session, not the account, so another
+   * device's fresh sign-in doesn't unlock an old or stolen session).
+   */
+  private async checkPassword(session: AuthUser, password: string | undefined): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: session.id } });
+    if (!user.passwordHash) {
+      const fresh = session.amr === 'google' && Date.now() - session.authTime.getTime() < REAUTH_WINDOW_MS;
+      if (!fresh) {
+        throw new ForbiddenException({ code: 'REAUTH_REQUIRED', message: 'Sign in with Google again to confirm it is you' });
+      }
+      return;
+    }
     if (!password || !(await verify(user.passwordHash, password))) {
       throw new UnauthorizedException({ code: 'WRONG_PASSWORD', message: 'Your current password is incorrect' });
     }
@@ -36,18 +56,27 @@ export class AccountService {
     await this.prisma.user.update({ where: { id: userId }, data: { locale } });
   }
 
-  async changePassword(userId: string, current: string | undefined, next: string): Promise<void> {
-    await this.checkPassword(userId, current);
-    await this.prisma.user.update({
+  async changePassword(session: AuthUser, current: string | undefined, next: string): Promise<void> {
+    await this.checkPassword(session, current);
+    const userId = session.id;
+    const user = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash: await this.auth.hashPassword(next) },
     });
     await this.tokens.revokeAllForUser(userId);
+    await this.prisma.passwordResetToken.deleteMany({ where: { userId } });
+    await this.audit.log({ actorId: userId, action: 'account.password_changed', entityType: 'User', entityId: userId });
+    await this.email.send(user.email, user.locale, {
+      name: 'securityNotice',
+      kind: 'passwordChanged',
+      url: this.email.url(user.locale, '/contact'),
+    });
   }
 
   /** Login-email change: takes effect only after the new address is verified. */
-  async requestEmailChange(userId: string, newEmail: string, password: string | undefined): Promise<void> {
-    await this.checkPassword(userId, password);
+  async requestEmailChange(session: AuthUser, newEmail: string, password: string | undefined): Promise<void> {
+    await this.checkPassword(session, password);
+    const userId = session.id;
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (newEmail === user.email) throw new BadRequestException({ code: 'SAME_EMAIL', message: 'This is already your email' });
     const taken = await this.prisma.user.findUnique({ where: { email: newEmail } });
@@ -122,10 +151,16 @@ export class AccountService {
   }
 
   /** Soft delete: sign-in is blocked now; personal data is anonymised after 30 days. */
-  async deleteAccount(userId: string, password: string | undefined): Promise<void> {
-    await this.checkPassword(userId, password);
-    const user = await this.prisma.user.update({ where: { id: userId }, data: { deletedAt: new Date() } });
+  async deleteAccount(session: AuthUser, password: string | undefined): Promise<void> {
+    await this.checkPassword(session, password);
+    const userId = session.id;
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date() },
+      include: { profile: { select: { googleEmail: true } } },
+    });
     await this.tokens.revokeAllForUser(userId);
+    await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
     await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted' });
   }
@@ -144,7 +179,12 @@ export class AccountService {
       user.profile?.cvKey,
       ...user.applications.flatMap((a) => a.payments.map((p) => p.screenshotKey)),
     ].filter((k): k is string => Boolean(k));
-    for (const key of keys) await this.profiles.safeDelete(key);
+    // If any file can't be deleted, stop: keys stay referenced and tomorrow's run retries.
+    for (const key of keys) {
+      if (!(await this.profiles.safeDelete(key))) {
+        throw new Error('Storage delete failed; anonymisation will be retried');
+      }
+    }
 
     const applicationIds = user.applications.map((a) => a.id);
     await this.prisma.$transaction([
@@ -162,7 +202,12 @@ export class AccountService {
         where: { id: { in: applicationIds } },
         data: { profileSnapshot: {}, answers: {}, source: {}, ref: null, rejectionReason: null },
       }),
+      this.prisma.applicationStatusHistory.updateMany({
+        where: { applicationId: { in: applicationIds } },
+        data: { reason: null },
+      }),
       this.prisma.adminNote.deleteMany({ where: { subjectUserId: userId } }),
+      this.prisma.enrollment.updateMany({ where: { userId }, data: { driveRevokeEmail: null } }),
       this.prisma.profile.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
       this.prisma.refreshToken.deleteMany({ where: { userId } }),
@@ -188,6 +233,8 @@ export class AccountService {
     const due = await this.prisma.user.findMany({
       where: { deletedAt: { lte: cutoff }, anonymizedAt: null },
       select: { id: true },
+      // Oldest first, so one account that keeps failing can't starve the rest forever.
+      orderBy: { deletedAt: 'asc' },
       take: 200,
     });
     for (const { id } of due) {

@@ -25,6 +25,8 @@ export type EmailTemplate =
     }
   | { name: 'profileReview'; url: string }
   | { name: 'accountDeleted' }
+  /** Sent to the account's (old) address after a sensitive change. */
+  | { name: 'securityNotice'; kind: 'emailChanged' | 'passwordChanged'; url: string }
   | { name: 'adminAlert'; message: string; url: string };
 
 type Built = { subject: string; element: ReactElement };
@@ -221,6 +223,36 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 ? 'حذفنا حسابك كما طلبت. ستُجهَّل بياناتك الشخصية خلال 30 يومًا. نحتفظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.'
                 : "We've deleted your account as requested. Your personal data will be anonymised within 30 days. Payment records are kept in anonymised form for accounting.",
             ]}
+          />
+        ),
+      };
+    }
+    case 'securityNotice': {
+      const copy = {
+        emailChanged: {
+          en: ['Your login email was changed', 'The login email for your MLOps MENA Academy account was just changed to a new address. You have been signed out everywhere.'],
+          ar: ['تم تغيير بريد تسجيل الدخول', 'تم تغيير بريد تسجيل الدخول لحسابك في أكاديمية MLOps MENA إلى عنوان جديد. تم تسجيل خروجك من جميع الأجهزة.'],
+        },
+        passwordChanged: {
+          en: ['Your password was changed', 'The password for your MLOps MENA Academy account was just changed or set. You have been signed out everywhere.'],
+          ar: ['تم تغيير كلمة المرور', 'تم تغيير أو تعيين كلمة المرور لحسابك في أكاديمية MLOps MENA. تم تسجيل خروجك من جميع الأجهزة.'],
+        },
+      }[t.kind][locale];
+      const [subject, body] = copy as [string, string];
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[body]}
+            cta={{ label: ar ? 'لم أقم بذلك' : "This wasn't me", url: t.url }}
+            note={
+              ar
+                ? 'إذا قمت بهذا التغيير فلا داعي لأي إجراء. إذا لم تقم به، تواصل معنا فورًا.'
+                : "If you made this change, you don't need to do anything. If you didn't, contact us right away."
+            }
           />
         ),
       };

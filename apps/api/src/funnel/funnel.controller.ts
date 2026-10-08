@@ -1,6 +1,6 @@
-import { Body, Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { clientFunnelEventSchema, type ClientFunnelEvent } from '@academy/shared';
 import { Public, type AuthedRequest } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
@@ -13,7 +13,6 @@ import { FunnelService } from './funnel.service';
  */
 @ApiTags('funnel')
 @Controller('funnel')
-@UseGuards(ThrottlerGuard)
 @Throttle({ default: { limit: 60, ttl: 60_000 } })
 export class FunnelController {
   constructor(private readonly funnel: FunnelService) {}
