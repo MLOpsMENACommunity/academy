@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from './config/config.module';
+import { CoursesModule } from './courses/courses.module';
 import { EmailModule } from './email/email.module';
 import { FunnelModule } from './funnel/funnel.module';
 import { HealthController } from './health/health.controller';
@@ -26,6 +27,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     AuthModule,
     UsersModule,
+    CoursesModule,
     JobsModule,
   ],
   controllers: [HealthController],
