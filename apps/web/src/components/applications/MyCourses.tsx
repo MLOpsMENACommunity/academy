@@ -54,7 +54,7 @@ export function MyCourses() {
                   {t('applications.goToCourse')}
                 </Link>
               ) : needsPayment ? (
-                <Link href={`/${locale}/dashboard/applications/${a.id}`} className={buttonClass('accent', 'md')}>
+                <Link href={`/${locale}/dashboard/applications/${a.id}#payment-title`} className={buttonClass('accent', 'md')}>
                   {t('applications.pay')}
                 </Link>
               ) : null}
