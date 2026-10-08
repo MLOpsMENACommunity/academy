@@ -110,7 +110,14 @@ Then run **Deploy to Cloudflare**. Cloudflare creates the DNS record and certifi
 
 If Google sign-in is enabled, add `https://academy.mlopsmena.com/api/auth/google/callback` to the OAuth client's redirect URIs first.
 
-For a real production database, also remove `SEED_PLACEHOLDER_STATUS` and change the admin password after the first sign-in.
+During the deploy, the old host may redirect to the new one about a minute before Cloudflare finishes issuing its certificate; expect a brief certificate warning if you test at that exact moment.
+
+**To undo the switch,** don't just delete `ACADEMY_HOSTNAME` (that would remove academy.mlopsmena.com and break links already sent by email). Set `ACADEMY_HOSTNAME` back to `academy-staging.mlopsmena.com` and put `academy.mlopsmena.com` in `ACADEMY_REDIRECT_HOSTS`, then deploy.
+
+Before going live, also:
+- change the seeded admin password after your first sign-in (Profile → Account);
+- delete test accounts and applications, so the first announcement to enrolled students doesn't reach them;
+- `SEED_PLACEHOLDER_STATUS` is no longer needed (there are no placeholder courses). Removing it from GitHub doesn't remove it from the Worker; also run `pnpm --filter @academy/deploy-cloudflare exec wrangler secret delete SEED_PLACEHOLDER_STATUS` (harmless to leave).
 
 ## Operating
 

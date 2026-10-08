@@ -2,9 +2,10 @@ import type { Locale } from '@academy/shared';
 
 /**
  * Policy texts. They describe what the platform actually does (retention, storage,
- * recordings, payments) and were written to be launch-ready, but they are not legal
- * advice: have them reviewed when you can, especially before the first paid course.
- * A "[PLACEHOLDER]" anywhere in a policy shows a "pending review" banner on its page.
+ * recordings, payments). Privacy, Terms, Code of Conduct and Contact are launch-ready
+ * drafts; they are not legal advice, so have them reviewed when you can. The Refund
+ * Policy only matters for paid courses and is still marked "[PLACEHOLDER]", which
+ * shows a "pending review" banner on its page until it has been reviewed.
  */
 
 export const POLICY_SLUGS = ['privacy', 'terms', 'refund-policy', 'code-of-conduct', 'contact'] as const;
@@ -21,8 +22,8 @@ interface Policy {
   sections: Section[];
 }
 
-const UPDATED_EN = 'Last updated: 9 October 2026';
-const UPDATED_AR = 'آخر تحديث: 9 أكتوبر 2026';
+const UPDATED_EN = 'Last updated: 8 October 2026';
+const UPDATED_AR = 'آخر تحديث: 8 أكتوبر 2026';
 const EMAIL = 'academy@mlopsmena.com';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
@@ -43,9 +44,9 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: [
             'Account data: your email address, a hashed password (or your Google account identifier if you sign in with Google), and your language preference.',
             'Profile data you choose to give us: name, phone, country and city, professional background, education, skills, learning goals, links (LinkedIn, GitHub and similar) and an optional CV.',
-            'Course data: your applications and answers to screening questions, your enrolment, session progress, quiz and feedback responses you submit through the academy.',
+            'Course data: your applications and answers to screening questions, your enrolment, session progress and the feedback you submit through the academy. Quizzes and assignment forms linked from a course are run on the services they are hosted on (for example Google Forms).',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
-            'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Logs do not contain your email address, IP address or the content you submit.',
+            'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Our own logs do not contain your email address, IP address or the content you submit. Our hosting provider (Cloudflare) processes IP addresses to deliver and protect the site.',
           ],
         },
         {
@@ -66,20 +67,20 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'Payment screenshots and CVs',
           body: [
             'Screenshots and CVs are stored in a private storage bucket. Only academy administrators can open them, through links that expire within five minutes, and every view is logged.',
-            'Payment screenshots are deleted automatically after 180 days. The payment record itself (amount, reference, method, dates and decision) is kept for accounting.',
+            'Payment screenshots and CVs are deleted automatically after 180 days. The payment record itself (amount, reference, method, dates and decision) is kept for accounting.',
           ],
         },
         {
           heading: 'Who we share it with',
           body: [
-            'We do not sell your data. We use service providers to operate the academy: hosting and private file storage (Cloudflare), the database (Neon), email delivery (Resend), and Google (Meet, YouTube and Drive) to deliver sessions and recordings. Some of these providers process data outside Egypt; we only use providers that protect it with appropriate security and contractual safeguards.',
-            "Instructors of a course you apply to can see your application and profile to screen it. For paid courses, your Google account email is shared with the course's Drive folder so you can access recordings.",
+            'We do not sell your data. We use service providers to operate the academy: hosting and private file storage (Cloudflare), the database (Neon), email delivery (Resend), error tracking without personal details (Sentry, when enabled), and Google (Meet, YouTube and Drive) to deliver sessions and recordings. Some of these providers process data outside Egypt; we only use providers that protect it with appropriate security and contractual safeguards.',
+            "The academy team who screen applications (administrators, who may include course instructors) can see your application and profile. For paid courses, your Google account email is shared with the course's Drive folder so you can access recordings.",
           ],
         },
         {
           heading: 'How long we keep it',
           body: [
-            'Your account and profile are kept until you delete your account. Applications and enrolments are kept for course records and certificates. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting.',
+            'Your account and profile are kept until you delete your account (an uploaded CV is deleted after 180 days). Applications and enrolments are kept for course records and certificates. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting.',
             'Encrypted database backups are kept for up to 30 days, so deleted data disappears from them within 30 days after anonymisation.',
           ],
         },
@@ -87,12 +88,12 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'Your rights',
           body: [
             'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. You can also ask us to correct, restrict or explain how we process your data.',
-            `To exercise any right or raise a concern, email ${EMAIL}. We reply within 30 days. You may also complain to Egypt's Personal Data Protection Center.`,
+            `To exercise any right or raise a concern, email ${EMAIL}. We respond within the time limits set by law. You may also complain to Egypt's Personal Data Protection Center.`,
           ],
         },
         {
           heading: 'Age',
-          body: ['The academy is for adults. You must be at least 18 to create an account.'],
+          body: ['The academy is for adults. You must be at least 18 to use it, and you confirm this when you accept the Terms while completing your profile.'],
         },
         {
           heading: 'Cookies',
@@ -122,9 +123,9 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: [
             'بيانات الحساب: بريدك الإلكتروني، وكلمة مرور مشفرة (أو معرّف حساب Google إذا سجلت الدخول عبر Google)، ولغتك المفضلة.',
             'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والدولة والمدينة والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط (مثل LinkedIn وGitHub) وسيرة ذاتية اختيارية.',
-            'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، وما ترسله عبر الأكاديمية من إجابات وتقييمات.',
+            'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية. أما الاختبارات ونماذج الواجبات المرتبطة بالدورة فتعمل على الخدمات المستضافة عليها (مثل Google Forms).',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
-            'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن السجلات بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله.',
+            'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن سجلاتنا بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله. ويعالج مزود الاستضافة لدينا (Cloudflare) عناوين IP لتقديم الموقع وحمايته.',
           ],
         },
         {
@@ -145,20 +146,20 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'لقطات الدفع والسير الذاتية',
           body: [
             'تُخزَّن لقطات الشاشة والسير الذاتية في مساحة تخزين خاصة. لا يمكن فتحها إلا لمسؤولي الأكاديمية عبر روابط تنتهي صلاحيتها خلال خمس دقائق، ويُسجَّل كل اطلاع عليها.',
-            'تُحذف لقطات الدفع تلقائيًا بعد 180 يومًا، بينما يُحتفظ بسجل الدفع نفسه (المبلغ والرقم المرجعي والطريقة والتواريخ والقرار) لأغراض محاسبية.',
+            'تُحذف لقطات الدفع والسير الذاتية تلقائيًا بعد 180 يومًا، بينما يُحتفظ بسجل الدفع نفسه (المبلغ والرقم المرجعي والطريقة والتواريخ والقرار) لأغراض محاسبية.',
           ],
         },
         {
           heading: 'مع من نشاركها',
           body: [
-            'لا نبيع بياناتك. نستعين بمزودي خدمات لتشغيل الأكاديمية: الاستضافة والتخزين الخاص للملفات (Cloudflare)، وقاعدة البيانات (Neon)، وإرسال البريد (Resend)، وGoogle ‏(Meet وYouTube وDrive) لتقديم الجلسات والتسجيلات. يعالج بعض هؤلاء المزودين البيانات خارج مصر، ولا نستعين إلا بمزودين يحمونها بضمانات أمنية وتعاقدية مناسبة.',
-            'يمكن لمحاضري الدورة التي تقدم عليها الاطلاع على طلبك وملفك الشخصي لمراجعته. وفي الدورات المدفوعة، يُشارك بريد حساب Google الخاص بك مع مجلد Drive الخاص بالدورة لتتمكن من الوصول إلى التسجيلات.',
+            'لا نبيع بياناتك. نستعين بمزودي خدمات لتشغيل الأكاديمية: الاستضافة والتخزين الخاص للملفات (Cloudflare)، وقاعدة البيانات (Neon)، وإرسال البريد (Resend)، وتتبع الأخطاء دون بيانات شخصية (Sentry، عند تفعيله)، وGoogle ‏(Meet وYouTube وDrive) لتقديم الجلسات والتسجيلات. يعالج بعض هؤلاء المزودين البيانات خارج مصر، ولا نستعين إلا بمزودين يحمونها بضمانات أمنية وتعاقدية مناسبة.',
+            'يمكن لفريق الأكاديمية الذي يراجع الطلبات (المسؤولون، وقد يكون من بينهم محاضرو الدورة) الاطلاع على طلبك وملفك الشخصي. وفي الدورات المدفوعة، يُشارك بريد حساب Google الخاص بك مع مجلد Drive الخاص بالدورة لتتمكن من الوصول إلى التسجيلات.',
           ],
         },
         {
           heading: 'مدة الاحتفاظ بالبيانات',
           body: [
-            'نحتفظ بحسابك وملفك الشخصي حتى تحذف حسابك. ونحتفظ بالطلبات والتسجيلات لسجلات الدورات والشهادات. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.',
+            'نحتفظ بحسابك وملفك الشخصي حتى تحذف حسابك (وتُحذف السيرة الذاتية المرفوعة بعد 180 يومًا). ونحتفظ بالطلبات والتسجيلات لسجلات الدورات والشهادات. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.',
             'نحتفظ بنسخ احتياطية مشفرة من قاعدة البيانات لمدة أقصاها 30 يومًا، لذا تختفي البيانات المحذوفة منها خلال 30 يومًا بعد التجهيل.',
           ],
         },
@@ -166,12 +167,12 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'حقوقك',
           body: [
             'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. ويمكنك أيضًا أن تطلب منا تصحيح بياناتك أو تقييد معالجتها أو توضيح كيفية معالجتها.',
-            `لممارسة أي حق أو تقديم شكوى، راسلنا عبر ${EMAIL}، وسنرد خلال 30 يومًا. ويمكنك أيضًا تقديم شكوى إلى مركز حماية البيانات الشخصية في مصر.`,
+            `لممارسة أي حق أو تقديم شكوى، راسلنا عبر ${EMAIL}، وسنرد خلال المدد التي يحددها القانون. ويمكنك أيضًا تقديم شكوى إلى مركز حماية البيانات الشخصية في مصر.`,
           ],
         },
         {
           heading: 'السن',
-          body: ['الأكاديمية مخصصة للبالغين. يجب أن يكون عمرك 18 عامًا على الأقل لإنشاء حساب.'],
+          body: ['الأكاديمية مخصصة للبالغين. يجب ألا يقل عمرك عن 18 عامًا لاستخدامها، وتؤكد ذلك عند موافقتك على الشروط أثناء إكمال ملفك الشخصي.'],
         },
         {
           heading: 'ملفات تعريف الارتباط (Cookies)',
@@ -326,24 +327,20 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'Before a paid course starts',
-          body: ['Full refund if you withdraw at least 7 days before the first session. Between 7 days and the first session, 50% is refunded.'],
+          body: ['[PLACEHOLDER] Full refund if you withdraw at least 7 days before the first session.'],
         },
         {
           heading: 'After a paid course starts',
-          body: [
-            'No refund after the first session, except where a serious and documented reason prevents you from continuing; these requests are reviewed case by case.',
-          ],
+          body: ["[PLACEHOLDER] Partial or no refund after the first session, at the academy's discretion."],
         },
         {
-          heading: 'If we cancel or reschedule',
-          body: [
-            'If the academy cancels a course, you receive a full refund. If we reschedule it and the new dates do not work for you, you can choose a full refund instead.',
-          ],
+          heading: 'If we cancel',
+          body: ['[PLACEHOLDER] If the academy cancels a course, you receive a full refund.'],
         },
         {
           heading: 'How refunds are paid',
           body: [
-            `Email ${EMAIL} with your course name and transaction reference. Approved refunds are sent back by the method you used to pay (InstaPay or Vodafone Cash) within 14 days.`,
+            `[PLACEHOLDER] Refunds are sent back by the same method used to pay (InstaPay or Vodafone Cash) within 14 days. Contact ${EMAIL} to request one.`,
           ],
         },
       ],
@@ -359,23 +356,19 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'قبل بدء الدورة المدفوعة',
-          body: ['استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل. وفي الفترة بين سبعة أيام والجلسة الأولى يُسترد 50% من المبلغ.'],
+          body: ['[PLACEHOLDER] استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل.'],
         },
         {
           heading: 'بعد بدء الدورة المدفوعة',
-          body: ['لا يوجد استرداد بعد الجلسة الأولى، إلا إذا منعك سبب جدي وموثق من الاستمرار؛ وتُراجع هذه الطلبات كل حالة على حدة.'],
+          body: ['[PLACEHOLDER] استرداد جزئي أو عدم استرداد بعد الجلسة الأولى، وفقًا لتقدير الأكاديمية.'],
         },
         {
-          heading: 'إذا ألغينا الدورة أو غيّرنا موعدها',
-          body: [
-            'إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل. وإذا غيّرنا موعدها ولم تناسبك المواعيد الجديدة، يمكنك اختيار الاسترداد الكامل بدلًا من ذلك.',
-          ],
+          heading: 'إذا ألغينا الدورة',
+          body: ['[PLACEHOLDER] إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
         },
         {
           heading: 'كيف يُرد المبلغ',
-          body: [
-            `راسل ${EMAIL} مع ذكر اسم الدورة والرقم المرجعي للعملية. يُرد المبلغ المعتمد بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا.`,
-          ],
+          body: [`[PLACEHOLDER] يُرد المبلغ بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا. تواصل مع ${EMAIL} لطلب الاسترداد.`],
         },
       ],
     },

@@ -25,7 +25,7 @@ The dumps come from `.github/workflows/backup.yml`, which runs daily at 01:30 UT
 - Recommended: a separate R2 bucket (for example `academy-backups`) with its own R2 API token scoped to it. Add the variable `BACKUP_BUCKET` and the secrets `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY`. Then a leaked app credential can't read or delete backups. Without these, the app's bucket and token are used.
 - If the `staging` environment requires reviewers, scheduled backup runs wait for approval. Keep it limited to the `main` branch, without required reviewers.
 
-**Privacy:** dumps contain whatever was in the database that day, so data from a deleted account can survive in them for up to `BACKUP_RETENTION_DAYS` after anonymisation. The privacy policy should say so (see the `[PLACEHOLDER]` policy text).
+**Privacy:** dumps contain whatever was in the database that day, so data from a deleted account can survive in them for up to `BACKUP_RETENTION_DAYS` after anonymisation. The privacy policy says so ("How long we keep it").
 
 Payment screenshots and CVs in R2 are **not** backed up on purpose. The retention job deletes them after the configured period, and backing them up would keep personal data longer than the privacy policy allows.
 

@@ -102,7 +102,7 @@ export function NotificationsBell() {
               const content = (
                 <>
                   <p className={`text-sm ${n.readAt ? 'text-body' : 'font-semibold text-fg'}`}>{locale === 'ar' ? n.titleAr : n.titleEn}</p>
-                  <p className="mt-0.5 text-xs text-muted">{locale === 'ar' ? n.bodyAr : n.bodyEn}</p>
+                  <p className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-muted">{locale === 'ar' ? n.bodyAr : n.bodyEn}</p>
                   <p className="mt-1 text-[11px] text-muted">{formatDateTime(n.createdAt, locale)}</p>
                 </>
               );

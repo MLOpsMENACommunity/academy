@@ -270,3 +270,10 @@ export type ReminderKind = (typeof REMINDER_KINDS)[number];
 export function isLocaleValue(v: unknown): v is Locale {
   return v === 'en' || v === 'ar';
 }
+
+// ---------------------------------------------------------------- Announcements
+
+/** Email delivery state of one announcement recipient. */
+export const DELIVERY_STATUSES = ['PENDING', 'SENT', 'FAILED', 'SKIPPED'] as const;
+export const DeliveryStatus = defineEnum(DELIVERY_STATUSES);
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];

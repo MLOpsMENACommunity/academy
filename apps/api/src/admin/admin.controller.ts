@@ -227,7 +227,7 @@ export class AdminController {
 
   @Post('courses/:id/announcements')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  sendAnnouncement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(announcementSchema)) body: AnnouncementInput) {
+  sendAnnouncement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(announcementSchema)) body: AnnouncementInput & { idempotencyKey: string }) {
     return this.announcements.send(id, body, user);
   }
 

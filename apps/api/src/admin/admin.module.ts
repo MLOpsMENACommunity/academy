@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AnnouncementsModule } from '../announcements/announcements.module';
 import { ApplicationsModule } from '../applications/applications.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { AdminAnnouncementsService } from './admin-announcements.service';
@@ -9,7 +10,7 @@ import { AdminMiscService } from './admin-misc.service';
 import { AdminStudentsService } from './admin-students.service';
 
 @Module({
-  imports: [ApplicationsModule, PaymentsModule],
+  imports: [ApplicationsModule, PaymentsModule, AnnouncementsModule],
   controllers: [AdminController],
   providers: [AdminApplicationsService, AdminStudentsService, AdminCoursesService, AdminMiscService, AdminAnnouncementsService],
 })

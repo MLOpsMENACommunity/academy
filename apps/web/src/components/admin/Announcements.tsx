@@ -14,14 +14,19 @@ import { issuesToErrors } from '@/lib/zod-errors';
 import { MultiSelect } from './MultiSelect';
 
 interface HistoryRow {
+  id: string;
   at: string;
   by: string | null;
   subject: string;
   statuses: ApplicationStatus[];
   recipients: number;
-  sent: number | null;
-  failed: number | null;
+  pending: number;
+  sent: number;
+  failed: number;
+  skipped: number;
 }
+
+const newKey = () => crypto.randomUUID();
 
 const EMPTY = { subjectEn: '', subjectAr: '', bodyEn: '', bodyAr: '' };
 
@@ -37,6 +42,8 @@ export function Announcements({ courseId }: { courseId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One key per message: retrying after a lost response can't send it twice.
+  const [key, setKey] = useState(newKey);
 
   const loadHistory = useCallback(() => {
     api<HistoryRow[]>(`/admin/courses/${courseId}/announcements`)
@@ -59,7 +66,7 @@ export function Announcements({ courseId }: { courseId: string }) {
   async function send() {
     setError(null);
     setDone(null);
-    const parsed = announcementSchema.safeParse({ ...msg, statuses });
+    const parsed = announcementSchema.safeParse({ ...msg, statuses, idempotencyKey: key });
     if (!parsed.success) {
       setErrors(issuesToErrors(parsed.error.issues, t));
       return;
@@ -71,9 +78,8 @@ export function Announcements({ courseId }: { courseId: string }) {
       const r = await api<{ recipients: number }>(`/admin/courses/${courseId}/announcements`, { method: 'POST', json: parsed.data });
       setDone(a('sent', { count: r.recipients }));
       setMsg(EMPTY);
+      setKey(newKey());
       loadHistory();
-      // Emails go out in the background; refresh once more so delivery results appear.
-      setTimeout(loadHistory, Math.min(60_000, r.recipients * 700 + 2_000));
     } catch (err) {
       setError(errorMessage(err, t));
     } finally {
@@ -81,7 +87,19 @@ export function Announcements({ courseId }: { courseId: string }) {
     }
   }
 
-  const set = (k: keyof typeof EMPTY) => (v: string) => setMsg((p) => ({ ...p, [k]: v }));
+  // Editing the message makes it a new one (new key).
+  const set = (k: keyof typeof EMPTY) => (v: string) => {
+    setMsg((p) => ({ ...p, [k]: v }));
+    setKey(newKey());
+  };
+
+  // While emails are going out, refresh the delivery counts.
+  const sending = history.some((h) => h.pending > 0);
+  useEffect(() => {
+    if (!sending) return;
+    const timer = setInterval(loadHistory, 5_000);
+    return () => clearInterval(timer);
+  }, [sending, loadHistory]);
 
   return (
     <div className="space-y-5">
@@ -121,14 +139,16 @@ export function Announcements({ courseId }: { courseId: string }) {
         ) : (
           <ul className="mt-3 divide-y divide-line text-sm">
             {history.map((h) => (
-              <li key={h.at} className="py-3">
+              <li key={h.id} className="py-3">
                 <p className="font-semibold text-fg">{h.subject}</p>
                 <p className="text-xs text-muted">
                   {formatDateTime(h.at, locale)} · {h.by ?? '—'} · {h.statuses.map((s) => applicationStatusLabels[s]?.[locale] ?? s).join(', ')}
                 </p>
                 <p className="text-xs">
-                  {h.sent === null ? a('sending', { count: h.recipients }) : a('delivered', { sent: h.sent, count: h.recipients })}
+                  {a('delivered', { sent: h.sent, count: h.recipients })}
+                  {h.pending ? <span> · {a('sending', { count: h.pending })}</span> : null}
                   {h.failed ? <span className="text-danger"> · {a('failed', { count: h.failed })}</span> : null}
+                  {h.skipped ? <span className="text-muted"> · {a('skipped', { count: h.skipped })}</span> : null}
                 </p>
               </li>
             ))}

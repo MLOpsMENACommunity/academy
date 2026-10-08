@@ -17,7 +17,6 @@ const WINDOWS: Record<ReminderKind, { from: number; to: number; hours: 24 | 1 }>
   H1: { from: 10, to: 75, hours: 1 },
 };
 
-const SEND_INTERVAL_MS = process.env.NODE_ENV === 'test' ? 0 : 400;
 
 @Injectable()
 export class ReminderJobs {
@@ -82,7 +81,7 @@ export class ReminderJobs {
             hoursBefore: w.hours,
             url: page,
             unsubscribeUrl: `${page}#reminders`,
-          });
+          }, { bulk: true });
           if (ok) {
             sent++;
           } else {
@@ -90,8 +89,6 @@ export class ReminderJobs {
             failed++;
             await this.prisma.reminderLog.deleteMany({ where: { sessionId: s.id, userId: user.id, kind } });
           }
-          // Gentle pacing: email providers rate-limit bursts (Resend allows a few requests per second).
-          await new Promise((r) => setTimeout(r, SEND_INTERVAL_MS));
         }
       }
     }

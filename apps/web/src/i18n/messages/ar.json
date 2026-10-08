@@ -219,7 +219,7 @@
       "googleEmail": "بريد حساب Google",
       "googleEmailHint": "نستخدمه لمنحك الوصول إلى تسجيلات الدورات المدفوعة على Google Drive. يجب أن يكون حساب Google (Gmail أو Google Workspace).",
       "preferredLanguage": "اللغة المفضلة",
-      "acceptTerms": "أوافق على {terms} و{privacy}.",
+      "acceptTerms": "عمري 18 عامًا أو أكثر، وأوافق على {terms} و{privacy}.",
       "company": "الشركة",
       "industry": "القطاع",
       "companySize": "حجم الشركة",
@@ -760,14 +760,15 @@
         "bodyAr": "الرسالة (بالعربية)",
         "arHint": "اختياري: يُستخدم النص الإنجليزي إذا تُرك فارغًا.",
         "audience": "الإرسال إلى",
-        "recipients": "{count} مستلم",
+        "recipients": "عدد المستلمين: {count}",
         "send": "إرسال",
         "confirm": "إرسال هذا الإعلان إلى {count} شخص؟ لا يمكن التراجع عن ذلك.",
         "sent": "أُرسل إلى {count} شخص. تُرسل الرسائل خلال الدقائق القليلة القادمة.",
         "history": "الإعلانات المرسلة",
-        "sending": "جارٍ الإرسال إلى {count}…",
+        "sending": "جارٍ إرسال {count}",
         "delivered": "أُرسل بالبريد إلى {sent} من {count}",
-        "failed": "تعذر إرسال {count}"
+        "failed": "تعذر إرسال {count}",
+        "skipped": "تم تخطي {count} (حساب محذوف)"
       }
     },
     "settings": {
@@ -834,6 +835,7 @@
     "nextTitle": "الجلسات القادمة",
     "nextNone": "لا توجد جلسات قادمة.",
     "driveSetup": "نمنح حساب Google الخاص بك ({email}) صلاحية الوصول إلى التسجيلات. يتم ذلك يدويًا وقد يستغرق حتى يوم بعد التسجيل.",
-    "addGoogleEmail": "أضفه في ملفك الشخصي"
+    "addGoogleEmail": "أضفه في ملفك الشخصي",
+    "announcements": "الإعلانات"
   }
 }

@@ -27,6 +27,6 @@ text = text.replaceAll(committed, host);
 const routes = [host, ...aliases].map((pattern) => ({ pattern, custom_domain: true }));
 text = text.replace(/"routes": \[[^\]]*\]/, `"routes": ${JSON.stringify(routes)}`);
 const sentryEnv = process.env.SENTRY_ENVIRONMENT?.trim();
-if (sentryEnv) text = text.replace(/"SENTRY_ENVIRONMENT": "[^"]*"/, `"SENTRY_ENVIRONMENT": ${JSON.stringify(sentryEnv)}`);
+if (sentryEnv) text = text.replace(/"SENTRY_ENVIRONMENT": "[^"]*"/, () => `"SENTRY_ENVIRONMENT": ${JSON.stringify(sentryEnv)}`);
 writeFileSync(file, text);
 console.log(`Hostname: ${host}${aliases.length ? `; redirecting ${aliases.join(', ')}` : ''}`);

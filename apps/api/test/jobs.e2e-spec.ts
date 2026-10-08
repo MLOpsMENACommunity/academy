@@ -23,6 +23,7 @@ describe('internal jobs endpoint (e2e)', () => {
   it('runs every job once and reports counts', async () => {
     const res = await request(app.getHttpServer()).post('/api/internal/jobs/tick').set('x-jobs-token', token).expect(200);
     expect(res.body).toEqual({
+      announcementEmailsPending: expect.any(Number),
       anonymised: expect.any(Number),
       profileReviewEmails: expect.any(Number),
       screenshotsDeleted: expect.any(Number),

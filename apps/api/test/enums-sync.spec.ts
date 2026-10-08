@@ -33,6 +33,7 @@ const pairs: Record<string, readonly string[]> = {
   SavedFilterScope: shared.SAVED_FILTER_SCOPES,
   FunnelEvent: shared.FUNNEL_EVENTS,
   ReminderKind: shared.REMINDER_KINDS,
+  DeliveryStatus: shared.DELIVERY_STATUSES,
 };
 
 describe('Prisma enums match @academy/shared', () => {

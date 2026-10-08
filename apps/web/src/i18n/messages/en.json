@@ -219,7 +219,7 @@
       "googleEmail": "Google account email",
       "googleEmailHint": "Used to give you access to paid-course recordings on Google Drive. It must be a Google account (Gmail or Google Workspace).",
       "preferredLanguage": "Preferred language",
-      "acceptTerms": "I accept the {terms} and the {privacy}.",
+      "acceptTerms": "I am 18 or older and accept the {terms} and the {privacy}.",
       "company": "Company",
       "industry": "Industry",
       "companySize": "Company size",
@@ -760,14 +760,15 @@
         "bodyAr": "Message (Arabic)",
         "arHint": "Optional: the English text is used when empty.",
         "audience": "Send to",
-        "recipients": "{count} recipients",
+        "recipients": "Recipients: {count}",
         "send": "Send",
         "confirm": "Send this announcement to {count} people? It can’t be undone.",
         "sent": "Sent to {count} people. Emails go out over the next few minutes.",
         "history": "Sent announcements",
-        "sending": "Sending to {count}…",
+        "sending": "{count} still sending",
         "delivered": "Emailed {sent} of {count}",
-        "failed": "{count} failed"
+        "failed": "{count} failed",
+        "skipped": "{count} skipped (account deleted)"
       }
     },
     "settings": {
@@ -834,6 +835,7 @@
     "nextTitle": "Next sessions",
     "nextNone": "No upcoming sessions.",
     "driveSetup": "We're giving your Google account ({email}) access to the recordings. This is done by hand and can take up to a day after enrolment.",
-    "addGoogleEmail": "Add it in your profile"
+    "addGoogleEmail": "Add it in your profile",
+    "announcements": "Announcements"
   }
 }

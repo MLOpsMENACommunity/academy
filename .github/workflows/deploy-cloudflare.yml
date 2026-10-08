@@ -82,6 +82,7 @@ jobs:
           # First request cold-starts both containers (migrations run on API start).
           for i in $(seq 1 30); do
             curl -fsS "https://$host/api/health" && break
+            [ "$i" = 30 ] && { echo "::error::https://$host/api/health never came up"; exit 1; }
             sleep 10
           done
           # The web container cold-starts separately: give it the same patience.
@@ -91,7 +92,8 @@ jobs:
             sleep 10
           done
           for alias in $(echo "$REDIRECT_HOSTS" | tr ',' ' '); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$alias/en")
+            [ "$alias" = "$host" ] && continue
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$alias/en" || true)
             [ "$code" = "301" ] || { echo "::error::$alias returned $code, expected a 301 to $host"; exit 1; }
           done
           echo "Deployed: https://$host"
