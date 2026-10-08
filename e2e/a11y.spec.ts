@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 /** WCAG 2.2 AA automated checks on the public pages, in both languages. */
-const PAGES = ['/en', '/ar', '/en/courses', '/ar/courses', '/en/login', '/ar/register', '/en/privacy', '/ar/contact'];
+const PAGES = ['/en', '/ar', '/en/courses', '/ar/courses', '/en/sessions', '/ar/sessions', '/en/login', '/ar/register', '/en/privacy', '/ar/contact'];
 
 for (const path of PAGES) {
   test(`no axe violations on ${path}`, async ({ page }) => {
@@ -18,6 +18,20 @@ test('no axe violations on a course page', async ({ page }) => {
   await page.goto('/en/courses');
   const first = page.locator('a[href*="/en/courses/"]').first();
   test.skip((await first.count()) === 0, 'no published course');
+  await first.click();
+  await page.waitForLoadState('networkidle');
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
+});
+
+test('live sessions pages render in both languages', async ({ page }) => {
+  await page.goto('/en/sessions');
+  await expect(page.getByRole('heading', { level: 1, name: 'Live sessions' })).toBeVisible();
+  await page.goto('/ar/sessions');
+  await expect(page.getByRole('heading', { level: 1, name: 'الجلسات المباشرة' })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  const first = page.locator('a[href*="/ar/sessions/"]').first();
+  test.skip((await first.count()) === 0, 'no published session');
   await first.click();
   await page.waitForLoadState('networkidle');
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
