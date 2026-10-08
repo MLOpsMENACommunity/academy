@@ -38,7 +38,8 @@ export async function generateMetadata({
     title: { default: t('meta.homeTitle'), template: `%s | ${t('meta.siteName')}` },
     description: t('meta.tagline'),
     applicationName: t('meta.siteName'),
-    icons: { icon: '/logo-mark.png', apple: '/logo-mark.png' },
+    // Small icons: the 256px logo is for structured data only.
+    icons: { icon: [{ url: '/favicon-32.png', sizes: '32x32', type: 'image/png' }], apple: '/apple-touch-icon.png' },
     openGraph: {
       siteName: t('meta.siteName'),
       locale: locale === 'ar' ? 'ar_EG' : 'en_US',

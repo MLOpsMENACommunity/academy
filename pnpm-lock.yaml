@@ -20,6 +20,9 @@ importers:
       '@playwright/test':
         specifier: 1.56.1
         version: 1.56.1
+      '@types/node':
+        specifier: ^24.19.1
+        version: 24.19.1
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(jiti@2.7.0)
@@ -241,7 +244,7 @@ importers:
         version: 5.9.3
       wrangler:
         specifier: ^4.140.0
-        version: 4.148.0(@cloudflare/workers-types@4.20260702.1)
+        version: 4.148.0(@cloudflare/workers-types@4.20260702.1)(@types/node@24.19.1)
 
   packages/shared:
     dependencies:
@@ -10408,10 +10411,10 @@ snapshots:
 
   mimic-fn@2.1.0: {}
 
-  miniflare@5.20261006.0-alpha:
+  miniflare@5.20261006.0-alpha(@types/node@24.19.1):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
-      sharp: 0.35.4
+      sharp: 0.35.4(@types/node@24.19.1)
       undici: 7.29.1
       workerd: 1.20261006.1
       ws: 8.21.0
@@ -10958,7 +10961,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  sharp@0.35.4:
+  sharp@0.35.4(@types/node@24.19.1):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -10989,6 +10992,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.4
       '@img/sharp-win32-ia32': 0.35.4
       '@img/sharp-win32-x64': 0.35.4
+      '@types/node': 24.19.1
 
   sharp@0.35.5(@types/node@24.19.1):
     dependencies:
@@ -11607,13 +11611,13 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261006.1
       '@cloudflare/workerd-windows-64': 1.20261006.1
 
-  wrangler@4.148.0(@cloudflare/workers-types@4.20260702.1):
+  wrangler@4.148.0(@cloudflare/workers-types@4.20260702.1)(@types/node@24.19.1):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261006.1)
       blake3-wasm: 2.1.5
       esbuild: 0.28.1
-      miniflare: 5.20261006.0-alpha
+      miniflare: 5.20261006.0-alpha(@types/node@24.19.1)
       path-to-regexp: 6.3.0
       unenv: 2.0.0-rc.24
       workerd: 1.20261006.1

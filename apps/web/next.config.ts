@@ -44,12 +44,18 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    // /api/* is proxied to the API, which sets its own (stricter) headers.
+    return [{ source: '/((?!api/).*)', headers: securityHeaders }];
   },
   output: 'standalone',
   // Trace files from the monorepo root so the standalone build includes workspace packages.
   outputFileTracingRoot: path.resolve(process.cwd(), '../..'),
   poweredByHeader: false,
+  // Inline the (small) CSS into the HTML: no render-blocking stylesheet round trips on slow mobile networks.
+  experimental: { inlineCss: true },
+  // Always render metadata in <head> (no streaming), so every crawler and link
+  // preview (LinkedIn, WhatsApp, Telegram) sees titles, descriptions and OG tags.
+  htmlLimitedBots: /.*/,
   reactStrictMode: true,
   images: {
     formats: ['image/avif', 'image/webp'],

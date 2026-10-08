@@ -103,7 +103,7 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await expect(page.getByRole('heading', { level: 1 })).toContainText(`E2E Paid Course ${stamp}`);
   await page.getByRole('link', { name: 'Apply now' }).first().click();
   await page.waitForURL(/\/en\/login\?returnTo=/);
-  await page.getByRole('link', { name: 'Create account' }).last().click();
+  await page.locator('main').getByRole('link', { name: 'Sign up' }).click();
   await page.waitForURL(/\/en\/register/);
   await page.getByLabel('Email').fill(student.email);
   await page.getByLabel('Password').fill(student.password);
@@ -160,8 +160,11 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   const adminContext = await browser.newContext();
   const adminPage = await adminContext.newPage();
   await uiLogin(adminPage, ADMIN.email, ADMIN.password);
-  await adminPage.goto('/en/admin/payments');
-  await adminPage.getByText(student.name).first().click();
+  // Straight to this payment: on a shared database the queue may hold older ones too.
+  const detail = await (await admin.get(`/api/admin/applications/${applicationId}`)).json();
+  const paymentId = detail.payments[0].id as string;
+  await adminPage.goto(`/en/admin/payments/${paymentId}`);
+  await expect(adminPage.getByText(student.name).first()).toBeVisible();
   await adminPage.getByLabel('I verified this reference and amount in the transaction history').check();
   await adminPage.getByRole('button', { name: 'Approve and enrol' }).click();
   await expect(adminPage.getByText('Approved', { exact: true }).first()).toBeVisible();

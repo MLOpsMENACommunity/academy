@@ -11,3 +11,11 @@ export function PageSpinner() {
     </div>
   );
 }
+
+/**
+ * Suspense fallback for client-rendered forms: holds roughly the form's height
+ * so the footer doesn't jump when the form appears (layout shift).
+ */
+export function ReservedSpace({ className }: { className: string }) {
+  return <div aria-hidden className={`mx-auto w-full max-w-md ${className}`} />;
+}

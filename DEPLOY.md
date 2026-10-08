@@ -113,7 +113,8 @@ stay as drafts) and change the admin password after the first sign-in.
 | Live logs | `pnpm --filter @academy/deploy-cloudflare exec wrangler tail` |
 | Container status | `pnpm --filter @academy/deploy-cloudflare exec wrangler containers list` |
 | Roll back | Workers & Pages → mlops-academy → Deployments → roll back to the previous version |
-| Database backups | Neon keeps point-in-time history (7 days on the free tier); see README "Backups" |
+| Database backups | Neon point-in-time restore, plus a daily encrypted dump to R2 (`backup.yml`, needs the `BACKUP_PASSPHRASE` secret); restore steps in [OPERATIONS.md](OPERATIONS.md) |
+| Email DNS, logs, Sentry, analytics | [OPERATIONS.md](OPERATIONS.md) |
 
 ## Limits to know
 

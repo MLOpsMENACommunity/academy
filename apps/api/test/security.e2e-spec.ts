@@ -74,6 +74,19 @@ describe('auth security (e2e)', () => {
       .expect(400);
   });
 
+  it('sends security headers, a request id, and CORS only for the academy origin', async () => {
+    const res = await http().get('/api/health').expect(200);
+    expect(res.headers['content-security-policy']).toContain("default-src 'none'");
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-request-id']).toMatch(/^[\w-]{8,64}$/);
+    expect(res.headers['x-powered-by']).toBeUndefined();
+    const web = process.env.WEB_URL ?? 'http://localhost:3000';
+    const ok = await http().get('/api/health').set('Origin', web);
+    expect(ok.headers['access-control-allow-origin']).toBe(new URL(web).origin);
+    const evil = await http().get('/api/health').set('Origin', 'https://evil.example');
+    expect(evil.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
   it('blocks state-changing requests from other origins', async () => {
     const res = await http()
       .post('/api/auth/login')

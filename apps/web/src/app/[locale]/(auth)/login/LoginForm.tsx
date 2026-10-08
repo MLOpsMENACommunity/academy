@@ -21,7 +21,7 @@ export function postLoginPath(me: MeResponse, locale: string, returnTo: string):
   return me.profile.coreComplete ? returnTo : withReturnTo(`/${locale}/onboarding`, returnTo);
 }
 
-export function LoginForm() {
+export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const { locale, t } = useI18n();
   const { user, setUser } = useAuth();
   const router = useRouter();
@@ -56,7 +56,7 @@ export function LoginForm() {
 
   return (
     <AuthCard title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
-      <GoogleButton returnTo={returnTo} />
+      <GoogleButton returnTo={returnTo} enabled={googleEnabled} />
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {error && (
           <Alert tone="danger">
