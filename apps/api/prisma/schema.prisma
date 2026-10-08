@@ -650,6 +650,8 @@ model Payment {
   amount            Int
   currency          String        @default("EGP")
   transactionRef    String
+  /// Upper-case alphanumerics of transactionRef, for duplicate detection.
+  transactionRefKey String        @default("")
   senderName        String
   senderPhone       String
   paidAt            DateTime
@@ -667,7 +669,7 @@ model Payment {
   createdAt         DateTime      @default(now())
 
   @@index([status, createdAt])
-  @@index([transactionRef])
+  @@index([transactionRefKey])
   @@index([screenshotSha256])
   @@index([applicationId])
 }

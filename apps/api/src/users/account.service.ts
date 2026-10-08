@@ -193,6 +193,7 @@ export class AccountService {
         data: {
           senderName: '[anonymised]',
           senderPhone: '[anonymised]',
+          rejectionReason: null,
           screenshotKey: null,
           screenshotSha256: null,
           screenshotDeletedAt: new Date(),

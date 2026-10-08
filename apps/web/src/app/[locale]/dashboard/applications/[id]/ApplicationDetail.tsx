@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { PaymentSection } from '@/components/payments/PaymentSection';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
@@ -13,6 +14,8 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/format';
+
+const PAYMENT_STATUSES_SHOWN: string[] = ['AWAITING_PAYMENT', 'PAYMENT_SUBMITTED', 'PAYMENT_REJECTED', 'ENROLLED'];
 
 export function ApplicationDetail() {
   return <RequireAuth>{() => <Inner />}</RequireAuth>;
@@ -79,6 +82,10 @@ function Inner() {
           </Link>
         </div>
       </section>
+
+      {app.course.type === 'PAID' && PAYMENT_STATUSES_SHOWN.includes(app.status) && (
+        <PaymentSection app={app} onChanged={load} />
+      )}
 
       <section className="mt-8" aria-labelledby="timeline">
         <h2 id="timeline" className="text-xl">

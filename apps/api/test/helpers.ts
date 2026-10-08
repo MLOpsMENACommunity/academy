@@ -8,7 +8,7 @@ import { configureApp } from '../src/setup';
 export async function createTestApp(): Promise<{ app: NestExpressApplication; prisma: PrismaService }> {
   process.env.EMAIL_PROVIDER = 'log';
   process.env.JOBS_ENABLED = 'false';
-  process.env.S3_CREATE_BUCKET = 'false';
+  // S3_CREATE_BUCKET comes from the environment (true locally and in CI, so the bucket exists).
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: ['error'], bodyParser: false });
   configureApp(app);

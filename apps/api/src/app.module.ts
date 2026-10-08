@@ -3,10 +3,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ApplicationsModule } from './applications/applications.module';
-import { AuthGuard } from './common/auth.guard';
-import { AppThrottlerGuard } from './common/throttler.guard';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { AuthGuard } from './common/auth.guard';
+import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { CoursesModule } from './courses/courses.module';
 import { EmailModule } from './email/email.module';
@@ -14,7 +14,9 @@ import { FunnelModule } from './funnel/funnel.module';
 import { HealthController } from './health/health.controller';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
@@ -29,10 +31,12 @@ import { UsersModule } from './users/users.module';
     StorageModule,
     FunnelModule,
     NotificationsModule,
+    SettingsModule,
     AuthModule,
     UsersModule,
     CoursesModule,
     ApplicationsModule,
+    PaymentsModule,
     JobsModule,
   ],
   controllers: [HealthController],

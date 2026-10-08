@@ -6,6 +6,7 @@ import { Public } from '../common/decorators';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { AccountJobs } from './account.jobs';
+import { RetentionJobs } from './retention.jobs';
 
 /**
  * Runs all scheduled jobs once. Used where in-process cron can't be relied on
@@ -17,6 +18,7 @@ import { AccountJobs } from './account.jobs';
 export class JobsController {
   constructor(
     private readonly accountJobs: AccountJobs,
+    private readonly retention: RetentionJobs,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -33,6 +35,9 @@ export class JobsController {
     // Daily-ish jobs are safe to run often: each one only touches rows that are due.
     results.anonymised = await this.accountJobs.runAnonymize();
     results.profileReviewEmails = await this.accountJobs.runProfileReview();
+    const r = await this.retention.run();
+    results.screenshotsDeleted = r.screenshots;
+    results.cvsDeleted = r.cvs;
     return results;
   }
 }
