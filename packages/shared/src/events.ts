@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { topicsSchema, type SpeakerRefDto } from './archive';
 import { COURSE_LANGUAGES, DELIVERY_PLATFORMS, EVENT_STATUSES, type CourseLanguage, type DeliveryPlatform, type EventStatus } from './enums';
 
 /** Links people click: http(s) only. */
@@ -11,6 +12,9 @@ const optionalUrl = z
   .nullish()
   .or(z.literal('').transform(() => null));
 
+/** Paths under /sessions that are pages of their own, so no session can use them as a slug. */
+export const RESERVED_EVENT_SLUGS = ['recordings'] as const;
+
 /** Admin input for a free live session (talk, workshop, AMA). */
 export const eventInputSchema = z
   .object({
@@ -19,7 +23,8 @@ export const eventInputSchema = z
       .trim()
       .toLowerCase()
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, digits and dashes only')
-      .max(80),
+      .max(80)
+      .refine((s) => !(RESERVED_EVENT_SLUGS as readonly string[]).includes(s), 'This slug is reserved'),
     status: z.enum(EVENT_STATUSES),
     titleEn: z.string().trim().min(2).max(160),
     titleAr: z.string().trim().max(160).default(''),
@@ -31,6 +36,9 @@ export const eventInputSchema = z
     speakerTitleAr: z.string().trim().max(160).default(''),
     speakerPhotoUrl: optionalUrl,
     speakerLinkedinUrl: optionalUrl,
+    /** The speaker's profile (an instructor), for the link to /speakers/{slug}. */
+    speakerId: z.string().trim().max(40).nullish().or(z.literal('').transform(() => null)),
+    topics: topicsSchema.default([]),
     startsAt: z.coerce.date(),
     durationMin: z.coerce.number().int().min(15).max(600),
     language: z.enum(COURSE_LANGUAGES),
@@ -45,8 +53,9 @@ export const eventInputSchema = z
     if (e.status === 'PUBLISHED' && e.titleAr.length < 2) {
       ctx.addIssue({ code: 'custom', path: ['titleAr'], message: 'Arabic title is required to publish' });
     }
-    // Registered people would otherwise wait for a link that never comes.
-    if (e.status === 'PUBLISHED' && !e.liveUrl) {
+    // Registered people would otherwise wait for a link that never comes. A session that
+    // already took place (e.g. one added to the archive afterwards) doesn't need one.
+    if (e.status === 'PUBLISHED' && !e.liveUrl && !eventEnded(e.startsAt, e.durationMin)) {
       ctx.addIssue({ code: 'custom', path: ['liveUrl'], message: 'A live link is required to publish' });
     }
   });
@@ -66,6 +75,9 @@ export interface PublicEventDto {
   speakerTitleAr: string;
   speakerPhotoUrl: string | null;
   speakerLinkedinUrl: string | null;
+  /** The speaker's profile, when the session is linked to one (name and title above win when set). */
+  speaker: SpeakerRefDto | null;
+  topics: string[];
   startsAt: string;
   durationMin: number;
   language: CourseLanguage;

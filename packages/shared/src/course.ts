@@ -38,6 +38,8 @@ export type CatalogQuery = z.infer<typeof catalogQuerySchema>;
 
 export interface InstructorDto {
   id: string;
+  /** Public page /speakers/{slug}; null for an instructor without one yet. */
+  slug: string | null;
   name: string;
   nameAr: string | null;
   titleEn: string;
@@ -46,6 +48,7 @@ export interface InstructorDto {
   bioAr: string | null;
   photoUrl: string | null;
   linkedinUrl: string | null;
+  githubUrl: string | null;
 }
 
 export interface CourseSummaryDto {
@@ -69,19 +72,27 @@ export interface CourseSummaryDto {
   /** Null when the course has no capacity limit. */
   seatsRemaining: number | null;
   instructorNames: string[];
+  /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
+  completed: boolean;
+  cohortNumber: number | null;
+  endDate: string | null;
+  topics: string[];
 }
 
-/** Public schedule entry: never includes live or recording links. */
+/** Public schedule entry: never includes live links or materials. */
 export interface PublicSessionDto {
   id: string;
   order: number;
   titleEn: string;
   titleAr: string;
-  /** Topics; public. Links (live, recording, materials) are never included. */
+  /** Topics; public. Live links and materials are never included. */
   descriptionEn: string | null;
   descriptionAr: string | null;
   startsAt: string;
   durationMin: number;
+  topics: string[];
+  /** Only for courses with public recordings (see Course.publicRecordings), once the session has ended. */
+  recordingUrl: string | null;
 }
 
 export interface ScreeningQuestionDto {
@@ -113,6 +124,10 @@ export interface CourseDetailDto extends CourseSummaryDto {
   included: Included;
   deliveryPlatform: DeliveryPlatform;
   recordingsPlatform: RecordingsPlatform;
+  /** Set when the cohort ran on another platform, e.g. "zomra.io". */
+  externalPlatform: string | null;
+  externalUrl: string | null;
+  publicRecordings: boolean;
   instructors: InstructorDto[];
   sessions: PublicSessionDto[];
   screeningQuestions: ScreeningQuestionDto[];

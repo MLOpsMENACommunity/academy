@@ -17,9 +17,12 @@ import { api, ApiError } from '@/lib/api';
 const TABS = ['details', 'questions', 'sessions', 'enrolled', 'announcements', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
-interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included'> {
+interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
   id: string;
   status: CourseStatus;
+  endDate: string | null;
+  /** "import" when the archive import created it. */
+  source: string | null;
   targetAudience: LocalizedText;
   notFor: LocalizedText;
   preparation?: LocalizedText;
@@ -68,6 +71,13 @@ function toForm(c: AdminCourse): CourseFormValue {
     driveFolderUrl: c.driveFolderUrl,
     youtubePlaylistUrl: c.youtubePlaylistUrl,
     instructorIds: c.instructorIds,
+    // Kept as they are on save, so editing a past cohort can't hide its recordings by accident.
+    topics: c.topics ?? [],
+    cohortNumber: c.cohortNumber ?? null,
+    endDate: toLocalInput(c.endDate),
+    externalPlatform: c.externalPlatform ?? null,
+    externalUrl: c.externalUrl ?? null,
+    publicRecordings: c.publicRecordings ?? false,
   };
 }
 
@@ -109,6 +119,7 @@ function CourseEditor() {
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="text-3xl">{(locale === 'ar' && course.titleAr) || course.titleEn}</h1>
         <Badge tone={course.status === 'OPEN' ? 'success' : course.status === 'DRAFT' ? 'warning' : course.status === 'COMING_SOON' ? 'info' : 'neutral'}>{courseStatusLabels[course.status][locale]}</Badge>
+        {course.source === 'import' && <Badge tone="info">{t('admin.common.imported')}</Badge>}
         {(PUBLIC_COURSE_STATUSES as readonly string[]).includes(course.status) && (
           <a href={`/${locale}/courses/${course.slug}`} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
             {t('admin.courses.viewPublic')} ↗
@@ -126,6 +137,8 @@ function CourseEditor() {
           />
         </div>
       </div>
+
+      {course.source === 'import' && <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.courses.importedHint')}</p>}
 
       <div role="tablist" aria-label={t('admin.courses.title')} className="mt-5 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>
         {TABS.map((k) => (

@@ -54,6 +54,7 @@ export default function AdminSessions() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge tone={eventStatusTone[e.status]}>{eventStatusLabels[e.status][locale]}</Badge>
                     {ended && <Badge>{t('admin.sessions.ended')}</Badge>}
+                    {e.source === 'import' && <Badge tone="info">{t('admin.common.imported')}</Badge>}
                   </div>
                 </div>
                 <Link href={`/${locale}/admin/sessions/${e.id}/registrations`} className="inline-flex min-h-11 items-center text-[0.9375rem] font-medium text-fg hover:text-primary hover:underline">

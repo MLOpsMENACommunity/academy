@@ -28,4 +28,25 @@ describe('public course mapper', () => {
     expect(json).not.toMatch(/SECRET/);
     expect(json).toContain('"seatsRemaining":7');
   });
+
+  it('shows recordings of ended lessons only when the course made them public', () => {
+    const now = new Date('2026-10-09T12:00:00Z');
+    const session = (id: string, startsAt: string) => ({
+      id, courseId: 'c1', order: 1, titleEn: 'S', titleAr: 'ج', descriptionEn: null, descriptionAr: null, startsAt: new Date(startsAt),
+      durationMin: 90, liveUrl: 'https://meet.google.com/SECRET-LIVE', recordingUrl: `https://www.youtube.com/watch?v=${id}`,
+      materials: [], assignmentUrl: null, topics: ['docker'], createdAt: now, updatedAt: now,
+    });
+    const course = {
+      id: 'c1', slug: 'k', titleEn: 'K', titleAr: 'ك', status: 'COMPLETED', publicRecordings: true, capacity: null, cohortNumber: 1,
+      endDate: now, topics: [], targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' }, outline: [], faq: [], included: {},
+      instructors: [], screeningQuestions: [],
+      sessions: [session('past1', '2026-09-01T16:00:00Z'), session('future1', '2026-10-09T11:30:00Z')],
+      createdAt: now, updatedAt: now,
+    };
+    const dto = toCourseDetail(course as never, 0, now);
+    expect(dto.completed).toBe(true);
+    expect(dto.sessions.map((s) => s.recordingUrl)).toEqual(['https://www.youtube.com/watch?v=past1', null]);
+    expect(JSON.stringify(dto)).not.toMatch(/SECRET/);
+    expect(toCourseDetail({ ...course, publicRecordings: false } as never, 0, now).sessions.every((s) => s.recordingUrl === null)).toBe(true);
+  });
 });

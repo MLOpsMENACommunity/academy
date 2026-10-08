@@ -180,12 +180,15 @@ export const COURSE_TYPES = ['FREE', 'PAID'] as const;
 export const CourseType = defineEnum(COURSE_TYPES);
 export type CourseType = (typeof COURSE_TYPES)[number];
 
-/** COMING_SOON: listed publicly as "Opening soon", no applications, no dates needed. */
-export const COURSE_STATUSES = ['DRAFT', 'COMING_SOON', 'OPEN', 'CLOSED', 'ARCHIVED'] as const;
+/**
+ * COMING_SOON: listed publicly as "Opening soon", no applications, no dates needed.
+ * COMPLETED: a past cohort that stays public (syllabus, recordings, instructors), no applications.
+ */
+export const COURSE_STATUSES = ['DRAFT', 'COMING_SOON', 'OPEN', 'CLOSED', 'ARCHIVED', 'COMPLETED'] as const;
 export const CourseStatus = defineEnum(COURSE_STATUSES);
 export type CourseStatus = (typeof COURSE_STATUSES)[number];
 /** Statuses visible on the public catalog and course pages. */
-export const PUBLIC_COURSE_STATUSES = ['COMING_SOON', 'OPEN', 'CLOSED'] as const satisfies readonly CourseStatus[];
+export const PUBLIC_COURSE_STATUSES = ['COMING_SOON', 'OPEN', 'CLOSED', 'COMPLETED'] as const satisfies readonly CourseStatus[];
 
 export const COURSE_LEVELS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ALL_LEVELS'] as const;
 export const CourseLevel = defineEnum(COURSE_LEVELS);

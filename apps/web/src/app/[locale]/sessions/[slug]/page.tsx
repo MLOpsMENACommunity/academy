@@ -1,15 +1,19 @@
-import { courseLanguageLabels, deliveryPlatformLabels, type PublicEventDto } from '@academy/shared';
+import { courseLanguageLabels, deliveryPlatformLabels, eventEnded, youtubeId, type PublicEventDto } from '@academy/shared';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
+import { TopicList } from '@/components/archive/TopicList';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { RegisterPanel } from '@/components/sessions/RegisterPanel';
+import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
+import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
@@ -61,9 +65,14 @@ export default async function SessionPage({ params }: Props) {
   const url = absoluteUrl(`/${locale}/sessions/${e.slug}`);
   const end = new Date(new Date(e.startsAt).getTime() + e.durationMin * 60_000).toISOString();
   const seatsLeft = e.capacity !== null && !e.past && e.status === 'PUBLISHED' ? Math.max(0, e.capacity - e.registered) : null;
+  // The page is cached for a minute: a session that just ended is shown as ended.
+  const past = e.status !== 'CANCELLED' && (e.past || eventEnded(new Date(e.startsAt), e.durationMin));
+  const video = e.recordingUrl ? youtubeId(e.recordingUrl) : null;
+  const speakerSlug = e.speaker?.slug ?? null;
 
   const facts: [string, ReactNode][] = [
-    [t('sessions.facts.where'), deliveryPlatformLabels[e.platform][locale]],
+    // Where it streamed only matters before it happens.
+    ...(!past ? ([[t('sessions.facts.where'), deliveryPlatformLabels[e.platform][locale]]] as [string, ReactNode][]) : []),
     [t('sessions.facts.language'), courseLanguageLabels[e.language][locale]],
     ...(seatsLeft !== null ? ([[t('sessions.facts.seats'), String(seatsLeft)]] as [string, ReactNode][]) : []),
   ];
@@ -84,7 +93,16 @@ export default async function SessionPage({ params }: Props) {
       isAccessibleForFree: true,
       ...(e.coverImageUrl ? { image: [e.coverImageUrl] } : {}),
       organizer: { '@type': 'Organization', name: 'MLOps MENA Community', url: community.mainSite },
-      ...(e.speakerName ? { performer: { '@type': 'Person', name: e.speakerName, ...(e.speakerTitleEn ? { jobTitle: e.speakerTitleEn } : {}) } } : {}),
+      ...(e.speakerName
+        ? {
+            performer: {
+              '@type': 'Person',
+              name: e.speakerName,
+              ...(e.speakerTitleEn ? { jobTitle: e.speakerTitleEn } : {}),
+              ...(speakerSlug ? { url: absoluteUrl(speakerPath(locale, speakerSlug)) } : {}),
+            },
+          }
+        : {}),
       offers: {
         '@type': 'Offer',
         price: 0,
@@ -93,6 +111,23 @@ export default async function SessionPage({ params }: Props) {
         url,
       },
     },
+    ...(past && video
+      ? [
+          {
+            '@context': 'https://schema.org',
+            '@type': 'VideoObject',
+            name: title,
+            description: excerpt(description, 300) || title,
+            thumbnailUrl: youtubeThumbnail(video),
+            uploadDate: e.startsAt,
+            duration: isoDuration(e.durationMin),
+            embedUrl: `https://www.youtube-nocookie.com/embed/${video}`,
+            url,
+            inLanguage: e.language === 'AR' ? 'ar' : e.language === 'EN' ? 'en' : ['ar', 'en'],
+            isAccessibleForFree: true,
+          },
+        ]
+      : []),
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
@@ -119,27 +154,43 @@ export default async function SessionPage({ params }: Props) {
               {t('sessions.title')}
             </Link>
           </nav>
-          <p className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium text-primary">
-            <span aria-hidden className={`size-2 rounded-full ${e.status === 'CANCELLED' ? 'bg-line-strong' : 'bg-logo-green'}`} />
-            {t('sessions.free')}
+          <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${past ? 'text-muted' : 'text-primary'}`}>
+            <span aria-hidden className={`size-2 rounded-full ${e.status === 'CANCELLED' || past ? 'bg-line-strong' : 'bg-logo-green'}`} />
+            {past ? t('sessions.recorded') : t('sessions.free')}
           </p>
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
           <div>
             <p className="text-lg text-fg sm:text-[1.1875rem]">
-              <LocalTime iso={e.startsAt} style="weekday-datetime" />
-              <span className="text-muted"> · {t('sessions.minutes', { count: e.durationMin })}</span>
+              <LocalTime iso={e.startsAt} style={past ? 'date' : 'weekday-datetime'} />
+              <span className="text-muted"> · {past ? durationLabel(e.durationMin, locale) : t('sessions.minutes', { count: e.durationMin })}</span>
             </p>
-            <p className="mt-1 text-sm text-muted">
-              {tzBefore}
-              <ViewerTimezone />
-              {tzAfter}
-            </p>
+            {!past && (
+              <p className="mt-1 text-sm text-muted">
+                {tzBefore}
+                <ViewerTimezone />
+                {tzAfter}
+              </p>
+            )}
           </div>
           {speaker && (
             <p className="text-[0.9375rem] text-muted">
-              {speakerTitle ? t('sessions.withTitle', { name: speaker, title: speakerTitle }) : t('sessions.with', { name: speaker })}
+              {speakerSlug ? (
+                <>
+                  {t('sessions.with', { name: '\u0000' }).split('\u0000')[0]}
+                  <Link href={speakerPath(locale, speakerSlug)} className="text-fg underline decoration-line-strong/60 underline-offset-4 hover:text-primary">
+                    {speaker}
+                  </Link>
+                  {speakerTitle ? `${locale === 'ar' ? '، ' : ', '}${speakerTitle}` : ''}
+                  {t('sessions.with', { name: '\u0000' }).split('\u0000')[1]}
+                </>
+              ) : speakerTitle ? (
+                t('sessions.withTitle', { name: speaker, title: speakerTitle })
+              ) : (
+                t('sessions.with', { name: speaker })
+              )}
             </p>
           )}
+          <TopicList topics={e.topics} locale={locale} label={t('sessions.topics')} />
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 text-[0.9375rem] sm:flex sm:flex-wrap sm:gap-x-10">
             {facts.map(([k, v]) => (
               <div key={k} className="min-w-0">
@@ -153,13 +204,39 @@ export default async function SessionPage({ params }: Props) {
 
       <Container className="grid gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16">
         {/* First in the DOM so phones reach it right after the title; the side column on desktop. */}
-        <aside className="lg:col-start-2 lg:row-start-1">
+        <aside className={`lg:col-start-2 lg:row-start-1 ${past ? 'order-last lg:order-none' : ''}`}>
           <div className="rounded-card border border-line bg-card p-5 sm:p-7 lg:sticky lg:top-8">
-            <RegisterPanel initial={e} title={title} pageUrl={url} />
+            {past ? (
+              // Over: nothing to register for. Point to the rest of the archive instead.
+              <div className="space-y-4">
+                <p className="font-semibold text-fg">{t('sessions.ended')}</p>
+                <p className="text-[0.9375rem] leading-relaxed text-muted">{t('sessions.endedRecordingBody')}</p>
+                <ButtonLink href={`/${locale}/sessions/recordings`} variant="secondary" className="w-full">
+                  {t('sessions.browseRecordings')}
+                </ButtonLink>
+                <ButtonLink href={`/${locale}/sessions`} variant="ghost" className="w-full">
+                  {t('sessions.allSessions')}
+                </ButtonLink>
+              </div>
+            ) : (
+              <RegisterPanel initial={e} title={title} pageUrl={url} />
+            )}
           </div>
         </aside>
 
         <div className="min-w-0 space-y-14 sm:space-y-16 lg:col-start-1 lg:row-start-1">
+          {past && (
+            <section aria-labelledby="recording">
+              <h2 id="recording" className="sr-only">
+                {t('sessions.recordingHeading')}
+              </h2>
+              {e.recordingUrl ? (
+                <RecordingPlayer url={e.recordingUrl} youtubeId={video} title={title} locale={locale} />
+              ) : (
+                <p className="rounded-card border border-dashed border-line-strong/50 p-6 text-center text-muted">{t('sessions.recordingSoon')}</p>
+              )}
+            </section>
+          )}
           {description && (
             <section aria-labelledby="about">
               <h2 id="about" className="text-[1.5rem] sm:text-[1.625rem]">
@@ -186,7 +263,15 @@ export default async function SessionPage({ params }: Props) {
                   </span>
                 )}
                 <div className="min-w-0">
-                  <p className="text-lg font-medium text-fg">{speaker}</p>
+                  <p className="text-lg font-medium text-fg">
+                    {speakerSlug ? (
+                      <Link href={speakerPath(locale, speakerSlug)} className="underline decoration-line-strong/60 underline-offset-4 hover:text-primary">
+                        {speaker}
+                      </Link>
+                    ) : (
+                      speaker
+                    )}
+                  </p>
                   {speakerTitle && <p className="text-[0.9375rem] text-muted">{speakerTitle}</p>}
                   {e.speakerLinkedinUrl && (
                     <a href={e.speakerLinkedinUrl} rel="noopener noreferrer" target="_blank" className="inline-flex min-h-11 items-center text-[0.9375rem] text-primary underline">

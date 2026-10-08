@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { topicsSchema } from './archive';
 import {
   APPLICATION_STATUSES,
   AREAS,
@@ -133,6 +134,14 @@ const optionalUrl = z
   .nullish()
   .or(z.literal('').transform(() => null));
 const optionalDate = z.coerce.date().nullish().or(z.literal('').transform(() => null));
+/** A photo: an http(s) URL, or a file the site serves itself (e.g. /speakers/name.webp). */
+const optionalImage = z
+  .string()
+  .trim()
+  .max(500)
+  .regex(/^(https?:\/\/[^\s]+|\/(?!\/)[\w./-]+)$/i, 'Must be an http(s) URL or a /path on this site')
+  .nullish()
+  .or(z.literal('').transform(() => null));
 
 export const courseInputSchema = z
   .object({
@@ -171,6 +180,12 @@ export const courseInputSchema = z
     driveFolderUrl: optionalUrl,
     youtubePlaylistUrl: optionalUrl,
     instructorIds: z.array(z.string().min(1).max(40)).max(10).default([]),
+    topics: topicsSchema.default([]),
+    cohortNumber: z.coerce.number().int().min(1).max(999).nullish().or(z.literal('').transform(() => null)),
+    endDate: optionalDate,
+    externalPlatform: z.string().trim().max(80).nullish().or(z.literal('').transform(() => null)),
+    externalUrl: optionalUrl,
+    publicRecordings: z.boolean().default(false),
   })
   .superRefine((c, ctx) => {
     if (c.status !== 'DRAFT' && c.status !== 'ARCHIVED') {
@@ -220,6 +235,7 @@ export const sessionInputSchema = z.object({
   recordingUrl: optionalUrl,
   assignmentUrl: optionalUrl,
   materials: z.array(materialSchema).max(20).default([]),
+  topics: topicsSchema.default([]),
 });
 export type SessionInput = z.infer<typeof sessionInputSchema>;
 /** Create several sessions at once (e.g. "every Sunday for 6 weeks"). */
@@ -240,15 +256,20 @@ export const announcementAudienceSchema = z.object({ statuses: list(APPLICATION_
 
 export const sessionOrderSchema = z.object({ ids: z.array(z.string().min(1).max(40)).min(1).max(200) });
 
+/** An instructor or speaker (one person, public page at /speakers/{slug}). */
 export const instructorInputSchema = z.object({
+  /** Generated from the name when left empty. */
+  slug: slug.nullish().or(z.literal('').transform(() => null)),
   name: z.string().trim().min(2).max(120),
   nameAr: z.string().trim().max(120).nullish(),
   titleEn: z.string().trim().min(2).max(160),
   titleAr: z.string().trim().max(160).nullish(),
-  bioEn: z.string().trim().min(2).max(4000),
+  // Speakers of a single talk often have no bio yet: the page then shows name, title and sessions.
+  bioEn: z.string().trim().max(4000).default(''),
   bioAr: z.string().trim().max(4000).nullish(),
-  photoUrl: optionalUrl,
+  photoUrl: optionalImage,
   linkedinUrl: optionalUrl,
+  githubUrl: optionalUrl,
 });
 export type InstructorInput = z.infer<typeof instructorInputSchema>;
 

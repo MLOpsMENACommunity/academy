@@ -23,6 +23,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { CheckboxField, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
 import { InstructorPicker } from './InstructorEditor';
 import { MarkdownField } from './MarkdownField';
+import { TopicsField } from './TopicsField';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -31,10 +32,11 @@ import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 
-export type CourseFormValue = Omit<CourseInput, 'startDate' | 'applicationsOpenAt' | 'applicationDeadline'> & {
+export type CourseFormValue = Omit<CourseInput, 'startDate' | 'applicationsOpenAt' | 'applicationDeadline' | 'endDate'> & {
   startDate: string;
   applicationsOpenAt: string;
   applicationDeadline: string;
+  endDate: string;
 };
 
 /** ISO (UTC) ⇄ value of a <input type="datetime-local"> in the admin's own timezone. */
@@ -82,6 +84,12 @@ export const EMPTY_COURSE: CourseFormValue = {
   driveFolderUrl: null,
   youtubePlaylistUrl: null,
   instructorIds: [],
+  topics: [],
+  cohortNumber: null,
+  endDate: '',
+  externalPlatform: null,
+  externalUrl: null,
+  publicRecordings: false,
 };
 
 function Fieldset({ title, children }: { title: string; children: ReactNode }) {
@@ -124,6 +132,7 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
       startDate: fromLocalInput(v.startDate),
       applicationsOpenAt: fromLocalInput(v.applicationsOpenAt),
       applicationDeadline: fromLocalInput(v.applicationDeadline),
+      endDate: fromLocalInput(v.endDate),
     };
     const parsed = courseInputSchema.safeParse(payload);
     if (!parsed.success) {
@@ -185,6 +194,20 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
           <TextField label={f('hoursPerWeek')} type="number" min={1} value={v.hoursPerWeek?.toString() ?? ''} onChange={(x) => set('hoursPerWeek')(x ? Number(x) : null)} />
           <TextField label={f('capacity')} type="number" min={1} value={v.capacity?.toString() ?? ''} onChange={(x) => set('capacity')(x ? Number(x) : null)} />
         </div>
+      </Fieldset>
+
+      <Fieldset title={t('admin.courses.pastCohort')}>
+        <p className="-mt-2 text-sm text-muted">{t('admin.courses.pastCohortHint')}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField label={f('cohortNumber')} type="number" inputMode="numeric" min={1} value={v.cohortNumber?.toString() ?? ''} onChange={(x) => set('cohortNumber')(x ? Number(x) : null)} error={errors.cohortNumber} />
+          <TextField label={f('endDate')} type="datetime-local" value={v.endDate} onChange={set('endDate')} error={errors.endDate} />
+          <TextField label={f('externalPlatform')} hint={f('externalPlatformHint')} dir="ltr" value={v.externalPlatform ?? ''} onChange={(x) => set('externalPlatform')(x || null)} error={errors.externalPlatform} />
+          <TextField label={f('externalUrl')} type="url" dir="ltr" value={v.externalUrl ?? ''} onChange={(x) => set('externalUrl')(x || null)} error={errors.externalUrl} />
+          <div className="sm:col-span-2">
+            <TopicsField label={f('topics')} hint={f('topicsHint')} value={v.topics} onChange={set('topics')} error={errors.topics} />
+          </div>
+        </div>
+        <CheckboxField label={f('publicRecordings')} checked={v.publicRecordings} onChange={set('publicRecordings')} />
       </Fieldset>
 
       <Fieldset title={t('admin.courses.delivery')}>

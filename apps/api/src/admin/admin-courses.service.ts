@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   APPLICATION_STATUSES,
+  slugify,
   toCsv,
   type CourseInput,
   type InstructorInput,
@@ -35,6 +36,7 @@ export class AdminCoursesService {
       titleAr: c.titleAr,
       type: c.type,
       status: c.status,
+      source: c.source,
       startDate: c.startDate?.toISOString() ?? null,
       capacity: c.capacity,
       enrollments: c._count.enrollments,
@@ -226,6 +228,7 @@ export class AdminCoursesService {
       recordingUrl: s.recordingUrl ?? null,
       assignmentUrl: s.assignmentUrl ?? null,
       materials: s.materials as Json,
+      topics: s.topics,
     };
   }
 
@@ -282,6 +285,14 @@ export class AdminCoursesService {
             applicationDeadline: null,
             driveFolderUrl: null,
             youtubePlaylistUrl: null,
+            // The next cohort of a completed course is a new run, entered by an admin.
+            endDate: null,
+            cohortNumber: fields.cohortNumber ? fields.cohortNumber + 1 : null,
+            externalPlatform: null,
+            externalUrl: null,
+            publicRecordings: false,
+            source: null,
+            importHash: null,
             targetAudience: fields.targetAudience as Json,
             notFor: fields.notFor as Json,
             preparation: fields.preparation as Json,
@@ -346,13 +357,37 @@ export class AdminCoursesService {
 
   // ------------------------------------------------------------------ instructors
 
+  /** Every instructor/speaker, with where they appear and whether the archive import created them. */
   async instructors() {
-    const list = await this.prisma.instructor.findMany({ orderBy: { name: 'asc' } });
-    return list.map(toInstructorDto);
+    const list = await this.prisma.instructor.findMany({
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { courses: true, events: true } } },
+    });
+    return list.map((i) => ({ ...toInstructorDto(i), source: i.source, courses: i._count.courses, events: i._count.events }));
+  }
+
+  async instructor(id: string) {
+    const i = await this.prisma.instructor.findUnique({ where: { id }, include: { _count: { select: { courses: true, events: true } } } });
+    if (!i) throw new NotFoundException('Instructor not found');
+    return { ...toInstructorDto(i), source: i.source, courses: i._count.courses, events: i._count.events };
+  }
+
+  /** A free slug from the name: "aya-nasser-salama", then "aya-nasser-salama-2", ... */
+  private async freeSlug(name: string, exceptId?: string): Promise<string> {
+    const base = slugify(name) || 'speaker';
+    for (let n = 1; ; n++) {
+      const candidate = n === 1 ? base : `${base}-${n}`;
+      const taken = await this.prisma.instructor.findFirst({ where: { slug: candidate, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true } });
+      if (!taken) return candidate;
+    }
   }
 
   async saveInstructor(input: InstructorInput, admin: Actor, id?: string) {
+    const current = id ? await this.prisma.instructor.findUnique({ where: { id }, select: { slug: true } }) : null;
+    if (id && !current) throw new NotFoundException('Instructor not found');
     const data = {
+      // Keep the page address stable: an empty field keeps the current slug, or makes one from the name.
+      slug: input.slug ?? current?.slug ?? (await this.freeSlug(input.name, id)),
       name: input.name,
       nameAr: input.nameAr ?? null,
       titleEn: input.titleEn,
@@ -361,12 +396,18 @@ export class AdminCoursesService {
       bioAr: input.bioAr ?? null,
       photoUrl: input.photoUrl ?? null,
       linkedinUrl: input.linkedinUrl ?? null,
+      githubUrl: input.githubUrl ?? null,
     };
-    const saved = id
-      ? await this.prisma.instructor.update({ where: { id }, data }).catch(() => {
-          throw new NotFoundException('Instructor not found');
-        })
-      : await this.prisma.instructor.create({ data });
+    let saved;
+    try {
+      saved = id ? await this.prisma.instructor.update({ where: { id }, data }) : await this.prisma.instructor.create({ data });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException({ code: 'SLUG_TAKEN', message: 'Another speaker already uses this slug' });
+      }
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') throw new NotFoundException('Instructor not found');
+      throw err;
+    }
     await this.audit.log({ actorId: admin.id, action: id ? 'instructor.updated' : 'instructor.created', entityType: 'Instructor', entityId: saved.id });
     return toInstructorDto(saved);
   }

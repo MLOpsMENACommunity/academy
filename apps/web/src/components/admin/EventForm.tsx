@@ -6,10 +6,12 @@ import {
   DELIVERY_PLATFORMS,
   deliveryPlatformLabels,
   EVENT_STATUSES,
+  eventEnded,
   eventInputSchema,
   eventStatusLabels,
   type EventInput,
   type EventStatus,
+  type InstructorDto,
   type Localized,
 } from '@academy/shared';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
@@ -25,12 +27,15 @@ import { viewerTimezone } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 import { fromLocalInput, toLocalInput } from './CourseForm';
 import { MarkdownField } from './MarkdownField';
+import { TopicsField } from './TopicsField';
 
 /** A live session as the admin API returns it. */
 export interface AdminEvent extends Omit<EventInput, 'startsAt'> {
   id: string;
   startsAt: string;
   updatedAt: string;
+  /** "import" when the archive import created it. */
+  source: string | null;
   _count: { registrations: number };
 }
 
@@ -49,6 +54,8 @@ export const EMPTY_EVENT: EventFormValue = {
   speakerTitleAr: '',
   speakerPhotoUrl: null,
   speakerLinkedinUrl: null,
+  speakerId: null,
+  topics: [],
   startsAt: '',
   durationMin: 60,
   language: 'BILINGUAL',
@@ -73,6 +80,8 @@ export function toEventForm(e: AdminEvent): EventFormValue {
     speakerTitleAr: e.speakerTitleAr,
     speakerPhotoUrl: e.speakerPhotoUrl,
     speakerLinkedinUrl: e.speakerLinkedinUrl,
+    speakerId: e.speakerId ?? null,
+    topics: e.topics ?? [],
     startsAt: toLocalInput(e.startsAt),
     durationMin: e.durationMin,
     language: e.language,
@@ -105,7 +114,13 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tz, setTz] = useState('');
+  const [speakers, setSpeakers] = useState<InstructorDto[]>([]);
   useEffect(() => setTz(viewerTimezone()), []);
+  useEffect(() => {
+    api<InstructorDto[]>('/admin/instructors')
+      .then(setSpeakers)
+      .catch(() => undefined);
+  }, []);
 
   const f = (k: string, vars?: Record<string, string>) => t(`admin.sessions.fields.${k}`, vars);
   const set =
@@ -166,6 +181,9 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
         <TextField label={f('titleAr')} hint={f('titleArHint')} dir="rtl" value={v.titleAr} onChange={set('titleAr')} error={errors.titleAr} maxLength={160} />
         <MarkdownField label={f('descriptionEn')} hint={t('admin.courses.fields.markdownHint')} value={v.descriptionEn} onChange={set('descriptionEn')} rows={10} />
         <MarkdownField label={f('descriptionAr')} hint={t('admin.courses.fields.markdownHint')} dir="rtl" value={v.descriptionAr} onChange={set('descriptionAr')} rows={10} />
+        <div className="sm:col-span-2">
+          <TopicsField label={f('topics')} hint={f('topicsHint')} value={v.topics} onChange={set('topics')} error={errors.topics} />
+        </div>
       </Fieldset>
 
       <Fieldset title={t('admin.sessions.schedule')}>
@@ -204,7 +222,7 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
           onChange={(x) => set('platform')((x ?? 'GOOGLE_MEET') as EventFormValue['platform'])}
           options={opts(DELIVERY_PLATFORMS, deliveryPlatformLabels)}
         />
-        <TextField label={f('liveUrl')} required={v.status === 'PUBLISHED'} type="url" dir="ltr" value={v.liveUrl ?? ''} onChange={url('liveUrl')} error={errors.liveUrl} hint={f('liveUrlHint')} />
+        <TextField label={f('liveUrl')} required={v.status === 'PUBLISHED' && !(v.startsAt && eventEnded(new Date(v.startsAt), v.durationMin))} type="url" dir="ltr" value={v.liveUrl ?? ''} onChange={url('liveUrl')} error={errors.liveUrl} hint={f('liveUrlHint')} />
         <TextField
           label={f('capacity')}
           type="number"
@@ -218,6 +236,16 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
       </Fieldset>
 
       <Fieldset title={t('admin.sessions.speaker')}>
+        <div className="sm:col-span-2">
+          <SelectField
+            label={f('speakerProfile')}
+            hint={f('speakerProfileHint')}
+            value={v.speakerId ?? ''}
+            onChange={(x) => set('speakerId')(x || null)}
+            placeholder={f('noSpeakerProfile')}
+            options={speakers.map((s) => ({ value: s.id, label: `${(locale === 'ar' && s.nameAr) || s.name} · ${(locale === 'ar' && s.titleAr) || s.titleEn}` }))}
+          />
+        </div>
         <TextField label={f('speakerName')} value={v.speakerName} onChange={set('speakerName')} error={errors.speakerName} maxLength={120} />
         <TextField label={f('speakerNameAr')} dir="rtl" value={v.speakerNameAr} onChange={set('speakerNameAr')} error={errors.speakerNameAr} maxLength={120} />
         <TextField label={f('speakerTitleEn')} value={v.speakerTitleEn} onChange={set('speakerTitleEn')} error={errors.speakerTitleEn} maxLength={160} />
@@ -227,7 +255,7 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
       </Fieldset>
 
       <Fieldset title={t('admin.sessions.links')}>
-        <TextField label={f('recordingUrl')} type="url" dir="ltr" value={v.recordingUrl ?? ''} onChange={url('recordingUrl')} error={errors.recordingUrl} />
+        <TextField label={f('recordingUrl')} hint={f('recordingUrlHint')} type="url" dir="ltr" value={v.recordingUrl ?? ''} onChange={url('recordingUrl')} error={errors.recordingUrl} />
         <TextField label={f('coverImage')} type="url" dir="ltr" value={v.coverImageUrl ?? ''} onChange={url('coverImageUrl')} error={errors.coverImageUrl} />
       </Fieldset>
 

@@ -20,13 +20,21 @@ function entry(path: string, lastModified?: Date | string, priority = 0.5): Meta
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const courses = (await serverGet<{ slug: string; updatedAt: string }[]>('/courses/slugs', 3600)) ?? [];
   const events = (await serverGet<{ upcoming: { slug: string }[]; past: { slug: string }[] }>('/events', 3600)) ?? { upcoming: [], past: [] };
+  // Every past session with a recording, not only the recent ones /events lists.
+  const recordings = (await serverGet<{ items: { kind: string; path: string; startsAt: string }[] }>('/recordings', 3600))?.items ?? [];
+  const speakers = (await serverGet<{ slug: string; updatedAt: string }[]>('/speakers', 3600)) ?? [];
+  const pastPaths = [
+    ...new Set([...events.past.map((e) => `/sessions/${e.slug}`), ...recordings.filter((r) => r.kind === 'event').map((r) => r.path)]),
+  ];
   return [
     ...entry('', undefined, 1),
     ...entry('/courses', undefined, 0.9),
     ...courses.flatMap((c) => entry(`/courses/${c.slug}`, c.updatedAt, 0.8)),
     ...entry('/sessions', undefined, 0.8),
     ...events.upcoming.flatMap((e) => entry(`/sessions/${e.slug}`, undefined, 0.7)),
-    ...events.past.flatMap((e) => entry(`/sessions/${e.slug}`, undefined, 0.3)),
+    ...entry('/sessions/recordings', undefined, 0.7),
+    ...pastPaths.flatMap((p) => entry(p, undefined, 0.4)),
+    ...speakers.flatMap((s) => entry(`/speakers/${s.slug}`, s.updatedAt, 0.4)),
     ...POLICY_SLUGS.flatMap((s) => entry(`/${s}`, undefined, 0.2)),
   ];
 }

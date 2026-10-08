@@ -18,6 +18,7 @@ interface Row {
   titleAr: string;
   type: CourseType;
   status: CourseStatus;
+  source: string | null;
   startDate: string | null;
   capacity: number | null;
   enrollments: number;
@@ -83,6 +84,11 @@ export default function AdminCourses() {
                     <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : c.status === 'COMING_SOON' ? 'info' : 'neutral'}>
                       {courseStatusLabels[c.status][locale]}
                     </Badge>
+                    {c.source === 'import' && (
+                      <span className="ms-1.5">
+                        <Badge tone="info">{t('admin.common.imported')}</Badge>
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 whitespace-nowrap">{c.startDate ? formatDate(c.startDate, locale) : '—'}</td>
                   <td className="p-3">
