@@ -1,0 +1,16 @@
+export const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+
+export const community = {
+  mainSite: 'https://mlopsmena.com',
+  linkedin: 'https://www.linkedin.com/company/mlops-mena',
+  youtube: 'https://www.youtube.com/@MLOpsMENACommunity',
+  github: 'https://github.com/MLOpsMENACommunity',
+  discord: 'https://discord.gg/eFrPegB8Gu',
+  telegram: 'https://t.me/+YPhi9W3xykU2NWVk',
+  x: 'https://x.com/MLOpsMENA',
+};
+
+/** Absolute URL for a locale-prefixed path. */
+export function absoluteUrl(path: string): string {
+  return `${siteUrl}${path.startsWith('/') ? path : `/${path}`}`;
+}

@@ -1,0 +1,45 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { defaultLocale, isLocale, LOCALE_COOKIE } from './i18n/config';
+
+/**
+ * 1. Paths without a locale prefix (e.g. the main site's /courses/<slug>?ref=main-site
+ *    links) are redirected to /<locale>/..., keeping the query string.
+ * 2. Private areas require an auth cookie; otherwise we send the visitor to
+ *    login with a returnTo so they land back where they started. (The API is
+ *    still the real gatekeeper; this only avoids rendering an empty shell.)
+ */
+const PROTECTED = /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
+
+export function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+  const first = pathname.split('/')[1];
+
+  if (!isLocale(first)) {
+    const cookieLocale = req.cookies.get(LOCALE_COOKIE)?.value;
+    const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
+    const url = req.nextUrl.clone();
+    url.pathname = `/${locale}${pathname === '/' ? '' : pathname}`;
+    return NextResponse.redirect(url, 308);
+  }
+
+  if (PROTECTED.test(pathname)) {
+    const hasSession = req.cookies.has('access_token') || req.cookies.has('refresh_token');
+    if (!hasSession) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/${first}/login`;
+      url.search = `?returnTo=${encodeURIComponent(pathname + search)}`;
+      return NextResponse.redirect(url);
+    }
+  }
+
+  const res = NextResponse.next();
+  if (req.cookies.get(LOCALE_COOKIE)?.value !== first) {
+    res.cookies.set(LOCALE_COOKIE, first, { path: '/', maxAge: 31536000, sameSite: 'lax' });
+  }
+  return res;
+}
+
+export const config = {
+  // Skip API proxy, Next internals and files with an extension (images, robots.txt, sitemap.xml…).
+  matcher: ['/((?!api/|_next/|.*\\.[\\w]+$).*)'],
+};
