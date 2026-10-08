@@ -14,7 +14,8 @@
 #    the staging database and admin password, and the staging R2 keys if staging.env has
 #    them), removes production's R2 keys from it, sets its variables, and lets v* tags
 #    deploy to it. Cloudflare token/account, RESEND_API_KEY, S3_ENDPOINT and
-#    SEED_ADMIN_EMAIL stay as they are (shared).
+#    SEED_ADMIN_EMAIL stay as they are (shared). Last, it sets ACADEMY_ENVIRONMENT=staging,
+#    without which deploy-cloudflare.yml refuses to deploy staging.
 # No secret value is printed.
 set -euo pipefail
 REPO="MLOpsMENACommunity/academy"
@@ -42,6 +43,8 @@ done
 [ -z "$missing" ] || { echo "Fill the 'production' environment first (setup-secrets.sh). Missing:$missing"; exit 1; }
 
 touch "$STAGING_FILE"; chmod 600 "$STAGING_FILE"
+# A file saved without a final newline would glue the next appended line onto its last one.
+[ -s "$STAGING_FILE" ] && [ -n "$(tail -c1 "$STAGING_FILE")" ] && echo >> "$STAGING_FILE"
 grep -q '^SEED_ADMIN_PASSWORD=' "$STAGING_FILE" || printf 'SEED_ADMIN_PASSWORD=%s\n' "$(gen 24)" >> "$STAGING_FILE"
 
 # --- 1. Database -------------------------------------------------------------------
@@ -73,12 +76,18 @@ SQL
   echo "Neon: role $ROLE and database $DB are ready."
 
   # The staging role must not be able to read production data.
+  # Only a "permission denied" counts as proof; any other failure is inconclusive.
   export PGPASSWORD=$STAGING_PW
-  if psql "postgresql://$ROLE@$direct_host/$prod_db$query" -q -X -tA -c 'SELECT 1 FROM "User" LIMIT 1' >/dev/null 2>&1; then
-    echo "WARNING: $ROLE can read production's \"User\" table. Revoke that before using staging."; exit 1
+  if out=$(psql "postgresql://$ROLE@$direct_host/$prod_db$query" -q -X -tA -c 'SELECT 1 FROM "User" LIMIT 1' 2>&1); then
+    echo "STOP: $ROLE can read production's \"User\" table. Revoke that before using staging."; exit 1
+  elif grep -qi 'permission denied' <<<"$out"; then
+    echo "Checked: $ROLE cannot read production tables."
+  elif grep -qiE 'not permitted to log in|no pg_hba|does not have CONNECT' <<<"$out"; then
+    echo "Checked: $ROLE cannot even connect to $prod_db."
+  else
+    echo "STOP: couldn't confirm $ROLE is kept out of production (psql: $(head -1 <<<"$out")). Check by hand."; exit 1
   fi
-  echo "Checked: $ROLE cannot read production tables."
-  unset PGPASSWORD
+  unset PGPASSWORD out
 
   printf 'DATABASE_URL=postgresql://%s:%s@%s/%s%s\n' "$ROLE" "$STAGING_PW" "$pooled_host" "$DB" "$query" >> "$STAGING_FILE"
   printf 'DIRECT_DATABASE_URL=postgresql://%s:%s@%s/%s%s\n' "$ROLE" "$STAGING_PW" "$direct_host" "$DB" "$query" >> "$STAGING_FILE"
@@ -88,6 +97,13 @@ fi
 # --- 2. GitHub "staging" environment -------------------------------------------------
 upload=$(mktemp); trap 'rm -f "$upload"' EXIT
 grep -E '^(DATABASE_URL|DIRECT_DATABASE_URL|SEED_ADMIN_PASSWORD)=.+' "$STAGING_FILE" > "$upload"
+# Never mark staging ready unless both database URLs really are staging's own.
+for k in DATABASE_URL DIRECT_DATABASE_URL; do
+  url=$(grep -m1 "^$k=" "$upload" | cut -d= -f2- || true)
+  rest=${url#*://}; role=${rest%%[:@]*}; path=${rest#*@}; db=${path%%\?*}; db=${db##*/}
+  [ "$role" = "$ROLE" ] && [ "$db" = "$DB" ] \
+    || { echo "STOP: $k in $STAGING_FILE is missing or not the $ROLE role on $DB. Fix that line (one per line) and run again."; exit 1; }
+done
 gh secret set -R "$REPO" --env staging -f "$upload"
 rm -f "$upload"
 gen 64 | gh secret set JWT_ACCESS_SECRET -R "$REPO" --env staging
@@ -104,13 +120,24 @@ else
   r2_note="NO staging R2 keys yet: create an R2 token for academy-staging-private, add S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY to $STAGING_FILE, and run this again (staging deploys stop at 'Check required secrets' until then)"
 fi
 
+# Backups belong to production-backup only.
+for k in BACKUP_PASSPHRASE BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY; do
+  gh secret delete "$k" -R "$REPO" --env staging 2>/dev/null || true
+done
+
 gh variable set ACADEMY_HOSTNAME -R "$REPO" --env staging --body academy-staging.mlopsmena.com
 gh variable set SENTRY_ENVIRONMENT -R "$REPO" --env staging --body staging
 gh variable delete ACADEMY_REDIRECT_HOSTS -R "$REPO" --env staging 2>/dev/null || true
 
+# Only main (ad-hoc runs) and v* tags may deploy to staging.
+echo '{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' \
+  | gh api -X PUT "repos/$REPO/environments/staging" --input - --silent
 policies=$(gh api "repos/$REPO/environments/staging/deployment-branch-policies" --jq '.branch_policies[] | "\(.type):\(.name)"')
 grep -qx 'tag:v\*' <<<"$policies" || gh api -X POST "repos/$REPO/environments/staging/deployment-branch-policies" -f 'name=v*' -f type=tag --silent
 grep -qx 'branch:main' <<<"$policies" || gh api -X POST "repos/$REPO/environments/staging/deployment-branch-policies" -f name=main -f type=branch --silent
+
+# Last: the marker deploy-cloudflare.yml requires before it will deploy staging at all.
+gh variable set ACADEMY_ENVIRONMENT -R "$REPO" --env staging --body staging
 
 echo "Staging environment re-pointed: database $DB, bucket academy-staging-private, host academy-staging.mlopsmena.com; $r2_note."
 echo "Staging admin login: SEED_ADMIN_EMAIL (unchanged) with the SEED_ADMIN_PASSWORD in $STAGING_FILE."

@@ -91,6 +91,8 @@ jobs:
       environment: staging
       ref: ${{ needs.resolve.outputs.tag }}
       sha: ${{ needs.resolve.outputs.sha }}
+    # A called workflow sees no secrets (not even its environment's) unless they're inherited.
+    secrets: inherit
 
   record:
     name: Record the staging release

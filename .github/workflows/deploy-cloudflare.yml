@@ -67,6 +67,34 @@ jobs:
           head=$(git rev-parse HEAD)
           [ "$head" = "$SHA" ] || { echo "::error::$REF now points at $head, expected $SHA. Was the tag moved?"; exit 1; }
 
+      # Each GitHub environment must say which one it is (variable ACADEMY_ENVIRONMENT), so a
+      # staging deploy can never run with production's database: staging only gets the marker
+      # once setup-staging.sh has given it its own secrets.
+      - name: Check the environment's values are its own
+        env:
+          MARKER: ${{ vars.ACADEMY_ENVIRONMENT }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: |
+          if [ "$MARKER" != "$TARGET" ]; then
+            echo "::error::The '$TARGET' environment has ACADEMY_ENVIRONMENT='$MARKER', expected '$TARGET'. Set it only once the environment's secrets are its own (staging: deploy/cloudflare/setup-staging.sh)."
+            exit 1
+          fi
+          # Both URLs are required on staging: a Worker secret is never deleted by a deploy, so
+          # an empty one would leave a stale value running. Nothing parsed from a URL is echoed
+          # (a malformed one could hold the password).
+          if [ "$TARGET" = staging ]; then
+            for name in DATABASE_URL DIRECT_DATABASE_URL; do
+              url=${!name}
+              [ -n "$url" ] || { echo "::error::Staging needs $name"; exit 1; }
+              rest=${url#*://}; role=${rest%%[:@]*}; path=${rest#*@}; path=${path%%\?*}
+              [[ "$path" == */* ]] || { echo "::error::$name has no database name"; exit 1; }
+              db=${path##*/}
+              [[ "$db" =~ ^[A-Za-z0-9_-]+$ && "$db" == *staging* ]] || { echo "::error::$name must point at a staging database"; exit 1; }
+              [[ "$role" == *staging* ]] || { echo "::error::$name must connect with the staging database role"; exit 1; }
+            done
+          fi
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -140,8 +168,8 @@ jobs:
             sleep 10
           done
           # Plain http never reaches the containers (private calendar feed URLs carry a token).
-          code=$(curl -s -o /dev/null -w '%{http_code}' "http://$host/api/health" || true)
-          [ "$code" = "301" ] || { echo "::error::http://$host returned $code, expected a 301 to https"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' "http://$HOST/api/health" || true)
+          [ "$code" = "301" ] || { echo "::error::http://$HOST returned $code, expected a 301 to https"; exit 1; }
           for alias in $(echo "$REDIRECT_HOSTS" | tr ',' ' '); do
             [ "$alias" = "$HOST" ] && continue
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://$alias/en" || true)

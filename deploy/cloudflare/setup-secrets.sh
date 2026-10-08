@@ -14,6 +14,8 @@ REPO="MLOpsMENACommunity/academy"
 chmod 600 "$FILE"
 
 gen() { openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
+# A file saved without a final newline would glue the next appended line onto its last one.
+[ -s "$FILE" ] && [ -n "$(tail -c1 "$FILE")" ] && echo >> "$FILE"
 add_if_missing() { grep -q "^$1=" "$FILE" || printf '%s=%s\n' "$1" "$2" >> "$FILE"; }
 add_if_missing JWT_ACCESS_SECRET "$(gen 64)"
 add_if_missing JOBS_TOKEN "$(gen 48)"
@@ -31,13 +33,17 @@ done
 
 umask 077
 UPLOAD=$(mktemp)
-trap 'rm -f "$UPLOAD" "$UPLOAD.b"' EXIT
-# Hostnames are GitHub variables, not secrets. Skip blanks and "..." placeholders.
-grep -E '^[A-Z_]+=.+' "$FILE" | grep -v '^ACADEMY_HOSTNAME=' | grep -vE '^[A-Z_]+=\.\.\.$' > "$UPLOAD" || true
+trap 'rm -f "$UPLOAD" "$UPLOAD.all" "$UPLOAD.b"' EXIT
+# Hostnames are GitHub variables, not secrets. Skip blanks and anything still holding a
+# "..." placeholder (e.g. the DEPLOY.md template's postgresql://...neon.tech/...).
+# Backup secrets go only to production-backup: the production deploy job reads every secret
+# of its environment and runs third-party actions.
+grep -E '^[A-Z0-9_]+=.+' "$FILE" | grep -v '^ACADEMY_HOSTNAME=' | grep -vF '...' > "$UPLOAD.all" || true
+grep -v '^BACKUP_' "$UPLOAD.all" > "$UPLOAD" || true
 gh secret set -R "$REPO" --env production -f "$UPLOAD"
-grep -E '^(DIRECT_DATABASE_URL|S3_ENDPOINT|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY|BACKUP_PASSPHRASE)=' "$UPLOAD" > "$UPLOAD.b" || true
+grep -E '^(DIRECT_DATABASE_URL|S3_ENDPOINT|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY|BACKUP_PASSPHRASE|BACKUP_S3_ACCESS_KEY_ID|BACKUP_S3_SECRET_ACCESS_KEY)=' "$UPLOAD.all" > "$UPLOAD.b" || true
 if [ -s "$UPLOAD.b" ]; then gh secret set -R "$REPO" --env production-backup -f "$UPLOAD.b"; fi
 
 echo "Uploaded to 'production' (and the backup subset to 'production-backup'): $(cut -d= -f1 "$UPLOAD" | tr '\n' ' ')"
-echo "Skipped (empty or '...'): $(grep -E '^[A-Z_]+=(\.\.\.)?$' "$FILE" | cut -d= -f1 | tr '\n' ' ')"
+echo "Skipped (empty or still '...'): $({ grep -E '^[A-Z0-9_]+=$' "$FILE"; grep -E '^[A-Z0-9_]+=' "$FILE" | grep -F '...'; } | cut -d= -f1 | tr '\n' ' ')"
 echo "The admin login (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) is in $FILE."

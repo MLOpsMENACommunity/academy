@@ -23,9 +23,10 @@ placeholder courses.
 ## Environments
 
 Both environments are built from `deploy/cloudflare/wrangler.jsonc`: production is the
-top level, staging is `env.staging`. Staging shares nothing with production that could
-leak into it: its own Worker, containers, Durable Objects, database, bucket, JWT secret
-and jobs token, and it never emails real people.
+top level, staging is `env.staging`. Staging has its own Worker, containers, Durable
+Objects, database (and database role), bucket (and R2 token), JWT secret and jobs token,
+and it never emails real people. It shares two credentials with production: the
+Cloudflare API token (Cloudflare can't limit a token to one Worker) and the Resend key.
 
 | | Production | Staging |
 |---|---|---|
@@ -203,9 +204,13 @@ See `docs/COST_ANALYSIS.md`, which is local only and not in git.
 
 You can also add or change secrets by hand in Settings → Environments.
 
-The `production` environment has the variables `ACADEMY_HOSTNAME=academy.mlopsmena.com`
-and `SENTRY_ENVIRONMENT=production`. The `staging` environment has
+The `production` environment has the variables `ACADEMY_ENVIRONMENT=production`,
+`ACADEMY_HOSTNAME=academy.mlopsmena.com` and `SENTRY_ENVIRONMENT=production`. The
+`staging` environment has `ACADEMY_ENVIRONMENT=staging`,
 `ACADEMY_HOSTNAME=academy-staging.mlopsmena.com` and `SENTRY_ENVIRONMENT=staging`.
+A deploy refuses to run unless `ACADEMY_ENVIRONMENT` matches the environment, and a
+staging deploy also refuses database URLs that don't point at a staging database.
+`setup-staging.sh` sets the staging marker last, once staging's secrets are its own.
 
 ## What a deploy does
 
@@ -213,7 +218,8 @@ Both release workflows call `.github/workflows/deploy-cloudflare.yml` with the
 environment and the tag. It:
 
 1. checks out the tag, and checks it still points at the commit that was verified;
-2. checks that every required secret is set in that environment;
+2. checks the environment's `ACADEMY_ENVIRONMENT` marker (and, on staging, that the
+   database is a staging one), and that every required secret is set;
 3. points `wrangler.jsonc` at that environment's hostname (`configure-host.mjs`, which
    refuses to let staging claim a production hostname, share its bucket or drop the
    email redirect, and the other way round);
@@ -253,6 +259,16 @@ Add `--env staging` to any of these to act on staging instead of production.
 | Email DNS, logs, Sentry, analytics | [OPERATIONS.md](OPERATIONS.md) |
 
 ## Limits to know
+
+- **Promotion rebuilds the images.** Production builds the same commit again rather than
+  reusing staging's images, so an unpinned base image could differ. A rollback by tag
+  takes as long as a deploy; the Cloudflare dashboard rollback is instant.
+- **One pending release per environment.** If you push several tags quickly, a waiting
+  staging release is replaced by the newest one. Re-run a skipped tag by hand if you
+  need it on staging.
+- **Old `academy-staging` links now open staging.** Links to
+  `academy-staging.mlopsmena.com` used to redirect to production; they now reach the
+  staging site and its separate database.
 
 - **Single instance.** Rate limits and the login lockout are in memory, so
   keep `max_instances: 1` until they move to a shared store.
