@@ -90,6 +90,14 @@ export class AdminCoursesService {
     }
   }
 
+  /**
+   * An admin change to a course or its lessons takes it over from the archive import, which
+   * then never touches it again (see prisma/import-archive.ts). Cheap: a no-op for most courses.
+   */
+  private async takeOver(courseId: string, tx: Prisma.TransactionClient = this.prisma): Promise<void> {
+    await tx.course.updateMany({ where: { id: courseId, importHash: { not: null } }, data: { importHash: null } });
+  }
+
   private slugTaken(err: unknown): never {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       throw new ConflictException({ code: 'SLUG_TAKEN', message: 'Another course already uses this slug' });
@@ -119,7 +127,7 @@ export class AdminCoursesService {
         const data = this.data(input);
         // Keep the original archive date when it stays archived.
         if (input.status === 'ARCHIVED' && before.archivedAt) data.archivedAt = before.archivedAt;
-        await tx.course.update({ where: { id }, data });
+        await tx.course.update({ where: { id }, data: { ...data, importHash: null } });
         await this.setInstructors(tx, id, input.instructorIds);
       });
     } catch (err) {
@@ -169,7 +177,7 @@ export class AdminCoursesService {
     const before = await this.prisma.course.findUnique({ where: { id }, select: { status: true } });
     if (!before) throw new NotFoundException('Course not found');
     if (before.status === 'ARCHIVED') return;
-    await this.prisma.course.update({ where: { id }, data: { status: 'ARCHIVED', archivedAt: new Date() } });
+    await this.prisma.course.update({ where: { id }, data: { status: 'ARCHIVED', archivedAt: new Date(), importHash: null } });
     // The previous status says what to restore if this was a mistake.
     await this.audit.log({ actorId: admin.id, action: 'course.archived', entityType: 'Course', entityId: id, metadata: { from: before.status } });
   }
@@ -243,6 +251,7 @@ export class AdminCoursesService {
   async createSession(courseId: string, s: SessionInput, admin: Actor) {
     const created = await this.prisma.$transaction(async (tx) => {
       const order = await this.nextOrder(tx, courseId);
+      await this.takeOver(courseId, tx);
       return tx.courseSession.create({ data: { ...this.sessionData(s), courseId, order } });
     });
     await this.audit.log({ actorId: admin.id, action: 'session.created', entityType: 'CourseSession', entityId: created.id });
@@ -255,6 +264,7 @@ export class AdminCoursesService {
       await tx.courseSession.createMany({
         data: list.map((s, i) => ({ ...this.sessionData(s), courseId, order: start + i })),
       });
+      await this.takeOver(courseId, tx);
     });
     await this.audit.log({ actorId: admin.id, action: 'session.bulk_created', entityType: 'Course', entityId: courseId, metadata: { count: list.length } });
     return this.prisma.courseSession.findMany({ where: { courseId }, orderBy: { order: 'asc' } });
@@ -338,6 +348,7 @@ export class AdminCoursesService {
   async updateSession(courseId: string, sessionId: string, s: SessionInput, admin: Actor) {
     const r = await this.prisma.courseSession.updateMany({ where: { id: sessionId, courseId }, data: this.sessionData(s) });
     if (!r.count) throw new NotFoundException('Session not found');
+    await this.takeOver(courseId);
     await this.audit.log({ actorId: admin.id, action: 'session.updated', entityType: 'CourseSession', entityId: sessionId });
     return this.prisma.courseSession.findUniqueOrThrow({ where: { id: sessionId } });
   }
@@ -345,10 +356,12 @@ export class AdminCoursesService {
   async deleteSession(courseId: string, sessionId: string, admin: Actor) {
     const r = await this.prisma.courseSession.deleteMany({ where: { id: sessionId, courseId } });
     if (!r.count) throw new NotFoundException('Session not found');
+    await this.takeOver(courseId);
     await this.audit.log({ actorId: admin.id, action: 'session.deleted', entityType: 'CourseSession', entityId: sessionId });
   }
 
   async reorderSessions(courseId: string, ids: string[]) {
+    await this.takeOver(courseId);
     await this.prisma.$transaction(
       ids.map((id, i) => this.prisma.courseSession.updateMany({ where: { id, courseId }, data: { order: i + 1 } })),
     );
@@ -400,7 +413,8 @@ export class AdminCoursesService {
     };
     let saved;
     try {
-      saved = id ? await this.prisma.instructor.update({ where: { id }, data }) : await this.prisma.instructor.create({ data });
+      // An admin save takes the speaker over from the archive import (it never touches them again).
+      saved = id ? await this.prisma.instructor.update({ where: { id }, data: { ...data, importHash: null } }) : await this.prisma.instructor.create({ data });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({ code: 'SLUG_TAKEN', message: 'Another speaker already uses this slug' });

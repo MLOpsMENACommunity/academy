@@ -4,18 +4,20 @@ describe('archive import decisions', () => {
   const ours = { id: 'x', source: 'import', importHash: 'h1' };
 
   it('creates what was never imported, and never recreates what an admin deleted', () => {
-    expect(plan(null, 'h1', false, false)).toEqual({ action: 'create' });
-    expect(plan(null, 'h1', true, false)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/deleted or renamed/) });
+    expect(plan(null, 'h1', false)).toEqual({ action: 'create' });
+    expect(plan(null, 'h1', true)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/deleted or renamed/) });
   });
 
   it('leaves records it did not create alone (e.g. a session already scheduled by an admin)', () => {
-    expect(plan({ ...ours, source: null }, 'h2', false, false)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/not created by the import/) });
+    expect(plan({ ...ours, source: null }, 'h2', false)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/not created by the import/) });
   });
 
-  it('skips unchanged entries and admin-edited records, and updates the rest', () => {
-    expect(plan(ours, 'h1', true, true)).toEqual({ action: 'skip', reason: 'unchanged' });
-    expect(plan(ours, 'h2', true, true)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/edited by an admin/) });
-    expect(plan(ours, 'h2', true, false)).toEqual({ action: 'update', id: 'x' });
+  it('skips unchanged entries and records an admin has saved, and updates the rest', () => {
+    expect(plan(ours, 'h1', true)).toEqual({ action: 'skip', reason: 'unchanged' });
+    // Every admin save clears importHash: the record is the admin's from then on.
+    expect(plan({ ...ours, importHash: null }, 'h2', true)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/edited by an admin/) });
+    expect(plan({ ...ours, importHash: null }, 'h1', true)).toMatchObject({ action: 'skip', reason: expect.stringMatching(/edited by an admin/) });
+    expect(plan(ours, 'h2', true)).toEqual({ action: 'update', id: 'x' });
   });
 
   it('hashes content, not key order', () => {

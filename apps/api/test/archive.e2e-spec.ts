@@ -152,6 +152,29 @@ describe('recordings library and speaker pages (e2e)', () => {
     await http().post('/api/admin/events').set('Cookie', admin.cookie).send({ ...body, slug: `ghost-${run}`, speakerId: 'nope' }).expect(400);
   });
 
+  it('marks an imported record as the admin\'s on every admin save, so the import leaves it alone', async () => {
+    const ev = await prisma.liveEvent.update({ where: { slug: `older-${run}` }, data: { source: 'import', importHash: 'h' } });
+    const body = {
+      slug: ev.slug, status: 'PUBLISHED', titleEn: ev.titleEn, titleAr: ev.titleAr, startsAt: ev.startsAt.toISOString(),
+      durationMin: ev.durationMin, language: 'BILINGUAL', platform: 'YOUTUBE_LIVE', recordingUrl: ev.recordingUrl, topics: ev.topics,
+    };
+    await http().put(`/api/admin/events/${ev.id}`).set('Cookie', admin.cookie).send(body).expect(200);
+    expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: ev.id } })).importHash).toBeNull();
+
+    // Any change to a course's lessons, including deleting or reordering one, takes the course over.
+    const course = await prisma.course.update({ where: { slug: `public-${run}` }, data: { source: 'import', importHash: 'h' }, include: { sessions: true } });
+    await http().put(`/api/admin/courses/${course.id}/sessions/order`).set('Cookie', admin.cookie).send({ ids: course.sessions.map((x) => x.id) }).expect(200);
+    expect((await prisma.course.findUniqueOrThrow({ where: { id: course.id } })).importHash).toBeNull();
+    await prisma.course.update({ where: { id: course.id }, data: { importHash: 'h' } });
+    const extra = await prisma.courseSession.create({ data: { courseId: course.id, order: 9, titleEn: 'Extra', titleAr: 'إضافي', startsAt: days(-1) } });
+    await http().delete(`/api/admin/courses/${course.id}/sessions/${extra.id}`).set('Cookie', admin.cookie).expect(204);
+    expect((await prisma.course.findUniqueOrThrow({ where: { id: course.id } })).importHash).toBeNull();
+
+    const sp = await prisma.instructor.update({ where: { slug: `speaker-${run}` }, data: { source: 'import', importHash: 'h' } });
+    await http().put(`/api/admin/instructors/${sp.id}`).set('Cookie', admin.cookie).send({ name: sp.name, titleEn: sp.titleEn, slug: sp.slug }).expect(200);
+    expect((await prisma.instructor.findUniqueOrThrow({ where: { id: sp.id } })).importHash).toBeNull();
+  });
+
   it('lets admins manage speakers, with a slug made from the name', async () => {
     const created = await http()
       .post('/api/admin/instructors')

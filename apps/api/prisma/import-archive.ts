@@ -3,19 +3,21 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { eventEnded } from '@academy/shared';
-import { Prisma, type PrismaClient } from '@prisma/client';
-import { parseArchive, type Archive, type ArchiveCourse, type ArchiveSession, type ArchiveSpeaker } from './archive-schema';
+import type { Prisma, PrismaClient } from '@prisma/client';
+import { ARCHIVE_FORMAT_VERSION, parseArchive, type Archive, type ArchiveCourse, type ArchiveSession, type ArchiveSpeaker } from './archive-schema';
 
 /**
  * Imports the archive (past courses, past live sessions, speakers) from prisma/archive/*.json.
- * Runs on every container start after the seed, so it must be idempotent and must never
- * overwrite an admin's work:
+ * Runs on every container start after the seed, so it must be idempotent, cheap when
+ * nothing changed, and must never overwrite an admin's work:
  *
  * - a record is matched by slug; one that isn't ours (`source` isn't "import") is left alone;
+ * - every admin save of an imported record clears its `importHash` (the admin services do it):
+ *   from then on the record is the admin's and the import never touches it again;
  * - an entry whose content hasn't changed since the last import (same `importHash`) is skipped;
- * - an imported record an admin has edited since (any audited admin action on it) is left alone;
  * - a record we imported and an admin later deleted or renamed is not recreated
- *   (the slugs ever imported are kept in the `__archiveImported` setting).
+ *   (the slugs ever imported are kept in the `__archiveImported` setting);
+ * - when no archive file changed since the last successful import, nothing is read at all.
  *
  * Everything else is created, or updated in place when its entry changed.
  */
@@ -28,13 +30,21 @@ const LOCK_KEY = 4_202_610_110;
 
 type Tx = Prisma.TransactionClient;
 type Kind = 'speaker' | 'session' | 'course';
-type Registry = Record<'speakers' | 'sessions' | 'courses', string[]>;
+interface Registry {
+  speakers: string[];
+  sessions: string[];
+  courses: string[];
+  /** Hash of the whole archive at the last successful import. */
+  archiveHash?: string;
+}
 
 export interface ImportReport {
   created: string[];
   updated: string[];
   /** "kind:slug: reason" */
   skipped: string[];
+  /** True when the archive was unchanged since the last import and nothing was read. */
+  unchangedArchive?: boolean;
 }
 
 /** Stable JSON (sorted keys) so the hash only changes when the content does. */
@@ -57,25 +67,15 @@ export function importHash(data: unknown): string {
 /** What to do with one entry, given what the database holds for its slug. */
 export type Plan = { action: 'create' } | { action: 'update'; id: string } | { action: 'skip'; reason: string };
 
-export function plan(
-  existing: { id: string; source: string | null; importHash: string | null } | null,
-  hash: string,
-  everImported: boolean,
-  editedByAdmin: boolean,
-): Plan {
+export function plan(existing: { id: string; source: string | null; importHash: string | null } | null, hash: string, everImported: boolean): Plan {
   if (!existing) return everImported ? { action: 'skip', reason: 'deleted or renamed by an admin since it was imported' } : { action: 'create' };
   if (existing.source !== SOURCE) return { action: 'skip', reason: 'already exists (not created by the import)' };
+  if (existing.importHash === null) return { action: 'skip', reason: 'edited by an admin since it was imported' };
   if (existing.importHash === hash) return { action: 'skip', reason: 'unchanged' };
-  if (editedByAdmin) return { action: 'skip', reason: 'edited by an admin since it was imported' };
   return { action: 'update', id: existing.id };
 }
 
-async function editedByAdmin(tx: Tx, entityType: string, ids: string[]): Promise<boolean> {
-  if (!ids.length) return false;
-  return (await tx.auditLog.count({ where: { actorId: { not: null }, entityType, entityId: { in: ids } } })) > 0;
-}
-
-const date = (iso: string | undefined) => (iso ? new Date(iso) : null);
+const date = (iso: string) => new Date(iso);
 /** A calendar day from the archive ("2026-08-15") as midnight Cairo time, like the admin's date fields. */
 const dayStart = (d: string | undefined) => (d ? new Date(`${d}T00:00:00+03:00`) : null);
 
@@ -93,12 +93,9 @@ function speakerData(s: ArchiveSpeaker) {
   };
 }
 
-function sessionData(s: ArchiveSession, speakerId: string | null, now: Date) {
-  const startsAt = new Date(s.startsAt);
-  // An upcoming session registers people on the academy, so it needs a join link before it can go live.
-  const status = s.status ?? (eventEnded(startsAt, s.durationMin, now) || s.liveUrl ? 'PUBLISHED' : 'DRAFT');
+/** Everything but the status (see sessionStatus): the part that is hashed and updated. */
+function sessionData(s: ArchiveSession, speakerId: string | null) {
   return {
-    status,
     titleEn: s.titleEn,
     titleAr: s.titleAr,
     descriptionEn: s.descriptionEn,
@@ -111,7 +108,7 @@ function sessionData(s: ArchiveSession, speakerId: string | null, now: Date) {
     speakerTitleAr: speakerId ? '' : (s.speakerTitleAr ?? ''),
     speakerPhotoUrl: null,
     speakerLinkedinUrl: speakerId ? null : (s.speakerLinkedinUrl ?? null),
-    startsAt,
+    startsAt: date(s.startsAt),
     durationMin: s.durationMin,
     language: s.language,
     platform: s.platform,
@@ -120,6 +117,15 @@ function sessionData(s: ArchiveSession, speakerId: string | null, now: Date) {
     liveUrl: s.liveUrl ?? null,
     capacity: s.capacity ?? null,
   } satisfies Omit<Prisma.LiveEventUncheckedCreateInput, 'slug'>;
+}
+
+/**
+ * The status a new session starts with. An upcoming session registers people on the academy,
+ * so without a join link it waits as a draft. Decided once, at creation: the import never
+ * changes a status on its own later (a draft doesn't go public just because its date passed).
+ */
+function sessionStatus(s: ArchiveSession, now: Date): 'PUBLISHED' | 'DRAFT' {
+  return s.status ?? (eventEnded(date(s.startsAt), s.durationMin, now) || s.liveUrl ? 'PUBLISHED' : 'DRAFT');
 }
 
 function courseData(c: ArchiveCourse) {
@@ -145,7 +151,8 @@ function courseData(c: ArchiveCourse) {
     hoursPerWeek: c.hoursPerWeek ?? null,
     externalPlatform: c.externalPlatform ?? null,
     externalUrl: c.externalUrl ?? null,
-    publicRecordings: c.publicRecordings ?? c.status === 'COMPLETED',
+    // Only free courses with YouTube recordings can make them public (paid recordings stay enrolled-only).
+    publicRecordings: c.type === 'FREE' && c.recordingsPlatform === 'YOUTUBE' && (c.publicRecordings ?? c.status === 'COMPLETED'),
     deliveryPlatform: c.deliveryPlatform,
     recordingsPlatform: c.recordingsPlatform,
     youtubePlaylistUrl: c.youtubePlaylistUrl ?? null,
@@ -157,7 +164,7 @@ function courseData(c: ArchiveCourse) {
     outline: c.outline,
     faq: c.faq,
     included: c.included,
-  };
+  } satisfies Omit<Prisma.CourseUncheckedCreateInput, 'slug'>;
 }
 
 function lessonsData(c: ArchiveCourse) {
@@ -167,24 +174,37 @@ function lessonsData(c: ArchiveCourse) {
     titleAr: s.titleAr || s.titleEn,
     descriptionEn: s.descriptionEn ?? null,
     descriptionAr: s.descriptionAr ?? null,
-    startsAt: date(s.startsAt)!,
+    startsAt: date(s.startsAt),
     durationMin: s.durationMin,
     topics: s.topics,
     recordingUrl: s.recordingUrl ?? null,
   }));
 }
+type Lesson = ReturnType<typeof lessonsData>[number];
 
-async function readRegistry(tx: Tx): Promise<Registry> {
+async function readRegistry(tx: Tx | PrismaClient): Promise<Registry> {
   const row = await tx.setting.findUnique({ where: { key: IMPORTED_KEY } });
   const v = (row?.value ?? {}) as Partial<Record<keyof Registry, unknown>>;
   const list = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : []);
-  return { speakers: list(v.speakers), sessions: list(v.sessions), courses: list(v.courses) };
+  return {
+    speakers: list(v.speakers),
+    sessions: list(v.sessions),
+    courses: list(v.courses),
+    ...(typeof v.archiveHash === 'string' ? { archiveHash: v.archiveHash } : {}),
+  };
 }
 
-/** Imports the archive. Safe to run any number of times (see the comment at the top). */
-export async function importArchive(prisma: PrismaClient, archive: Archive, opts: { now?: Date } = {}): Promise<ImportReport> {
+/**
+ * Imports the archive. Safe to run any number of times (see the comment at the top).
+ * `force` re-checks every entry even when the archive files haven't changed.
+ */
+export async function importArchive(prisma: PrismaClient, archive: Archive, opts: { now?: Date; force?: boolean } = {}): Promise<ImportReport> {
   const now = opts.now ?? new Date();
   const report: ImportReport = { created: [], updated: [], skipped: [] };
+  const archiveHash = importHash({ version: ARCHIVE_FORMAT_VERSION, archive });
+  // The common case on a container start: one query, no transaction.
+  if (!opts.force && (await readRegistry(prisma)).archiveHash === archiveHash) return { ...report, unchangedArchive: true };
+
   const note = (kind: Kind, slug: string, p: Plan) => {
     if (p.action === 'skip') report.skipped.push(`${kind}:${slug}: ${p.reason}`);
     else report[p.action === 'create' ? 'created' : 'updated'].push(`${kind}:${slug}`);
@@ -194,14 +214,13 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
     async (tx) => {
       await tx.$queryRaw`SELECT 1 AS ok FROM pg_advisory_xact_lock(${LOCK_KEY}::bigint)`;
       const registry = await readRegistry(tx);
-      const before = stable(registry);
 
       // ---- speakers
       for (const s of archive.speakers) {
         const data = speakerData(s);
         const hash = importHash(data);
         const existing = await tx.instructor.findUnique({ where: { slug: s.slug }, select: { id: true, source: true, importHash: true } });
-        const p = plan(existing, hash, registry.speakers.includes(s.slug), existing ? await editedByAdmin(tx, 'Instructor', [existing.id]) : false);
+        const p = plan(existing, hash, registry.speakers.includes(s.slug));
         note('speaker', s.slug, p);
         if (p.action === 'create') {
           await tx.instructor.create({ data: { ...data, slug: s.slug, source: SOURCE, importHash: hash } });
@@ -220,16 +239,17 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
 
       // ---- live sessions
       for (const s of archive.sessions) {
-        const data = sessionData(s, await speakerId(s.speaker), now);
-        const hash = importHash(data);
+        const data = sessionData(s, await speakerId(s.speaker));
+        // An explicit status in the entry is content; the computed default is not (see sessionStatus).
+        const hash = importHash({ data, status: s.status ?? null });
         const existing = await tx.liveEvent.findUnique({ where: { slug: s.slug }, select: { id: true, source: true, importHash: true } });
-        const p = plan(existing, hash, registry.sessions.includes(s.slug), existing ? await editedByAdmin(tx, 'LiveEvent', [existing.id]) : false);
+        const p = plan(existing, hash, registry.sessions.includes(s.slug));
         note('session', s.slug, p);
         if (p.action === 'create') {
-          await tx.liveEvent.create({ data: { ...data, slug: s.slug, source: SOURCE, importHash: hash } });
+          await tx.liveEvent.create({ data: { ...data, status: sessionStatus(s, now), slug: s.slug, source: SOURCE, importHash: hash } });
           registry.sessions.push(s.slug);
         } else if (p.action === 'update') {
-          await tx.liveEvent.update({ where: { id: p.id }, data: { ...data, importHash: hash } });
+          await tx.liveEvent.update({ where: { id: p.id }, data: { ...data, ...(s.status ? { status: s.status } : {}), importHash: hash } });
         }
       }
 
@@ -240,28 +260,31 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
         const instructorIds = (await Promise.all(c.instructors.map(speakerId))).filter((id): id is string => Boolean(id));
         const hash = importHash({ data, lessons, instructorIds });
         const existing = await tx.course.findUnique({ where: { slug: c.slug }, select: { id: true, source: true, importHash: true } });
-        let edited = false;
-        if (existing) {
-          const sessionIds = (await tx.courseSession.findMany({ where: { courseId: existing.id }, select: { id: true } })).map((x) => x.id);
-          edited = (await editedByAdmin(tx, 'Course', [existing.id])) || (await editedByAdmin(tx, 'CourseSession', sessionIds));
+        let p = plan(existing, hash, registry.courses.includes(c.slug));
+        let replaceLessons = true;
+        if (p.action === 'update') {
+          const current = await tx.courseSession.findMany({ where: { courseId: p.id }, orderBy: { order: 'asc' } });
+          replaceLessons = stable(current.map((l) => pickLesson(l))) !== stable(lessons);
+          // Lessons with student progress or feedback keep their ids: hold the whole update back
+          // rather than store a hash that claims lessons were imported when they weren't.
+          if (replaceLessons) {
+            const used =
+              (await tx.sessionProgress.count({ where: { session: { courseId: p.id } } })) + (await tx.sessionFeedback.count({ where: { courseId: p.id } }));
+            if (used > 0) p = { action: 'skip', reason: 'its lessons changed, but students have progress on them: update it in the admin' };
+          }
         }
-        const p = plan(existing, hash, registry.courses.includes(c.slug), edited);
         note('course', c.slug, p);
         if (p.action === 'skip') continue;
 
-        const fields = { ...data, importHash: hash } satisfies Omit<Prisma.CourseUncheckedCreateInput, 'slug'>;
         let courseId: string;
         if (p.action === 'create') {
-          courseId = (await tx.course.create({ data: { ...fields, slug: c.slug, source: SOURCE } })).id;
+          courseId = (await tx.course.create({ data: { ...data, importHash: hash, slug: c.slug, source: SOURCE } })).id;
           registry.courses.push(c.slug);
         } else {
           courseId = p.id;
-          await tx.course.update({ where: { id: courseId }, data: fields });
+          await tx.course.update({ where: { id: courseId }, data: { ...data, importHash: hash } });
         }
-        // Lessons are replaced only while no student has progress or feedback on them.
-        const used =
-          (await tx.sessionProgress.count({ where: { session: { courseId } } })) + (await tx.sessionFeedback.count({ where: { courseId } }));
-        if (used === 0) {
+        if (replaceLessons) {
           await tx.courseSession.deleteMany({ where: { courseId } });
           if (lessons.length) await tx.courseSession.createMany({ data: lessons.map((l) => ({ ...l, courseId })) });
         }
@@ -271,17 +294,31 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
         }
       }
 
-      if (stable(registry) !== before) {
-        await tx.setting.upsert({
-          where: { key: IMPORTED_KEY },
-          update: { value: registry as unknown as Prisma.InputJsonValue },
-          create: { key: IMPORTED_KEY, value: registry as unknown as Prisma.InputJsonValue },
-        });
-      }
+      registry.archiveHash = archiveHash;
+      await tx.setting.upsert({
+        where: { key: IMPORTED_KEY },
+        update: { value: registry as unknown as Prisma.InputJsonValue },
+        create: { key: IMPORTED_KEY, value: registry as unknown as Prisma.InputJsonValue },
+      });
     },
     { maxWait: 30_000, timeout: 120_000 },
   );
   return report;
+}
+
+/** A stored lesson in the shape lessonsData() produces, to compare them. */
+function pickLesson(l: Lesson): Lesson {
+  return {
+    order: l.order,
+    titleEn: l.titleEn,
+    titleAr: l.titleAr,
+    descriptionEn: l.descriptionEn,
+    descriptionAr: l.descriptionAr,
+    startsAt: l.startsAt,
+    durationMin: l.durationMin,
+    topics: l.topics,
+    recordingUrl: l.recordingUrl,
+  };
 }
 
 /** prisma/archive next to this file (tsx), or next to dist/prisma (the built image). */
@@ -310,14 +347,17 @@ async function main(): Promise<void> {
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
   try {
-    const archive = readArchive();
-    const report = await importArchive(prisma, archive);
+    const report = await importArchive(prisma, readArchive(), { force: process.argv.includes('--force') });
+    if (report.unchangedArchive) {
+      console.log('Archive import: no archive file changed since the last import (run with --force to re-check every entry).');
+      return;
+    }
     for (const line of report.created) console.log(`Archive: created ${line}`);
     for (const line of report.updated) console.log(`Archive: updated ${line}`);
     const unchanged = report.skipped.filter((s) => s.endsWith(': unchanged')).length;
     for (const line of report.skipped.filter((s) => !s.endsWith(': unchanged'))) console.log(`Archive: kept ${line}`);
     console.log(
-      `Archive import done: ${report.created.length} created, ${report.updated.length} updated, ${unchanged} unchanged, ${report.skipped.length - unchanged} kept as edited.`,
+      `Archive import done: ${report.created.length} created, ${report.updated.length} updated, ${unchanged} unchanged, ${report.skipped.length - unchanged} kept as they are.`,
     );
   } finally {
     await prisma.$disconnect();

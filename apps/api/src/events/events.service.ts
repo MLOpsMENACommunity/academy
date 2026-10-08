@@ -265,7 +265,8 @@ export class EventsService {
     let saved: LiveEvent;
     try {
       saved = await this.prisma.$transaction(async (tx) => {
-        const e = id ? await tx.liveEvent.update({ where: { id }, data: input }) : await tx.liveEvent.create({ data: input });
+        // An admin save takes the session over from the archive import (it never touches it again).
+        const e = id ? await tx.liveEvent.update({ where: { id }, data: { ...input, importHash: null } }) : await tx.liveEvent.create({ data: input });
         if (before && before.startsAt.getTime() !== e.startsAt.getTime()) {
           await tx.eventReminderLog.deleteMany({ where: { eventId: e.id } });
         }
