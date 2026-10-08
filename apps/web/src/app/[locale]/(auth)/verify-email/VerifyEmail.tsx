@@ -6,13 +6,19 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { RequireAuth } from '@/components/auth/RequireAuth';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 
+/** Verification needs the account's own session (see the API); RequireAuth sends visitors to login and back. */
 export function VerifyEmail() {
+  return <RequireAuth>{() => <Inner />}</RequireAuth>;
+}
+
+function Inner() {
   const { locale, t } = useI18n();
   const { reload } = useAuth();
   const token = useSearchParams().get('token');
