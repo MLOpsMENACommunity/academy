@@ -1,10 +1,15 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import type { CourseSummaryDto } from '@academy/shared';
+import { CourseCard } from '@/components/course/CourseCard';
 import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
+import { serverGetOr } from '@/lib/server-api';
+
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -21,6 +26,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
   const steps = [1, 2, 3] as const;
+  const open = (await serverGetOr<CourseSummaryDto[]>('/courses?availability=OPEN', [], 300)).slice(0, 3);
 
   return (
     <>
@@ -41,6 +47,24 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </Container>
         <div aria-hidden className="h-1 w-full" style={{ background: 'var(--brand-gradient)' }} />
       </section>
+
+      {open.length > 0 && (
+        <Container className="pt-14">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="text-2xl">{t('home.featured')}</h2>
+            <ButtonLink href={`/${locale}/courses`} variant="ghost" size="sm">
+              {t('home.browse')} →
+            </ButtonLink>
+          </div>
+          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {open.map((c) => (
+              <li key={c.id} className="flex">
+                <CourseCard course={c} locale={locale} headingLevel="h3" />
+              </li>
+            ))}
+          </ul>
+        </Container>
+      )}
 
       <Container className="py-14">
         <h2 className="text-2xl">{t('home.howTitle')}</h2>
