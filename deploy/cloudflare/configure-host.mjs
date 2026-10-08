@@ -7,6 +7,9 @@
 //   ACADEMY_HOSTNAME        optional canonical host (default: the one committed for the target)
 //   ACADEMY_REDIRECT_HOSTS  optional, comma-separated hosts that 301 to the canonical one
 //   SENTRY_ENVIRONMENT      optional, e.g. production
+//   EMAIL_ALLOWLIST         staging only, optional: comma-separated addresses or "@domain"
+//                           entries that receive their own staging email (testers)
+//   EMAIL_REDIRECT_TO       staging only, optional: where everyone else's staging email goes
 //
 // Writes host, url and bucket to $GITHUB_OUTPUT for the later steps. Refuses to let one
 // environment claim the other's hostname, and refuses a staging config that would share
@@ -53,6 +56,23 @@ block.vars.ACADEMY_HOSTNAME = host;
 block.routes = [host, ...aliases].map((pattern) => ({ pattern, custom_domain: true }));
 const web = block.containers.find((c) => c.class_name === 'WebContainer');
 web.image_vars = { ...web.image_vars, NEXT_PUBLIC_SITE_URL: `https://${host}` };
+if (target === 'staging') {
+  // Testers listed here get their own staging email; everyone else's is redirected.
+  const isEntry = (e) => /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(e) || /^@[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(e);
+  const allow = process.env.EMAIL_ALLOWLIST?.trim();
+  if (allow) {
+    const entries = allow.split(',').map((e) => e.trim()).filter(Boolean);
+    const bad = entries.filter((e) => !isEntry(e));
+    if (bad.length) throw new Error(`EMAIL_ALLOWLIST has invalid entries: ${bad.join(', ')}`);
+    block.vars.EMAIL_ALLOWLIST = entries.join(',');
+  }
+  const redirect = process.env.EMAIL_REDIRECT_TO?.trim();
+  if (redirect) {
+    if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(redirect)) throw new Error('EMAIL_REDIRECT_TO must be one email address');
+    block.vars.EMAIL_REDIRECT_TO = redirect;
+  }
+  console.log(`staging email: allowlist ${block.vars.EMAIL_ALLOWLIST ? block.vars.EMAIL_ALLOWLIST.split(',').length + ' entries' : 'empty'}; others go to ${block.vars.EMAIL_REDIRECT_TO}`);
+}
 const sentryEnv = process.env.SENTRY_ENVIRONMENT?.trim();
 if (sentryEnv) block.vars.SENTRY_ENVIRONMENT = sentryEnv;
 
