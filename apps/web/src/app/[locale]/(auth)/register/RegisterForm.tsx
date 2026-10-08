@@ -17,7 +17,7 @@ import { issuesToErrors } from '@/lib/zod-errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
 import { postLoginPath } from '../login/LoginForm';
 
-export function RegisterForm() {
+export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const { locale, t } = useI18n();
   const { user, setUser } = useAuth();
   const router = useRouter();
@@ -66,7 +66,7 @@ export function RegisterForm() {
 
   return (
     <AuthCard title={t('auth.registerTitle')} subtitle={t('auth.registerSubtitle')}>
-      <GoogleButton returnTo={withReturnTo(`/${locale}/onboarding`, returnTo)} />
+      <GoogleButton returnTo={withReturnTo(`/${locale}/onboarding`, returnTo)} enabled={googleEnabled} />
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {error && <Alert tone="danger">{error}</Alert>}
         <TextField

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { ApplicationsModule } from './applications/applications.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule,
     PrismaModule,
     ScheduleModule.forRoot(),
@@ -47,6 +49,8 @@ import { UsersModule } from './users/users.module';
   // Order matters: AuthGuard first (sets req.user), then the throttler keys by user or IP.
   // Default 300/min; auth, uploads and account changes set stricter limits.
   providers: [
+    // Reports unexpected (non-HTTP) errors to Sentry when SENTRY_DSN is set; a no-op otherwise.
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],

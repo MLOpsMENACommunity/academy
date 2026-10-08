@@ -11,7 +11,7 @@
   --brand-primary: #0b7a71; /* teal, AA on white (5.3:1) */
   --brand-primary-hover: #09695f;
   --brand-primary-soft: #e6f6f4;
-  --brand-accent: #a96208; /* amber, AA on white */
+  --brand-accent: #8f5207; /* amber: AA for small text on white and on accent-soft */
   --brand-accent-soft: #fdf3e3;
   --brand-cyan: #0e7c99;
   --brand-gradient: linear-gradient(120deg, #33cec0 0%, #2cacd1 55%, #ec9723 100%);

@@ -62,6 +62,7 @@ container runs migrations and the seed on start.
 |---|---|
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | What CI runs |
 | `pnpm build` | Production build of every package |
+| `pnpm e2e` | Browser tests (main flow, accessibility, security headers) against a running stack: `docker compose up -d --build --wait` first, or set `E2E_BASE_URL` |
 | `pnpm db:reset` | Drop, re-migrate and re-seed the local database |
 | `pnpm --filter @academy/api prisma studio` | Browse the database |
 
@@ -83,7 +84,10 @@ refuses to start with an invalid config):
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | Private bucket: MinIO locally, Cloudflare R2 in production |
 | `S3_CREATE_BUCKET` | Create the bucket on boot (local MinIO only) |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | First admin account, created by the seed |
-| `SENTRY_DSN` | Optional error tracking |
+| `SENTRY_DSN` | Optional error tracking (no personal data sent; see OPERATIONS.md) |
+| `CORS_ORIGINS` | Extra comma-separated origins allowed to call the API (normally none) |
+| `API_DOCS` | Serve Swagger at `/api/docs` in production (always on in development) |
+| `LOG_JSON` | JSON log lines; defaults to on in production |
 | `JOBS_ENABLED` | Scheduled jobs (reminders, retention, anonymisation); disable on extra replicas |
 
 Web (`apps/web/.env.local`):
@@ -141,6 +145,10 @@ Dependency majors are pinned to the latest patch of lines we have verified
 Nest 12, Prisma 7+ and TypeScript 7 is a deliberate, separate task.
 
 ## Security notes
+
+Operational details (headers, CSP, cookies, logging, backups, secret rotation)
+are in [OPERATIONS.md](OPERATIONS.md).
+
 
 - **Sessions.** Access tokens are 15-minute JWTs in httpOnly, SameSite=Lax
   cookies. Refresh tokens are opaque, stored hashed, scoped to `/api/auth`, and

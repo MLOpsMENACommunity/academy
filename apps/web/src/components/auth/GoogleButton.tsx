@@ -4,16 +4,20 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
 
-/** Full-page navigation to the API, which redirects to Google and back. */
-export function GoogleButton({ returnTo }: { returnTo: string }) {
+/**
+ * Full-page navigation to the API, which redirects to Google and back.
+ * Pass `enabled` when the server already knows (no layout shift); otherwise it's fetched.
+ */
+export function GoogleButton({ returnTo, enabled: known }: { returnTo: string; enabled?: boolean }) {
   const { locale, t } = useI18n();
-  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(known ?? null);
   useEffect(() => {
+    if (known !== undefined) return;
     fetch('/api/auth/google/enabled')
       .then((r) => r.json())
       .then((d: { enabled: boolean }) => setEnabled(d.enabled))
       .catch(() => setEnabled(false));
-  }, []);
+  }, [known]);
   if (enabled === false) return null;
   const href = `/api/auth/google?locale=${locale}&returnTo=${encodeURIComponent(returnTo)}`;
   return (

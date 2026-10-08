@@ -94,6 +94,28 @@ jobs:
           curl -fsS http://127.0.0.1:3000/api/health
           curl -fsS -o /dev/null http://127.0.0.1:3000/en
           curl -fsS -o /dev/null http://127.0.0.1:3000/ar/privacy
+      # Browser tests against the production images: main flow, accessibility (axe) and headers.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Browser e2e (Playwright)
+        env:
+          # Must match the API's WEB_URL: writes are checked against that origin.
+          E2E_BASE_URL: http://localhost:3000
+        run: pnpm e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
       - name: Compose logs on failure
         if: failure()
         run: docker compose logs --no-color

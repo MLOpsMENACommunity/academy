@@ -1,0 +1,85 @@
+name: Database backup
+
+# Daily encrypted pg_dump of the Neon database into the private R2 bucket
+# (prefix backups/), kept for BACKUP_RETENTION_DAYS. Restore: see OPERATIONS.md.
+# Neon's own point-in-time restore covers the last few days; these dumps cover
+# longer windows and a full loss of the Neon project.
+on:
+  schedule:
+    - cron: '30 1 * * *' # 01:30 UTC daily (03:30–04:30 Cairo)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+    env:
+      # Recommended: a separate bucket and R2 token for backups (BACKUP_BUCKET var,
+      # BACKUP_S3_* secrets), so the app's own credentials can't read or delete them.
+      # Falls back to the app's bucket and token.
+      BUCKET: ${{ vars.BACKUP_BUCKET || vars.S3_BUCKET || 'academy-private' }}
+      RETENTION_DAYS: ${{ vars.BACKUP_RETENTION_DAYS || '30' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID || secrets.S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY || secrets.S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT }}
+      # R2 doesn't need the newer default request checksums.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Check required secrets
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          missing=""
+          for k in DIRECT_DATABASE_URL BACKUP_PASSPHRASE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL; do
+            [ -n "${!k}" ] || missing="$missing $k"
+          done
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing"; exit 1; fi
+
+      - name: Dump, verify and encrypt
+        env:
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          # pg_dump 17 reads Postgres 14–17 servers (Neon's default is 17).
+          docker run --rm -e URL="$DIRECT_DATABASE_URL" -v "$PWD:/out" postgres:17-alpine \
+            sh -c 'pg_dump --format=custom --no-owner --no-acl --file=/out/academy.dump "$URL"'
+          # A dump that can't be listed can't be restored: fail loudly now, not on restore day.
+          docker run --rm -v "$PWD:/out" postgres:17-alpine pg_restore --list /out/academy.dump > /dev/null
+          printf '%s' "$BACKUP_PASSPHRASE" > passphrase
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file passphrase \
+            --symmetric --cipher-algo AES256 --output academy.dump.gpg academy.dump
+          rm -f passphrase academy.dump
+          echo "SIZE=$(stat -c %s academy.dump.gpg)" >> "$GITHUB_ENV"
+
+      - name: Upload to R2
+        run: |
+          set -euo pipefail
+          key="backups/academy-$(date -u +%Y-%m-%dT%H%MZ).dump.gpg"
+          aws s3 cp "$RUNNER_TEMP/academy.dump.gpg" "s3://$BUCKET/$key" --only-show-errors
+          echo "Uploaded $key ($SIZE bytes)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete backups older than the retention window
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "-${RETENTION_DAYS} days" +%Y-%m-%dT%H%M)
+          aws s3api list-objects-v2 --bucket "$BUCKET" --prefix backups/academy- --query 'Contents[].Key' --output text \
+            | tr '\t' '\n' | grep -E '^backups/academy-' | while read -r key; do
+              stamp=${key#backups/academy-}; stamp=${stamp%Z.dump.gpg}
+              if [[ "$stamp" < "$cutoff" ]]; then
+                aws s3 rm "s3://$BUCKET/$key" --only-show-errors
+                echo "Deleted $key" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done

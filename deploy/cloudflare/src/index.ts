@@ -20,6 +20,8 @@ export interface Env {
   S3_BUCKET: string;
   // secrets
   DATABASE_URL: string;
+  /** Unpooled connection, used only for migrations at container start. */
+  DIRECT_DATABASE_URL?: string;
   JWT_ACCESS_SECRET: string;
   JOBS_TOKEN: string;
   RESEND_API_KEY: string;
@@ -32,6 +34,7 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   SENTRY_DSN?: string;
+  SENTRY_ENVIRONMENT?: string;
 }
 
 const optional = (pairs: Record<string, string | undefined>): Record<string, string> =>
@@ -70,7 +73,9 @@ export class ApiContainer extends Container<Env> {
         SEED_PLACEHOLDER_STATUS: env.SEED_PLACEHOLDER_STATUS,
         GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
         GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+        DIRECT_DATABASE_URL: env.DIRECT_DATABASE_URL,
         SENTRY_DSN: env.SENTRY_DSN,
+        SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,
       }),
     };
   }

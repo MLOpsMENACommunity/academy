@@ -46,6 +46,10 @@ const envSchema = z.object({
   SEED_ADMIN_PASSWORD: z.string().min(10).optional(),
 
   SENTRY_DSN: z.string().optional(),
+  /** Serve Swagger at /api/docs in production too (always on in development). */
+  API_DOCS: bool.default('false'),
+  /** JSON log lines (default in production, so Cloudflare / Docker logs are machine-readable). */
+  LOG_JSON: bool.optional(),
   /** Escape hatch for the local all-in-Docker stack, which runs production builds against MinIO. */
   ALLOW_INSECURE_PRODUCTION: bool.default('false'),
   /** Run scheduled jobs in-process (off on Cloudflare, where containers sleep; a Cron Trigger calls /api/internal/jobs/tick). */

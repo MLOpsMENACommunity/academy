@@ -5,6 +5,7 @@ import '@fontsource/ibm-plex-sans-arabic/700.css';
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { Analytics } from '@/components/layout/Analytics';
 import { Footer } from '@/components/layout/Footer';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { VerifyBanner } from '@/components/auth/VerifyBanner';
@@ -37,7 +38,8 @@ export async function generateMetadata({
     title: { default: t('meta.homeTitle'), template: `%s | ${t('meta.siteName')}` },
     description: t('meta.tagline'),
     applicationName: t('meta.siteName'),
-    icons: { icon: '/logo-mark.png', apple: '/logo-mark.png' },
+    // Small icons: the 256px logo is for structured data only.
+    icons: { icon: [{ url: '/favicon-32.png', sizes: '32x32', type: 'image/png' }], apple: '/apple-touch-icon.png' },
     openGraph: {
       siteName: t('meta.siteName'),
       locale: locale === 'ar' ? 'ar_EG' : 'en_US',
@@ -92,6 +94,7 @@ export default async function LocaleLayout({
           // JSON.stringify output is safe here: no user-controlled strings.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }}
         />
+        <Analytics />
       </body>
     </html>
   );
