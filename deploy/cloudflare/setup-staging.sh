@@ -43,6 +43,8 @@ done
 [ -z "$missing" ] || { echo "Fill the 'production' environment first (setup-secrets.sh). Missing:$missing"; exit 1; }
 
 touch "$STAGING_FILE"; chmod 600 "$STAGING_FILE"
+# A file saved without a final newline would glue the next appended line onto its last one.
+[ -s "$STAGING_FILE" ] && [ -n "$(tail -c1 "$STAGING_FILE")" ] && echo >> "$STAGING_FILE"
 grep -q '^SEED_ADMIN_PASSWORD=' "$STAGING_FILE" || printf 'SEED_ADMIN_PASSWORD=%s\n' "$(gen 24)" >> "$STAGING_FILE"
 
 # --- 1. Database -------------------------------------------------------------------
