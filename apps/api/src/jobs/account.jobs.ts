@@ -22,14 +22,23 @@ export class AccountJobs {
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { timeZone: 'Africa/Cairo' })
   async anonymizeDeletedAccounts(): Promise<void> {
     if (!this.env.JOBS_ENABLED) return;
+    await this.runAnonymize();
+  }
+
+  async runAnonymize(): Promise<number> {
     const n = await this.accounts.anonymizeDue();
     if (n) this.logger.log(`Anonymised ${n} deleted account(s)`);
+    return n;
   }
 
   /** Email students whose profile hasn't been touched for ~6 months (once per stale period). */
   @Cron(CronExpression.EVERY_DAY_AT_10AM, { timeZone: 'Africa/Cairo' })
   async promptProfileReview(): Promise<number> {
     if (!this.env.JOBS_ENABLED) return 0;
+    return this.runProfileReview();
+  }
+
+  async runProfileReview(): Promise<number> {
     const cutoff = new Date(Date.now() - PROFILE_REVIEW_DAYS * 86_400_000);
     const stale = await this.prisma.profile.findMany({
       where: {

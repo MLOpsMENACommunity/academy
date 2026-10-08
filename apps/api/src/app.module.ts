@@ -14,7 +14,9 @@ import { FunnelModule } from './funnel/funnel.module';
 import { HealthController } from './health/health.controller';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
@@ -29,10 +31,12 @@ import { UsersModule } from './users/users.module';
     StorageModule,
     FunnelModule,
     NotificationsModule,
+    SettingsModule,
     AuthModule,
     UsersModule,
     CoursesModule,
     ApplicationsModule,
+    PaymentsModule,
     JobsModule,
   ],
   controllers: [HealthController],

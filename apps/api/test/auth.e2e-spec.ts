@@ -1,6 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
-import { sha256 } from '../src/common/crypto';
+import { randomToken, sha256 } from '../src/common/crypto';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { cookieHeader, createTestApp, uniqueEmail } from './helpers';
 
@@ -70,7 +70,7 @@ describe('auth & profile (e2e)', () => {
 
   it('verifies the email with a single-use token', async () => {
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
-    const token = 'x'.repeat(43);
+    const token = randomToken();
     await prisma.emailVerificationToken.create({
       data: { userId: user.id, email, tokenHash: sha256(token), returnTo: '/ar/courses/kubernetes', expiresAt: new Date(Date.now() + 60_000) },
     });

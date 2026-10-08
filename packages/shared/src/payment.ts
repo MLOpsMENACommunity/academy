@@ -10,7 +10,8 @@ export const paymentProofSchema = z.object({
     .trim()
     .min(4, 'Enter the transaction reference number')
     .max(64)
-    .regex(/^[A-Za-z0-9\-_/.]+$/, 'Use the reference exactly as shown (letters and digits)'),
+    // Spaces allowed: references are often copied as 'IP 1234 5678'. Duplicate checks ignore them.
+    .regex(/^[A-Za-z0-9\-_/. ]+$/, 'Use the reference exactly as shown (letters and digits)'),
   senderName: z.string().trim().min(2, 'Enter the sender name').max(120),
   /** Phone number (Vodafone Cash) or InstaPay handle / IPA. */
   senderPhone: z.string().trim().min(4, 'Enter the sender phone or InstaPay handle').max(80),

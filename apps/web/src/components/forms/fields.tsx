@@ -198,11 +198,19 @@ export function ChipGroup({
   const { t } = useI18n();
   const id = useId();
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
+  const describedBy = [hint ? `${id}-hint` : '', error ? `${id}-err` : ''].filter(Boolean).join(' ') || undefined;
   return (
-    <fieldset aria-describedby={hint ? `${id}-hint` : undefined}>
+    <fieldset aria-describedby={describedBy} data-invalid={error ? 'true' : undefined}>
       <legend className="mb-1.5 text-sm font-semibold text-fg">
         {legend}
-        {!required && <span className="ms-1 text-xs font-normal text-muted">({t('common.optional')})</span>}
+        {required ? (
+          <span className="text-danger" aria-hidden>
+            {' '}
+            *
+          </span>
+        ) : (
+          <span className="ms-1 text-xs font-normal text-muted">({t('common.optional')})</span>
+        )}
       </legend>
       {hint && (
         <p id={`${id}-hint`} className="mb-2 text-xs text-muted">
@@ -226,7 +234,11 @@ export function ChipGroup({
           );
         })}
       </div>
-      {error && <p className="mt-1 text-sm font-medium text-danger">{error}</p>}
+      {error && (
+        <p id={`${id}-err`} className="mt-1 text-sm font-medium text-danger">
+          {error}
+        </p>
+      )}
     </fieldset>
   );
 }
@@ -254,7 +266,7 @@ export function RadioGroup({
   const { t } = useI18n();
   const id = useId();
   return (
-    <fieldset aria-describedby={error ? `${id}-err` : undefined}>
+    <fieldset aria-describedby={error ? `${id}-err` : undefined} data-invalid={error ? 'true' : undefined}>
       <legend className="mb-1.5 text-sm font-semibold text-fg">
         {legend}
         {required ? (

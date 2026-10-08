@@ -17,7 +17,9 @@ apps/
   web/        Next.js (App Router) + Tailwind. Public pages SSR/SSG; dashboard & admin client-side
 packages/
   shared/     Enums, bilingual labels, zod schemas, the application state machine
+deploy/cloudflare/        Cloudflare Worker + Containers deployment (see DEPLOY.md)
 docker-compose.yml        Local stack: postgres, minio, mailpit, api, web
+DEPLOY.md                 Deploying to Cloudflare
 INTEGRATION.md            Links the main site should use
 ROADMAP.md                v2 backlog
 ```

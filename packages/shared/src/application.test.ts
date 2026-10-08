@@ -25,6 +25,18 @@ describe('buildAnswersSchema', () => {
     expect(schema.safeParse({ role: 'x', years: 'z', clouds: ['aws'], prod: true }).success).toBe(false);
     expect(schema.safeParse({ role: 'x', years: 'a', clouds: ['azure'], prod: true }).success).toBe(false);
   });
+  it('never lets blank or non-numeric values stand in for a required number', () => {
+    const req = buildAnswersSchema([{ id: 'n', type: 'NUMBER', required: true, options: null }]);
+    for (const v of ['', '  ', null, false, [], {}, 'abc', undefined]) {
+      expect(req.safeParse({ n: v }).success).toBe(false);
+    }
+    expect(req.parse({ n: '42' })).toEqual({ n: 42 });
+    expect(req.parse({ n: -3.5 })).toEqual({ n: -3.5 });
+    const opt = buildAnswersSchema([{ id: 'n', type: 'NUMBER', required: false, options: null }]);
+    expect(opt.parse({ n: '' })).toEqual({});
+    expect(opt.safeParse({ n: [] }).success).toBe(false);
+  });
+
   it('coerces numbers and caps text length', () => {
     expect(schema.parse({ role: 'x', years: 'a', clouds: ['gcp'], prod: true, n: '7' }).n).toBe(7);
     expect(schema.safeParse({ role: 'x'.repeat(5000), years: 'a', clouds: ['gcp'], prod: true }).success).toBe(false);

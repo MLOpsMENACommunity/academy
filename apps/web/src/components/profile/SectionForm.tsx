@@ -196,6 +196,9 @@ export function SectionForm({
     if (!parsed.success) {
       setErrors(issuesToErrors(parsed.error.issues, t));
       setFormError(t('forms.fixErrors'));
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('[aria-invalid="true"], fieldset[data-invalid="true"] input')?.focus(),
+      );
       return;
     }
     setErrors({});

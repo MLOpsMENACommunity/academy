@@ -33,8 +33,24 @@ export function buildAnswersSchema(questions: QuestionLike[]) {
         break;
       }
       case 'NUMBER': {
-        const base = z.coerce.number({ invalid_type_error: 'Enter a number' }).finite().min(-1e9).max(1e9);
-        s = q.required ? base : z.union([base, z.literal('').transform(() => undefined)]).optional();
+        // No z.coerce: it turns '', null, false and [] into 0, which would let a
+        // required question be skipped with a fake answer. Blank means missing;
+        // only real numbers or numeric strings are accepted.
+        const base = z.preprocess(
+          (v) => {
+            if (v === undefined || v === null) return undefined;
+            if (typeof v === 'string') {
+              const t = v.trim();
+              if (t === '') return undefined;
+              return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : v;
+            }
+            return v;
+          },
+          q.required
+            ? z.number({ required_error: 'This question is required', invalid_type_error: 'Enter a number' }).finite().min(-1e9).max(1e9)
+            : z.number({ invalid_type_error: 'Enter a number' }).finite().min(-1e9).max(1e9).optional(),
+        );
+        s = base;
         break;
       }
       case 'YES_NO':
