@@ -117,7 +117,7 @@ export default function ApplicationDetailAdmin() {
                 maxLength={1000}
                 rows={3}
                 placeholder={t('admin.apps.reasonPlaceholder')}
-                className="block w-full rounded-lg border border-line-strong bg-card px-3 py-2 text-sm"
+                className="block w-full rounded-lg border border-line-strong bg-card px-3 py-2 text-base md:text-sm"
               />
             </label>
           )}

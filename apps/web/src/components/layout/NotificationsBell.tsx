@@ -67,8 +67,9 @@ export function NotificationsBell() {
     setItems((xs) => xs?.map((x) => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })) ?? null);
   }
 
+  // Phones: the panel anchors to the (relative) header, full width under it; md+: under the bell.
   return (
-    <div className="relative" ref={panel}>
+    <div className="md:relative" ref={panel}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -86,7 +87,7 @@ export function NotificationsBell() {
         )}
       </button>
       {open && (
-        <div className="fixed inset-x-4 top-[4.25rem] z-50 rounded-card md:absolute md:inset-x-auto md:end-0 md:top-auto md:mt-2 md:w-[22rem] border border-line bg-card shadow-[0_12px_32px_-12px_rgba(19,35,63,0.2)]">
+        <div className="absolute inset-x-4 top-full z-50 mt-2 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-card md:inset-x-auto md:end-0 md:w-[22rem] border border-line bg-card shadow-[0_12px_32px_-12px_rgba(19,35,63,0.2)]">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <h2 className="text-sm">{t('notifications.title')}</h2>
             {unread > 0 && (

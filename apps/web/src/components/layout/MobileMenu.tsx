@@ -14,8 +14,9 @@ const itemClass =
 
 /**
  * Phone navigation: a disclosure button that opens a panel under the header with
- * the primary nav, the account links and the language switch. Escape or a click
- * outside closes it and returns focus to the button.
+ * the primary nav, the account links and the language switch. Escape closes it
+ * and returns focus to the button; a click outside, a navigation, or focus moving
+ * past both the button and the panel also closes it.
  */
 export function MobileMenu() {
   const { locale, t } = useI18n();
@@ -23,6 +24,7 @@ export function MobileMenu() {
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -59,19 +61,28 @@ export function MobileMenu() {
     : [];
 
   return (
-    <div className="md:hidden">
+    <div
+      ref={root}
+      className="md:hidden"
+      // Tabbing (either way) out of the button + panel closes the menu, so focus never lands on content hidden under it.
+      // A null relatedTarget is a click on something not focusable: the pointerdown handler decides that case.
+      onBlur={(e) => {
+        const next = e.relatedTarget as Node | null;
+        if (next && !root.current?.contains(next)) setOpen(false);
+      }}
+    >
       <button
         ref={button}
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={t('nav.menu')}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-11 place-items-center rounded-full text-fg hover:bg-muted-bg"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line-strong ps-3 pe-3.5 text-[0.9375rem] font-medium text-fg hover:bg-muted-bg"
       >
-        <svg aria-hidden viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+        <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
           {open ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
         </svg>
+        {t('nav.menu')}
       </button>
       <div
         ref={panel}

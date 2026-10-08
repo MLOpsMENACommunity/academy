@@ -29,7 +29,7 @@ import { useI18n } from '@/i18n/client';
 import { MultiSelect, type Opt } from './MultiSelect';
 import { listParam } from './query';
 
-const selectClass = 'block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-sm';
+const selectClass = 'block min-h-10 w-full rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm';
 
 /** The profile filters shared by Applications and Students (values are URL query params). */
 export function ProfileFilters({ params, set }: { params: Record<string, string>; set: (n: Record<string, string | string[] | undefined>) => void }) {
@@ -94,7 +94,7 @@ export function ProfileFilters({ params, set }: { params: Record<string, string>
             <span key={i} className="flex items-center gap-1 rounded-lg border border-line p-1">
               <select
                 aria-label={f('skills')}
-                className="min-h-9 rounded border border-line-strong bg-card px-1 text-sm"
+                className="min-h-9 rounded border border-line-strong bg-card px-1 text-base md:text-sm"
                 value={s.skill}
                 onChange={(e) => setSkills(skills.map((x, j) => (j === i ? { ...x, skill: e.target.value } : x)))}
               >
@@ -106,7 +106,7 @@ export function ProfileFilters({ params, set }: { params: Record<string, string>
               </select>
               <select
                 aria-label={f('skillLevel')}
-                className="min-h-9 rounded border border-line-strong bg-card px-1 text-sm"
+                className="min-h-9 rounded border border-line-strong bg-card px-1 text-base md:text-sm"
                 value={s.min}
                 onChange={(e) => setSkills(skills.map((x, j) => (j === i ? { ...x, min: e.target.value } : x)))}
               >

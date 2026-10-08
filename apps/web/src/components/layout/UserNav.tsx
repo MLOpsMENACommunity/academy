@@ -67,7 +67,7 @@ export function UserNav() {
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label={t('nav.menu')}
-          className="grid size-10 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary hover:bg-[#d7f0f3]"
+          className="grid size-10 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary hover:bg-primary-soft-hover hover:text-primary-hover"
         >
           {initial}
         </button>

@@ -54,7 +54,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </div>
           {featured && (
             // Desktop only: on phones the same course leads the list right below the hero.
-            <article className="hidden w-full max-w-sm flex-col gap-4 rounded-card bg-card p-7 text-body lg:flex">
+            <article className="on-light hidden w-full max-w-sm flex-col gap-4 rounded-card bg-card p-7 text-body lg:flex">
               <p className="flex items-center gap-2 text-sm font-medium text-primary">
                 <span aria-hidden className="size-2 rounded-full bg-logo-green" />
                 {courseAvailabilityLabels[featured.availability][locale]} · {priceLabel(featured, locale)}
@@ -68,12 +68,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                     <dd>{formatDate(featured.startDate, locale)}</dd>
                   </>
                 )}
-                {featured.durationWeeks && (
+                {featured.durationWeeks ? (
                   <>
                     <dt className="text-muted">{t('course.facts.duration')}</dt>
                     <dd>{t('catalog.weeks', { count: featured.durationWeeks })}</dd>
                   </>
-                )}
+                ) : null}
                 {featured.applicationDeadline && (
                   <>
                     <dt className="text-muted">{t('course.facts.deadline')}</dt>
@@ -98,7 +98,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               </h2>
               <Link href={`/${locale}/courses`} className="inline-flex min-h-11 items-center gap-1.5 font-medium text-fg hover:text-primary">
                 {t('home.allCourses')}
-                <span aria-hidden className="flip-rtl inline-block">
+                <span aria-hidden className="inline-block rtl:rotate-180">
                   →
                 </span>
               </Link>

@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ApplyCta } from '@/components/course/ApplyCta';
-import { priceLabel } from '@/components/course/CourseCard';
+import { availabilityStyle, priceLabel } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
@@ -64,13 +64,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
     </section>
   );
 }
-
-/** Status line colour (AA text) and its small logo-colour marker. */
-const availabilityStyle = {
-  OPEN: { text: 'text-primary', dot: 'bg-logo-green' },
-  UPCOMING: { text: 'text-accent', dot: 'bg-logo-amber' },
-  CLOSED: { text: 'text-muted', dot: 'bg-line-strong/50' },
-} as const;
 
 /** Rows of a list separated by hairlines instead of boxes. */
 const rowClass = 'border-t border-line last:border-b';
@@ -204,7 +197,7 @@ export default async function CoursePage({ params }: Props) {
         <Container className="flex flex-col gap-4 py-8 sm:gap-5 sm:py-14 lg:py-16">
           <nav aria-label={t('course.breadcrumbLabel')} className="-ms-1 text-[0.9375rem] text-muted">
             <Link href={`/${locale}/courses`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 hover:text-fg">
-              <span aria-hidden className="flip-rtl inline-block">
+              <span aria-hidden className="inline-block rtl:rotate-180">
                 ←
               </span>
               {t('course.breadcrumb')}

@@ -13,6 +13,7 @@
   --brand-primary: #097a88; /* teal text and links: AA on white (5.1:1) and on primary-soft (4.6:1) */
   --brand-primary-hover: #07636f;
   --brand-primary-soft: #e9f7f9;
+  --brand-primary-soft-hover: #d7f0f3;
   --brand-accent: #a35c00; /* amber text: AA on white (5.1:1) and on accent-soft */
   --brand-accent-soft: #fdf3e2;
   --brand-cyan: #097a88; /* focus rings on custom controls: 3:1+ against white */
@@ -70,6 +71,7 @@ html[lang='ar'] {
   --color-primary: var(--brand-primary);
   --color-primary-hover: var(--brand-primary-hover);
   --color-primary-soft: var(--brand-primary-soft);
+  --color-primary-soft-hover: var(--brand-primary-soft-hover);
   --color-accent: var(--brand-accent);
   --color-accent-soft: var(--brand-accent-soft);
   --color-cyan: var(--brand-cyan);
@@ -153,9 +155,27 @@ html[lang='ar'] {
   .on-dark :focus-visible {
     outline-color: var(--focus-ring-on-dark);
   }
-  /* Mirror directional glyphs (arrows, chevrons) in right-to-left pages. */
-  [dir='rtl'] .flip-rtl {
-    transform: scaleX(-1);
+  /* A light surface inside a navy area (e.g. the hero's course card) gets the normal ring back. */
+  .on-dark .on-light :focus-visible {
+    outline-color: var(--focus-ring);
+  }
+  /* Only 400/500/600 are loaded: keep bold text on a real weight instead of a synthesized one. */
+  b,
+  strong,
+  th {
+    font-weight: 600;
+  }
+  /*
+   * Phones: form controls default to 16px so iOS Safari doesn't zoom in on focus.
+   * In the base layer, so a size utility can still override it (dense admin
+   * filters use `text-base md:text-sm`).
+   */
+  @media (max-width: 47.99rem) {
+    input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+    select,
+    textarea {
+      font-size: 1rem;
+    }
   }
   /* Keep LTR fragments (emails, URLs, phone numbers, code) readable inside RTL text. */
   [dir='rtl'] .ltr-embed,
@@ -240,15 +260,3 @@ html[lang='ar'] {
   }
 }
 
-/*
- * Phones: form controls never drop below 16px, so iOS Safari doesn't zoom in on
- * focus (dense admin filters use 14px from md up). Unlayered on purpose: it must
- * win over text-size utilities.
- */
-@media (max-width: 47.99rem) {
-  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
-  select,
-  textarea {
-    font-size: 1rem;
-  }
-}

@@ -57,7 +57,7 @@ function AuditLog() {
             value={action}
             onChange={(e) => setAction(e.target.value)}
             placeholder="payment."
-            className="block min-h-10 w-64 rounded-lg border border-line-strong bg-card px-3 text-sm"
+            className="block min-h-10 w-64 rounded-lg border border-line-strong bg-card px-3 text-base md:text-sm"
           />
         </label>
         <button type="submit" className="min-h-10 rounded-lg border border-line-strong px-3 text-sm font-semibold">

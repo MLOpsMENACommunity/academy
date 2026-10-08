@@ -4,9 +4,6 @@ import { useId, useState, type ComponentProps, type KeyboardEvent, type ReactNod
 import { useI18n } from '@/i18n/client';
 import { inputClass } from '../ui/input';
 
-/** Shared input styling; 16px text avoids iOS zoom on focus. */
-export { inputClass };
-
 export interface Option {
   value: string;
   label: string;

@@ -101,7 +101,7 @@ function Stepper() {
         {STEPS.map((s, i) => (
           <li
             key={s}
-            className={`h-1.5 flex-1 rounded-full ${i < step ? 'bg-primary' : i === step ? 'bg-logo-cyan' : 'bg-line'}`}
+            className={`h-1.5 flex-1 rounded-full ${i < step ? 'bg-primary' : i === step ? 'bg-ink' : 'bg-line'}`}
             aria-current={i === step ? 'step' : undefined}
           >
             <span className="sr-only">{t(`profile.sections.${s}`)}</span>

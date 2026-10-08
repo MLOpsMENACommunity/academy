@@ -10,7 +10,7 @@ const variants: Record<Variant, string> = {
   primary: 'bg-ink text-white hover:bg-ink-soft',
   // The one main call to action on a page: the logo's orange with ink text.
   accent: 'bg-cta text-cta-text font-semibold hover:bg-cta-hover',
-  secondary: 'border border-line-strong/60 bg-card text-fg hover:border-line-strong hover:bg-muted-bg',
+  secondary: 'border border-line-strong bg-card text-fg hover:bg-muted-bg',
   ghost: 'text-fg hover:bg-muted-bg',
   danger: 'bg-danger text-white hover:opacity-90',
 };

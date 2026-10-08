@@ -11,7 +11,7 @@ export default function NewCourse() {
   return (
     <div>
       <Link href={`/${locale}/admin/courses`} className="text-sm text-muted hover:underline">
-        ← {t('admin.courses.title')}
+        <span aria-hidden className="inline-block rtl:rotate-180">←</span> {t('admin.courses.title')}
       </Link>
       <h1 className="mt-2 text-3xl">{t('admin.courses.new')}</h1>
       <div className="mt-5">

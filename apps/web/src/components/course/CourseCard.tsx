@@ -10,7 +10,7 @@ import { createTranslator } from '@/i18n/translator';
 import { formatDate, formatMoney } from '@/lib/format';
 
 /** Status line colour (AA text) and its small logo-colour marker. */
-const availabilityStyle: Record<CourseSummaryDto['availability'], { text: string; dot: string }> = {
+export const availabilityStyle: Record<CourseSummaryDto['availability'], { text: string; dot: string }> = {
   OPEN: { text: 'text-primary', dot: 'bg-logo-green' },
   UPCOMING: { text: 'text-accent', dot: 'bg-logo-amber' },
   CLOSED: { text: 'text-muted', dot: 'bg-line-strong/50' },
@@ -49,12 +49,12 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
             <dd>{t('catalog.starts', { date: formatDate(c.startDate, locale) })}</dd>
           </div>
         )}
-        {c.durationWeeks && (
+        {c.durationWeeks ? (
           <div>
             <dt className="sr-only">{t('course.facts.duration')}</dt>
             <dd>{t('catalog.weeks', { count: c.durationWeeks })}</dd>
           </div>
-        )}
+        ) : null}
         <div>
           <dt className="sr-only">{t('course.facts.level')}</dt>
           <dd>{courseLevelLabels[c.level][locale]}</dd>
@@ -75,7 +75,7 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
       {/* Visual cue only: the title link above already covers the whole card. */}
       <span aria-hidden className="mt-auto inline-flex items-center gap-1.5 pt-2 font-medium text-fg group-hover:text-primary">
         {t('catalog.details')}
-        <span className="flip-rtl inline-block">→</span>
+        <span className="inline-block rtl:rotate-180">→</span>
       </span>
     </article>
   );
