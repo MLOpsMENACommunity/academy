@@ -62,8 +62,11 @@ async function seedCatalog(): Promise<void> {
       included: course.included,
     } as unknown as Prisma.CourseCreateInput;
 
-    // Placeholder courses must not go live by accident: in production they start as drafts.
-    const status = process.env.NODE_ENV === 'production' ? 'DRAFT' : course.status;
+    // Placeholder courses must not go live by accident: in production they start as drafts,
+    // unless SEED_PLACEHOLDER_STATUS says otherwise (e.g. OPEN on a staging deployment).
+    const override = process.env.SEED_PLACEHOLDER_STATUS;
+    const status =
+      override === 'OPEN' || override === 'DRAFT' ? override : process.env.NODE_ENV === 'production' ? 'DRAFT' : course.status;
     const saved = await prisma.course.upsert({
       where: { slug: course.slug },
       update: {},

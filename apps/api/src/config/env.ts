@@ -48,8 +48,10 @@ const envSchema = z.object({
   SENTRY_DSN: z.string().optional(),
   /** Escape hatch for the local all-in-Docker stack, which runs production builds against MinIO. */
   ALLOW_INSECURE_PRODUCTION: bool.default('false'),
-  /** Disable scheduled jobs (e.g. in tests or on secondary replicas). */
+  /** Run scheduled jobs in-process (off on Cloudflare, where containers sleep; a Cron Trigger calls /api/internal/jobs/tick). */
   JOBS_ENABLED: bool.default('true'),
+  /** Shared secret for POST /api/internal/jobs/tick. Unset disables the endpoint. */
+  JOBS_TOKEN: z.string().min(32).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

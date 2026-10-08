@@ -1,0 +1,47 @@
+// Cloudflare deployment of MLOps MENA Academy. See DEPLOY.md.
+// Change ACADEMY_HOSTNAME, the route and NEXT_PUBLIC_SITE_URL together to move hosts.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "mlops-academy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "vars": {
+    "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
+    "EMAIL_FROM": "MLOps MENA Academy <academy@mlopsmena.com>",
+    "S3_BUCKET": "academy-private"
+  },
+
+  "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
+
+  "containers": [
+    {
+      "class_name": "ApiContainer",
+      "image": "../../apps/api/Dockerfile",
+      "image_build_context": "../..",
+      "instance_type": "basic",
+      "max_instances": 1
+    },
+    {
+      "class_name": "WebContainer",
+      "image": "../../apps/web/Dockerfile",
+      "image_build_context": "../..",
+      "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com" },
+      "instance_type": "basic",
+      "max_instances": 1
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "API", "class_name": "ApiContainer" },
+      { "name": "WEB", "class_name": "WebContainer" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
+
+  // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
+  "triggers": { "crons": ["*/15 * * * *"] }
+}
