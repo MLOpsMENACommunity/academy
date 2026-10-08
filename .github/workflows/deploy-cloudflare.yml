@@ -1,8 +1,7 @@
 name: Deploy to Cloudflare
 
-# Manual for now ("Run workflow" in the Actions tab). Builds both container images on the
-# runner (linux/amd64, as Cloudflare Containers require), deploys the Worker + containers,
-# then sets runtime secrets. See DEPLOY.md.
+# Manual ("Run workflow" in the Actions tab). Secrets live in the `staging` GitHub
+# environment, which only the main branch may use. See DEPLOY.md.
 on:
   workflow_dispatch:
 
@@ -13,64 +12,109 @@ concurrency:
   group: deploy-cloudflare
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: staging
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --filter @academy/deploy-cloudflare...
+      # No secrets in the environment while dependency install scripts run.
+      - run: pnpm install --frozen-lockfile --filter @academy/deploy-cloudflare... --filter @academy/api...
+      - run: pnpm --filter @academy/shared build && pnpm --filter @academy/api exec prisma generate
 
-      - name: Check required secrets
+      - name: Check secrets
         env:
-          REQUIRED: >-
-            CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DATABASE_URL JWT_ACCESS_SECRET JOBS_TOKEN
-            RESEND_API_KEY S3_ENDPOINT S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD
-          SECRETS_JSON: ${{ toJSON(secrets) }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
         run: |
-          missing=""
-          for k in $REQUIRED; do
-            echo "$SECRETS_JSON" | jq -e --arg k "$k" '.[$k] // "" | length > 0' >/dev/null || missing="$missing $k"
+          bad=""
+          for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DATABASE_URL DIRECT_DATABASE_URL JWT_ACCESS_SECRET \
+                   JOBS_TOKEN RESEND_API_KEY S3_ENDPOINT S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD; do
+            v="${!k:-}"
+            if [ -z "$v" ] || [[ "$v" == *"..."* ]]; then bad="$bad $k"; fi
           done
-          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing (see DEPLOY.md)"; exit 1; fi
+          if [ -n "$bad" ]; then echo "::error::Missing or placeholder secrets in the 'staging' environment:$bad (see DEPLOY.md)"; exit 1; fi
+          case "$DIRECT_DATABASE_URL" in *-pooler.*) echo "::error::DIRECT_DATABASE_URL must be Neon's direct (non-pooled) connection string"; exit 1;; esac
 
       - name: Ensure private R2 bucket
         working-directory: deploy/cloudflare
-        run: pnpm exec wrangler r2 bucket create academy-private 2>&1 | tee /tmp/r2.log || grep -qi "already exists" /tmp/r2.log
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          bucket=$(grep -oE '"S3_BUCKET": "[^"]+"' wrangler.jsonc | cut -d'"' -f4)
+          pnpm exec wrangler r2 bucket info "$bucket" >/dev/null 2>&1 || pnpm exec wrangler r2 bucket create "$bucket"
 
-      - name: Deploy Worker and containers
-        working-directory: deploy/cloudflare
-        run: pnpm exec wrangler deploy
+      # Migrations use Neon's direct connection (the pooler can't run them), before any traffic.
+      - name: Migrate database
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: pnpm --filter @academy/api exec prisma migrate deploy
 
-      - name: Set runtime secrets
+      - name: Seed (idempotent; never overwrites edits)
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+          SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
+          SEED_PLACEHOLDER_STATUS: ${{ secrets.SEED_PLACEHOLDER_STATUS }}
+          NODE_ENV: production
+        run: pnpm --filter @academy/api db:seed
+
+      # Code and secrets ship as one Worker version. CONFIG_VERSION changes on every run,
+      # which makes running containers restart with the new environment.
+      - name: Deploy Worker, containers and secrets
         working-directory: deploy/cloudflare
         env:
-          SECRETS_JSON: ${{ toJSON(secrets) }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          S_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          S_JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          S_JOBS_TOKEN: ${{ secrets.JOBS_TOKEN }}
+          S_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          S_S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S_S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S_S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          S_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          S_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
-          echo "$SECRETS_JSON" | jq '{
-            DATABASE_URL, JWT_ACCESS_SECRET, JOBS_TOKEN, RESEND_API_KEY,
-            S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
-            SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_PLACEHOLDER_STATUS,
-            GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SENTRY_DSN
-          } | with_entries(select(.value != null and .value != ""))' > /tmp/secrets.json
-          pnpm exec wrangler secret bulk /tmp/secrets.json
-          rm -f /tmp/secrets.json
+          umask 077
+          secrets_file=$(mktemp)
+          trap 'rm -f "$secrets_file"' EXIT
+          jq -n 'env | to_entries | map(select(.key | startswith("S_")) | {key: (.key | ltrimstr("S_")), value})
+                 | map(select(.value != "")) | from_entries' > "$secrets_file"
+          pnpm exec wrangler deploy --secrets-file "$secrets_file" \
+            --var "CONFIG_VERSION:${GITHUB_SHA::12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
       - name: Smoke test
         run: |
           host=$(grep -oE '"ACADEMY_HOSTNAME": "[^"]+"' deploy/cloudflare/wrangler.jsonc | cut -d'"' -f4)
-          # First request cold-starts both containers (migrations run on API start).
+          ok=""
+          # The first request cold-starts the containers.
           for i in $(seq 1 30); do
-            curl -fsS "https://$host/api/health" && break
+            if curl -fsS "https://$host/api/health"; then ok=1; break; fi
             sleep 10
           done
+          [ -n "$ok" ] || { echo "::error::API never became healthy at https://$host/api/health"; exit 1; }
           curl -fsS -o /dev/null "https://$host/en"
+          curl -fsS "https://$host/api/courses" | jq -e 'type == "array"' >/dev/null
           echo "Deployed: https://$host"

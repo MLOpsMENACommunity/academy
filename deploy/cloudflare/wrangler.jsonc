@@ -1,7 +1,7 @@
 // Cloudflare deployment of MLOps MENA Academy. See DEPLOY.md.
 // Change ACADEMY_HOSTNAME, the route and NEXT_PUBLIC_SITE_URL together to move hosts.
 {
-  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "mlops-academy",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-15",
@@ -11,7 +11,9 @@
   "vars": {
     "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
     "EMAIL_FROM": "MLOps MENA Academy <academy@mlopsmena.com>",
-    "S3_BUCKET": "academy-private"
+    "S3_BUCKET": "academy-private",
+    // Overridden on every deploy (--var) so containers restart with fresh secrets.
+    "CONFIG_VERSION": "local"
   },
 
   "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
@@ -42,6 +44,7 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
 
-  // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
-  "triggers": { "crons": ["*/15 * * * *"] }
+  // Scheduled jobs (account anonymisation, profile-review emails; later phases add more).
+  // Hourly, so the API container can sleep between runs (it sleeps after 10 idle minutes).
+  "triggers": { "crons": ["0 * * * *"] }
 }
