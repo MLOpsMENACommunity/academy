@@ -10,7 +10,7 @@ import {
   type ApplicationStatus,
 } from '@academy/shared';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MultiSelect } from '@/components/admin/MultiSelect';
 import { Pager } from '@/components/admin/Pager';
 import { ProfileFilters } from '@/components/admin/ProfileFilters';
@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
+import { errorMessage } from '@/lib/errors';
 import { formatDate } from '@/lib/format';
 
 interface Row {
@@ -53,6 +54,20 @@ export function ApplicationsTable() {
   const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [q, setQ] = useState(params.q ?? '');
+  const [ref, setRef] = useState(params.ref ?? '');
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  // Keep the text inputs in step with the URL (Reset, saved views, back button).
+  useEffect(() => setQ(params.q ?? ''), [params.q]);
+  useEffect(() => setRef(params.ref ?? ''), [params.ref]);
+  // Date inputs hold calendar days in the admin's timezone; the API wants instants.
+  const apiQuery = useMemo(() => {
+    const p = new URLSearchParams(query);
+    const from = p.get('from');
+    const to = p.get('to');
+    if (from) p.set('from', new Date(`${from}T00:00:00`).toISOString());
+    if (to) p.set('to', new Date(`${to}T23:59:59.999`).toISOString());
+    return p.toString();
+  }, [query]);
 
   useEffect(() => {
     api<{ id: string; titleEn: string; titleAr: string }[]>('/admin/courses').then(setCourses).catch(() => undefined);
@@ -60,26 +75,32 @@ export function ApplicationsTable() {
   useEffect(() => {
     let current = true;
     setError(false);
-    api<Page>(`/admin/applications?${query}`)
+    api<Page>(`/admin/applications?${apiQuery}`)
       .then((d) => current && (setData(d), setSelected(new Set())))
       .catch(() => current && setError(true));
     return () => {
       current = false;
     };
-  }, [query]);
+  }, [apiQuery]);
 
   async function runBulk() {
     setBusy(true);
+    setBulkMsg(null);
+    setBulkErrors([]);
     try {
-      const r = await api<{ succeeded: number; results: unknown[] }>('/admin/applications/bulk', {
+      const r = await api<{ succeeded: number; results: { id: string; ok: boolean; error?: string }[] }>('/admin/applications/bulk', {
         method: 'POST',
         json: { ids: [...selected], event, reason: reason || undefined },
       });
       setBulkMsg(t('admin.apps.bulkDone', { ok: r.succeeded, total: r.results.length }));
+      const names = new Map(data?.items.map((i) => [i.id, i.student.name ?? i.student.email]));
+      setBulkErrors(r.results.filter((x) => !x.ok).map((x) => `${names.get(x.id) ?? x.id}: ${x.error ?? ''}`));
       setReason('');
-      const d = await api<Page>(`/admin/applications?${query}`);
+      const d = await api<Page>(`/admin/applications?${apiQuery}`);
       setData(d);
       setSelected(new Set());
+    } catch (err) {
+      setBulkMsg(errorMessage(err, t));
     } finally {
       setBusy(false);
     }
@@ -92,7 +113,7 @@ export function ApplicationsTable() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.apps.title')}</h1>
-        <Button variant="secondary" size="sm" onClick={() => downloadViaApi(`/admin/applications.csv?${query}`, 'applications.csv').catch(() => undefined)}>
+        <Button variant="secondary" size="sm" onClick={() => downloadViaApi(`/admin/applications.csv?${apiQuery}`, 'applications.csv').catch(() => undefined)}>
           ⬇ {t('admin.common.export')}
         </Button>
       </div>
@@ -130,7 +151,7 @@ export function ApplicationsTable() {
           />
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.ref')}</span>
-            <input defaultValue={params.ref ?? ''} onBlur={(e) => set({ ref: e.target.value })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-sm" />
+            <input value={ref} onChange={(e) => setRef(e.target.value)} onBlur={() => ref !== (params.ref ?? '') && set({ ref })} className="block min-h-10 w-full rounded-lg border border-line-strong bg-card px-3 text-sm" />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.from')}</span>
@@ -198,6 +219,15 @@ export function ApplicationsTable() {
           {bulkMsg}
         </p>
       )}
+      {bulkErrors.length > 0 && (
+        <Alert tone="warning" className="mt-2">
+          <ul className="list-disc ps-5">
+            {bulkErrors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
       {error && <Alert tone="danger" className="mt-4">{t('errors.generic')}</Alert>}
 
       <div className="mt-4 overflow-x-auto rounded-card border border-line bg-card">
@@ -207,7 +237,7 @@ export function ApplicationsTable() {
               <th className="w-10 p-3">
                 <input
                   type="checkbox"
-                  aria-label="Select all"
+                  aria-label={t('admin.common.selectAll')}
                   checked={allChecked}
                   onChange={(e) => setSelected(e.target.checked ? new Set(data?.items.map((r) => r.id)) : new Set())}
                   className="size-4"

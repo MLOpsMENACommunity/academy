@@ -134,7 +134,8 @@
       "REAUTH_REQUIRED": "For your security, sign in with Google again, then retry.",
       "TOO_MANY_ATTEMPTS": "Too many failed attempts. Wait 15 minutes or reset your password.",
       "CROSS_SITE": "This request was blocked for your security. Reload the page and try again.",
-      "WRONG_ACCOUNT": "This link was sent to a different account. Sign out, then sign in to the account you're confirming."
+      "WRONG_ACCOUNT": "This link was sent to a different account. Sign out, then sign in to the account you're confirming.",
+      "QUESTION_ANSWERED": "Applicants already answered a question you removed. Put it back and make it optional instead."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”."
@@ -521,7 +522,9 @@
       "ar": "Arabic",
       "moveUp": "Move up",
       "moveDown": "Move down",
-      "remove": "Remove"
+      "remove": "Remove",
+      "selectAll": "Select all",
+      "pagination": "Pagination"
     },
     "dashboard": {
       "pendingPayments": "Payments to review",
@@ -700,7 +703,19 @@
       "noFeedback": "No feedback yet.",
       "courseLevel": "Whole course",
       "archive": "Archive",
-      "viewPublic": "View public page"
+      "viewPublic": "View public page",
+      "checklist": "Before you share the folder",
+      "instructorName": "Instructor name",
+      "instructorTitle": "Instructor job title (English)",
+      "instructorBio": "Instructor bio (English)",
+      "badgeLive": "Live link",
+      "badgeRecording": "Recording",
+      "badgeAssignment": "Assignment",
+      "badgeMaterials": "{count} materials",
+      "minutes": "{count} min",
+      "deleteSession": "Delete \"{title}\"? Students’ progress and feedback for this session are deleted too. This can’t be undone.",
+      "accountDeleted": "Account deleted",
+      "markRemoved": "Done, I removed it"
     },
     "settings": {
       "title": "Settings",
@@ -724,7 +739,8 @@
       "entity": "Entity",
       "when": "When",
       "details": "Details",
-      "filterAction": "Action starts with…"
+      "filterAction": "Action starts with…",
+      "system": "System"
     }
   },
   "learn": {

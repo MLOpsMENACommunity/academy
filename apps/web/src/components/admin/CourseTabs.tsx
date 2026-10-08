@@ -258,7 +258,7 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
   }
 
   async function remove(s: SessionRow) {
-    if (!window.confirm(`${t('admin.common.delete')}: ${s.titleEn}?`)) return;
+    if (!window.confirm(t('admin.courses.deleteSession', { title: locale === 'ar' ? s.titleAr : s.titleEn }))) return;
     setError(null);
     try {
       await api(`${base}/${s.id}`, { method: 'DELETE' });
@@ -295,13 +295,13 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
                       {i + 1}. {locale === 'ar' ? s.titleAr : s.titleEn}
                     </p>
                     <p className="text-sm text-muted">
-                      {formatDateTime(s.startsAt, locale)} · {s.durationMin} min
+                      {formatDateTime(s.startsAt, locale)} · {t('admin.courses.minutes', { count: s.durationMin })}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {s.liveUrl && <Badge tone="info">Live</Badge>}
-                      {s.recordingUrl && <Badge tone="success">Recording</Badge>}
-                      {s.assignmentUrl && <Badge tone="accent">Assignment</Badge>}
-                      {s.materials.length > 0 && <Badge>{s.materials.length} materials</Badge>}
+                      {s.liveUrl && <Badge tone="info">{t('admin.courses.badgeLive')}</Badge>}
+                      {s.recordingUrl && <Badge tone="success">{t('admin.courses.badgeRecording')}</Badge>}
+                      {s.assignmentUrl && <Badge tone="accent">{t('admin.courses.badgeAssignment')}</Badge>}
+                      {s.materials.length > 0 && <Badge>{t('admin.courses.badgeMaterials', { count: s.materials.length })}</Badge>}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1 text-xs">
@@ -351,8 +351,10 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
 interface EnrolledRow {
   id: string;
   userId: string;
+  /** Account deleted: only the Google address to remove is shown. */
+  deleted: boolean;
   name: string | null;
-  email: string;
+  email: string | null;
   googleEmail: string | null;
   phone: string | null;
   enrolledAt: string;
@@ -362,10 +364,10 @@ interface EnrolledRow {
   progress: { completed: number; total: number };
 }
 
-export function EnrolledStudents({ courseId, usesDrive }: { courseId: string; usesDrive: boolean }) {
+export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = false }: { courseId: string; usesDrive: boolean; initialPendingOnly?: boolean }) {
   const { locale, t } = useI18n();
   const [rows, setRows] = useState<EnrolledRow[] | null>(null);
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(initialPendingOnly);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const c = (k: string, v?: Record<string, string>) => t(`admin.courses.${k}`, v);
@@ -394,7 +396,18 @@ export function EnrolledStudents({ courseId, usesDrive }: { courseId: string; us
     }
   }
 
+  async function markRemoved(r: EnrolledRow) {
+    setError(null);
+    try {
+      await api(`/admin/enrollments/${r.id}/drive-removed`, { method: 'POST' });
+      load();
+    } catch (err) {
+      setError(errorMessage(err, t));
+    }
+  }
+
   const revoke = rows?.filter((r) => r.driveRevokeEmail) ?? [];
+  const active = rows?.filter((r) => !r.deleted) ?? [];
 
   return (
     <div className="space-y-4">
@@ -404,18 +417,21 @@ export function EnrolledStudents({ courseId, usesDrive }: { courseId: string; us
         <Alert tone="warning">
           <ul className="list-disc ps-5">
             {revoke.map((r) => (
-              <li key={r.id} dir="auto">
-                {c('removeOld', { email: r.driveRevokeEmail! })} ({r.name ?? r.email})
+              <li key={r.id} dir="auto" className="py-1">
+                {c('removeOld', { email: r.driveRevokeEmail! })} ({r.deleted ? c('accountDeleted') : (r.name ?? r.email)})
+                <button type="button" onClick={() => markRemoved(r)} className="ms-2 rounded border border-warning/50 px-2 py-0.5 text-xs font-semibold">
+                  {c('markRemoved')}
+                </button>
               </li>
             ))}
           </ul>
         </Alert>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => rows && copy('all', rows)}>
+        <Button size="sm" onClick={() => copy('all', active)}>
           {copied === 'all' ? `✓ ${t('admin.common.copied')}` : c('copyEmails')}
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => rows && copy('pending', rows.filter((r) => !r.driveAccessGranted))}>
+        <Button size="sm" variant="secondary" onClick={() => copy('pending', active.filter((r) => !r.driveAccessGranted))}>
           {copied === 'pending' ? `✓ ${t('admin.common.copied')}` : c('copyPending')}
         </Button>
         <Button size="sm" variant="secondary" onClick={() => downloadViaApi(`/admin/courses/${courseId}/enrollments.csv`, 'enrolled-students.csv').catch(() => undefined)}>
@@ -438,14 +454,14 @@ export function EnrolledStudents({ courseId, usesDrive }: { courseId: string; us
             </tr>
           </thead>
           <tbody>
-            {rows?.length === 0 && (
+            {rows && active.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-muted">
                   {t('admin.common.none')}
                 </td>
               </tr>
             )}
-            {rows?.map((r) => (
+            {active.map((r) => (
               <tr key={r.id} className="border-t border-line">
                 <td className="p-3">
                   <p className="font-semibold">{r.name ?? '—'}</p>

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { APPLICATION_STATUSES, FUNNEL_EVENTS, type FunnelEvent, type SavedFilterScope } from '@academy/shared';
+import { Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,7 +15,7 @@ export class AdminMiscService {
   async dashboard() {
     const weekAgo = new Date(Date.now() - 7 * 86_400_000);
     const active = { status: { not: 'ARCHIVED' as const } };
-    const [courseCount, courses, statusCounts, pendingPayments, newApplications, funnelRows] = await Promise.all([
+    const [courseCount, courses, pendingPayments, newApplications] = await Promise.all([
       this.prisma.course.count({ where: active }),
       this.prisma.course.findMany({
         where: active,
@@ -22,14 +23,20 @@ export class AdminMiscService {
         take: DASHBOARD_COURSES,
         select: { id: true, slug: true, titleEn: true, titleAr: true, type: true, status: true, capacity: true },
       }),
-      this.prisma.application.groupBy({ by: ['courseId', 'status'], _count: { _all: true } }),
       this.prisma.payment.count({ where: { status: 'PENDING_REVIEW' } }),
       this.prisma.application.count({ where: { createdAt: { gte: weekAgo } } }),
-      // Distinct people per step (signed-in user, or anonymous browser id).
-      this.prisma.$queryRaw<{ courseId: string; event: FunnelEvent; n: bigint }[]>`
-        SELECT "courseId", "event", COUNT(DISTINCT COALESCE("userId", "anonymousId", "id")) AS n
-        FROM "FunnelEventLog" GROUP BY "courseId", "event"`,
     ]);
+    // Breakdowns only for the courses shown, so the cost doesn't grow with history.
+    const ids = courses.map((c) => c.id);
+    const [statusCounts, funnelRows] = ids.length
+      ? await Promise.all([
+          this.prisma.application.groupBy({ by: ['courseId', 'status'], where: { courseId: { in: ids } }, _count: { _all: true } }),
+          // Distinct people per step (signed-in user, or anonymous browser id).
+          this.prisma.$queryRaw<{ courseId: string; event: FunnelEvent; n: bigint }[]>`
+            SELECT "courseId", "event", COUNT(DISTINCT COALESCE("userId", "anonymousId", "id")) AS n
+            FROM "FunnelEventLog" WHERE "courseId" IN (${Prisma.join(ids)}) GROUP BY "courseId", "event"`,
+        ])
+      : [[], []];
     return {
       courseCount,
       pendingPayments,

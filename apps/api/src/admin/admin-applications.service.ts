@@ -14,9 +14,8 @@ import { AuditService } from '../audit/audit.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toProfileDto } from '../users/profile.service';
+import { capRows, EXPORT_LIMIT } from './export';
 import { hasProfileFilter, profileWhere, userSearch } from './profile-filter';
-
-const EXPORT_LIMIT = 5000;
 
 @Injectable()
 export class AdminApplicationsService {
@@ -28,7 +27,9 @@ export class AdminApplicationsService {
   ) {}
 
   where(f: ApplicationFilter): Prisma.ApplicationWhereInput {
+    // Accounts pending deletion are out of every admin list and export.
     const user: Prisma.UserWhereInput = {
+      deletedAt: null,
       ...userSearch(f.q),
       ...(hasProfileFilter(f) ? { profile: profileWhere(f) } : {}),
     };
@@ -37,7 +38,7 @@ export class AdminApplicationsService {
       ...(f.status?.length ? { status: { in: f.status } } : {}),
       ...(f.ref ? { ref: { contains: f.ref, mode: 'insensitive' } } : {}),
       ...(f.from || f.to ? { createdAt: { ...(f.from ? { gte: f.from } : {}), ...(f.to ? { lte: f.to } : {}) } } : {}),
-      ...(Object.keys(user).length ? { user } : {}),
+      user,
     };
   }
 
@@ -161,7 +162,7 @@ export class AdminApplicationsService {
     // Sequential on purpose: each transition locks its course row; parallel calls would just queue.
     for (const id of [...new Set(ids)]) {
       try {
-        const app = await this.workflow.transition(id, event, admin, { reason: event === 'REJECT' ? reason : undefined });
+        const app = await this.workflow.transition(id, event, admin, { reason: event === 'REJECT' ? reason : undefined, awaitSideEffects: false });
         results.push({ id, ok: true, status: app.status });
       } catch (err) {
         const e = err as { response?: { message?: string }; message?: string };
@@ -186,7 +187,7 @@ export class AdminApplicationsService {
     const rows = await this.prisma.application.findMany({
       where: this.where(f),
       orderBy: this.orderBy(f.sort),
-      take: EXPORT_LIMIT,
+      take: EXPORT_LIMIT + 1,
       include: {
         course: { select: { titleEn: true } },
         user: { include: { profile: { include: { skills: true } } } },
@@ -202,7 +203,7 @@ export class AdminApplicationsService {
       'Share with partners', 'Google email', 'LinkedIn', 'GitHub',
       ...questions.map((q) => `Q: ${q.labelEn}`),
     ];
-    const body = rows.map((a) => {
+    const body = capRows(rows, (a) => {
       const p = a.user.profile;
       const answers = (a.answers ?? {}) as Record<string, unknown>;
       const src = (a.source ?? {}) as Record<string, string>;
@@ -219,7 +220,7 @@ export class AdminApplicationsService {
       actorId: admin.id,
       action: 'applications.exported',
       entityType: 'Application',
-      metadata: { count: rows.length, courseId: f.courseId ?? null, statuses: f.status ?? null },
+      metadata: { count: Math.min(rows.length, EXPORT_LIMIT), courseId: f.courseId ?? null, statuses: f.status ?? null },
     });
     return toCsv(header, body);
   }

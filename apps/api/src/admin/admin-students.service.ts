@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
 import { toProfileDto } from '../users/profile.service';
+import { capRows, EXPORT_LIMIT } from './export';
 import { hasProfileFilter, profileWhere, userSearch } from './profile-filter';
 
 /** All registered students (not only applicants): find people for future courses. Read-only. */
@@ -105,7 +106,8 @@ export class AdminStudentsService {
 
   /** CVs: private, admin-only, 5-minute link, every view audited (Risk 3 applies to CVs too). */
   async cvUrl(userId: string, admin: Actor) {
-    const p = await this.prisma.profile.findUnique({ where: { userId }, select: { cvKey: true } });
+    // Not for accounts pending deletion: their data is on its way out.
+    const p = await this.prisma.profile.findFirst({ where: { userId, user: { deletedAt: null } }, select: { cvKey: true } });
     if (!p?.cvKey) throw new NotFoundException('No CV');
     await this.audit.log({ actorId: admin.id, action: 'profile.cv_viewed', entityType: 'User', entityId: userId });
     return { url: await this.storage.signedUrl(p.cvKey), expiresIn: SIGNED_URL_TTL_SECONDS };
@@ -125,7 +127,7 @@ export class AdminStudentsService {
     const users = await this.prisma.user.findMany({
       where: this.where(f),
       orderBy: this.orderBy(f.sort),
-      take: 5000,
+      take: EXPORT_LIMIT + 1,
       include: { profile: { include: { skills: true } } },
     });
     const header = [
@@ -134,7 +136,7 @@ export class AdminStudentsService {
       'Tools', 'Goals', 'Topics', 'Weekly hours', 'Preferred times', 'Format', 'Open to opportunities', 'Share with partners',
       'Marketing emails', 'LinkedIn', 'GitHub', 'Completeness %',
     ];
-    const rows = users.map((u) => {
+    const rows = capRows(users, (u) => {
       const p = u.profile;
       return [
         u.id, u.createdAt.toISOString(), p?.fullNameEn, p?.fullNameAr, u.email, p?.phone, p?.country, p?.city, p?.employmentStatus,
@@ -144,7 +146,7 @@ export class AdminStudentsService {
         p?.shareWithPartners, p?.marketingEmails, p?.linkedinUrl, p?.githubUrl, p?.completeness,
       ];
     });
-    await this.audit.log({ actorId: admin.id, action: 'students.exported', entityType: 'User', metadata: { count: rows.length } });
+    await this.audit.log({ actorId: admin.id, action: 'students.exported', entityType: 'User', metadata: { count: Math.min(users.length, EXPORT_LIMIT) } });
     return toCsv(header, rows);
   }
 }

@@ -137,7 +137,19 @@ export class AdminCoursesService {
     await this.ensure(courseId);
     await this.prisma.$transaction(async (tx) => {
       const keep = questions.map((q) => q.id).filter((x): x is string => Boolean(x));
-      await tx.screeningQuestion.deleteMany({ where: { courseId, id: { notIn: keep } } });
+      const removed = await tx.screeningQuestion.findMany({ where: { courseId, id: { notIn: keep } }, select: { id: true } });
+      // Answers are stored by question id: deleting an answered question would hide them for good.
+      for (const { id } of removed) {
+        const [row] = await tx.$queryRaw<{ n: bigint }[]>`
+          SELECT COUNT(*) AS n FROM "Application" WHERE "courseId" = ${courseId} AND jsonb_exists(answers, ${id})`;
+        if ((row?.n ?? 0n) > 0n) {
+          throw new ConflictException({
+            code: 'QUESTION_ANSWERED',
+            message: 'A question that applicants already answered can’t be deleted. Make it optional instead.',
+          });
+        }
+      }
+      await tx.screeningQuestion.deleteMany({ where: { courseId, id: { in: removed.map((r) => r.id) } } });
       for (const [order, q] of questions.entries()) {
         const data = {
           type: q.type,
@@ -242,12 +254,13 @@ export class AdminCoursesService {
     const rows = await this.prisma.enrollment.findMany({
       where: {
         courseId,
-        user: { deletedAt: null },
+        // Deleted accounts stay listed while their Google address still has to be removed from the folder.
+        OR: [{ user: { deletedAt: null } }, { driveRevokeEmail: { not: null } }],
         ...(driveAccess === 'pending' ? { driveAccessGranted: false } : driveAccess === 'granted' ? { driveAccessGranted: true } : {}),
       },
       orderBy: { enrolledAt: 'asc' },
       include: {
-        user: { select: { id: true, email: true, profile: { select: { fullNameEn: true, googleEmail: true, phone: true } } } },
+        user: { select: { id: true, email: true, deletedAt: true, profile: { select: { fullNameEn: true, googleEmail: true, phone: true } } } },
       },
     });
     const progress = await this.prisma.sessionProgress.groupBy({
@@ -256,20 +269,32 @@ export class AdminCoursesService {
       _count: { _all: true },
     });
     const done = new Map(progress.map((p) => [p.userId, p._count._all]));
-    return rows.map((e) => ({
+    return rows.map((e) => {
+      // A deleted account shows only the address to remove, nothing else about the person.
+      const deleted = Boolean(e.user.deletedAt);
+      return {
       id: e.id,
       userId: e.userId,
-      name: e.user.profile?.fullNameEn ?? null,
-      email: e.user.email,
-      googleEmail: e.user.profile?.googleEmail ?? null,
-      phone: e.user.profile?.phone ?? null,
+      deleted,
+      name: deleted ? null : (e.user.profile?.fullNameEn ?? null),
+      email: deleted ? null : e.user.email,
+      googleEmail: deleted ? null : (e.user.profile?.googleEmail ?? null),
+      phone: deleted ? null : (e.user.profile?.phone ?? null),
       enrolledAt: e.enrolledAt.toISOString(),
       driveAccessGranted: e.driveAccessGranted,
       driveAccessGrantedAt: e.driveAccessGrantedAt?.toISOString() ?? null,
       /** An address to remove from the folder (changed Google account or deleted student). */
       driveRevokeEmail: e.driveRevokeEmail,
       progress: { completed: done.get(e.userId) ?? 0, total },
-    }));
+      };
+    });
+  }
+
+  /** The admin removed the old address from the Drive folder. */
+  async markDriveRemoved(enrollmentId: string, admin: Actor) {
+    const r = await this.prisma.enrollment.updateMany({ where: { id: enrollmentId, driveRevokeEmail: { not: null } }, data: { driveRevokeEmail: null } });
+    if (!r.count) throw new NotFoundException('Nothing to remove');
+    await this.audit.log({ actorId: admin.id, action: 'enrollment.drive_old_access_removed', entityType: 'Enrollment', entityId: enrollmentId });
   }
 
   async setDriveAccess(enrollmentId: string, granted: boolean, admin: Actor) {
@@ -296,8 +321,8 @@ export class AdminCoursesService {
     const rows = await this.enrollments(courseId);
     await this.audit.log({ actorId: admin.id, action: 'enrollments.exported', entityType: 'Course', entityId: courseId, metadata: { count: rows.length } });
     return toCsv(
-      ['Name', 'Email', 'Google email', 'Phone', 'Enrolled at', 'Drive access granted', 'Remove from Drive', 'Sessions done'],
-      rows.map((r) => [r.name, r.email, r.googleEmail, r.phone, r.enrolledAt, r.driveAccessGranted, r.driveRevokeEmail, `${r.progress.completed}/${r.progress.total}`]),
+      ['Name', 'Email', 'Google email', 'Phone', 'Enrolled at', 'Drive access granted', 'Remove from Drive', 'Sessions done', 'Account deleted'],
+      rows.map((r) => [r.name, r.email, r.googleEmail, r.phone, r.enrolledAt, r.driveAccessGranted, r.driveRevokeEmail, `${r.progress.completed}/${r.progress.total}`, r.deleted]),
     );
   }
 

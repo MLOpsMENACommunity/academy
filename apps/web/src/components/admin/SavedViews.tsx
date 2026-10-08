@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
+import { errorMessage } from '@/lib/errors';
 
 interface View {
   id: string;
@@ -15,6 +16,11 @@ export function SavedViews({ scope, query, onApply }: { scope: 'APPLICATIONS' | 
   const { t } = useI18n();
   const [views, setViews] = useState<View[]>([]);
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const run = (p: Promise<unknown>) => {
+    setError(null);
+    return p.then(load).catch((err) => setError(errorMessage(err, t)));
+  };
   const load = useCallback(() => {
     api<View[]>(`/admin/saved-filters?scope=${scope}`).then(setViews).catch(() => setViews([]));
   }, [scope]);
@@ -45,9 +51,7 @@ export function SavedViews({ scope, query, onApply }: { scope: 'APPLICATIONS' | 
         onSubmit={async (e) => {
           e.preventDefault();
           if (!name.trim()) return;
-          await api('/admin/saved-filters', { method: 'POST', json: { scope, name: name.trim(), query: clean } });
-          setName('');
-          load();
+          await run(api('/admin/saved-filters', { method: 'POST', json: { scope, name: name.trim(), query: clean } }).then(() => setName('')));
         }}
       >
         <label className="block">
@@ -64,13 +68,18 @@ export function SavedViews({ scope, query, onApply }: { scope: 'APPLICATIONS' | 
           <ul className="mt-1 space-y-1">
             {views.map((v) => (
               <li key={v.id}>
-                <button type="button" className="text-danger underline" onClick={() => api(`/admin/saved-filters/${v.id}`, { method: 'DELETE' }).then(load)}>
+                <button type="button" className="text-danger underline" onClick={() => run(api(`/admin/saved-filters/${v.id}`, { method: 'DELETE' }))}>
                   {v.name}
                 </button>
               </li>
             ))}
           </ul>
         </details>
+      )}
+      {error && (
+        <p role="alert" className="w-full text-xs text-danger">
+          {error}
+        </p>
       )}
     </div>
   );

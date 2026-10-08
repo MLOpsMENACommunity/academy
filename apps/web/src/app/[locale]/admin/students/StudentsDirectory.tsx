@@ -34,6 +34,8 @@ export function StudentsDirectory() {
   const [data, setData] = useState<{ total: number; page: number; pageSize: number; items: Row[] } | null>(null);
   const [error, setError] = useState(false);
   const [q, setQ] = useState(params.q ?? '');
+  // Keep the search box in step with the URL (Reset, saved views, back button).
+  useEffect(() => setQ(params.q ?? ''), [params.q]);
 
   useEffect(() => {
     let current = true;
