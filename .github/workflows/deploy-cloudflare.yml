@@ -67,6 +67,27 @@ jobs:
           head=$(git rev-parse HEAD)
           [ "$head" = "$SHA" ] || { echo "::error::$REF now points at $head, expected $SHA. Was the tag moved?"; exit 1; }
 
+      # Each GitHub environment must say which one it is (variable ACADEMY_ENVIRONMENT), so a
+      # staging deploy can never run with production's database: staging only gets the marker
+      # once setup-staging.sh has given it its own secrets.
+      - name: Check the environment's values are its own
+        env:
+          MARKER: ${{ vars.ACADEMY_ENVIRONMENT }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: |
+          if [ "$MARKER" != "$TARGET" ]; then
+            echo "::error::The '$TARGET' environment has ACADEMY_ENVIRONMENT='$MARKER', expected '$TARGET'. Set it only once the environment's secrets are its own (staging: deploy/cloudflare/setup-staging.sh)."
+            exit 1
+          fi
+          if [ "$TARGET" = staging ]; then
+            for url in "$DATABASE_URL" "$DIRECT_DATABASE_URL"; do
+              [ -z "$url" ] && continue
+              db=${url##*/}; db=${db%%\?*}
+              [[ "$db" == *staging* ]] || { echo "::error::Staging's database URLs must point at a staging database, not '$db'"; exit 1; }
+            done
+          fi
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
