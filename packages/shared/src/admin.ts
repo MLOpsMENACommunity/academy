@@ -197,6 +197,10 @@ export const courseInputSchema = z
     // Paid courses need a price while applications are open; other statuses can wait or no longer need it.
     if (c.type === 'PAID' && c.price <= 0 && c.status === 'OPEN') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
     if (c.type === 'FREE' && c.price !== 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Free courses have price 0' });
+    // Recordings are enrolled-only; only a free course with YouTube recordings may show them to everyone.
+    if (c.publicRecordings && (c.type !== 'FREE' || c.recordingsPlatform !== 'YOUTUBE')) {
+      ctx.addIssue({ code: 'custom', path: ['publicRecordings'], message: 'Only free courses with YouTube recordings can make them public' });
+    }
     if (c.driveFolderUrl && !/^https:\/\/drive\.google\.com\//.test(c.driveFolderUrl)) {
       ctx.addIssue({ code: 'custom', path: ['driveFolderUrl'], message: 'Must be a drive.google.com link' });
     }

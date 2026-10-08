@@ -25,8 +25,16 @@ export const ARCHIVE_FORMAT_VERSION = 1;
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, digits and dashes only').max(80);
 const url = z.string().url().regex(/^https?:\/\//i, 'Must be an http(s) URL');
 /** ISO 8601 with an offset or Z, e.g. "2026-08-22T20:00:00+03:00": no guessing about time zones. */
-const instant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, 'ISO date-time with an offset');
-const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+/** A real calendar date: Date.parse alone rolls "2026-08-37" over to September. */
+const realDate = (s: string) => {
+  const d = new Date(s.length === 10 ? `${s}T00:00:00Z` : s);
+  return !Number.isNaN(d.getTime()) && Number(s.slice(8, 10)) <= new Date(Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)), 0)).getUTCDate();
+};
+const instant = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/, 'ISO date-time with an offset')
+  .refine(realDate, 'Not a real date');
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD').refine(realDate, 'Not a real date');
 /** A photo: http(s), or a file under apps/web/public (e.g. "/speakers/aya-nasser-salama.webp"). */
 const image = z.string().regex(/^(https?:\/\/\S+|\/(?!\/)[\w./-]+)$/, 'http(s) URL or /path');
 
@@ -122,6 +130,9 @@ export const archiveCourseSchema = z.object({
   included: includedSchema.default({ liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false }),
   /** Lessons in order (their number is their position). */
   sessions: z.array(archiveCourseSessionSchema).default([]),
+}).refine((c) => !c.publicRecordings || (c.type === 'FREE' && c.recordingsPlatform === 'YOUTUBE'), {
+  message: 'Only free courses with YouTube recordings can make them public',
+  path: ['publicRecordings'],
 });
 
 export const archiveFileSchema = z.object({

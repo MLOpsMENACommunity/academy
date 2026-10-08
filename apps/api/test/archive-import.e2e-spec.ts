@@ -42,7 +42,7 @@ describe('archive import (e2e)', () => {
               instructors: [slug('speaker')],
               sessions: Array.from({ length: over.lessons ?? 2 }, (_, i) => ({
                 titleEn: `Lesson ${i + 1}`,
-                startsAt: `2026-08-${String(16 + i * 7).padStart(2, '0')}T19:00:00+03:00`,
+                startsAt: new Date(Date.UTC(2026, 7, 16 + i * 7, 16)).toISOString(),
                 recordingUrl: `https://www.youtube.com/watch?v=lesson${i + 1}xx`,
               })),
             },
@@ -67,7 +67,10 @@ describe('archive import (e2e)', () => {
     // An upcoming session has no join link in the archive: it waits as a draft for an admin.
     expect((await prisma.liveEvent.findUniqueOrThrow({ where: { slug: slug('upcoming') } })).status).toBe('DRAFT');
 
-    const second = await importArchive(prisma, archive());
+    // Same files: nothing is even read.
+    expect(await importArchive(prisma, archive())).toMatchObject({ created: [], updated: [], unchangedArchive: true });
+    // Forced, every entry is checked and found unchanged.
+    const second = await importArchive(prisma, archive(), { force: true });
     expect(second.created).toEqual([]);
     expect(second.updated).toEqual([]);
     const b = await snapshot();
@@ -85,16 +88,34 @@ describe('archive import (e2e)', () => {
     expect(s.course.sessions).toHaveLength(3);
   });
 
+  it('never auto-publishes an imported draft once its date has passed', async () => {
+    const later = new Date('2099-06-01T00:00:00Z');
+    const report = await importArchive(prisma, archive({ title: 'Past talk (corrected)', lessons: 3 }), { now: later, force: true });
+    expect(report.updated).toEqual([]);
+    expect((await prisma.liveEvent.findUniqueOrThrow({ where: { slug: slug('upcoming') } })).status).toBe('DRAFT');
+  });
+
+  it('holds back lesson changes on a course students have progress on', async () => {
+    const { course } = await snapshot();
+    const student = await prisma.user.create({ data: { email: `archive-st-${run}@example.test` } });
+    await prisma.sessionProgress.create({ data: { userId: student.id, sessionId: course.sessions[0]!.id } });
+    const report = await importArchive(prisma, archive({ title: 'Past talk (corrected)', lessons: 4 }), { force: true });
+    expect(report.skipped).toContain(`course:${slug('course')}: its lessons changed, but students have progress on them: update it in the admin`);
+    const after = await snapshot();
+    expect(after.course.sessions).toHaveLength(3);
+    expect(after.course.importHash).toBe(course.importHash);
+    await prisma.sessionProgress.deleteMany({ where: { userId: student.id } });
+  });
+
   it('never overwrites a record an admin has edited since', async () => {
-    const admin = await prisma.user.create({ data: { email: `archive-${run}@example.test`, role: 'ADMIN' } });
     const { past, course } = await snapshot();
-    await prisma.liveEvent.update({ where: { id: past.id }, data: { titleEn: 'Edited by an admin' } });
-    await prisma.auditLog.create({ data: { actorId: admin.id, action: 'event.updated', entityType: 'LiveEvent', entityId: past.id } });
+    // What every admin save does (see archive.e2e-spec.ts): edit, and clear importHash.
+    await prisma.liveEvent.update({ where: { id: past.id }, data: { titleEn: 'Edited by an admin', importHash: null } });
     const lesson = course.sessions.find((x) => x.order === 1)!;
     await prisma.courseSession.update({ where: { id: lesson.id }, data: { recordingUrl: 'https://www.youtube.com/watch?v=adminpasted' } });
-    await prisma.auditLog.create({ data: { actorId: admin.id, action: 'session.updated', entityType: 'CourseSession', entityId: lesson.id } });
+    await prisma.course.update({ where: { id: course.id }, data: { importHash: null } });
 
-    const report = await importArchive(prisma, archive({ title: 'Another correction', lessons: 2 }));
+    const report = await importArchive(prisma, archive({ title: 'Another correction', lessons: 2 }), { force: true });
     expect(report.skipped).toEqual(
       expect.arrayContaining([`session:${slug('past')}: edited by an admin since it was imported`, `course:${slug('course')}: edited by an admin since it was imported`]),
     );
@@ -111,7 +132,7 @@ describe('archive import (e2e)', () => {
     });
     const data = archive();
     data.sessions.push({ ...data.sessions[1]!, slug: slug('admin-made'), titleEn: 'From the archive' });
-    const report = await importArchive(prisma, data);
+    const report = await importArchive(prisma, data, { force: true });
     expect(report.created).toEqual([]);
     expect(report.skipped).toEqual(
       expect.arrayContaining([
@@ -125,8 +146,8 @@ describe('archive import (e2e)', () => {
 
   it('imports the committed archive cleanly, twice', async () => {
     const committed = readArchive();
-    await importArchive(prisma, committed);
-    const again = await importArchive(prisma, committed);
+    await importArchive(prisma, committed, { force: true });
+    const again = await importArchive(prisma, committed, { force: true });
     expect(again.created).toEqual([]);
     expect(again.updated).toEqual([]);
     expect(await prisma.course.findUnique({ where: { slug: 'mlops-practitioner' } })).toMatchObject({ status: 'COMPLETED', source: 'import' });

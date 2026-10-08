@@ -47,12 +47,8 @@ export default async function RecordingsPage({ params, searchParams }: Props) {
   });
   const q = parsed.success ? parsed.data : {};
   const qs = new URLSearchParams(Object.entries(q).filter((e): e is [string, string] => Boolean(e[1]))).toString();
-  const [all, data] = await Promise.all([
-    // The chips come from the whole library, so they stay put while filtering.
-    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [] }),
-    qs ? serverGetOr<RecordingsDto>(`/recordings?${qs}`, { items: [], topics: [] }) : null,
-  ]);
-  const items = (data ?? all).items;
+  // `topics` counts the whole library (not the filtered view), so the chips stay put while filtering.
+  const { items, topics } = await serverGetOr<RecordingsDto>(`/recordings${qs ? `?${qs}` : ''}`, { items: [], topics: [] });
   const base = `/${locale}/sessions/recordings`;
   const href = (topic?: string) => {
     const p = new URLSearchParams();
@@ -101,7 +97,7 @@ export default async function RecordingsPage({ params, searchParams }: Props) {
           </button>
         </form>
 
-        {all.topics.length > 0 && (
+        {topics.length > 0 && (
           <nav aria-label={t('sessions.topics')} className="mt-6">
             {/* Phones: one row that scrolls sideways (inside its own box, never the page). Wider screens wrap. */}
             <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
@@ -110,7 +106,7 @@ export default async function RecordingsPage({ params, searchParams }: Props) {
                   {t('sessions.allTopics')}
                 </Link>
               </li>
-              {all.topics.map(({ tag, count }) => (
+              {topics.map(({ tag, count }) => (
                 <li key={tag}>
                   <Link href={href(tag)} aria-current={q.topic === tag ? 'true' : undefined} className={chipClass}>
                     {topicText(locale, tag)}

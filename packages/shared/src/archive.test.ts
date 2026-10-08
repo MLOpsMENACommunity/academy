@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseTopics, recordingsQuerySchema, slugify, topicLabel, topicsSchema } from './archive';
 import { eventInputSchema } from './events';
-import { instructorInputSchema } from './admin';
+import { courseInputSchema, instructorInputSchema } from './admin';
 
 describe('archive topics', () => {
   it('normalises tags and drops duplicates', () => {
@@ -58,5 +58,22 @@ describe('past sessions', () => {
 
   it('keeps /sessions/recordings free', () => {
     expect(eventInputSchema.safeParse({ ...base, slug: 'recordings', startsAt: '2026-01-01T18:00:00Z' }).success).toBe(false);
+  });
+});
+
+describe('public course recordings', () => {
+  const course = {
+    slug: 'c', titleEn: 'Course', titleAr: 'دورة', shortDescriptionEn: 'A course for testing.', shortDescriptionAr: 'دورة للاختبار فقط.',
+    longDescriptionEn: '', longDescriptionAr: '', type: 'FREE', price: 0, requiresApproval: true, status: 'COMPLETED', level: 'ALL_LEVELS',
+    language: 'EN', targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' }, learningOutcomes: { en: [], ar: [] },
+    prerequisites: { en: [], ar: [] }, outline: [], faq: [],
+    included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+    deliveryPlatform: 'YOUTUBE_LIVE', recordingsPlatform: 'YOUTUBE', publicRecordings: true,
+  };
+
+  it('are allowed for a free course on YouTube only', () => {
+    expect(courseInputSchema.safeParse(course).success).toBe(true);
+    expect(courseInputSchema.safeParse({ ...course, type: 'PAID', price: 100 }).success).toBe(false);
+    expect(courseInputSchema.safeParse({ ...course, recordingsPlatform: 'GOOGLE_DRIVE' }).success).toBe(false);
   });
 });

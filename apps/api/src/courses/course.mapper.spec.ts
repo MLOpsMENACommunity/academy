@@ -37,7 +37,7 @@ describe('public course mapper', () => {
       materials: [], assignmentUrl: null, topics: ['docker'], createdAt: now, updatedAt: now,
     });
     const course = {
-      id: 'c1', slug: 'k', titleEn: 'K', titleAr: 'ك', status: 'COMPLETED', publicRecordings: true, capacity: null, cohortNumber: 1,
+      id: 'c1', slug: 'k', titleEn: 'K', titleAr: 'ك', type: 'FREE', status: 'COMPLETED', publicRecordings: true, capacity: null, cohortNumber: 1,
       endDate: now, topics: [], targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' }, outline: [], faq: [], included: {},
       instructors: [], screeningQuestions: [],
       sessions: [session('past1', '2026-09-01T16:00:00Z'), session('future1', '2026-10-09T11:30:00Z')],
@@ -48,5 +48,7 @@ describe('public course mapper', () => {
     expect(dto.sessions.map((s) => s.recordingUrl)).toEqual(['https://www.youtube.com/watch?v=past1', null]);
     expect(JSON.stringify(dto)).not.toMatch(/SECRET/);
     expect(toCourseDetail({ ...course, publicRecordings: false } as never, 0, now).sessions.every((s) => s.recordingUrl === null)).toBe(true);
+    // A paid course's recordings never go public, whatever the flag says.
+    expect(toCourseDetail({ ...course, type: 'PAID' } as never, 0, now).sessions.every((s) => s.recordingUrl === null)).toBe(true);
   });
 });

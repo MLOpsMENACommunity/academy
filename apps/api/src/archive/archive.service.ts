@@ -14,75 +14,75 @@ import type { Prisma } from '@prisma/client';
 import { speakerRefSelect, toSpeakerRef } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** The library is small (tens of items); this only bounds a bad day. */
-const MAX_ITEMS = 500;
+/** The whole library is small (tens of items, hundreds one day): it's built once a minute and filtered in memory. */
+const LIBRARY_TTL_MS = 60_000;
+const MAX_ITEMS = 2_000;
 
-const insensitive = (q: string) => ({ contains: q, mode: 'insensitive' as const });
+/** Course lessons whose recordings are public: a free public course that opted in. */
+const publicCourse = { publicRecordings: true, type: 'FREE', status: { in: [...PUBLIC_COURSE_STATUSES] } } satisfies Prisma.CourseWhereInput;
 
-/** Course lessons whose recordings are public: a public course that opted in. */
-const publicCourse = { publicRecordings: true, status: { in: [...PUBLIC_COURSE_STATUSES] } } satisfies Prisma.CourseWhereInput;
+interface LibraryItem {
+  item: RecordingDto;
+  /** Ends at, for "has it ended yet" at request time. */
+  endsAt: number;
+  /** Lowercased title, description, speakers and course, for the text search. */
+  text: string;
+}
+
+const fold = (s: string) => s.toLocaleLowerCase('en').normalize('NFKC');
 
 /** The archive: the recordings library and speaker pages. Everything here is public. */
 @Injectable()
 export class ArchiveService {
+  private library: { at: number; items: LibraryItem[] } | null = null;
+  private loading: Promise<LibraryItem[]> | null = null;
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Past live sessions and course lessons with a public recording, newest first,
    * filtered by tag and by text (title, description, speaker, course).
+   *
+   * Public and unthrottled (pages render server-side from one IP), so a request never
+   * reaches the database: it filters a copy of the library refreshed at most once a minute.
    */
   async recordings(q: RecordingsQuery, now = new Date()): Promise<RecordingsDto> {
-    const text = q.q?.trim();
-    const eventBase = { status: 'PUBLISHED', recordingUrl: { not: null }, startsAt: { lte: now } } satisfies Prisma.LiveEventWhereInput;
-    const sessionBase = { recordingUrl: { not: null }, startsAt: { lte: now }, course: publicCourse } satisfies Prisma.CourseSessionWhereInput;
+    const ended = (await this.libraryItems()).filter((x) => x.endsAt < now.getTime());
+    const text = q.q ? fold(q.q.trim()) : '';
+    const items = ended
+      .filter((x) => (!q.topic || x.item.topics.includes(q.topic)) && (!text || x.text.includes(text)))
+      .map((x) => x.item);
 
-    const eventWhere: Prisma.LiveEventWhereInput = {
-      ...eventBase,
-      ...(q.topic ? { topics: { has: q.topic } } : {}),
-      ...(text
-        ? {
-            OR: [
-              { titleEn: insensitive(text) },
-              { titleAr: insensitive(text) },
-              { descriptionEn: insensitive(text) },
-              { descriptionAr: insensitive(text) },
-              { speakerName: insensitive(text) },
-              { speakerNameAr: insensitive(text) },
-              { speaker: { is: { OR: [{ name: insensitive(text) }, { nameAr: insensitive(text) }] } } },
-            ],
-          }
-        : {}),
-    };
-    const sessionWhere: Prisma.CourseSessionWhereInput = {
-      ...sessionBase,
-      ...(q.topic ? { topics: { has: q.topic } } : {}),
-      ...(text
-        ? {
-            OR: [
-              { titleEn: insensitive(text) },
-              { titleAr: insensitive(text) },
-              { descriptionEn: insensitive(text) },
-              { descriptionAr: insensitive(text) },
-              { course: { OR: [{ titleEn: insensitive(text) }, { titleAr: insensitive(text) }] } },
-              {
-                course: {
-                  instructors: { some: { instructor: { OR: [{ name: insensitive(text) }, { nameAr: insensitive(text) }] } } },
-                },
-              },
-            ],
-          }
-        : {}),
-    };
+    const counts = new Map<string, number>();
+    for (const { item } of ended) for (const tag of item.topics) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    const topics = [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    return { items, topics };
+  }
 
-    const [events, sessions, eventTags, sessionTags] = await Promise.all([
+  private async libraryItems(): Promise<LibraryItem[]> {
+    if (this.library && Date.now() - this.library.at < LIBRARY_TTL_MS) return this.library.items;
+    // One load at a time, shared by concurrent requests.
+    this.loading ??= this.loadLibrary()
+      .then((items) => {
+        this.library = { at: Date.now(), items };
+        return items;
+      })
+      .finally(() => {
+        this.loading = null;
+      });
+    return this.loading;
+  }
+
+  private async loadLibrary(): Promise<LibraryItem[]> {
+    const [events, sessions] = await Promise.all([
       this.prisma.liveEvent.findMany({
-        where: eventWhere,
+        where: { status: 'PUBLISHED', recordingUrl: { not: null } },
         orderBy: { startsAt: 'desc' },
         take: MAX_ITEMS,
         include: { speaker: { select: speakerRefSelect } },
       }),
       this.prisma.courseSession.findMany({
-        where: sessionWhere,
+        where: { recordingUrl: { not: null }, course: publicCourse },
         orderBy: { startsAt: 'desc' },
         take: MAX_ITEMS,
         include: {
@@ -96,20 +96,19 @@ export class ArchiveService {
           },
         },
       }),
-      this.prisma.liveEvent.findMany({ where: eventBase, select: { topics: true, startsAt: true, durationMin: true } }),
-      this.prisma.courseSession.findMany({ where: sessionBase, select: { topics: true, startsAt: true, durationMin: true } }),
     ]);
+    const names = (list: SpeakerRefDto[]) => list.flatMap((s) => [s.name, s.nameAr ?? '']);
 
-    const items: RecordingDto[] = [
+    const out: LibraryItem[] = [
       ...events
-        .filter((e) => e.recordingUrl && eventEnded(e.startsAt, e.durationMin, now))
-        .map((e): RecordingDto => {
+        .filter((e) => e.recordingUrl)
+        .map((e): LibraryItem => {
           const speakers: SpeakerRefDto[] = e.speaker
             ? [toSpeakerRef(e.speaker)]
             : e.speakerName
               ? [{ slug: null, name: e.speakerName, nameAr: e.speakerNameAr || null, titleEn: e.speakerTitleEn || null, titleAr: e.speakerTitleAr || null, photoUrl: e.speakerPhotoUrl }]
               : [];
-          return {
+          const item: RecordingDto = {
             id: `event:${e.slug}`,
             kind: 'event',
             path: `/sessions/${e.slug}`,
@@ -123,11 +122,17 @@ export class ArchiveService {
             youtubeId: youtubeId(e.recordingUrl!),
             speakers,
           };
+          return {
+            item,
+            endsAt: e.startsAt.getTime() + e.durationMin * 60_000,
+            text: fold([e.titleEn, e.titleAr, e.descriptionEn, e.descriptionAr, ...names(speakers)].join('\n')),
+          };
         }),
       ...sessions
-        .filter((s) => s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now))
-        .map(
-          (s): RecordingDto => ({
+        .filter((s) => s.recordingUrl)
+        .map((s): LibraryItem => {
+          const speakers = s.course.instructors.map((i) => toSpeakerRef(i.instructor));
+          const item: RecordingDto = {
             id: `course:${s.course.slug}:${s.order}`,
             kind: 'course',
             path: `/courses/${s.course.slug}`,
@@ -139,18 +144,16 @@ export class ArchiveService {
             topics: s.topics,
             recordingUrl: s.recordingUrl!,
             youtubeId: youtubeId(s.recordingUrl!),
-            speakers: s.course.instructors.map((i) => toSpeakerRef(i.instructor)),
-          }),
-        ),
-    ].sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id));
-
-    const counts = new Map<string, number>();
-    for (const r of [...eventTags, ...sessionTags]) {
-      if (!eventEnded(r.startsAt, r.durationMin, now)) continue;
-      for (const tag of r.topics) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-    const topics = [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-    return { items, topics };
+            speakers,
+          };
+          return {
+            item,
+            endsAt: s.startsAt.getTime() + s.durationMin * 60_000,
+            text: fold([s.titleEn, s.titleAr, s.descriptionEn ?? '', s.descriptionAr ?? '', s.course.titleEn, s.course.titleAr, ...names(speakers)].join('\n')),
+          };
+        }),
+    ];
+    return out.sort((a, b) => b.item.startsAt.localeCompare(a.item.startsAt) || a.item.id.localeCompare(b.item.id));
   }
 
   /** Speakers with something public to show (a published session or a public course). */

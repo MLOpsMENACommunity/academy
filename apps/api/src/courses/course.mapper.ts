@@ -74,8 +74,13 @@ export function toCourseSummary(c: CourseWithRelations, seatsTaken: number): Cou
  * Recordings are enrolled-only unless the course says otherwise (a completed cohort whose
  * lessons are public on YouTube), and only once the lesson is over.
  */
-export function publicRecording(c: Pick<Course, 'publicRecordings'>, s: Pick<CourseSession, 'recordingUrl' | 'startsAt' | 'durationMin'>, now = new Date()) {
-  return c.publicRecordings && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
+export function publicRecording(
+  c: Pick<Course, 'publicRecordings' | 'type'>,
+  s: Pick<CourseSession, 'recordingUrl' | 'startsAt' | 'durationMin'>,
+  now = new Date(),
+) {
+  // Belt and braces: the admin form only allows public recordings on free courses.
+  return c.publicRecordings && c.type === 'FREE' && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
 }
 
 export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now = new Date()): CourseDetailDto {
@@ -98,7 +103,7 @@ export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now =
     recordingsPlatform: c.recordingsPlatform,
     externalPlatform: c.externalPlatform,
     externalUrl: c.externalUrl,
-    publicRecordings: c.publicRecordings,
+    publicRecordings: c.publicRecordings && c.type === 'FREE',
     instructors: [...c.instructors].sort((a, b) => a.order - b.order).map((x) => toInstructorDto(x.instructor)),
     sessions: [...(c.sessions ?? [])]
       .sort((a, b) => a.order - b.order)

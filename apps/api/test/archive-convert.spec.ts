@@ -157,6 +157,12 @@ describe('archive converter', () => {
     expect(file.courses.find((c) => c.slug === 'llmops')).toMatchObject({ status: 'COMING_SOON', type: 'PAID', price: 0 });
   });
 
+  it('rejects impossible dates', () => {
+    const r = archiveFileSchema.safeParse({ version: 1, sessions: [{ slug: 'x', titleEn: 'Talk', startsAt: '2026-08-37T19:00:00+03:00' }] });
+    expect(r.success).toBe(false);
+    expect(archiveFileSchema.safeParse({ version: 1, sessions: [{ slug: 'x', titleEn: 'Talk', startsAt: '2026-02-28T19:00:00+02:00' }] }).success).toBe(true);
+  });
+
   it('keeps the committed archive files valid', () => {
     const archive = readArchive();
     expect(archive.courses.length).toBeGreaterThan(0);
