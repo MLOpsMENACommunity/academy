@@ -1,0 +1,76 @@
+name: Deploy to Cloudflare
+
+# Manual for now ("Run workflow" in the Actions tab). Builds both container images on the
+# runner (linux/amd64, as Cloudflare Containers require), deploys the Worker + containers,
+# then sets runtime secrets. See DEPLOY.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @academy/deploy-cloudflare...
+
+      - name: Check required secrets
+        env:
+          REQUIRED: >-
+            CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DATABASE_URL JWT_ACCESS_SECRET JOBS_TOKEN
+            RESEND_API_KEY S3_ENDPOINT S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          missing=""
+          for k in $REQUIRED; do
+            echo "$SECRETS_JSON" | jq -e --arg k "$k" '.[$k] // "" | length > 0' >/dev/null || missing="$missing $k"
+          done
+          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing (see DEPLOY.md)"; exit 1; fi
+
+      - name: Ensure private R2 bucket
+        working-directory: deploy/cloudflare
+        run: pnpm exec wrangler r2 bucket create academy-private 2>&1 | tee /tmp/r2.log || grep -qi "already exists" /tmp/r2.log
+
+      - name: Deploy Worker and containers
+        working-directory: deploy/cloudflare
+        run: pnpm exec wrangler deploy
+
+      - name: Set runtime secrets
+        working-directory: deploy/cloudflare
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          echo "$SECRETS_JSON" | jq '{
+            DATABASE_URL, JWT_ACCESS_SECRET, JOBS_TOKEN, RESEND_API_KEY,
+            S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
+            SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_PLACEHOLDER_STATUS,
+            GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SENTRY_DSN
+          } | with_entries(select(.value != null and .value != ""))' > /tmp/secrets.json
+          pnpm exec wrangler secret bulk /tmp/secrets.json
+          rm -f /tmp/secrets.json
+
+      - name: Smoke test
+        run: |
+          host=$(grep -oE '"ACADEMY_HOSTNAME": "[^"]+"' deploy/cloudflare/wrangler.jsonc | cut -d'"' -f4)
+          # First request cold-starts both containers (migrations run on API start).
+          for i in $(seq 1 30); do
+            curl -fsS "https://$host/api/health" && break
+            sleep 10
+          done
+          curl -fsS -o /dev/null "https://$host/en"
+          echo "Deployed: https://$host"
