@@ -1,15 +1,15 @@
 # Deploying to Cloudflare
 
-The academy runs on Cloudflare as one Worker that sits in front of two
-**Cloudflare Containers**:
+The academy runs on Cloudflare in two separate environments. Each one is a Worker
+that sits in front of two **Cloudflare Containers**:
 
 ```
-academy-staging.mlopsmena.com
-        │
-   Worker (deploy/cloudflare)
+academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
+        │                                        │
+   Worker mlops-academy                    Worker mlops-academy-staging
      ├── /api/*   → ApiContainer   (apps/api/Dockerfile, NestJS)
      ├── /*       → WebContainer   (apps/web/Dockerfile, Next.js)
-     └── cron     → POST /api/internal/jobs/tick every 15 min
+     └── cron     → POST /api/internal/jobs/tick (production every 15 min, staging hourly)
                        │
           Neon Postgres · private R2 bucket · Resend
 ```
@@ -20,11 +20,119 @@ starts. Database migrations run when the API container starts. The seed is
 idempotent and also runs on start: it creates the admin, the settings and the
 placeholder courses.
 
+## Environments
+
+Both environments are built from `deploy/cloudflare/wrangler.jsonc`: production is the
+top level, staging is `env.staging`. Staging shares nothing with production that could
+leak into it: its own Worker, containers, Durable Objects, database, bucket, JWT secret
+and jobs token, and it never emails real people.
+
+| | Production | Staging |
+|---|---|---|
+| URL | https://academy.mlopsmena.com | https://academy-staging.mlopsmena.com |
+| GitHub environment | `production` (only `v*` tags may deploy) | `staging` (`v*` tags and `main`) |
+| Worker | `mlops-academy` | `mlops-academy-staging` |
+| Containers | `mlops-academy-apicontainer`, `mlops-academy-webcontainer` | `mlops-academy-staging-apicontainer`, `mlops-academy-staging-webcontainer` |
+| Database (Neon, same project) | `neondb` | `academy_staging`, owned by the role `academy_staging`, which can't read production |
+| R2 bucket | `academy-private` | `academy-staging-private` |
+| Secrets file on your laptop | `~/.config/mlops-academy/deploy.env` | `~/.config/mlops-academy/staging.env` |
+| Email | Real recipients | Everyone not on `EMAIL_ALLOWLIST` is redirected to `EMAIL_REDIRECT_TO` (`admin@mlopsmena.com`), with the original recipient in the subject |
+| Sentry environment | `production` | `staging` |
+
+A third GitHub environment, `production-backup`, holds only what the nightly database
+backup needs (see [OPERATIONS.md](OPERATIONS.md#backups-and-restore)).
+
+The production Worker's name and container classes must never change: renaming them
+would create new Durable Objects and containers instead of updating the live ones.
+
+## Releasing
+
+Every change reaches production the same way: **tag → staging → test → promote that tag.**
+Nothing deploys from a branch, and production only accepts a tag that has already
+been released to staging.
+
+**Tags** are dated: `vYYYY.MM.DD-N`, where `N` counts the releases of that day
+(`v2026.10.08-1`, `v2026.10.08-2`, …). Tag a commit on `main`.
+
+1. **Release to staging.** Tag the commit and push the tag:
+
+   ```bash
+   git checkout main && git pull
+   git tag v2026.10.08-1
+   git push origin v2026.10.08-1
+   ```
+
+   The **Release to staging** workflow starts on its own. It reuses the CI run of that
+   commit on `main` (waiting for it if it's still running), or runs CI on the tag if
+   there is none. Then it deploys the tag to staging, smoke-tests it, and records it as
+   a successful staging release. The run summary has the link.
+
+   To re-deploy an existing tag to staging: **Actions → Release to staging → Run
+   workflow**, and enter the tag.
+
+2. **Test it** on https://academy-staging.mlopsmena.com. Sign in as `SEED_ADMIN_EMAIL`
+   with the `SEED_ADMIN_PASSWORD` from `staging.env`. Emails arrive at
+   `EMAIL_REDIRECT_TO`.
+
+3. **Promote the same tag to production.** **Actions → Release to production → Run
+   workflow**:
+   - **Use workflow from:** switch to **Tags** and pick the tag (the production
+     environment only accepts `v*` tags, so a run from `main` is refused);
+   - **tag:** the same tag.
+
+   Or from a terminal:
+
+   ```bash
+   gh workflow run release-production.yml --repo MLOpsMENACommunity/academy \
+     --ref v2026.10.08-1 -f tag=v2026.10.08-1
+   ```
+
+   The workflow refuses a tag whose commit has no successful staging release. It
+   deploys that exact commit to production, smoke-tests https://academy.mlopsmena.com,
+   and creates a GitHub Release for the tag with generated notes.
+
+New features always reach staging first. A fix for production is a new tag too: tag
+it, let it reach staging, check it, promote it.
+
+**Approvals.** Required reviewers on the `production` environment need a paid GitHub
+plan (or a public repo), which the organisation doesn't have yet. Until then the gates
+are: only people with write access can run the workflow, only `v*` tags can deploy to
+production, and only tags already released to staging are accepted. Once the plan
+allows it, add a reviewer and every production run waits for approval:
+
+```bash
+gh api -X PUT repos/MLOpsMENACommunity/academy/environments/production --input - <<'JSON'
+{"reviewers":[{"type":"User","id":26551277}],"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+JSON
+```
+
+### Roll back
+
+Run **Release to production** again with the previous tag (it was released to staging
+before, so it's accepted). The GitHub Release of that tag already exists and is left as
+it is.
+
+For the fastest possible rollback, Cloudflare dashboard → Workers & Pages →
+`mlops-academy` → Deployments → roll back. Then re-promote a good tag, so the next
+release starts from a known state.
+
+**Database migrations are forward-only.** Rolling the code back doesn't roll the
+database back, so the previous version must still work with the new schema. Make
+schema changes in two releases (expand, then contract):
+
+1. **Expand:** add the new column or table, keep the old one, and write both. Both the
+   old and the new code work with this schema.
+2. **Contract:** once nothing reads the old column, drop it in a later release.
+
+Never rename or drop something in the same release that stops using it. See
+[OPERATIONS.md](OPERATIONS.md#incident-checklist) for the one known exception (PR #13).
+
 ## Costs
 
 - Workers Paid: $5/month, required for Containers. It includes 25 GiB-hours
-  of memory and 375 vCPU-minutes per month.
-- Neon: free tier.
+  of memory and 375 vCPU-minutes per month, shared by both environments. Staging's
+  cron runs hourly so its containers can sleep.
+- Neon: free tier (both databases in one project).
 - R2: free tier, up to 10 GB.
 - Resend: free tier at first.
 
@@ -43,27 +151,31 @@ See `docs/COST_ANALYSIS.md`, which is local only and not in git.
    - Zone `mlopsmena.com` → Workers Routes: Edit
    - Zone `mlopsmena.com` → DNS: Edit
 3. **Neon.** Create a project in Frankfurt (`aws-eu-central-1`) and copy the
-   **pooled** connection string. It ends with `?sslmode=require`.
-4. **R2 credentials for the app.** After the first deploy has created the
-   `academy-private` bucket, go to R2 → Manage API tokens → Create
-   **Account API token**, with **Object Read & Write** on `academy-private`
-   only. Copy the Access Key ID and Secret Access Key.
+   **pooled** and the **unpooled** connection strings. Both end with `?sslmode=require`.
+   The staging database is created later by `setup-staging.sh`.
+4. **R2 credentials, one token per bucket.** R2 → Manage API tokens → Create
+   **Account API token**, with **Object Read & Write** on `academy-private` only, for
+   production. Create a second one on `academy-staging-private` only, for staging.
+   Never give staging a token that can reach the production bucket.
 5. **Resend.** Add the domain `mlopsmena.com`; with Resend's Cloudflare
    integration, the SPF/DKIM records are added for you. Then create an API key
    with **Sending access** only.
-6. **Optional: Google sign-in.** Create an OAuth client (Web) with the
-   redirect URI `https://academy-staging.mlopsmena.com/api/auth/google/callback`.
-7. **Local secrets file** (never commit it, never paste it into chat):
+6. **Optional: Google sign-in.** Create an OAuth client (Web) with the redirect URIs
+   `https://academy.mlopsmena.com/api/auth/google/callback` and
+   `https://academy-staging.mlopsmena.com/api/auth/google/callback`.
+7. **Local secrets files** (never commit them, never paste them into chat):
 
    ```bash
    mkdir -p ~/.config/mlops-academy
    cat > ~/.config/mlops-academy/deploy.env <<'ENV'
    CLOUDFLARE_API_TOKEN=...
    CLOUDFLARE_ACCOUNT_ID=...
-   DATABASE_URL=postgresql://...neon.tech/neondb?sslmode=require
+   DATABASE_URL=postgresql://...-pooler...neon.tech/neondb?sslmode=require
+   DIRECT_DATABASE_URL=postgresql://...neon.tech/neondb?sslmode=require
    RESEND_API_KEY=re_...
    S3_ACCESS_KEY_ID=...
    S3_SECRET_ACCESS_KEY=...
+   BACKUP_PASSPHRASE=...
    # optional
    GOOGLE_CLIENT_ID=
    GOOGLE_CLIENT_SECRET=
@@ -71,62 +183,73 @@ See `docs/COST_ANALYSIS.md`, which is local only and not in git.
    chmod 600 ~/.config/mlops-academy/deploy.env
    ```
 
-8. **Upload the secrets to GitHub.** This generates the JWT secret, the jobs
-   token and the admin password, and prints the admin login:
+   For staging, put only the staging R2 keys in `~/.config/mlops-academy/staging.env`
+   (`S3_ACCESS_KEY_ID=…`, `S3_SECRET_ACCESS_KEY=…`); `setup-staging.sh` adds the rest.
+8. **Upload the production secrets** to the `production` and `production-backup`
+   environments. This generates the JWT secret, the jobs token and the admin password
+   if they're missing. Values left as `...` are skipped, so they never overwrite a
+   real secret:
 
    ```bash
    deploy/cloudflare/setup-secrets.sh
    ```
 
-   The secrets go into the `staging` environment of the GitHub repo. You can
-   also add or change them by hand in Settings → Environments → staging.
+9. **Set up staging** (creates the staging database and role, and fills the `staging`
+   environment):
 
-## Deploy
+   ```bash
+   deploy/cloudflare/setup-staging.sh
+   ```
 
-GitHub → **Actions → Deploy to Cloudflare → Run workflow**. The workflow:
+You can also add or change secrets by hand in Settings → Environments.
 
-1. checks that every required secret is set;
-2. creates the R2 bucket if it doesn't exist yet;
-3. runs `wrangler deploy`, which builds both images (linux/amd64) on the
-   runner and pushes them;
-4. sets the runtime secrets on the Worker;
-5. waits for `/api/health` and `/en` to respond.
+The `production` environment has the variables `ACADEMY_HOSTNAME=academy.mlopsmena.com`
+and `SENTRY_ENVIRONMENT=production`. The `staging` environment has
+`ACADEMY_HOSTNAME=academy-staging.mlopsmena.com` and `SENTRY_ENVIRONMENT=staging`.
 
-On the very first run, step 4 of the setup (R2 credentials) isn't possible
-yet: run the workflow once to create the bucket, add the R2 keys, then run it
-again.
+## What a deploy does
 
-## Go live on academy.mlopsmena.com (or change the hostname)
+Both release workflows call `.github/workflows/deploy-cloudflare.yml` with the
+environment and the tag. It:
 
-No code change needed. In GitHub → Settings → Environments → `staging` → **Variables**, add:
+1. checks out the tag, and checks it still points at the commit that was verified;
+2. checks that every required secret is set in that environment;
+3. points `wrangler.jsonc` at that environment's hostname (`configure-host.mjs`, which
+   refuses to let staging claim a production hostname, share its bucket or drop the
+   email redirect, and the other way round);
+4. creates the environment's R2 bucket if it doesn't exist yet;
+5. runs `wrangler deploy` (production) or `wrangler deploy --env staging`, which builds
+   both images (linux/amd64) on the runner and pushes them;
+6. sets the runtime secrets on that Worker;
+7. waits for `/api/health` and `/en` to respond on that environment's host.
+
+## Change a hostname
+
+No code change is needed. In GitHub → Settings → Environments → `production` (or
+`staging`) → **Variables**, set:
 
 | Variable | Value |
 |---|---|
-| `ACADEMY_HOSTNAME` | `academy.mlopsmena.com` |
-| `ACADEMY_REDIRECT_HOSTS` | `academy-staging.mlopsmena.com` (old links redirect to the new host) |
-| `SENTRY_ENVIRONMENT` | `production` (only if Sentry is on) |
+| `ACADEMY_HOSTNAME` | the new canonical host |
+| `ACADEMY_REDIRECT_HOSTS` | optional, comma-separated old hosts that 301 to the new one |
+| `SENTRY_ENVIRONMENT` | optional |
 
-Then run **Deploy to Cloudflare**. Cloudflare creates the DNS record and certificate for each host (`custom_domain: true`), the app's links, emails, sitemap and cookies switch to the new host, and the smoke test checks the redirect. People signed in on the old host sign in again once.
+Then release a tag. Cloudflare creates the DNS record and certificate for each host
+(`custom_domain: true`). A host can only belong to one Worker: production can't take
+`academy-staging.mlopsmena.com`, and staging can't take a production host.
 
-If Google sign-in is enabled, add `https://academy.mlopsmena.com/api/auth/google/callback` to the OAuth client's redirect URIs first.
-
-During the deploy, the old host may redirect to the new one about a minute before Cloudflare finishes issuing its certificate; expect a brief certificate warning if you test at that exact moment.
-
-**To undo the switch,** don't just delete `ACADEMY_HOSTNAME` (that would remove academy.mlopsmena.com and break links already sent by email). Set `ACADEMY_HOSTNAME` back to `academy-staging.mlopsmena.com` and put `academy.mlopsmena.com` in `ACADEMY_REDIRECT_HOSTS`, then deploy.
-
-Before going live, also:
-- change the seeded admin password after your first sign-in (Profile → Account);
-- delete test accounts and applications, so the first announcement to enrolled students doesn't reach them;
-- `SEED_PLACEHOLDER_STATUS` is no longer needed (there are no placeholder courses). Removing it from GitHub doesn't remove it from the Worker; also run `pnpm --filter @academy/deploy-cloudflare exec wrangler secret delete SEED_PLACEHOLDER_STATUS` (harmless to leave).
+If Google sign-in is enabled, add the new callback URL to the OAuth client first.
 
 ## Operating
 
+Add `--env staging` to any of these to act on staging instead of production.
+
 | Task | How |
 |---|---|
-| Live logs | `pnpm --filter @academy/deploy-cloudflare exec wrangler tail` |
+| Live logs | `pnpm --filter @academy/deploy-cloudflare exec wrangler tail --env=""` |
 | Container status | `pnpm --filter @academy/deploy-cloudflare exec wrangler containers list` |
-| Roll back | Workers & Pages → mlops-academy → Deployments → roll back to the previous version (see OPERATIONS.md "Incident checklist" before rolling back past PR #13) |
-| Database backups | Neon point-in-time restore, plus a daily encrypted dump to R2 (`backup.yml`, needs the `BACKUP_PASSPHRASE` secret); restore steps in [OPERATIONS.md](OPERATIONS.md) |
+| Roll back | Release to production with the previous tag (see [Roll back](#roll-back)) |
+| Database backups | Neon point-in-time restore, plus a daily encrypted dump of production to R2 (`backup.yml`, `production-backup` environment); restore steps in [OPERATIONS.md](OPERATIONS.md) |
 | Email DNS, logs, Sentry, analytics | [OPERATIONS.md](OPERATIONS.md) |
 
 ## Limits to know

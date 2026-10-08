@@ -1,5 +1,16 @@
 // Cloudflare deployment of MLOps MENA Academy. See DEPLOY.md.
-// Change ACADEMY_HOSTNAME, the route and NEXT_PUBLIC_SITE_URL together to move hosts.
+//
+// Two Workers from one file:
+//   top level    -> PRODUCTION: Worker "mlops-academy" on academy.mlopsmena.com
+//                   (`wrangler deploy`)
+//   env.staging  -> STAGING: Worker "mlops-academy-staging" on academy-staging.mlopsmena.com
+//                   (`wrangler deploy --env staging`), with its own containers, Durable
+//                   Objects and R2 bucket, and (from its GitHub environment) its own database.
+//
+// Never rename the production Worker or its container classes: that would create new
+// Durable Object namespaces and containers instead of updating the live ones.
+// configure-host.mjs can override each environment's hostname from GitHub variables
+// (ACADEMY_HOSTNAME, ACADEMY_REDIRECT_HOSTS, SENTRY_ENVIRONMENT) at deploy time.
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "mlops-academy",
@@ -9,13 +20,13 @@
   "observability": { "enabled": true },
 
   "vars": {
-    "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
+    "ACADEMY_HOSTNAME": "academy.mlopsmena.com",
     "EMAIL_FROM": "MLOps MENA Academy <academy@mlopsmena.com>",
     "S3_BUCKET": "academy-private",
-    "SENTRY_ENVIRONMENT": "staging"
+    "SENTRY_ENVIRONMENT": "production"
   },
 
-  "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
+  "routes": [{ "pattern": "academy.mlopsmena.com", "custom_domain": true }],
 
   "containers": [
     {
@@ -29,7 +40,7 @@
       "class_name": "WebContainer",
       "image": "../../apps/web/Dockerfile",
       "image_build_context": "../..",
-      "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com" },
+      "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy.mlopsmena.com" },
       "instance_type": "basic",
       "max_instances": 1
     }
@@ -44,5 +55,51 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
 
   // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
-  "triggers": { "crons": ["*/15 * * * *"] }
+  "triggers": { "crons": ["*/15 * * * *"] },
+
+  "env": {
+    "staging": {
+      "name": "mlops-academy-staging",
+      "vars": {
+        "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
+        "EMAIL_FROM": "MLOps MENA Academy (staging) <academy@mlopsmena.com>",
+        "S3_BUCKET": "academy-staging-private",
+        "SENTRY_ENVIRONMENT": "staging",
+        // Staging never emails real people: mail to anyone not on EMAIL_ALLOWLIST goes to
+        // EMAIL_REDIRECT_TO instead, with the original recipient in the subject.
+        // EMAIL_ALLOWLIST is comma-separated addresses or "@domain" entries.
+        "EMAIL_REDIRECT_TO": "admin@mlopsmena.com",
+        "EMAIL_ALLOWLIST": ""
+      },
+      "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
+      "containers": [
+        {
+          "name": "mlops-academy-staging-apicontainer",
+          "class_name": "ApiContainer",
+          "image": "../../apps/api/Dockerfile",
+          "image_build_context": "../..",
+          "instance_type": "basic",
+          "max_instances": 1
+        },
+        {
+          "name": "mlops-academy-staging-webcontainer",
+          "class_name": "WebContainer",
+          "image": "../../apps/web/Dockerfile",
+          "image_build_context": "../..",
+          "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com" },
+          "instance_type": "basic",
+          "max_instances": 1
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "API", "class_name": "ApiContainer" },
+          { "name": "WEB", "class_name": "WebContainer" }
+        ]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
+      // Hourly rather than every 15 minutes, so the staging containers get to sleep.
+      "triggers": { "crons": ["0 * * * *"] }
+    }
+  }
 }

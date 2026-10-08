@@ -19,6 +19,9 @@ export interface Env {
   ACADEMY_HOSTNAME: string;
   EMAIL_FROM: string;
   S3_BUCKET: string;
+  /** Staging only: see EMAIL_ALLOWLIST / EMAIL_REDIRECT_TO in apps/api/src/config/env.ts. */
+  EMAIL_ALLOWLIST?: string;
+  EMAIL_REDIRECT_TO?: string;
   // secrets
   DATABASE_URL: string;
   /** Unpooled connection, used only for migrations at container start. */
@@ -95,6 +98,8 @@ export class ApiContainer extends Container<Env> {
         DIRECT_DATABASE_URL: env.DIRECT_DATABASE_URL,
         SENTRY_DSN: env.SENTRY_DSN,
         SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,
+        EMAIL_ALLOWLIST: env.EMAIL_ALLOWLIST,
+        EMAIL_REDIRECT_TO: env.EMAIL_REDIRECT_TO,
       }),
     };
     void ctx.blockConcurrencyWhile(() => restartIfConfigChanged(this, ctx));

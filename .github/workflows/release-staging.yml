@@ -1,0 +1,135 @@
+name: Release to staging
+
+# Step 1 of a release: every pushed v* tag goes to staging (academy-staging.mlopsmena.com).
+#   git tag v2026.10.08-1 && git push origin v2026.10.08-1
+# Re-deploy an existing tag: Actions → Release to staging → Run workflow → enter the tag.
+# The tag's commit must pass CI first: an existing green CI run on main is reused (waiting
+# for it if it is still running), otherwise CI runs here on the tag.
+# On success the commit is recorded as a successful staging release, which
+# release-production.yml requires before it will promote the same tag.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to deploy to staging, e.g. v2026.10.08-1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-staging
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve tag and check CI
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      ci_passed: ${{ steps.ci.outputs.passed }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Resolve tag
+        id: resolve
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9A-Za-z._+-]+$ ]] || { echo "::error::'$TAG' is not a v* release tag"; exit 1; }
+          sha=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha) \
+            || { echo "::error::Tag $TAG not found. Push it first: git push origin $TAG"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG ($sha) to staging"
+
+      - name: Find a passing CI run for this commit
+        id: ci
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          passed=false
+          # Up to 30 minutes for a CI run on main that is still in progress.
+          for _ in $(seq 1 60); do
+            runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&per_page=20" --jq '.workflow_runs')
+            if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then passed=true; break; fi
+            if jq -e 'any(.[]; .status != "completed")' <<<"$runs" >/dev/null; then
+              echo "CI is still running for $SHA; waiting"; sleep 30; continue
+            fi
+            break
+          done
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+          if [ "$passed" = true ]; then echo "CI already passed for $SHA"; else echo "No passing CI run for $SHA: running CI on the tag"; fi
+
+  ci:
+    name: CI on the tag
+    needs: resolve
+    if: needs.resolve.outputs.ci_passed != 'true'
+    permissions:
+      contents: read
+      actions: write # gha build cache
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+
+  deploy:
+    name: Deploy
+    needs: [resolve, ci]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    uses: ./.github/workflows/deploy-cloudflare.yml
+    with:
+      environment: staging
+      ref: ${{ needs.resolve.outputs.tag }}
+      sha: ${{ needs.resolve.outputs.sha }}
+
+  record:
+    name: Record the staging release
+    needs: [resolve, deploy]
+    # Explicit: the default success() would skip this whenever the ci job was skipped.
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
+    permissions:
+      deployments: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      SHA: ${{ needs.resolve.outputs.sha }}
+      URL: ${{ needs.deploy.outputs.url }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      # The deployment GitHub creates for the job above is keyed to the run's commit, which
+      # is main's when this was started by hand; this record is keyed to the tag's commit.
+      - name: Record a successful staging deployment of this commit
+        run: |
+          set -euo pipefail
+          id=$(jq -n --arg ref "$TAG" --arg desc "Staging release of $TAG" \
+                '{ref: $ref, environment: "staging", task: "release:staging", auto_merge: false,
+                  required_contexts: [], production_environment: false, description: $desc}' \
+            | gh api -X POST "repos/$REPO/deployments" --input - --jq .id)
+          jq -n --arg url "$URL" --arg log "$RUN_URL" \
+                '{state: "success", environment_url: $url, log_url: $log, auto_inactive: false}' \
+            | gh api -X POST "repos/$REPO/deployments/$id/statuses" --input - --silent
+          echo "Recorded deployment $id for $SHA"
+
+      - name: Summary
+        run: |
+          {
+            echo "## $TAG is on staging"
+            echo
+            echo "- URL: $URL"
+            echo "- Commit: \`$SHA\`"
+            echo
+            echo "Test it there. To promote exactly this tag: **Actions → Release to production →"
+            echo "Run workflow**, choose **Use workflow from → Tags → $TAG**, and enter \`$TAG\`."
+          } >> "$GITHUB_STEP_SUMMARY"

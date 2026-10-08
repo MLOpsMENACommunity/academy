@@ -1,27 +1,72 @@
 name: Deploy to Cloudflare
 
-# Manual for now ("Run workflow" in the Actions tab). Builds both container images on the
-# runner (linux/amd64, as Cloudflare Containers require), deploys the Worker + containers,
-# then sets runtime secrets. See DEPLOY.md.
+# Reusable deploy of one git ref to one environment. Not run by hand: it is called by
+#   release-staging.yml    (environment staging:    Worker mlops-academy-staging)
+#   release-production.yml (environment production: Worker mlops-academy)
+# Builds both container images on the runner (linux/amd64, as Cloudflare Containers
+# require), deploys the Worker + containers, sets runtime secrets, then smoke-tests the
+# environment's host. Secrets and variables come from the GitHub environment of the same
+# name. See DEPLOY.md.
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      environment:
+        description: staging or production
+        required: true
+        type: string
+      ref:
+        description: The tag to check out and deploy
+        required: true
+        type: string
+      sha:
+        description: The commit the tag must point to (guards against a moved tag)
+        required: true
+        type: string
+    outputs:
+      url:
+        description: Public URL of the deployed environment
+        value: ${{ jobs.deploy.outputs.url }}
 
 permissions:
   contents: read
 
-concurrency:
-  group: deploy-cloudflare
-  cancel-in-progress: false
-
 jobs:
   deploy:
     runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
-    environment: staging
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.host.outputs.url }}
+    concurrency:
+      group: deploy-cloudflare-${{ inputs.environment }}
+      cancel-in-progress: false
+    outputs:
+      url: ${{ steps.host.outputs.url }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TARGET: ${{ inputs.environment }}
+      REF: ${{ inputs.ref }}
+      SHA: ${{ inputs.sha }}
+      # wrangler.jsonc: production is the top level (--env=""), staging is env.staging.
+      WRANGLER_ENV: ${{ inputs.environment == 'staging' && 'staging' || '' }}
     steps:
+      - name: Check target
+        run: |
+          case "$TARGET" in
+            staging|production) ;;
+            *) echo "::error::Unknown environment '$TARGET' (expected staging or production)"; exit 1 ;;
+          esac
+          [[ "$REF" == v* ]] || { echo "::error::Only v* tags are deployed (got '$REF')"; exit 1; }
+
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Check the tag still points at the verified commit
+        run: |
+          head=$(git rev-parse HEAD)
+          [ "$head" = "$SHA" ] || { echo "::error::$REF now points at $head, expected $SHA. Was the tag moved?"; exit 1; }
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -40,25 +85,28 @@ jobs:
           for k in $REQUIRED; do
             echo "$SECRETS_JSON" | jq -e --arg k "$k" '.[$k] // "" | length > 0' >/dev/null || missing="$missing $k"
           done
-          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing (see DEPLOY.md)"; exit 1; fi
+          if [ -n "$missing" ]; then echo "::error::Missing secrets in the '$TARGET' environment:$missing (see DEPLOY.md)"; exit 1; fi
 
-      - name: Ensure private R2 bucket
-        working-directory: deploy/cloudflare
-        run: pnpm exec wrangler r2 bucket create academy-private 2>&1 | tee /tmp/r2.log || grep -qi "already exists" /tmp/r2.log
-
-      # Go live / move hosts by setting environment variables (Settings → Environments → staging):
+      # Hostnames come from the environment's variables (Settings → Environments → <env>):
       # ACADEMY_HOSTNAME, optional ACADEMY_REDIRECT_HOSTS and SENTRY_ENVIRONMENT. See DEPLOY.md.
       - name: Configure hostname
+        id: host
         working-directory: deploy/cloudflare
         env:
           ACADEMY_HOSTNAME: ${{ vars.ACADEMY_HOSTNAME }}
           ACADEMY_REDIRECT_HOSTS: ${{ vars.ACADEMY_REDIRECT_HOSTS }}
           SENTRY_ENVIRONMENT: ${{ vars.SENTRY_ENVIRONMENT }}
-        run: node configure-host.mjs
+        run: node configure-host.mjs "$TARGET"
+
+      - name: Ensure private R2 bucket
+        working-directory: deploy/cloudflare
+        env:
+          BUCKET: ${{ steps.host.outputs.bucket }}
+        run: pnpm exec wrangler r2 bucket create "$BUCKET" 2>&1 | tee /tmp/r2.log || grep -qi "already exists" /tmp/r2.log
 
       - name: Deploy Worker and containers
         working-directory: deploy/cloudflare
-        run: pnpm exec wrangler deploy
+        run: pnpm exec wrangler deploy --env="$WRANGLER_ENV"
 
       - name: Set runtime secrets
         working-directory: deploy/cloudflare
@@ -71,32 +119,32 @@ jobs:
             SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_PLACEHOLDER_STATUS,
             GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SENTRY_DSN
           } | with_entries(select(.value != null and .value != ""))' > /tmp/secrets.json
-          pnpm exec wrangler secret bulk /tmp/secrets.json
+          pnpm exec wrangler secret bulk /tmp/secrets.json --env="$WRANGLER_ENV"
           rm -f /tmp/secrets.json
 
       - name: Smoke test
         env:
+          HOST: ${{ steps.host.outputs.host }}
           REDIRECT_HOSTS: ${{ vars.ACADEMY_REDIRECT_HOSTS }}
         run: |
-          host=$(grep -oE '"ACADEMY_HOSTNAME": "[^"]+"' deploy/cloudflare/wrangler.jsonc | cut -d'"' -f4)
           # First request cold-starts both containers (migrations run on API start).
           for i in $(seq 1 30); do
-            curl -fsS "https://$host/api/health" && break
-            [ "$i" = 30 ] && { echo "::error::https://$host/api/health never came up"; exit 1; }
+            curl -fsS "https://$HOST/api/health" && break
+            [ "$i" = 30 ] && { echo "::error::https://$HOST/api/health never came up"; exit 1; }
             sleep 10
           done
           # The web container cold-starts separately: give it the same patience.
           for i in $(seq 1 30); do
-            curl -fsS -o /dev/null "https://$host/en" && break
-            [ "$i" = 30 ] && { echo "::error::https://$host/en never came up"; exit 1; }
+            curl -fsS -o /dev/null "https://$HOST/en" && break
+            [ "$i" = 30 ] && { echo "::error::https://$HOST/en never came up"; exit 1; }
             sleep 10
           done
           # Plain http never reaches the containers (private calendar feed URLs carry a token).
           code=$(curl -s -o /dev/null -w '%{http_code}' "http://$host/api/health" || true)
           [ "$code" = "301" ] || { echo "::error::http://$host returned $code, expected a 301 to https"; exit 1; }
           for alias in $(echo "$REDIRECT_HOSTS" | tr ',' ' '); do
-            [ "$alias" = "$host" ] && continue
+            [ "$alias" = "$HOST" ] && continue
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://$alias/en" || true)
-            [ "$code" = "301" ] || { echo "::error::$alias returned $code, expected a 301 to $host"; exit 1; }
+            [ "$code" = "301" ] || { echo "::error::$alias returned $code, expected a 301 to $HOST"; exit 1; }
           done
-          echo "Deployed: https://$host"
+          echo "Deployed $REF ($SHA) to $TARGET: https://$HOST" | tee -a "$GITHUB_STEP_SUMMARY"
