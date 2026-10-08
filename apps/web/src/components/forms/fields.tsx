@@ -92,6 +92,7 @@ export function TextAreaField({
   onChange,
   rows = 4,
   maxLength,
+  dir,
 }: {
   label: ReactNode;
   hint?: ReactNode;
@@ -101,12 +102,14 @@ export function TextAreaField({
   onChange: (v: string) => void;
   rows?: number;
   maxLength?: number;
+  dir?: 'rtl' | 'ltr' | 'auto';
 }) {
   return (
     <Field label={label} hint={hint} error={error} required={required}>
       {({ id, describedBy, invalid }) => (
         <textarea
           id={id}
+          dir={dir}
           rows={rows}
           maxLength={maxLength}
           className={`${inputClass} min-h-24`}

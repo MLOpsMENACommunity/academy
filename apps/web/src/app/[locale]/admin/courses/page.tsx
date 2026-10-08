@@ -77,7 +77,7 @@ export default function AdminCourses() {
                     </p>
                   </td>
                   <td className="p-3">
-                    <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : 'neutral'}>
+                    <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : c.status === 'COMING_SOON' ? 'info' : 'neutral'}>
                       {courseStatusLabels[c.status][locale]}
                     </Badge>
                   </td>

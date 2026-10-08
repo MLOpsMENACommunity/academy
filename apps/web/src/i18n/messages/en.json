@@ -88,7 +88,8 @@
       "phone": "Use international format with country code, e.g. +201001234567",
       "mustAccept": "You must accept this to continue.",
       "driveUrl": "Must be a Google Drive link (https://drive.google.com/…)",
-      "price": "Paid courses need a price above 0; free courses must be 0"
+      "price": "Paid courses need a price above 0; free courses must be 0",
+      "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only."
     }
   },
   "auth": {
@@ -354,7 +355,10 @@
     "share": "Share",
     "paidNote": "Paid by InstaPay or Vodafone Cash after you're accepted. See the {refund}.",
     "fit": "Is this course for you?",
-    "breadcrumbLabel": "Breadcrumb"
+    "breadcrumbLabel": "Breadcrumb",
+    "priceTba": "Price to be announced",
+    "preparation": "Before the course starts",
+    "sessionTopics": "Topics"
   },
   "apply": {
     "title": "Apply: {course}",
@@ -524,7 +528,8 @@
       "moveDown": "Move down",
       "remove": "Remove",
       "selectAll": "Select all",
-      "pagination": "Pagination"
+      "pagination": "Pagination",
+      "preview": "Preview"
     },
     "dashboard": {
       "pendingPayments": "Payments to review",
@@ -665,7 +670,11 @@
         "qEn": "Question (EN)",
         "qAr": "Question (AR)",
         "aEn": "Answer (EN)",
-        "aAr": "Answer (AR)"
+        "aAr": "Answer (AR)",
+        "preparationEn": "Before the course starts (English, markdown)",
+        "preparationAr": "Before the course starts (Arabic, markdown)",
+        "preparationHint": "Shown right after the prerequisites, e.g. setup steps. Leave empty to hide.",
+        "markdownHint": "Markdown: ## headings, - lists, **bold**, [links](https://…), ``` code blocks."
       },
       "driveWarning": "Share this folder ONLY with enrolled students' Google accounts. Never use \"Anyone with the link\": one student could forward it to everyone.",
       "driveChecklist": "In Drive → Share → Settings (gear), turn OFF \"Viewers and commenters can see the option to download, print, and copy\".",
@@ -715,7 +724,29 @@
       "minutes": "{count} min",
       "deleteSession": "Delete \"{title}\"? Students’ progress and feedback for this session are deleted too. This can’t be undone.",
       "accountDeleted": "Account deleted",
-      "markRemoved": "Done, I removed it"
+      "markRemoved": "Done, I removed it",
+      "instructorNameAr": "Instructor name (Arabic)",
+      "instructorTitleAr": "Instructor job title (Arabic)",
+      "instructorBioAr": "Instructor bio (Arabic)",
+      "instructorPhoto": "Photo URL",
+      "instructorShared": "Instructors are shared: changes show on every course they teach.",
+      "weekly": {
+        "title": "Add weekly sessions",
+        "help": "Creates one session per week at the same local time. Rename each session afterwards.",
+        "first": "First session (your local time)",
+        "count": "Number of sessions",
+        "skip": "Skip weeks (optional)",
+        "skipHint": "Week numbers with no session, e.g. 4 for a break week.",
+        "liveUrl": "Live link for all sessions (optional)",
+        "liveUrlHint": "You can set a different link per session afterwards.",
+        "create": "Create {count} sessions"
+      },
+      "duplicate": {
+        "button": "Duplicate",
+        "help": "Copies the content, questions, sessions and instructors into a new draft. Applications and students are not copied; live and recording links are cleared.",
+        "create": "Create copy",
+        "slugTaken": "Another course already uses this slug."
+      }
     },
     "settings": {
       "title": "Settings",

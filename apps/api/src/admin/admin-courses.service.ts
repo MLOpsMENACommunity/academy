@@ -71,6 +71,7 @@ export class AdminCoursesService {
       ...rest,
       targetAudience: rest.targetAudience as Json,
       notFor: rest.notFor as Json,
+      preparation: rest.preparation as Json,
       learningOutcomes: rest.learningOutcomes as Json,
       prerequisites: rest.prerequisites as Json,
       outline: rest.outline as Json,
@@ -197,6 +198,77 @@ export class AdminCoursesService {
     });
     await this.audit.log({ actorId: admin.id, action: 'session.created', entityType: 'CourseSession', entityId: created.id });
     return created;
+  }
+
+  async createSessions(courseId: string, list: SessionInput[], admin: Actor) {
+    await this.ensure(courseId);
+    const last = await this.prisma.courseSession.aggregate({ where: { courseId }, _max: { order: true } });
+    const start = (last._max.order ?? 0) + 1;
+    await this.prisma.courseSession.createMany({
+      data: list.map((s, i) => ({ ...this.sessionData(s), courseId, order: start + i })),
+    });
+    await this.audit.log({ actorId: admin.id, action: 'session.bulk_created', entityType: 'Course', entityId: courseId, metadata: { count: list.length } });
+    return this.prisma.courseSession.findMany({ where: { courseId }, orderBy: { order: 'asc' } });
+  }
+
+  /**
+   * Copies a course (content, questions, sessions, instructors) as a new DRAFT,
+   * e.g. for the next cohort. Applications, enrolments and feedback are not copied.
+   */
+  async duplicate(courseId: string, input: { slug: string; titleEn: string }, admin: Actor) {
+    const src = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: { screeningQuestions: true, sessions: true, instructors: true },
+    });
+    if (!src) throw new NotFoundException('Course not found');
+    const { id: _id, createdAt: _c, updatedAt: _u, archivedAt: _a, screeningQuestions, sessions, instructors, ...fields } = src;
+    try {
+      const copy = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.course.create({
+          data: {
+            ...(fields as unknown as Prisma.CourseCreateInput),
+            slug: input.slug,
+            titleEn: input.titleEn,
+            status: 'DRAFT',
+            targetAudience: fields.targetAudience as Json,
+            notFor: fields.notFor as Json,
+            preparation: fields.preparation as Json,
+            learningOutcomes: fields.learningOutcomes as Json,
+            prerequisites: fields.prerequisites as Json,
+            outline: fields.outline as Json,
+            faq: fields.faq as Json,
+            included: fields.included as Json,
+          },
+        });
+        if (screeningQuestions.length) {
+          await tx.screeningQuestion.createMany({
+            data: screeningQuestions.map(({ id: _q, courseId: _cid, ...q }) => ({
+              ...q,
+              options: (q.options ?? Prisma.JsonNull) as Json,
+              courseId: created.id,
+            })),
+          });
+        }
+        if (sessions.length) {
+          await tx.courseSession.createMany({
+            data: sessions.map(({ id: _s, courseId: _cid, createdAt: _sc, updatedAt: _su, ...s }) => ({
+              ...s,
+              materials: s.materials as Json,
+              // Links belong to the old cohort; the new one gets its own.
+              liveUrl: null,
+              recordingUrl: null,
+              courseId: created.id,
+            })),
+          });
+        }
+        await this.setInstructors(tx, created.id, instructors.sort((a, b) => a.order - b.order).map((i) => i.instructorId));
+        return created;
+      });
+      await this.audit.log({ actorId: admin.id, action: 'course.duplicated', entityType: 'Course', entityId: copy.id, metadata: { from: courseId } });
+      return { id: copy.id };
+    } catch (err) {
+      this.slugTaken(err);
+    }
   }
 
   async updateSession(courseId: string, sessionId: string, s: SessionInput, admin: Actor) {

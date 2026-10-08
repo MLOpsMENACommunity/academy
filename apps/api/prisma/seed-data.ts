@@ -2,428 +2,624 @@ import type { Prisma } from '@prisma/client';
 import type { FaqItem, Included, LocalizedList, LocalizedText, OutlineModule } from '@academy/shared';
 
 /**
- * Placeholder catalog content. Search for [PLACEHOLDER] to find everything
- * that must be replaced before launch.
+ * Launch catalog. Search for [PLACEHOLDER] to find content that must still be
+ * replaced. Times are UTC: Cairo is UTC+3 until 29 Oct 2026, then UTC+2, so
+ * "7:00 PM Cairo" is 16:00Z in October and 17:00Z in November.
  */
-
-const DAY = 24 * 60 * 60 * 1000;
-
-/** Next occurrence of 17:00 UTC (19:00 Cairo) at least `days` from now. */
-function at(daysFromNow: number): Date {
-  const d = new Date(Date.now() + daysFromNow * DAY);
-  d.setUTCHours(17, 0, 0, 0);
-  return d;
-}
 
 export interface SeedCourse {
   course: Omit<Prisma.CourseCreateInput, 'instructors' | 'screeningQuestions' | 'sessions'> & {
     targetAudience: LocalizedText;
     notFor: LocalizedText;
+    preparation: LocalizedText;
     learningOutcomes: LocalizedList;
     prerequisites: LocalizedList;
     outline: OutlineModule[];
     faq: FaqItem[];
     included: Included;
   };
-  instructor: Prisma.InstructorCreateInput;
+  /**
+   * Placeholder courses never go live by accident: in production they start as drafts
+   * unless SEED_PLACEHOLDER_STATUS says otherwise.
+   */
+  placeholder?: boolean;
+  instructor?: Prisma.InstructorCreateInput;
   questions: Omit<Prisma.ScreeningQuestionCreateWithoutCourseInput, 'order'>[];
   sessions: Omit<Prisma.CourseSessionCreateWithoutCourseInput, 'order'>[];
 }
 
-const yesNo = { type: 'YES_NO' as const };
+const PLAYLIST = 'https://www.youtube.com/playlist?list=PLfBN40jBVI-U';
 
-export const seedCourses: SeedCourse[] = [
-  // ------------------------------------------------------------------ Course 1
-  {
-    course: {
-      slug: 'ai-architecture-design',
-      titleEn: 'AI Architecture Design',
-      titleAr: 'تصميم معمارية أنظمة الذكاء الاصطناعي',
-      shortDescriptionEn:
-        'Design production LLM, RAG and agentic systems that are secure, governed and measurable. A 4-week live course for mid-level and senior engineers.',
-      shortDescriptionAr:
-        'صمّم أنظمة LLM وRAG وأنظمة الوكلاء (Agents) جاهزة للإنتاج، آمنة وقابلة للحوكمة والقياس. دورة مباشرة لمدة 4 أسابيع للمهندسين من المستوى المتوسط والخبراء.',
-      longDescriptionEn: `[PLACEHOLDER] Most teams can build an LLM demo in a weekend. Far fewer can run one in production for a year.
+// ------------------------------------------------------------------ AI Architecture Design
 
-This course is about the architecture decisions that separate the two: how to structure LLM systems, which RAG pattern fits which problem, when an agent is the right tool (and when it is not), and how to secure, govern and evaluate everything you ship.
+const aiArchitecture: SeedCourse = {
+  course: {
+    slug: 'ai-architecture-design',
+    titleEn: 'AI Architecture Design',
+    titleAr: 'تصميم معمارية أنظمة الذكاء الاصطناعي',
+    shortDescriptionEn:
+      'Design production-grade AI systems: LLMs, RAG, agents, security and evaluation, from whiteboard to enterprise. Free, 6 live sessions on Sundays, with a certificate.',
+    shortDescriptionAr:
+      'صمّم أنظمة ذكاء اصطناعي جاهزة للإنتاج: نماذج اللغة الكبيرة (LLMs) وRAG والوكلاء (Agents) والأمن والتقييم، من السبورة إلى المؤسسة. مجانية، 6 جلسات مباشرة أيام الأحد، مع شهادة.',
+    longDescriptionEn: `Most engineers can now build a RAG app or an AI agent in a day. Far fewer can design one that survives real traffic, real security reviews, real budgets and real regulators.
 
-Each week has a live session with a senior practitioner. Sessions are recorded and uploaded to YouTube, but live attendees can ask the instructor questions directly, so try to join live.`,
-      longDescriptionAr: `[PLACEHOLDER] يستطيع معظم الفرق بناء نموذج تجريبي لـ LLM في عطلة نهاية أسبوع، لكن القليل منها يستطيع تشغيله في بيئة الإنتاج لمدة عام.
+This course teaches you to think and work like an AI architect. You'll learn to turn a vague business request into a defensible architecture: choose models with evidence, design retrieval that fits your documents and languages, add agents only where they earn their place, threat-model the system, and prove it works with evaluations and monitoring.
 
-تركز هذه الدورة على القرارات المعمارية التي تصنع هذا الفرق: كيف تُبنى أنظمة LLM، وأي نمط من أنماط RAG يناسب أي مشكلة، ومتى يكون الوكيل (Agent) هو الأداة الصحيحة ومتى لا يكون، وكيف تؤمّن وتحكم وتقيّم كل ما تطلقه.
+You'll learn from real enterprise systems in telecom, e-commerce and government. Throughout the course you build one complete architecture, which becomes your capstone project.
 
-كل أسبوع جلسة مباشرة مع خبير ممارس. تُسجَّل الجلسات وتُرفع على YouTube، لكن الحضور المباشر يتيح لك طرح أسئلتك على المحاضر مباشرة، لذا حاول الحضور مباشرة.`,
-      type: 'FREE',
-      price: 0,
-      currency: 'EGP',
-      requiresApproval: true,
-      capacity: 150,
-      status: 'OPEN',
-      level: 'ADVANCED',
-      language: 'BILINGUAL',
-      startDate: at(14),
-      applicationDeadline: at(10),
-      durationWeeks: 4,
-      hoursPerWeek: 4,
-      deliveryPlatform: 'GOOGLE_MEET',
-      recordingsPlatform: 'YOUTUBE',
-      youtubePlaylistUrl: 'https://www.youtube.com/@MLOpsMENACommunity/playlists',
-      targetAudience: {
-        en: 'Mid-level and senior engineers (software, ML, data, platform) who build or will soon build LLM-powered systems at work, and tech leads who need to make architecture calls on them.',
-        ar: 'المهندسون من المستوى المتوسط والخبراء (برمجيات، تعلم آلة، بيانات، منصات) الذين يبنون أو سيبنون قريبًا أنظمة تعتمد على LLM في عملهم، وقادة الفرق التقنية الذين يتخذون القرارات المعمارية بشأنها.',
-      },
-      notFor: {
-        en: 'Complete beginners to programming or machine learning, and anyone looking for a prompt-engineering or no-code course.',
-        ar: 'المبتدئون تمامًا في البرمجة أو تعلم الآلة، ومن يبحث عن دورة في هندسة الأوامر (Prompt Engineering) أو أدوات بدون كود.',
-      },
-      learningOutcomes: {
-        en: [
-          'Choose and justify an architecture for an LLM system given real constraints (latency, cost, data sensitivity)',
-          'Compare RAG patterns and pick the right one for a retrieval problem',
-          'Decide when an agentic design is warranted, and bound its failure modes',
-          'Apply security, governance and evaluation practices before going to production',
-          'Learn from enterprise case studies what actually breaks at scale',
-        ],
-        ar: [
-          'اختيار معمارية لنظام LLM وتبريرها وفق قيود حقيقية (زمن الاستجابة، التكلفة، حساسية البيانات)',
-          'المقارنة بين أنماط RAG واختيار النمط المناسب لمشكلة الاسترجاع',
-          'تحديد متى يكون تصميم الوكلاء (Agents) مبررًا، وكيف تُضبط أنماط فشله',
-          'تطبيق ممارسات الأمن والحوكمة والتقييم قبل الإطلاق في بيئة الإنتاج',
-          'التعلم من دراسات حالة مؤسسية عمّا ينكسر فعلًا عند التوسع',
-        ],
-      },
-      prerequisites: {
-        en: [
-          '3+ years building production software or ML systems',
-          'Comfortable reading Python and system design diagrams',
-          'Have called an LLM API at least once',
-        ],
-        ar: [
-          'خبرة 3 سنوات أو أكثر في بناء برمجيات أو أنظمة تعلم آلة في بيئة الإنتاج',
-          'إلمام بقراءة كود Python ومخططات تصميم الأنظمة',
-          'استخدام واجهة برمجية (API) لـ LLM مرة واحدة على الأقل',
-        ],
-      },
-      outline: [
-        {
-          titleEn: 'LLM systems architecture',
-          titleAr: 'معمارية أنظمة LLM',
-          descriptionEn: 'Gateways, routing, caching, model choice and the cost/latency trade-offs.',
-          descriptionAr: 'البوابات والتوجيه والتخزين المؤقت واختيار النموذج، والموازنة بين التكلفة وزمن الاستجابة.',
-        },
-        {
-          titleEn: 'RAG architectures',
-          titleAr: 'معماريات RAG',
-          descriptionEn: 'Chunking, hybrid search, re-ranking, and when RAG is the wrong answer.',
-          descriptionAr: 'التقطيع والبحث الهجين وإعادة الترتيب، ومتى لا يكون RAG هو الحل.',
-        },
-        {
-          titleEn: 'Agentic systems',
-          titleAr: 'أنظمة الوكلاء (Agents)',
-          descriptionEn: 'Tool use, planning, multi-agent patterns and how to keep them bounded.',
-          descriptionAr: 'استخدام الأدوات والتخطيط وأنماط تعدد الوكلاء، وكيف تبقيها تحت السيطرة.',
-        },
-        {
-          titleEn: 'Security, governance and evaluations',
-          titleAr: 'الأمن والحوكمة والتقييم',
-          descriptionEn: 'Prompt injection, data leakage, policy, and building an evaluation suite.',
-          descriptionAr: 'حقن الأوامر وتسرب البيانات والسياسات، وبناء منظومة تقييم.',
-        },
-        {
-          titleEn: 'Enterprise case studies',
-          titleAr: 'دراسات حالة مؤسسية',
-          descriptionEn: 'What worked and what failed in real deployments across the region.',
-          descriptionAr: 'ما الذي نجح وما الذي فشل في مشاريع حقيقية في المنطقة.',
-        },
-      ],
-      faq: [
-        {
-          questionEn: 'Is the course really free?',
-          questionAr: 'هل الدورة مجانية فعلًا؟',
-          answerEn: 'Yes. Applicants are screened because live seats are limited, but there is no fee.',
-          answerAr: 'نعم. تتم مراجعة الطلبات لأن المقاعد المباشرة محدودة، لكن لا توجد أي رسوم.',
-        },
-        {
-          questionEn: 'What if I miss a live session?',
-          questionAr: 'ماذا لو فاتتني جلسة مباشرة؟',
-          answerEn: 'Every session is recorded and uploaded to YouTube, usually within 48 hours.',
-          answerAr: 'تُسجَّل كل جلسة وتُرفع على YouTube عادةً خلال 48 ساعة.',
-        },
-        {
-          questionEn: 'How do I get the certificate?',
-          questionAr: 'كيف أحصل على الشهادة؟',
-          answerEn:
-            'Weekly assignments are optional, but the final project is mandatory for the certificate.',
-          answerAr: 'الواجبات الأسبوعية اختيارية، لكن المشروع النهائي إلزامي للحصول على الشهادة.',
-        },
-      ],
-      included: {
-        liveSessions: true,
-        recordings: true,
-        assignments: true,
-        finalProject: true,
-        certificate: true,
-        notesEn:
-          'Assignments after each session are optional. A final project is mandatory to earn the certificate.',
-        notesAr: 'الواجبات بعد كل جلسة اختيارية. المشروع النهائي إلزامي للحصول على الشهادة.',
-      },
+## How the course works
+
+- **Live sessions on Google Meet**, every Sunday 7:00–8:30 PM Cairo time
+- **Every lecture is recorded** and uploaded to YouTube. [Watch the playlist →](${PLAYLIST})
+- **Live Q&A with the instructor**: attending live lets you put questions about your own architecture to someone with 20+ years in the field
+- **A short quiz after every session** to lock in what you learned (links shared after each session)
+- **One GitHub repository for the whole course**, which holds your assignments and capstone
+- **Study groups on Telegram** for questions, peer reviews and announcements (link announced soon)
+
+There's a midpoint break week after Session 3 (8–14 Nov): no live session, but a Midpoint Quiz on Sessions 1–3 and the first half of your capstone, due Saturday 14 Nov for feedback.
+
+## Certificate requirements
+
+To earn the AI Architecture Design certificate, complete all three:
+
+1. **All session quizzes**, one after each of the 6 sessions
+2. **The Midpoint Quiz** in the break week (8–14 Nov)
+3. **The final capstone project**, submitted by **Sunday 13 Dec 2026** with a score of **70/100 or higher**
+
+Assignments after each session are optional, but each one becomes a section of your capstone, so doing them makes the final project much easier.
+
+## The capstone
+
+Design a complete, production-grade architecture for an enterprise AI system in telecom, e-commerce, government, or your own approved domain. It includes an architecture document, C4 diagrams, ADRs, a cost estimate, a threat model, and an evaluation and monitoring plan. A small proof of concept earns bonus points.
+
+Quiz links, the Assignments & Capstone Handbook and the submission forms are shared on your course page as the course progresses.`,
+    longDescriptionAr: `يستطيع معظم المهندسين اليوم بناء تطبيق RAG أو وكيل ذكاء اصطناعي (Agent) في يوم واحد، لكن القليل منهم يستطيع تصميم نظام يصمد أمام حركة استخدام حقيقية، ومراجعات أمنية حقيقية، وميزانيات حقيقية، وجهات تنظيمية حقيقية.
+
+تعلّمك هذه الدورة أن تفكر وتعمل كمعماري أنظمة ذكاء اصطناعي. ستتعلم كيف تحوّل طلبًا غامضًا من جهة العمل إلى معمارية يمكن الدفاع عنها: تختار النماذج بالأدلة، وتصمم استرجاعًا يناسب مستنداتك ولغاتك، وتضيف الوكلاء فقط حيث يستحقون مكانهم، وتحلل التهديدات الأمنية للنظام، وتثبت أنه يعمل من خلال التقييم والمراقبة.
+
+ستتعلم من أنظمة مؤسسية حقيقية في قطاعات الاتصالات والتجارة الإلكترونية والقطاع الحكومي. وعلى مدار الدورة تبني معمارية واحدة متكاملة تصبح مشروعك الختامي.
+
+## كيف تسير الدورة
+
+- **جلسات مباشرة على Google Meet** كل أحد من 7:00 إلى 8:30 مساءً بتوقيت القاهرة
+- **تُسجَّل كل محاضرة** وتُرفع على YouTube. [شاهد قائمة التشغيل ←](${PLAYLIST})
+- **أسئلة وأجوبة مباشرة مع المحاضر**: يتيح لك الحضور المباشر طرح أسئلة عن معمارية نظامك على خبير بأكثر من 20 عامًا في المجال
+- **اختبار قصير بعد كل جلسة** لتثبيت ما تعلمته (تُشارك الروابط بعد كل جلسة)
+- **مستودع GitHub واحد للدورة كاملة** يضم واجباتك ومشروعك الختامي
+- **مجموعات دراسة على Telegram** للأسئلة ومراجعات الزملاء والإعلانات (يُعلن الرابط قريبًا)
+
+بعد الجلسة الثالثة أسبوع استراحة في منتصف الدورة (8–14 نوفمبر): لا توجد جلسة مباشرة، لكن هناك اختبار منتصف الدورة على الجلسات 1–3 والنصف الأول من مشروعك الختامي، ويُسلَّم يوم السبت 14 نوفمبر للحصول على ملاحظات.
+
+## متطلبات الشهادة
+
+للحصول على شهادة تصميم معمارية أنظمة الذكاء الاصطناعي، أكمل الثلاثة التالية:
+
+1. **جميع اختبارات الجلسات**، اختبار بعد كل جلسة من الجلسات الست
+2. **اختبار منتصف الدورة** في أسبوع الاستراحة (8–14 نوفمبر)
+3. **المشروع الختامي**، ويُسلَّم قبل **الأحد 13 ديسمبر 2026** بدرجة **70/100 أو أعلى**
+
+الواجبات بعد كل جلسة اختيارية، لكن كل واجب يصبح جزءًا من مشروعك الختامي، لذا فإن إنجازها يجعل المشروع النهائي أسهل كثيرًا.
+
+## المشروع الختامي
+
+صمّم معمارية متكاملة جاهزة للإنتاج لنظام ذكاء اصطناعي مؤسسي في قطاع الاتصالات أو التجارة الإلكترونية أو القطاع الحكومي، أو في مجال تختاره ونوافق عليه. يتضمن المشروع وثيقة معمارية، ومخططات C4، وسجلات قرارات معمارية (ADRs)، وتقديرًا للتكلفة، وتحليلًا للتهديدات، وخطة للتقييم والمراقبة. ويحصل النموذج الأولي الصغير (Proof of Concept) على درجات إضافية.
+
+تُشارك روابط الاختبارات ودليل الواجبات والمشروع الختامي ونماذج التسليم على صفحة الدورة الخاصة بك مع تقدم الدورة.`,
+    type: 'FREE',
+    price: 0,
+    currency: 'EGP',
+    requiresApproval: true,
+    // "Seats are limited": set a number in the admin panel once you know it.
+    capacity: null,
+    status: 'OPEN',
+    level: 'ADVANCED',
+    language: 'BILINGUAL',
+    startDate: new Date('2026-10-18T16:00:00Z'),
+    // Saturday 17 Oct 2026, 23:59 Cairo (UTC+3).
+    applicationDeadline: new Date('2026-10-17T20:59:00Z'),
+    durationWeeks: 7,
+    hoursPerWeek: 5,
+    deliveryPlatform: 'GOOGLE_MEET',
+    recordingsPlatform: 'YOUTUBE',
+    youtubePlaylistUrl: PLAYLIST,
+    targetAudience: {
+      en: 'Mid-level and senior engineers (3+ years) in AI, ML, MLOps, backend or platform roles; engineers moving toward tech lead, staff or architect roles; and engineers who have built RAG apps or agents and want to design them for production at enterprise scale.',
+      ar: 'المهندسون من المستوى المتوسط والخبراء (3 سنوات أو أكثر) في مجالات الذكاء الاصطناعي وتعلم الآلة وMLOps والـ Backend والمنصات؛ والمهندسون المتجهون إلى أدوار قائد تقني أو Staff أو معماري؛ والمهندسون الذين بنوا تطبيقات RAG أو وكلاء ويريدون تصميمها للإنتاج على مستوى المؤسسات.',
     },
-    instructor: {
-      name: '[PLACEHOLDER] Guest Instructor',
-      nameAr: '[PLACEHOLDER] المحاضر الضيف',
-      titleEn: 'Head of AI',
-      titleAr: 'رئيس قسم الذكاء الاصطناعي',
-      bioEn:
-        '[PLACEHOLDER] Head of AI with 20+ years of experience building data and AI platforms for enterprises across the MENA region.',
-      bioAr:
-        '[PLACEHOLDER] رئيس قسم الذكاء الاصطناعي بخبرة تتجاوز 20 عامًا في بناء منصات البيانات والذكاء الاصطناعي للمؤسسات في منطقة الشرق الأوسط وشمال أفريقيا.',
+    notFor: {
+      en: 'Beginners. Applications go through a short screening so everyone in the room is at a similar level and the discussions stay deep. Earlier in your career? Follow the recordings on YouTube and apply to a future cohort.',
+      ar: 'المبتدئون. تمر الطلبات بمراجعة قصيرة ليكون الجميع في مستوى متقارب وتبقى النقاشات عميقة. إن كنت في بداية مسيرتك، تابع التسجيلات على YouTube وقدّم على دفعة قادمة.',
     },
-    questions: [
+    preparation: {
+      en: `### Before Session 1: create your course repository
+
+Create **one public GitHub repository** for the whole course. Every assignment, diagram, decision record and your capstone will live there. By the end of the course it's a portfolio you can show in interviews.
+
+**Name it:** \`ai-architecture-portfolio\`
+
+Use this structure:
+
+\`\`\`text
+ai-architecture-portfolio/
+├── README.md        # your scenario, assumptions, how to read the repo
+├── docs/            # one file per session: 01-framing.md, 02-building-blocks.md ...
+├── diagrams/        # exported PNG/SVG + source files
+├── adr/             # one file per decision: 0001-model-hosting.md ...
+└── capstone/        # final architecture PDF + slides
+\`\`\`
+
+**Then:** post your repo link in the course study group before **Sunday 18 Oct**. Each session adds a new file to \`docs/\`, so your commit history shows your progress through the course.`,
+      ar: `### قبل الجلسة الأولى: أنشئ مستودع الدورة
+
+أنشئ **مستودعًا عامًا واحدًا على GitHub** للدورة كاملة. سيضم كل واجب ومخطط وسجل قرار معماري ومشروعك الختامي. وبنهاية الدورة يصبح ملف أعمال (Portfolio) يمكنك عرضه في مقابلات العمل.
+
+**اسم المستودع:** \`ai-architecture-portfolio\`
+
+استخدم هذا الهيكل:
+
+\`\`\`text
+ai-architecture-portfolio/
+├── README.md        # your scenario, assumptions, how to read the repo
+├── docs/            # one file per session: 01-framing.md, 02-building-blocks.md ...
+├── diagrams/        # exported PNG/SVG + source files
+├── adr/             # one file per decision: 0001-model-hosting.md ...
+└── capstone/        # final architecture PDF + slides
+\`\`\`
+
+**بعد ذلك:** انشر رابط مستودعك في مجموعة الدراسة الخاصة بالدورة قبل **الأحد 18 أكتوبر**. تضيف كل جلسة ملفًا جديدًا إلى مجلد \`docs/\`، فيُظهر سجل الـ commits تقدّمك خلال الدورة.`,
+    },
+    learningOutcomes: {
+      en: [
+        'Turn a business problem into a scoped architecture with measurable quality targets',
+        'Design and communicate systems with C4 diagrams and Architecture Decision Records',
+        'Choose between API and self-hosted LLMs with evidence, not leaderboards',
+        'Design RAG pipelines for real documents, Arabic and English, and access control',
+        'Decide when an agent is justified, and design its tools, memory, approvals and guardrails',
+        'Threat-model AI systems: prompt injection, data leakage, tool misuse',
+        "Apply regional compliance (Saudi PDPL, Egypt's Data Protection Law, UAE PDPL)",
+        'Build evaluation and monitoring plans with release gates and rollback criteria',
+        'Learn the real trade-offs behind enterprise AI systems in production',
+      ],
+      ar: [
+        'تحويل مشكلة من جهة العمل إلى معمارية محددة النطاق بأهداف جودة قابلة للقياس',
+        'تصميم الأنظمة وشرحها باستخدام مخططات C4 وسجلات القرارات المعمارية (ADRs)',
+        'الاختيار بين نماذج LLM عبر API والنماذج المستضافة ذاتيًا بالأدلة، لا بجداول الترتيب',
+        'تصميم مسارات RAG لمستندات حقيقية، بالعربية والإنجليزية، مع التحكم في الوصول',
+        'تحديد متى يكون الوكيل (Agent) مبررًا، وتصميم أدواته وذاكرته وموافقاته وضوابطه',
+        'تحليل التهديدات الأمنية لأنظمة الذكاء الاصطناعي: حقن الأوامر وتسرب البيانات وإساءة استخدام الأدوات',
+        'تطبيق متطلبات الامتثال الإقليمية (نظام حماية البيانات الشخصية السعودي، وقانون حماية البيانات الشخصية المصري، وقانون حماية البيانات الإماراتي)',
+        'بناء خطط للتقييم والمراقبة مع بوابات للإطلاق ومعايير للتراجع',
+        'فهم الموازنات الحقيقية وراء أنظمة الذكاء الاصطناعي المؤسسية في بيئة الإنتاج',
+      ],
+    },
+    prerequisites: {
+      en: [
+        '2+ years building software or ML systems in a team',
+        'At least one service, API or model shipped to real users',
+        'Comfortable with Python, REST APIs and basic cloud concepts (containers, managed databases)',
+        'Hands-on exposure to LLMs (API calls, prompting, or a simple RAG)',
+      ],
+      ar: [
+        'خبرة سنتين أو أكثر في بناء برمجيات أو أنظمة تعلم آلة ضمن فريق',
+        'إطلاق خدمة أو واجهة برمجية (API) أو نموذج واحد على الأقل لمستخدمين حقيقيين',
+        'إلمام بـ Python وواجهات REST ومفاهيم السحابة الأساسية (الحاويات، قواعد البيانات المُدارة)',
+        'تجربة عملية مع نماذج LLM (استدعاءات API، كتابة الأوامر، أو تطبيق RAG بسيط)',
+      ],
+    },
+    outline: [
       {
-        type: 'LONG_TEXT',
-        labelEn: 'What is your current role, and what are you responsible for?',
-        labelAr: 'ما دورك الحالي، وما المسؤوليات التي تتولاها؟',
-        required: true,
+        titleEn: 'Architecture Views, Steps and Process',
+        titleAr: 'المناظير المعمارية والخطوات والعملية',
+        descriptionEn: 'Sun 18 Oct. Frame the system before you design it.',
+        descriptionAr: 'الأحد 18 أكتوبر. حدّد إطار النظام قبل أن تصممه.',
       },
       {
-        type: 'SINGLE_SELECT',
-        labelEn: 'Years of hands-on experience building production systems',
-        labelAr: 'سنوات الخبرة العملية في بناء أنظمة في بيئة الإنتاج',
-        options: [
-          { value: 'lt2', labelEn: 'Less than 2', labelAr: 'أقل من سنتين' },
-          { value: '2_5', labelEn: '2–5', labelAr: '2–5' },
-          { value: '5_10', labelEn: '5–10', labelAr: '5–10' },
-          { value: '10plus', labelEn: '10+', labelAr: 'أكثر من 10' },
-        ],
-        required: true,
+        titleEn: 'AI System Building Blocks',
+        titleAr: 'المكونات الأساسية لأنظمة الذكاء الاصطناعي',
+        descriptionEn: 'Sun 25 Oct. From data pipelines to serving, and what it costs.',
+        descriptionAr: 'الأحد 25 أكتوبر. من مسارات البيانات إلى تقديم النماذج، وكم يكلّف ذلك.',
       },
       {
-        ...yesNo,
-        labelEn: 'Have you deployed an LLM or RAG system to production?',
-        labelAr: 'هل سبق أن أطلقت نظام LLM أو RAG في بيئة الإنتاج؟',
-        required: true,
+        titleEn: 'LLM & RAG Architecture',
+        titleAr: 'معمارية LLM وRAG',
+        descriptionEn: 'Sun 1 Nov. Choosing models with evidence and designing retrieval that works.',
+        descriptionAr: 'الأحد 1 نوفمبر. اختيار النماذج بالأدلة وتصميم استرجاع يعمل فعلًا.',
       },
       {
-        type: 'LONG_TEXT',
-        labelEn: 'If yes, briefly describe it (scale, stack, what went wrong).',
-        labelAr: 'إذا كانت الإجابة نعم، صفه باختصار (الحجم، التقنيات، وما الذي واجهته من مشكلات).',
-        required: false,
+        titleEn: 'Midpoint break: Midpoint Quiz + Capstone Part 1',
+        titleAr: 'استراحة منتصف الدورة: اختبار المنتصف + الجزء الأول من المشروع الختامي',
+        descriptionEn:
+          '8–14 Nov. No live session. Midpoint Quiz on Sessions 1–3, and Capstone Checkpoint 1 (framing, quality attributes, C4 diagrams, building blocks, cost estimate, LLM/RAG design) due Sat 14 Nov.',
+        descriptionAr:
+          '8–14 نوفمبر. لا توجد جلسة مباشرة. اختبار منتصف الدورة على الجلسات 1–3، وتسليم المرحلة الأولى من المشروع الختامي (الإطار، وسمات الجودة، ومخططات C4، والمكونات الأساسية، وتقدير التكلفة، وتصميم LLM/RAG) يوم السبت 14 نوفمبر.',
       },
       {
-        type: 'LONG_TEXT',
-        labelEn: 'What do you want to get from this course?',
-        labelAr: 'ما الذي تريد أن تحققه من هذه الدورة؟',
-        required: true,
+        titleEn: 'Agentic AI Architecture',
+        titleAr: 'معمارية أنظمة الوكلاء (Agentic AI)',
+        descriptionEn: "Sun 15 Nov. Agents that earn their place, and can't do damage.",
+        descriptionAr: 'الأحد 15 نوفمبر. وكلاء يستحقون مكانهم، ولا يستطيعون إحداث ضرر.',
       },
       {
-        ...yesNo,
-        labelEn: 'Can you commit to attending the live sessions and submitting a final project?',
-        labelAr: 'هل يمكنك الالتزام بحضور الجلسات المباشرة وتسليم مشروع نهائي؟',
-        required: true,
+        titleEn: 'Security, Governance, Evals',
+        titleAr: 'الأمن والحوكمة والتقييم',
+        descriptionEn: "Sun 22 Nov. Prove it's safe to ship, and know when it breaks.",
+        descriptionAr: 'الأحد 22 نوفمبر. أثبت أن النظام آمن للإطلاق، واعرف متى يتعطل.',
+      },
+      {
+        titleEn: 'Enterprise Case Studies',
+        titleAr: 'دراسات حالة مؤسسية',
+        descriptionEn: "Sun 29 Nov. How real systems were designed, and what we'd change.",
+        descriptionAr: 'الأحد 29 نوفمبر. كيف صُممت أنظمة حقيقية، وما الذي كنا سنغيّره.',
+      },
+      {
+        titleEn: 'Capstone submission',
+        titleAr: 'تسليم المشروع الختامي',
+        descriptionEn: 'Due Sun 13 Dec 2026. A score of 70/100 or higher is required for the certificate.',
+        descriptionAr: 'آخر موعد الأحد 13 ديسمبر 2026. يلزم الحصول على 70/100 أو أعلى لنيل الشهادة.',
       },
     ],
-    sessions: [
+    faq: [
       {
-        titleEn: '[PLACEHOLDER] LLM systems architecture',
-        titleAr: '[PLACEHOLDER] معمارية أنظمة LLM',
-        startsAt: at(14),
-        durationMin: 120,
-        liveUrl: 'https://meet.google.com/aaa-bbbb-ccc',
-        recordingUrl: null,
+        questionEn: 'Is the course really free?',
+        questionAr: 'هل الدورة مجانية فعلًا؟',
+        answerEn: "Yes. There's no fee and no payment. Because seats are limited, every application goes through a short screening form.",
+        answerAr: 'نعم. لا توجد أي رسوم أو مدفوعات. ولأن المقاعد محدودة، يمر كل طلب بنموذج مراجعة قصير.',
       },
       {
-        titleEn: '[PLACEHOLDER] RAG architectures',
-        titleAr: '[PLACEHOLDER] معماريات RAG',
-        startsAt: at(21),
-        durationMin: 120,
-        liveUrl: 'https://meet.google.com/aaa-bbbb-ccc',
+        questionEn: 'When does registration close?',
+        questionAr: 'متى يُغلق التسجيل؟',
+        answerEn: 'Saturday, 17 October 2026, the day before Session 1.',
+        answerAr: 'يوم السبت 17 أكتوبر 2026، قبل الجلسة الأولى بيوم.',
       },
       {
-        titleEn: '[PLACEHOLDER] Agentic systems',
-        titleAr: '[PLACEHOLDER] أنظمة الوكلاء',
-        startsAt: at(28),
-        durationMin: 120,
-        liveUrl: 'https://meet.google.com/aaa-bbbb-ccc',
+        questionEn: "I'm a junior engineer. Can I join?",
+        questionAr: 'أنا مهندس مبتدئ. هل يمكنني الانضمام؟',
+        answerEn:
+          "This course is built for mid-level and senior engineers. If you're earlier in your career, follow the recordings on YouTube and apply to a future cohort.",
+        answerAr: 'صُممت هذه الدورة للمهندسين من المستوى المتوسط والخبراء. إن كنت في بداية مسيرتك، تابع التسجيلات على YouTube وقدّم على دفعة قادمة.',
       },
       {
-        titleEn: '[PLACEHOLDER] Security, governance, evals and case studies',
-        titleAr: '[PLACEHOLDER] الأمن والحوكمة والتقييم ودراسات الحالة',
-        startsAt: at(35),
-        durationMin: 120,
-        liveUrl: 'https://meet.google.com/aaa-bbbb-ccc',
+        questionEn: 'Do I need to write code?',
+        questionAr: 'هل أحتاج إلى كتابة كود؟',
+        answerEn:
+          'No code is required. This is an architecture course: you design, document and defend systems. A small proof of concept in the capstone is optional bonus work.',
+        answerAr:
+          'لا يلزم كتابة أي كود. هذه دورة في المعمارية: تصمم الأنظمة وتوثقها وتدافع عن قراراتها. والنموذج الأولي الصغير في المشروع الختامي عمل إضافي اختياري.',
+      },
+      {
+        questionEn: 'Do I need a GitHub account?',
+        questionAr: 'هل أحتاج إلى حساب على GitHub؟',
+        answerEn:
+          "Yes. You'll keep all your course work in one public GitHub repository. Create it before Session 1. No coding is needed: it holds your Markdown documents and diagrams.",
+        answerAr:
+          'نعم. ستحفظ كل أعمال الدورة في مستودع عام واحد على GitHub. أنشئه قبل الجلسة الأولى. لا يلزم أي كود: سيضم مستندات Markdown ومخططاتك.',
+      },
+      {
+        questionEn: 'What if I miss a session?',
+        questionAr: 'ماذا لو فاتتني جلسة؟',
+        answerEn: "Every session is on YouTube afterwards. Watch it and complete that session's quiz. Quizzes are required for the certificate.",
+        answerAr: 'تُرفع كل جلسة على YouTube بعد انتهائها. شاهدها وأكمل اختبار تلك الجلسة. الاختبارات مطلوبة للحصول على الشهادة.',
+      },
+      {
+        questionEn: 'Are the assignments mandatory?',
+        questionAr: 'هل الواجبات إلزامية؟',
+        answerEn: 'No. Assignments are optional. The session quizzes, the Midpoint Quiz and the capstone project are required for the certificate.',
+        answerAr: 'لا. الواجبات اختيارية. أما اختبارات الجلسات واختبار منتصف الدورة والمشروع الختامي فهي مطلوبة للحصول على الشهادة.',
+      },
+      {
+        questionEn: 'How long does it take per week?',
+        questionAr: 'كم تستغرق الدورة أسبوعيًا؟',
+        answerEn: 'Plan for about 4–5 hours per week: the 1.5-hour live session, the quiz, and time on your assignment or capstone.',
+        answerAr: 'خطط لنحو 4–5 ساعات أسبوعيًا: الجلسة المباشرة لمدة ساعة ونصف، والاختبار، ووقت للعمل على واجبك أو مشروعك الختامي.',
+      },
+      {
+        questionEn: 'Where do I ask questions between sessions?',
+        questionAr: 'أين أطرح أسئلتي بين الجلسات؟',
+        answerEn: 'In the course study groups on Telegram. The link will be announced soon.',
+        answerAr: 'في مجموعات الدراسة الخاصة بالدورة على Telegram. سيُعلن الرابط قريبًا.',
+      },
+      {
+        questionEn: 'Who organises the course?',
+        questionAr: 'من ينظم الدورة؟',
+        answerEn: 'MLOps MENA Community, a bilingual Arabic/English community for ML and AI practitioners across the MENA region.',
+        answerAr: 'مجتمع MLOps MENA، وهو مجتمع ثنائي اللغة (العربية والإنجليزية) لممارسي تعلم الآلة والذكاء الاصطناعي في منطقة الشرق الأوسط وشمال أفريقيا.',
       },
     ],
+    included: {
+      liveSessions: true,
+      recordings: true,
+      assignments: true,
+      finalProject: true,
+      certificate: true,
+      notesEn:
+        'Session quizzes, the Midpoint Quiz and the capstone (70/100 or higher) are required for the certificate. Assignments are optional and build up your capstone.',
+      notesAr:
+        'اختبارات الجلسات واختبار منتصف الدورة والمشروع الختامي (70/100 أو أعلى) مطلوبة للحصول على الشهادة. الواجبات اختيارية وتبني مشروعك الختامي تدريجيًا.',
+    },
   },
+  instructor: {
+    name: 'Eng. Sameh Amin',
+    nameAr: 'م. سامح أمين',
+    titleEn: 'Head of Artificial Intelligence, Unifonic',
+    titleAr: 'رئيس قسم الذكاء الاصطناعي في Unifonic',
+    bioEn: `Sameh has over 20 years in software and AI engineering and nearly a decade building AI organisations and production AI systems across the Middle East and Europe.
 
-  // ------------------------------------------------------------------ Course 2
-  {
-    course: {
-      slug: 'kubernetes',
-      titleEn: 'Kubernetes for ML Engineers',
-      titleAr: 'Kubernetes لمهندسي تعلم الآلة',
-      shortDescriptionEn:
-        'From containers to a production ML model service on Kubernetes: core objects, networking, config, storage, autoscaling and GPUs.',
-      shortDescriptionAr:
-        'من الحاويات إلى خدمة نموذج تعلم آلة في بيئة الإنتاج على Kubernetes: الكائنات الأساسية والشبكات والإعدادات والتخزين والتوسع التلقائي ووحدات GPU.',
-      longDescriptionEn: `[PLACEHOLDER] Kubernetes is where most ML models end up in production, and where many ML engineers feel least at home.
+At Unifonic, he founded the AI department from scratch. He launched an Arabic/English NLP engine, built a real-time SMS classifier processing 5,000 messages per second, and scaled AI to 6 squads of 20+ engineers delivering RAG, summarisation and text-generation services. He now leads Unifonic's agentic AI startup, which lets customers build working agents in under an hour.
 
-Over six live sessions you will go from a Docker refresher to deploying, scaling and operating a model-serving workload on a real cluster. Every session is hands-on.`,
-      longDescriptionAr: `[PLACEHOLDER] ينتهي المطاف بمعظم نماذج تعلم الآلة في بيئة الإنتاج على Kubernetes، وهو المكان الذي يشعر فيه كثير من مهندسي تعلم الآلة بأقل قدر من الألفة.
+Before Unifonic, at DocuSign he designed an AI contract-negotiation system processing 100K+ contracts. At Etisalat he delivered the company's first NLP chatbot, a recommendation engine that lifted digital engagement by 70%, OCR document automation, and deep-learning face login.
 
-على مدار ست جلسات مباشرة ستنتقل من مراجعة Docker إلى نشر خدمة لتقديم نموذج وتوسيعها وتشغيلها على Cluster حقيقي. كل جلسة عملية بالكامل.`,
-      type: 'PAID',
-      price: 0, // [PLACEHOLDER] price in EGP
-      currency: 'EGP',
-      requiresApproval: true,
-      capacity: 40,
-      status: 'OPEN',
-      level: 'INTERMEDIATE',
-      language: 'AR',
-      startDate: at(21),
-      applicationDeadline: at(16),
-      durationWeeks: 6,
-      hoursPerWeek: 5,
-      deliveryPlatform: 'GOOGLE_MEET',
-      recordingsPlatform: 'GOOGLE_DRIVE',
-      driveFolderUrl: 'https://drive.google.com/drive/folders/PLACEHOLDER_FOLDER_ID',
-      targetAudience: {
-        en: 'ML engineers, data scientists and backend engineers who deploy (or want to deploy) models and services, and know Docker basics.',
-        ar: 'مهندسو تعلم الآلة وعلماء البيانات ومهندسو Backend الذين ينشرون (أو يريدون نشر) النماذج والخدمات، ولديهم أساسيات Docker.',
-      },
-      notFor: {
-        en: 'Experienced Kubernetes operators or platform engineers; this course does not cover cluster administration in depth.',
-        ar: 'المحترفون في تشغيل Kubernetes أو مهندسو المنصات؛ لا تغطي هذه الدورة إدارة الـ Cluster بعمق.',
-      },
-      learningOutcomes: {
-        en: [
-          'Explain and use the core Kubernetes objects confidently',
-          'Expose services with Deployments, Services and Ingress',
-          'Manage configuration, secrets and persistent storage',
-          'Autoscale workloads and schedule GPU jobs',
-          'Deploy and operate an ML model service on Kubernetes end to end',
-        ],
-        ar: [
-          'شرح الكائنات الأساسية في Kubernetes واستخدامها بثقة',
-          'إتاحة الخدمات باستخدام Deployments وServices وIngress',
-          'إدارة الإعدادات والأسرار (Secrets) والتخزين الدائم',
-          'التوسع التلقائي للأحمال وجدولة مهام GPU',
-          'نشر خدمة نموذج تعلم آلة وتشغيلها على Kubernetes من البداية للنهاية',
-        ],
-      },
-      prerequisites: {
-        en: ['Comfortable on the Linux command line', 'Have built and run a Docker image', 'Basic Python'],
-        ar: ['إلمام بسطر أوامر Linux', 'بناء صورة Docker وتشغيلها من قبل', 'أساسيات Python'],
-      },
-      outline: [
-        { titleEn: 'Containers & Docker refresher', titleAr: 'مراجعة الحاويات وDocker' },
-        { titleEn: 'Kubernetes core objects', titleAr: 'الكائنات الأساسية في Kubernetes' },
-        { titleEn: 'Deployments, Services, Ingress', titleAr: 'Deployments وServices وIngress' },
-        { titleEn: 'Config, secrets and storage', titleAr: 'الإعدادات والأسرار والتخزين' },
-        { titleEn: 'Autoscaling and GPU workloads', titleAr: 'التوسع التلقائي وأحمال GPU' },
-        {
-          titleEn: 'Deploying an ML model service on Kubernetes',
-          titleAr: 'نشر خدمة نموذج تعلم آلة على Kubernetes',
-        },
-      ],
-      faq: [
-        {
-          questionEn: 'How do I pay?',
-          questionAr: 'كيف أدفع؟',
-          answerEn:
-            'After your application is accepted you will see InstaPay and Vodafone Cash details, then upload proof of payment. An admin verifies it, usually within 2 working days.',
-          answerAr:
-            'بعد قبول طلبك ستظهر لك بيانات InstaPay وفودافون كاش، ثم ترفع إثبات الدفع. يراجعه أحد المسؤولين عادةً خلال يومي عمل.',
-        },
-        {
-          questionEn: 'How do I access recordings?',
-          questionAr: 'كيف أصل إلى التسجيلات؟',
-          answerEn:
-            'Recordings are in a private Google Drive folder shared only with the Google account in your profile.',
-          answerAr:
-            'التسجيلات موجودة في مجلد خاص على Google Drive تتم مشاركته فقط مع حساب Google المسجل في ملفك الشخصي.',
-        },
-        {
-          questionEn: 'Do I need a cloud account?',
-          questionAr: 'هل أحتاج إلى حساب سحابي؟',
-          answerEn: '[PLACEHOLDER] No. A local cluster (kind or minikube) is enough for all labs.',
-          answerAr: '[PLACEHOLDER] لا. يكفي Cluster محلي (kind أو minikube) لجميع التمارين.',
-        },
-      ],
-      included: {
-        liveSessions: true,
-        recordings: true,
-        assignments: true,
-        finalProject: false,
-        certificate: false,
-      },
-    },
-    instructor: {
-      name: '[PLACEHOLDER] Kubernetes Instructor',
-      nameAr: '[PLACEHOLDER] محاضر Kubernetes',
-      titleEn: '[PLACEHOLDER] Senior Platform Engineer',
-      titleAr: '[PLACEHOLDER] مهندس منصات أول',
-      bioEn: '[PLACEHOLDER] Runs production Kubernetes clusters for ML workloads.',
-      bioAr: '[PLACEHOLDER] يدير Clusters من Kubernetes في بيئة الإنتاج لأحمال تعلم الآلة.',
-    },
-    questions: [
-      {
-        type: 'SINGLE_SELECT',
-        labelEn: 'Your experience with Docker',
-        labelAr: 'خبرتك في Docker',
-        options: [
-          { value: 'none', labelEn: 'None', labelAr: 'لا توجد' },
-          { value: 'basic', labelEn: 'Basic', labelAr: 'أساسية' },
-          { value: 'production', labelEn: 'Production', labelAr: 'في بيئة الإنتاج' },
-        ],
-        required: true,
-      },
-      {
-        type: 'SINGLE_SELECT',
-        labelEn: 'Your experience with Kubernetes',
-        labelAr: 'خبرتك في Kubernetes',
-        options: [
-          { value: 'none', labelEn: 'None', labelAr: 'لا توجد' },
-          { value: 'basic', labelEn: 'Basic', labelAr: 'أساسية' },
-          { value: 'production', labelEn: 'Production', labelAr: 'في بيئة الإنتاج' },
-        ],
-        required: true,
-      },
-      {
-        type: 'MULTI_SELECT',
-        labelEn: 'Which cloud(s) have you used?',
-        labelAr: 'ما المنصات السحابية التي استخدمتها؟',
-        options: [
-          { value: 'aws', labelEn: 'AWS', labelAr: 'AWS' },
-          { value: 'gcp', labelEn: 'Google Cloud', labelAr: 'Google Cloud' },
-          { value: 'azure', labelEn: 'Azure', labelAr: 'Azure' },
-          { value: 'other', labelEn: 'Other', labelAr: 'أخرى' },
-          { value: 'none', labelEn: 'None yet', labelAr: 'لم أستخدم أيًّا منها بعد' },
-        ],
-        required: true,
-      },
-      {
-        type: 'LONG_TEXT',
-        labelEn: "What's your goal with this course?",
-        labelAr: 'ما هدفك من هذه الدورة؟',
-        required: true,
-      },
-    ],
-    sessions: [
-      'Containers & Docker refresher|مراجعة الحاويات وDocker',
-      'Kubernetes core objects|الكائنات الأساسية في Kubernetes',
-      'Deployments, Services, Ingress|Deployments وServices وIngress',
-      'Config, secrets and storage|الإعدادات والأسرار والتخزين',
-      'Autoscaling and GPU workloads|التوسع التلقائي وأحمال GPU',
-      'Deploying an ML model service|نشر خدمة نموذج تعلم آلة',
-    ].map((pair, i) => {
-      const [en, ar] = pair.split('|') as [string, string];
-      return {
-        titleEn: `[PLACEHOLDER] ${en}`,
-        titleAr: `[PLACEHOLDER] ${ar}`,
-        startsAt: at(21 + i * 7),
-        durationMin: 120,
-        liveUrl: 'https://meet.google.com/xxx-yyyy-zzz',
-      };
-    }),
+He holds an MSc in Artificial Intelligence from the University of Colorado Boulder and engineering leadership training from Cornell University.`,
+    bioAr: `يمتلك سامح خبرة تتجاوز 20 عامًا في هندسة البرمجيات والذكاء الاصطناعي، وقرابة عقد في بناء فرق الذكاء الاصطناعي وأنظمته في بيئة الإنتاج في الشرق الأوسط وأوروبا.
+
+في Unifonic أسّس قسم الذكاء الاصطناعي من الصفر. أطلق محركًا لمعالجة اللغة الطبيعية بالعربية والإنجليزية، وبنى مصنّفًا فوريًا لرسائل SMS يعالج 5,000 رسالة في الثانية، ووسّع فريق الذكاء الاصطناعي إلى 6 فرق تضم أكثر من 20 مهندسًا تقدم خدمات RAG والتلخيص وتوليد النصوص. ويقود اليوم شركة Unifonic الناشئة في مجال الوكلاء الذكيين (Agentic AI)، التي تتيح للعملاء بناء وكلاء يعملون فعليًا في أقل من ساعة.
+
+قبل Unifonic، صمّم في DocuSign نظامًا للتفاوض على العقود بالذكاء الاصطناعي يعالج أكثر من 100 ألف عقد. وفي Etisalat قدّم أول روبوت محادثة يعتمد على معالجة اللغة الطبيعية في الشركة، ومحرك توصيات رفع التفاعل الرقمي بنسبة 70%، وأتمتة المستندات بتقنية التعرف الضوئي على الحروف (OCR)، وتسجيل الدخول ببصمة الوجه باستخدام التعلم العميق.
+
+حاصل على ماجستير في الذكاء الاصطناعي من جامعة كولورادو بولدر، وتدريب في القيادة الهندسية من جامعة كورنيل.`,
   },
-];
+  questions: [
+    {
+      type: 'LONG_TEXT',
+      labelEn: 'Describe a service, API or model you have shipped to real users. What was your role?',
+      labelAr: 'صف خدمة أو واجهة برمجية (API) أو نموذجًا أطلقته لمستخدمين حقيقيين. ما كان دورك؟',
+      helpEn: 'A few sentences: what it did, its scale, and what you were responsible for.',
+      helpAr: 'بضع جمل: ماذا كان يفعل، وحجمه، وما كانت مسؤوليتك.',
+      required: true,
+    },
+    {
+      type: 'SINGLE_SELECT',
+      labelEn: 'Your hands-on experience with LLMs',
+      labelAr: 'خبرتك العملية مع نماذج LLM',
+      options: [
+        { value: 'api', labelEn: 'API calls and prompting', labelAr: 'استدعاءات API وكتابة الأوامر' },
+        { value: 'prototype', labelEn: 'Built a RAG app or agent prototype', labelAr: 'بنيت نموذجًا أوليًا لتطبيق RAG أو وكيل' },
+        { value: 'production', labelEn: 'Run a RAG app or agent in production', labelAr: 'أشغّل تطبيق RAG أو وكيلًا في بيئة الإنتاج' },
+        { value: 'none', labelEn: 'None yet', labelAr: 'لا توجد بعد' },
+      ],
+      required: true,
+    },
+    {
+      type: 'SINGLE_SELECT',
+      labelEn: 'Which domain would you like to design your capstone for?',
+      labelAr: 'في أي مجال تود تصميم مشروعك الختامي؟',
+      options: [
+        { value: 'telecom', labelEn: 'Telecom', labelAr: 'الاتصالات' },
+        { value: 'ecommerce', labelEn: 'E-commerce', labelAr: 'التجارة الإلكترونية' },
+        { value: 'government', labelEn: 'Government', labelAr: 'القطاع الحكومي' },
+        { value: 'own', labelEn: 'My own domain (to be approved)', labelAr: 'مجال خاص بي (يتطلب الموافقة)' },
+      ],
+      required: true,
+    },
+    {
+      type: 'LONG_TEXT',
+      labelEn: 'What do you want to get out of this course?',
+      labelAr: 'ما الذي تريد أن تحققه من هذه الدورة؟',
+      required: true,
+    },
+    {
+      type: 'YES_NO',
+      labelEn:
+        'Can you commit about 4–5 hours a week: live sessions on Sundays 7:00–8:30 PM Cairo time, a quiz after each session, and the capstone by 13 Dec?',
+      labelAr:
+        'هل يمكنك الالتزام بنحو 4–5 ساعات أسبوعيًا: الجلسات المباشرة أيام الأحد من 7:00 إلى 8:30 مساءً بتوقيت القاهرة، واختبار بعد كل جلسة، والمشروع الختامي قبل 13 ديسمبر؟',
+      required: true,
+    },
+    {
+      type: 'YES_NO',
+      labelEn: 'Will you keep your course work in one public GitHub repository (ai-architecture-portfolio)?',
+      labelAr: 'هل ستحفظ أعمال الدورة في مستودع عام واحد على GitHub باسم ai-architecture-portfolio؟',
+      required: true,
+    },
+  ],
+  sessions: [
+    {
+      titleEn: 'Session 1: Architecture Views, Steps and Process',
+      titleAr: 'الجلسة 1: المناظير المعمارية والخطوات والعملية',
+      descriptionEn: `Frame the system before you design it.
+
+• Introduction to architecture design for AI systems
+• Architecture viewpoints and stakeholders
+• Quality attributes: latency, cost, accuracy, security, availability
+• Design steps and verification
+• Frameworks: C4, TOGAF, Zachman
+• Real-world use case
+
+Session quiz (required). Optional assignment: choose your scenario, write the problem statement, rank quality attributes, and draw C4 Level 1 & 2.`,
+      descriptionAr: `حدّد إطار النظام قبل أن تصممه.
+
+• مقدمة في تصميم معمارية أنظمة الذكاء الاصطناعي
+• المناظير المعمارية وأصحاب المصلحة
+• سمات الجودة: زمن الاستجابة والتكلفة والدقة والأمن والإتاحة
+• خطوات التصميم والتحقق
+• أُطر العمل: C4 وTOGAF وZachman
+• حالة استخدام من الواقع
+
+اختبار الجلسة (مطلوب). واجب اختياري: اختر السيناريو، واكتب وصف المشكلة، ورتّب سمات الجودة، وارسم مخططات C4 للمستويين 1 و2.`,
+      startsAt: new Date('2026-10-18T16:00:00Z'),
+      durationMin: 90,
+      liveUrl: 'https://meet.google.com/jja-fbos-rwg',
+    },
+    {
+      titleEn: 'Session 2: AI System Building Blocks',
+      titleAr: 'الجلسة 2: المكونات الأساسية لأنظمة الذكاء الاصطناعي',
+      descriptionEn: `From data pipelines to serving, and what it costs.
+
+• Data pipelines and feature stores
+• The model layer: foundation, fine-tuned and classical ML
+• Training vs inference infrastructure
+• Serving, APIs and orchestration
+• MLOps / LLMOps and observability
+• Real-world use case
+
+Session quiz (required). Optional assignment: C4 Level 3 component diagram, capability-to-model map, compute plan and monthly cost estimate.`,
+      descriptionAr: `من مسارات البيانات إلى تقديم النماذج، وكم يكلّف ذلك.
+
+• مسارات البيانات ومخازن الخصائص (Feature Stores)
+• طبقة النماذج: النماذج الأساسية والمُعدّلة وتعلم الآلة التقليدي
+• البنية التحتية للتدريب مقابل الاستدلال
+• تقديم النماذج وواجهات API والتنسيق (Orchestration)
+• MLOps / LLMOps وقابلية المراقبة
+• حالة استخدام من الواقع
+
+اختبار الجلسة (مطلوب). واجب اختياري: مخطط مكونات C4 للمستوى 3، وخريطة القدرات إلى النماذج، وخطة الموارد الحاسوبية، وتقدير التكلفة الشهرية.`,
+      startsAt: new Date('2026-10-25T16:00:00Z'),
+      durationMin: 90,
+      liveUrl: 'https://meet.google.com/csn-dcye-vbu',
+    },
+    {
+      titleEn: 'Session 3: LLM & RAG Architecture',
+      titleAr: 'الجلسة 3: معمارية LLM وRAG',
+      descriptionEn: `Choosing models with evidence and designing retrieval that works.
+
+• LLM selection and hosting: API vs self-hosted
+• Prompting and context management
+• Embeddings and vector databases
+• RAG pipelines: chunking, retrieval, re-ranking
+• Advanced patterns: hybrid search, GraphRAG
+• Real-world use case
+
+Session quiz (required). Optional assignment: model selection matrix, RAG pipeline diagram, retrieval strategy and context budget.`,
+      descriptionAr: `اختيار النماذج بالأدلة وتصميم استرجاع يعمل فعلًا.
+
+• اختيار نماذج LLM واستضافتها: عبر API أم استضافة ذاتية
+• كتابة الأوامر وإدارة السياق
+• التضمينات (Embeddings) وقواعد البيانات المتجهية
+• مسارات RAG: التقطيع والاسترجاع وإعادة الترتيب
+• أنماط متقدمة: البحث الهجين وGraphRAG
+• حالة استخدام من الواقع
+
+اختبار الجلسة (مطلوب). واجب اختياري: مصفوفة اختيار النموذج، ومخطط مسار RAG، واستراتيجية الاسترجاع، وميزانية السياق.`,
+      // 29 Oct: Cairo moves to UTC+2, so 7:00 PM Cairo is 17:00Z from here on.
+      startsAt: new Date('2026-11-01T17:00:00Z'),
+      durationMin: 90,
+      liveUrl: 'https://meet.google.com/vue-msdt-shc',
+    },
+    {
+      titleEn: 'Session 4: Agentic AI Architecture',
+      titleAr: 'الجلسة 4: معمارية أنظمة الوكلاء (Agentic AI)',
+      descriptionEn: `Agents that earn their place, and can't do damage.
+
+• Agent fundamentals and patterns: ReAct, planner–executor, router
+• Tools, function calling and MCP
+• Memory and state management
+• Multi-agent orchestration
+• Human-in-the-loop design
+• Guardrails and limits
+• Real-world use case
+
+Session quiz (required). Optional assignment: agent justification table, sequence diagram, tool catalog, memory and approval design.`,
+      descriptionAr: `وكلاء يستحقون مكانهم، ولا يستطيعون إحداث ضرر.
+
+• أساسيات الوكلاء وأنماطهم: ReAct والمخطِّط والمنفِّذ والموجِّه (Router)
+• الأدوات واستدعاء الدوال وMCP
+• الذاكرة وإدارة الحالة
+• تنسيق الوكلاء المتعددين
+• تصميم يُبقي الإنسان في الحلقة (Human-in-the-loop)
+• الضوابط والحدود
+• حالة استخدام من الواقع
+
+اختبار الجلسة (مطلوب). واجب اختياري: جدول تبرير استخدام الوكيل، ومخطط تسلسلي، وقائمة الأدوات، وتصميم الذاكرة والموافقات.`,
+      startsAt: new Date('2026-11-15T17:00:00Z'),
+      durationMin: 90,
+      liveUrl: 'https://meet.google.com/mgu-qdsx-osv',
+    },
+    {
+      titleEn: 'Session 5: Security, Governance, Evals',
+      titleAr: 'الجلسة 5: الأمن والحوكمة والتقييم',
+      descriptionEn: `Prove it's safe to ship, and know when it breaks.
+
+• AI threat modelling: prompt injection, data leakage, tool misuse
+• Guardrails and access control
+• Governance, compliance and responsible AI in the MENA region
+• Evaluation methods: offline test sets, LLM-as-judge, human review
+• Production monitoring and observability
+• Real-world use case
+
+Session quiz (required). Optional assignment: threat model, compliance section, evaluation plan with release gates, monitoring plan.`,
+      descriptionAr: `أثبت أن النظام آمن للإطلاق، واعرف متى يتعطل.
+
+• تحليل التهديدات لأنظمة الذكاء الاصطناعي: حقن الأوامر وتسرب البيانات وإساءة استخدام الأدوات
+• الضوابط والتحكم في الوصول
+• الحوكمة والامتثال والذكاء الاصطناعي المسؤول في منطقة الشرق الأوسط وشمال أفريقيا
+• أساليب التقييم: مجموعات الاختبار، وLLM كمُقيِّم، والمراجعة البشرية
+• المراقبة وقابلية الرصد في بيئة الإنتاج
+• حالة استخدام من الواقع
+
+اختبار الجلسة (مطلوب). واجب اختياري: تحليل التهديدات، وقسم الامتثال، وخطة التقييم مع بوابات الإطلاق، وخطة المراقبة.`,
+      startsAt: new Date('2026-11-22T17:00:00Z'),
+      durationMin: 90,
+      liveUrl: 'https://meet.google.com/pwf-ivya-oqq',
+    },
+    {
+      titleEn: 'Session 6: Enterprise Case Studies',
+      titleAr: 'الجلسة 6: دراسات حالة مؤسسية',
+      descriptionEn: `How real systems were designed, and what we'd change.
+
+• End-to-end architecture walkthroughs: telecom, e-commerce, government
+• The hardest trade-offs and how they were decided
+• What breaks at 10x scale
+• Lessons learned from production
+• Capstone guidance and Q&A
+
+Session quiz (required).`,
+      descriptionAr: `كيف صُممت أنظمة حقيقية، وما الذي كنا سنغيّره.
+
+• جولات معمارية متكاملة: الاتصالات والتجارة الإلكترونية والقطاع الحكومي
+• أصعب الموازنات وكيف حُسمت
+• ما الذي ينكسر عند التوسع عشرة أضعاف
+• دروس مستفادة من بيئة الإنتاج
+• إرشادات المشروع الختامي وأسئلة وأجوبة
+
+اختبار الجلسة (مطلوب).`,
+      startsAt: new Date('2026-11-29T17:00:00Z'),
+      durationMin: 90,
+      liveUrl: 'https://meet.google.com/qov-zsdb-gqn',
+    },
+  ],
+};
+
+// ------------------------------------------------------------------ Kubernetes for AI (coming soon)
+
+const kubernetes: SeedCourse = {
+  course: {
+    slug: 'kubernetes',
+    titleEn: 'Kubernetes for AI',
+    titleAr: 'Kubernetes للذكاء الاصطناعي',
+    shortDescriptionEn:
+      'Run AI and ML workloads on Kubernetes, from containers to GPU-backed model serving. Details and dates coming soon.',
+    shortDescriptionAr:
+      'شغّل أحمال الذكاء الاصطناعي وتعلم الآلة على Kubernetes، من الحاويات إلى تقديم النماذج على وحدات GPU. التفاصيل والمواعيد قريبًا.',
+    longDescriptionEn: `This course is coming soon. We're finalising the curriculum, the instructor and the dates.
+
+Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applications open.`,
+    longDescriptionAr: `هذه الدورة قريبًا. نعمل حاليًا على وضع اللمسات الأخيرة على المحتوى والمحاضر والمواعيد.
+
+تابع MLOps MENA على LinkedIn أو Telegram أو Discord لتعرف أولًا عند فتح باب التقديم.`,
+    // Price not set yet: shown as "Price to be announced" until it is.
+    type: 'PAID',
+    price: 0,
+    currency: 'EGP',
+    requiresApproval: true,
+    capacity: null,
+    status: 'COMING_SOON',
+    level: 'INTERMEDIATE',
+    language: 'BILINGUAL',
+    deliveryPlatform: 'GOOGLE_MEET',
+    recordingsPlatform: 'GOOGLE_DRIVE',
+    targetAudience: {
+      en: 'ML, MLOps, backend and platform engineers who deploy (or want to deploy) AI workloads on Kubernetes.',
+      ar: 'مهندسو تعلم الآلة وMLOps والـ Backend والمنصات الذين ينشرون (أو يريدون نشر) أحمال الذكاء الاصطناعي على Kubernetes.',
+    },
+    notFor: { en: '', ar: '' },
+    preparation: { en: '', ar: '' },
+    learningOutcomes: { en: [], ar: [] },
+    prerequisites: { en: [], ar: [] },
+    outline: [],
+    faq: [],
+    included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+  },
+  questions: [],
+  sessions: [],
+};
+
+export const seedCourses: SeedCourse[] = [aiArchitecture, kubernetes];

@@ -17,7 +17,10 @@ const availabilityTone: Record<CourseSummaryDto['availability'], Tone> = {
 };
 
 export function priceLabel(c: Pick<CourseSummaryDto, 'type' | 'price' | 'currency'>, locale: Locale): string {
-  return c.type === 'FREE' ? createTranslator(locale)('course.free') : formatMoney(c.price, c.currency, locale);
+  const t = createTranslator(locale);
+  if (c.type === 'FREE') return t('course.free');
+  // A paid course announced before its price is set (e.g. "coming soon").
+  return c.price > 0 ? formatMoney(c.price, c.currency, locale) : t('course.priceTba');
 }
 
 export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course: CourseSummaryDto; locale: Locale; headingLevel?: 'h2' | 'h3' }) {

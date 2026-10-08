@@ -6,13 +6,13 @@ import {
   type CourseDetailDto,
   type CourseSummaryDto,
   type MyCourseStatusDto,
+  PUBLIC_COURSE_STATUSES,
 } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { toCourseDetail, toCourseSummary } from './course.mapper';
 
 /** Statuses visible in the public catalog. */
-const PUBLIC_STATUSES = ['OPEN', 'CLOSED'] as const;
 
 @Injectable()
 export class CoursesService {
@@ -32,7 +32,7 @@ export class CoursesService {
   async listPublic(q: CatalogQuery): Promise<CourseSummaryDto[]> {
     const courses = await this.prisma.course.findMany({
       where: {
-        status: { in: [...PUBLIC_STATUSES] },
+        status: { in: [...PUBLIC_COURSE_STATUSES] },
         ...(q.level ? { level: q.level } : {}),
         ...(q.type ? { type: q.type } : {}),
         ...(q.language ? { language: q.language } : {}),
@@ -51,7 +51,7 @@ export class CoursesService {
 
   async getPublic(slug: string): Promise<CourseDetailDto> {
     const course = await this.prisma.course.findFirst({
-      where: { slug, status: { in: [...PUBLIC_STATUSES] } },
+      where: { slug, status: { in: [...PUBLIC_COURSE_STATUSES] } },
       include: {
         instructors: { include: { instructor: true } },
         sessions: true,
@@ -73,7 +73,7 @@ export class CoursesService {
 
   async publicSlugs(): Promise<{ slug: string; updatedAt: Date }[]> {
     return this.prisma.course.findMany({
-      where: { status: { in: [...PUBLIC_STATUSES] } },
+      where: { status: { in: [...PUBLIC_COURSE_STATUSES] } },
       select: { slug: true, updatedAt: true },
     });
   }

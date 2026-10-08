@@ -207,6 +207,7 @@ export const courseTypeLabels: LabelMap<CourseType> = {
 
 export const courseStatusLabels: LabelMap<CourseStatus> = {
   DRAFT: { en: 'Draft', ar: 'مسودة' },
+  COMING_SOON: { en: 'Coming soon', ar: 'قريبًا' },
   OPEN: { en: 'Open', ar: 'مفتوح' },
   CLOSED: { en: 'Closed', ar: 'مغلق' },
   ARCHIVED: { en: 'Archived', ar: 'مؤرشف' },

@@ -235,10 +235,98 @@ function SessionForm({ initial, onSubmit, onCancel }: { initial: SessionDraft; o
   );
 }
 
+/** Weekly dates in the admin's own time zone, so "7:00 PM" stays 7:00 PM across DST changes. */
+export function weeklyDates(first: string, count: number, skipWeeks: number[]): Date[] {
+  const out: Date[] = [];
+  const start = new Date(first);
+  for (let week = 1; out.length < count && week < count + skipWeeks.length + 52; week++) {
+    if (skipWeeks.includes(week)) continue;
+    const d = new Date(start);
+    d.setDate(start.getDate() + 7 * (week - 1));
+    out.push(d);
+  }
+  return out;
+}
+
+function WeeklySessions({ courseId, nextNumber, onCreated, onCancel }: { courseId: string; nextNumber: number; onCreated: (rows: SessionRow[]) => void; onCancel: () => void }) {
+  const { locale, t } = useI18n();
+  const c = (k: string, v?: Record<string, string | number>) => t(`admin.courses.weekly.${k}`, v);
+  const [first, setFirst] = useState('');
+  const [count, setCount] = useState('6');
+  const [duration, setDuration] = useState('90');
+  const [skip, setSkip] = useState('');
+  const [liveUrl, setLiveUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const skipWeeks = skip.split(/[\s,]+/).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  const n = Math.min(52, Math.max(0, Number(count) || 0));
+  const dates = first && n ? weeklyDates(first, n, skipWeeks) : [];
+
+  async function create() {
+    setError(null);
+    if (!dates.length) return;
+    setBusy(true);
+    try {
+      const rows = await api<SessionRow[]>(`/admin/courses/${courseId}/sessions/bulk`, {
+        method: 'POST',
+        json: {
+          sessions: dates.map((d, i) => ({
+            titleEn: `Session ${nextNumber + i}`,
+            titleAr: `الجلسة ${nextNumber + i}`,
+            startsAt: d.toISOString(),
+            durationMin: Number(duration) || 90,
+            liveUrl: liveUrl || null,
+            materials: [],
+          })),
+        },
+      });
+      onCreated(rows);
+    } catch (err) {
+      setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h3 className="text-lg">{c('title')}</h3>
+      <p className="mt-1 text-sm text-muted">{c('help')}</p>
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <TextField label={c('first')} required type="datetime-local" value={first} onChange={setFirst} />
+        <TextField label={c('count')} required type="number" min={1} max={52} value={count} onChange={setCount} />
+        <TextField label={t('admin.courses.duration')} required type="number" min={15} value={duration} onChange={setDuration} />
+        <TextField label={c('skip')} hint={c('skipHint')} value={skip} onChange={setSkip} dir="ltr" />
+        <div className="sm:col-span-2">
+          <TextField label={c('liveUrl')} hint={c('liveUrlHint')} type="url" dir="ltr" value={liveUrl} onChange={setLiveUrl} />
+        </div>
+      </div>
+      {dates.length > 0 && (
+        <ol className="mt-4 space-y-1 rounded-lg bg-muted-bg p-3 text-sm">
+          {dates.map((d, i) => (
+            <li key={d.toISOString()}>
+              {locale === 'ar' ? `الجلسة ${nextNumber + i}` : `Session ${nextNumber + i}`} · {formatDateTime(d.toISOString(), locale, Intl.DateTimeFormat().resolvedOptions().timeZone)}
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="mt-4 flex gap-2">
+        <Button type="button" loading={busy} disabled={!dates.length} onClick={create}>
+          {c('create', { count: dates.length })}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          {t('admin.common.cancel')}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 export function SessionsEditor({ courseId, initial, onChange }: { courseId: string; initial: SessionRow[]; onChange?: () => void }) {
   const { locale, t } = useI18n();
   const [sessions, setSessions] = useState<SessionRow[]>(initial);
-  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [editing, setEditing] = useState<string | 'new' | 'weekly' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const base = `/admin/courses/${courseId}/sessions`;
   const toDraft = (s: SessionRow): SessionDraft => ({ ...s, startsAt: toLocalInput(s.startsAt) });
@@ -337,10 +425,26 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
             }}
           />
         </Card>
+      ) : editing === 'weekly' ? (
+        <WeeklySessions
+          courseId={courseId}
+          nextNumber={sessions.length + 1}
+          onCancel={() => setEditing(null)}
+          onCreated={(rows) => {
+            setSessions(rows);
+            setEditing(null);
+            onChange?.();
+          }}
+        />
       ) : (
-        <Button variant="secondary" onClick={() => setEditing('new')}>
-          + {t('admin.courses.addSession')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setEditing('new')}>
+            + {t('admin.courses.addSession')}
+          </Button>
+          <Button variant="secondary" onClick={() => setEditing('weekly')}>
+            + {t('admin.courses.weekly.title')}
+          </Button>
+        </div>
       )}
     </div>
   );

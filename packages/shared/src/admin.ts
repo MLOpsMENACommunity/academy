@@ -138,9 +138,10 @@ export const courseInputSchema = z
   .object({
     slug,
     titleEn: z.string().trim().min(2).max(160),
-    titleAr: z.string().trim().min(2).max(160),
+    // Arabic can wait while the course is a draft; it's required before it goes public (see below).
+    titleAr: z.string().trim().max(160),
     shortDescriptionEn: z.string().trim().min(10).max(400),
-    shortDescriptionAr: z.string().trim().min(10).max(400),
+    shortDescriptionAr: z.string().trim().max(400),
     longDescriptionEn: z.string().trim().max(20_000),
     longDescriptionAr: z.string().trim().max(20_000),
     type: z.enum(COURSE_TYPES),
@@ -159,6 +160,7 @@ export const courseInputSchema = z
     coverImageUrl: optionalUrl,
     targetAudience: localizedTextSchema,
     notFor: localizedTextSchema,
+    preparation: z.object({ en: z.string().trim().max(10_000), ar: z.string().trim().max(10_000) }).default({ en: '', ar: '' }),
     learningOutcomes: localizedListSchema,
     prerequisites: localizedListSchema,
     outline: z.array(outlineModuleSchema).max(50),
@@ -171,7 +173,14 @@ export const courseInputSchema = z
     instructorIds: z.array(z.string().min(1).max(40)).max(10).default([]),
   })
   .superRefine((c, ctx) => {
-    if (c.type === 'PAID' && c.price <= 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
+    if (c.status !== 'DRAFT' && c.status !== 'ARCHIVED') {
+      if (c.titleAr.length < 2) ctx.addIssue({ code: 'custom', path: ['titleAr'], message: 'Arabic title is required to publish' });
+      if (c.shortDescriptionAr.length < 10) {
+        ctx.addIssue({ code: 'custom', path: ['shortDescriptionAr'], message: 'Arabic description is required to publish' });
+      }
+    }
+    // Paid courses need a price once applications can open (drafts and "coming soon" can wait).
+    if (c.type === 'PAID' && c.price <= 0 && c.status !== 'DRAFT' && c.status !== 'COMING_SOON') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
     if (c.type === 'FREE' && c.price !== 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Free courses have price 0' });
     if (c.driveFolderUrl && !/^https:\/\/drive\.google\.com\//.test(c.driveFolderUrl)) {
       ctx.addIssue({ code: 'custom', path: ['driveFolderUrl'], message: 'Must be a drive.google.com link' });
@@ -213,6 +222,9 @@ export const sessionInputSchema = z.object({
   materials: z.array(materialSchema).max(20).default([]),
 });
 export type SessionInput = z.infer<typeof sessionInputSchema>;
+/** Create several sessions at once (e.g. "every Sunday for 6 weeks"). */
+export const sessionsBulkSchema = z.object({ sessions: z.array(sessionInputSchema).min(1).max(52) });
+export const duplicateCourseSchema = z.object({ slug, titleEn: z.string().trim().min(2).max(160) });
 export const sessionOrderSchema = z.object({ ids: z.array(z.string().min(1).max(40)).min(1).max(200) });
 
 export const instructorInputSchema = z.object({

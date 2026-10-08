@@ -82,7 +82,7 @@ export default function AdminHome() {
                   {locale === 'ar' ? c.titleAr : c.titleEn}
                 </Link>
               </h2>
-              <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : 'neutral'}>{courseStatusLabels[c.status][locale]}</Badge>
+              <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : c.status === 'COMING_SOON' ? 'info' : 'neutral'}>{courseStatusLabels[c.status][locale]}</Badge>
             </div>
             <div className="mt-4 grid gap-6 lg:grid-cols-2">
               <section>

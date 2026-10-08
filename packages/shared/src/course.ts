@@ -21,6 +21,7 @@ export function courseAvailability(
   c: { status: CourseStatus; applicationsOpenAt: Date | string | null; applicationDeadline: Date | string | null },
   now = new Date(),
 ): CourseAvailability {
+  if (c.status === 'COMING_SOON') return 'UPCOMING';
   if (c.status !== 'OPEN') return 'CLOSED';
   if (c.applicationsOpenAt && new Date(c.applicationsOpenAt) > now) return 'UPCOMING';
   if (c.applicationDeadline && new Date(c.applicationDeadline) < now) return 'CLOSED';
@@ -76,6 +77,9 @@ export interface PublicSessionDto {
   order: number;
   titleEn: string;
   titleAr: string;
+  /** Topics; public. Links (live, recording, materials) are never included. */
+  descriptionEn: string | null;
+  descriptionAr: string | null;
   startsAt: string;
   durationMin: number;
 }
@@ -100,6 +104,8 @@ export interface CourseDetailDto extends CourseSummaryDto {
   applicationsOpenAt: string | null;
   targetAudience: LocalizedText;
   notFor: LocalizedText;
+  /** Markdown: what to do before the course starts (shown after the prerequisites). */
+  preparation: LocalizedText;
   learningOutcomes: LocalizedList;
   prerequisites: LocalizedList;
   outline: OutlineModule[];
