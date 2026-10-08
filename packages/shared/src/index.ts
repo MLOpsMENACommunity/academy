@@ -7,3 +7,6 @@ export * from './countries';
 export * from './time';
 export * from './settings';
 export * from './course-content';
+export * from './auth';
+export * from './profile';
+export * from './funnel';

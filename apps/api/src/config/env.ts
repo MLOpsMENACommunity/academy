@@ -32,6 +32,8 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
 
   S3_ENDPOINT: z.string().url().optional(),
+  /** Host used in signed URLs when the API reaches storage on an internal hostname (Docker). */
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default('auto'),
   S3_BUCKET: z.string().default('academy-private'),
   S3_ACCESS_KEY_ID: z.string().default('minioadmin'),

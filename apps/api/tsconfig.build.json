@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "declaration": false, "types": ["node"] },
+  "compilerOptions": { "declaration": false, "types": ["node", "multer"] },
   "include": ["src", "prisma/seed.ts", "prisma/seed-data.ts"],
   "exclude": ["**/*.spec.ts", "test"]
 }

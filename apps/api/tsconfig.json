@@ -12,7 +12,7 @@
     "strictPropertyInitialization": false,
     "isolatedModules": false,
     "jsx": "react-jsx",
-    "types": ["node", "jest"]
+    "types": ["node", "jest", "multer"]
   },
   "include": ["src", "prisma", "test"]
 }

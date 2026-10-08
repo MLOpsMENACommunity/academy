@@ -6,6 +6,8 @@ import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Footer } from '@/components/layout/Footer';
+import { AuthProvider } from '@/components/auth/AuthProvider';
+import { VerifyBanner } from '@/components/auth/VerifyBanner';
 import { Header } from '@/components/layout/Header';
 import { I18nProvider } from '@/i18n/client';
 import { dirOf, isLocale, locales } from '@/i18n/config';
@@ -76,11 +78,14 @@ export default async function LocaleLayout({
           {t('common.skipToContent')}
         </a>
         <I18nProvider locale={locale}>
-          <Header locale={locale} />
-          <main id="main" className="flex-1">
-            {children}
-          </main>
-          <Footer locale={locale} />
+          <AuthProvider>
+            <Header locale={locale} />
+            <VerifyBanner />
+            <main id="main" className="flex-1">
+              {children}
+            </main>
+            <Footer locale={locale} />
+          </AuthProvider>
         </I18nProvider>
         <script
           type="application/ld+json"

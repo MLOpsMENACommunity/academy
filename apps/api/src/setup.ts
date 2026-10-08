@@ -1,9 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 
 /** Shared by main.ts and the e2e tests so both run the same pipeline. */
-export function configureApp(app: INestApplication): void {
+export function configureApp(app: NestExpressApplication): void {
+  // One proxy hop (Caddy in production, the Next /api proxy in dev) sets X-Forwarded-For.
+  app.set('trust proxy', 1);
   app.setGlobalPrefix('api');
   app.use(cookieParser());
   app.useGlobalPipes(

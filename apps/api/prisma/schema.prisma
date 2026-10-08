@@ -316,6 +316,9 @@ model RefreshToken {
   /// All tokens from one login share a family; reuse of a rotated token revokes the family.
   family     String
   expiresAt  DateTime
+  /// Replaced by a newer token in the same family (normal rotation).
+  rotatedAt  DateTime?
+  /// Explicitly invalidated: logout, password change, or theft detection.
   revokedAt  DateTime?
   createdAt  DateTime  @default(now())
   userAgent  String?
