@@ -80,11 +80,18 @@ jobs:
             echo "::error::The '$TARGET' environment has ACADEMY_ENVIRONMENT='$MARKER', expected '$TARGET'. Set it only once the environment's secrets are its own (staging: deploy/cloudflare/setup-staging.sh)."
             exit 1
           fi
+          # Both URLs are required on staging: a Worker secret is never deleted by a deploy, so
+          # an empty one would leave a stale value running. Nothing parsed from a URL is echoed
+          # (a malformed one could hold the password).
           if [ "$TARGET" = staging ]; then
-            for url in "$DATABASE_URL" "$DIRECT_DATABASE_URL"; do
-              [ -z "$url" ] && continue
-              db=${url##*/}; db=${db%%\?*}
-              [[ "$db" == *staging* ]] || { echo "::error::Staging's database URLs must point at a staging database, not '$db'"; exit 1; }
+            for name in DATABASE_URL DIRECT_DATABASE_URL; do
+              url=${!name}
+              [ -n "$url" ] || { echo "::error::Staging needs $name"; exit 1; }
+              rest=${url#*://}; role=${rest%%[:@]*}; path=${rest#*@}; path=${path%%\?*}
+              [[ "$path" == */* ]] || { echo "::error::$name has no database name"; exit 1; }
+              db=${path##*/}
+              [[ "$db" =~ ^[A-Za-z0-9_-]+$ && "$db" == *staging* ]] || { echo "::error::$name must point at a staging database"; exit 1; }
+              [[ "$role" == *staging* ]] || { echo "::error::$name must connect with the staging database role"; exit 1; }
             done
           fi
 
@@ -161,8 +168,8 @@ jobs:
             sleep 10
           done
           # Plain http never reaches the containers (private calendar feed URLs carry a token).
-          code=$(curl -s -o /dev/null -w '%{http_code}' "http://$host/api/health" || true)
-          [ "$code" = "301" ] || { echo "::error::http://$host returned $code, expected a 301 to https"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' "http://$HOST/api/health" || true)
+          [ "$code" = "301" ] || { echo "::error::http://$HOST returned $code, expected a 301 to https"; exit 1; }
           for alias in $(echo "$REDIRECT_HOSTS" | tr ',' ' '); do
             [ "$alias" = "$HOST" ] && continue
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://$alias/en" || true)

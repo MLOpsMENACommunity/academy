@@ -97,6 +97,13 @@ fi
 # --- 2. GitHub "staging" environment -------------------------------------------------
 upload=$(mktemp); trap 'rm -f "$upload"' EXIT
 grep -E '^(DATABASE_URL|DIRECT_DATABASE_URL|SEED_ADMIN_PASSWORD)=.+' "$STAGING_FILE" > "$upload"
+# Never mark staging ready unless both database URLs really are staging's own.
+for k in DATABASE_URL DIRECT_DATABASE_URL; do
+  url=$(grep -m1 "^$k=" "$upload" | cut -d= -f2- || true)
+  rest=${url#*://}; role=${rest%%[:@]*}; path=${rest#*@}; db=${path%%\?*}; db=${db##*/}
+  [ "$role" = "$ROLE" ] && [ "$db" = "$DB" ] \
+    || { echo "STOP: $k in $STAGING_FILE is missing or not the $ROLE role on $DB. Fix that line (one per line) and run again."; exit 1; }
+done
 gh secret set -R "$REPO" --env staging -f "$upload"
 rm -f "$upload"
 gen 64 | gh secret set JWT_ACCESS_SECRET -R "$REPO" --env staging
