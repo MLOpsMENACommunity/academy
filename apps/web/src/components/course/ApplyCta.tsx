@@ -9,6 +9,9 @@ import { api } from '@/lib/api';
 import { trackFunnel } from '@/lib/funnel';
 import { buttonClass } from '../ui/Button';
 
+/** Shared across the two CTA instances on a page so my-status is fetched once. */
+const statusCache = new Map<string, Promise<MyCourseStatusDto>>();
+
 interface Props {
   slug: string;
   availability: CourseAvailability;
@@ -38,7 +41,13 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
 
   useEffect(() => {
     if (!user) return setStatus(null);
-    api<MyCourseStatusDto>(`/courses/${slug}/my-status`).then(setStatus).catch(() => setStatus(null));
+    const key = `${user.id}:${slug}`;
+    if (!statusCache.has(key)) {
+      statusCache.set(key, api<MyCourseStatusDto>(`/courses/${slug}/my-status`));
+      // Short-lived: a status change shows up on the next visit.
+      setTimeout(() => statusCache.delete(key), 30_000);
+    }
+    statusCache.get(key)!.then(setStatus).catch(() => setStatus(null));
   }, [user, slug]);
 
   let action: React.ReactNode;

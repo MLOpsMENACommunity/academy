@@ -1,6 +1,6 @@
 import type { CourseDetailDto } from '@academy/shared';
 import { ImageResponse } from 'next/og';
-import { serverGet } from '@/lib/server-api';
+import { serverGetOr } from '@/lib/server-api';
 
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
@@ -14,7 +14,9 @@ export const revalidate = 3600;
  */
 export default async function OgImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const c = /^[a-z0-9-]{1,80}$/.test(slug) ? await serverGet<CourseDetailDto>(`/courses/${slug}`, 3600) : null;
+  const c = /^[a-z0-9-]{1,80}$/.test(slug)
+    ? await serverGetOr<CourseDetailDto | null>(`/courses/${slug}`, null, 3600)
+    : null;
   const title = c?.titleEn ?? 'MLOps MENA Academy';
   const meta = c
     ? [c.type === 'FREE' ? 'Free' : `${c.price} ${c.currency}`, c.durationWeeks ? `${c.durationWeeks} weeks` : null, 'Live cohort']
