@@ -75,7 +75,19 @@
     "selected": "Selected",
     "remove": "Remove",
     "fixErrors": "Please fix the highlighted fields.",
-    "savedAt": "Saved"
+    "savedAt": "Saved",
+    "errors": {
+      "required": "This field is required.",
+      "invalid": "Please check this value.",
+      "chooseOne": "Choose at least one option.",
+      "choose": "Choose one of the options.",
+      "tooShort": "Must be at least {min} characters.",
+      "tooLong": "Must be at most {max} characters.",
+      "email": "Enter a valid email address.",
+      "url": "Enter a full link starting with https://",
+      "phone": "Use international format with country code, e.g. +201001234567",
+      "mustAccept": "You must accept this to continue."
+    }
   },
   "auth": {
     "loginTitle": "Log in",
@@ -335,5 +347,51 @@
     "share": "Share",
     "paidNote": "Paid by InstaPay or Vodafone Cash after you're accepted. See the {refund}.",
     "fit": "Is this course for you?"
+  },
+  "apply": {
+    "title": "Apply: {course}",
+    "intro": "Answer a few questions so the instructors can shape the cohort. Your profile details are included automatically.",
+    "submit": "Submit application",
+    "enrollSubmit": "Enroll",
+    "yes": "Yes",
+    "no": "No",
+    "verifyFirst": "Confirm your email address before applying. We sent a link to {email}.",
+    "profileFirst": "Complete the required part of your profile before applying. It takes about 3 minutes.",
+    "completeProfile": "Complete my profile",
+    "closed": "Applications for this course are closed.",
+    "already": "You've already applied to this course.",
+    "viewApplication": "View my application",
+    "profileNote": "Your current profile is attached to this application. Check it's up to date.",
+    "reviewProfile": "Review profile",
+    "googleNote": "Paid recordings are shared with your Google account: {email}.",
+    "errors": {
+      "ALREADY_APPLIED": "You've already applied to this course.",
+      "COURSE_CLOSED": "Applications for this course are closed.",
+      "PROFILE_INCOMPLETE": "Complete your profile before applying.",
+      "EMAIL_NOT_VERIFIED": "Confirm your email address before applying."
+    }
+  },
+  "applications": {
+    "title": "Application",
+    "course": "Course",
+    "submitted": "Submitted {date}",
+    "timeline": "Timeline",
+    "yourAnswers": "Your answers",
+    "status": "Status",
+    "reason": "Reason: {reason}",
+    "back": "Back to dashboard",
+    "viewCourse": "Course page",
+    "next": {
+      "SUBMITTED": "We're reviewing your application. You'll get an email when the status changes.",
+      "SHORTLISTED": "You're shortlisted. We'll confirm your place soon.",
+      "AWAITING_PAYMENT": "You're accepted! Complete the payment to confirm your seat.",
+      "PAYMENT_SUBMITTED": "Your payment proof is being verified, usually within 2 working days.",
+      "PAYMENT_REJECTED": "Your payment couldn't be verified. Please submit a new proof of payment.",
+      "ENROLLED": "You're enrolled. Session links and recordings are on the course page.",
+      "REJECTED": "This application wasn't accepted. We hope to see you in a future course.",
+      "WAITLISTED": "You're on the waitlist. We'll email you if a seat opens up."
+    },
+    "pay": "Pay and upload proof",
+    "goToCourse": "Go to course"
   }
 }

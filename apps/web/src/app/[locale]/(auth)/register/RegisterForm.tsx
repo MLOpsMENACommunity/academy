@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { issuesToErrors } from '@/lib/zod-errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
 import { postLoginPath } from '../login/LoginForm';
 
@@ -36,7 +37,7 @@ export function RegisterForm() {
     setError(null);
     const parsed = registerSchema.safeParse({ email, password, locale, returnTo });
     if (!parsed.success) {
-      setFieldErrors(Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message])));
+      setFieldErrors(issuesToErrors(parsed.error.issues, t));
       return;
     }
     setFieldErrors({});

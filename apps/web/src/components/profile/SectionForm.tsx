@@ -57,6 +57,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { issuesToErrors } from '@/lib/zod-errors';
 import { CvUpload } from './CvUpload';
 
 type Values = Record<string, unknown>;
@@ -193,7 +194,7 @@ export function SectionForm({
     setFormError(null);
     const parsed = profileSectionSchemas[section].safeParse(values);
     if (!parsed.success) {
-      setErrors(Object.fromEntries(parsed.error.issues.map((i) => [i.path.join('.'), i.message])));
+      setErrors(issuesToErrors(parsed.error.issues, t));
       setFormError(t('forms.fixErrors'));
       return;
     }

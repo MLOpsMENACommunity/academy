@@ -2,6 +2,7 @@
 
 import { PROFILE_REVIEW_DAYS, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
+import { MyCourses } from '@/components/applications/MyCourses';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
@@ -71,7 +72,9 @@ function Home({ user }: { user: MeResponse }) {
         <h2 id="my-courses" className="text-xl">
           {t('dashboard.myCourses')}
         </h2>
-        <p className="mt-3 text-muted">{t('dashboard.noCourses')}</p>
+        <div className="mt-4">
+          <MyCourses />
+        </div>
       </section>
     </Container>
   );
