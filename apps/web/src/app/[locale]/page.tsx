@@ -7,7 +7,7 @@ import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
-import { serverGet } from '@/lib/server-api';
+import { serverGetOr } from '@/lib/server-api';
 
 export const revalidate = 300;
 
@@ -26,7 +26,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
   const steps = [1, 2, 3] as const;
-  const open = ((await serverGet<CourseSummaryDto[]>('/courses?availability=OPEN', 300)) ?? []).slice(0, 3);
+  const open = (await serverGetOr<CourseSummaryDto[]>('/courses?availability=OPEN', [], 300)).slice(0, 3);
 
   return (
     <>

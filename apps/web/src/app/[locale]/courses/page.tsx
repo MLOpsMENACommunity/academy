@@ -18,7 +18,7 @@ import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
-import { serverGet } from '@/lib/server-api';
+import { serverGetOr } from '@/lib/server-api';
 
 type Props = { params: Promise<{ locale: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -44,7 +44,7 @@ export default async function CatalogPage({ params, searchParams }: Props) {
   );
   const q = parsed.success ? parsed.data : {};
   const qs = new URLSearchParams(q as Record<string, string>).toString();
-  const courses = (await serverGet<CourseSummaryDto[]>(`/courses${qs ? `?${qs}` : ''}`)) ?? [];
+  const courses = await serverGetOr<CourseSummaryDto[]>(`/courses${qs ? `?${qs}` : ''}`, []);
   const filtered = Object.keys(q).length > 0;
 
   const select = (name: string, label: string, values: readonly string[], labels: Record<string, Localized>) => (

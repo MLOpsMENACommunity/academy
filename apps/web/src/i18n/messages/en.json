@@ -334,6 +334,7 @@
     "minutes": "{count} min",
     "share": "Share",
     "paidNote": "Paid by InstaPay or Vodafone Cash after you're accepted. See the {refund}.",
-    "fit": "Is this course for you?"
+    "fit": "Is this course for you?",
+    "breadcrumbLabel": "Breadcrumb"
   }
 }

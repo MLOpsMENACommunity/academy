@@ -3,9 +3,9 @@ import { POLICY_SLUGS } from '@/content/policies';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl } from '@/lib/site';
 
-// Built on request (the API isn't reachable at image build time), cached for an hour.
+// Built on request (the API isn't reachable at image build time). If the API is down
+// the request fails rather than publishing a sitemap with every course missing.
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
 
 function entry(path: string, lastModified?: Date | string, priority = 0.5): MetadataRoute.Sitemap {
   const languages = { en: absoluteUrl(`/en${path}`), ar: absoluteUrl(`/ar${path}`) };

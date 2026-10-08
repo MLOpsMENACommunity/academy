@@ -132,7 +132,11 @@ export default async function CoursePage({ params }: Props) {
         category: c.type === 'FREE' ? 'Free' : 'Paid',
         price: c.price,
         priceCurrency: c.currency,
-        availability: c.availability === 'OPEN' ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+        availability: {
+          OPEN: full ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+          UPCOMING: 'https://schema.org/PreOrder',
+          CLOSED: 'https://schema.org/SoldOut',
+        }[c.availability],
         url,
       },
       hasCourseInstance: {
@@ -141,10 +145,12 @@ export default async function CoursePage({ params }: Props) {
         location: deliveryPlatformLabels[c.deliveryPlatform].en,
         ...(c.startDate ? { startDate: c.startDate } : {}),
         ...(lastSession ? { endDate: lastSession.startsAt } : {}),
-        ...(c.hoursPerWeek ? { courseWorkload: `PT${c.hoursPerWeek}H` } : {}),
+        // Total effort for the whole course.
+        ...(c.hoursPerWeek && c.durationWeeks ? { courseWorkload: `PT${c.hoursPerWeek * c.durationWeeks}H` } : {}),
         courseSchedule: {
           '@type': 'Schedule',
-          repeatFrequency: 'P1W',
+          repeatFrequency: 'Weekly',
+          ...(c.sessions[0] ? { duration: `PT${c.sessions[0].durationMin}M` } : {}),
           ...(c.durationWeeks ? { repeatCount: c.durationWeeks } : {}),
           ...(c.startDate ? { startDate: c.startDate } : {}),
         },
@@ -181,7 +187,7 @@ export default async function CoursePage({ params }: Props) {
 
       <section className="bg-ink text-white">
         <Container className="py-10 sm:py-14">
-          <nav aria-label="Breadcrumb" className="text-sm text-white/70">
+          <nav aria-label={t('course.breadcrumbLabel')} className="text-sm text-white/70">
             <Link href={`/${locale}/courses`} className="hover:text-white hover:underline">
               {t('course.breadcrumb')}
             </Link>
@@ -207,7 +213,7 @@ export default async function CoursePage({ params }: Props) {
         <div aria-hidden className="h-1 w-full" style={{ background: 'var(--brand-gradient)' }} />
       </section>
 
-      <Container className="grid gap-10 py-10 pb-32 lg:grid-cols-[1fr_20rem] lg:pb-10">
+      <Container className="grid gap-10 py-10 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-10">
           <dl className="grid grid-cols-2 gap-4 rounded-card border border-line bg-card p-5 sm:grid-cols-4">
             {facts.map(([k, v]) => (
@@ -305,7 +311,8 @@ export default async function CoursePage({ params }: Props) {
                 {c.instructors.map((i) => (
                   <li key={i.id} className="flex gap-4 rounded-card border border-line bg-card p-5">
                     {i.photoUrl ? (
-                      <Image src={i.photoUrl} alt="" width={72} height={72} className="size-18 shrink-0 rounded-full object-cover" />
+                      // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
+                      <Image src={i.photoUrl} alt="" width={72} height={72} unoptimized className="size-18 shrink-0 rounded-full object-cover" />
                     ) : (
                       <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-ink text-xl font-bold text-white">
                         {i.name.replace(/\[.*?\]\s*/, '').charAt(0)}
@@ -384,7 +391,8 @@ export default async function CoursePage({ params }: Props) {
           </div>
         </aside>
       </Container>
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      {/* Sticky (not fixed) inside <main>: it follows the visitor down the page and stops above the footer. */}
+      <div className="sticky bottom-0 z-30 border-t border-line bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         {cta}
       </div>
     </>
