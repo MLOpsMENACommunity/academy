@@ -81,21 +81,26 @@ export const coreSectionSchema = z.object({
 });
 export type CoreSection = z.infer<typeof coreSectionSchema>;
 
+const requiredText = (max: number) => z.string().trim().min(2).max(max);
+
+/** Required (no skip): admins screen and filter applicants on these. */
 export const professionalSectionSchema = z.object({
   company: optionalText(120),
-  industry: z.enum(INDUSTRIES).nullish(),
+  industry: z.enum(INDUSTRIES),
   companySize: z.enum(COMPANY_SIZES).nullish(),
-  mlExperienceYears: z.enum(EXPERIENCE_RANGES).nullish(),
-  seniority: z.enum(SENIORITIES).nullish(),
+  mlExperienceYears: z.enum(EXPERIENCE_RANGES),
+  seniority: z.enum(SENIORITIES),
   secondaryAreas: unique(z.enum(AREAS), AREAS.length),
 });
 export type ProfessionalSection = z.infer<typeof professionalSectionSchema>;
 
 const currentYear = new Date().getFullYear();
+/** Required (no skip). */
 export const educationSectionSchema = z.object({
-  educationLevel: z.enum(EDUCATION_LEVELS).nullish(),
-  fieldOfStudy: optionalText(120),
-  university: optionalText(160),
+  educationLevel: z.enum(EDUCATION_LEVELS),
+  fieldOfStudy: requiredText(120),
+  /** University, institution or learning platform (e.g. a bootcamp or Coursera). */
+  university: requiredText(160),
   graduationYear: z.coerce
     .number()
     .int()
@@ -153,6 +158,10 @@ export const PROFILE_SECTIONS = [
   'community',
 ] as const;
 export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
+
+/** Steps every student must complete (no "skip") before applying. */
+export const REQUIRED_SECTIONS = ['core', 'professional', 'education'] as const satisfies readonly ProfileSection[];
+export const isRequiredSection = (s: ProfileSection): boolean => (REQUIRED_SECTIONS as readonly string[]).includes(s);
 
 export const profileSectionSchemas = {
   core: coreSectionSchema,
@@ -230,18 +239,44 @@ export const CORE_FIELDS = [
   'googleEmail',
   'preferredLanguage',
   'acceptedTermsAt',
+  // Professional background
+  'industry',
+  'mlExperienceYears',
+  'seniority',
+  // Education
+  'educationLevel',
+  'fieldOfStudy',
+  'university',
 ] as const;
 export type CoreField = (typeof CORE_FIELDS)[number];
+
+/** Which onboarding step each required field belongs to. */
+export const CORE_FIELD_SECTION: Record<CoreField, (typeof REQUIRED_SECTIONS)[number]> = {
+  fullNameEn: 'core',
+  phone: 'core',
+  country: 'core',
+  city: 'core',
+  timezone: 'core',
+  employmentStatus: 'core',
+  jobTitle: 'core',
+  experienceYears: 'core',
+  primaryArea: 'core',
+  googleEmail: 'core',
+  preferredLanguage: 'core',
+  acceptedTermsAt: 'core',
+  industry: 'professional',
+  mlExperienceYears: 'professional',
+  seniority: 'professional',
+  educationLevel: 'education',
+  fieldOfStudy: 'education',
+  university: 'education',
+};
 
 /** Optional fields that count toward completeness, grouped by section. */
 const OPTIONAL_FIELDS: { field: keyof ProfileDto; section: ProfileSection }[] = [
   { field: 'company', section: 'professional' },
-  { field: 'industry', section: 'professional' },
-  { field: 'mlExperienceYears', section: 'professional' },
-  { field: 'seniority', section: 'professional' },
   { field: 'secondaryAreas', section: 'professional' },
-  { field: 'educationLevel', section: 'education' },
-  { field: 'fieldOfStudy', section: 'education' },
+  { field: 'graduationYear', section: 'education' },
   { field: 'skills', section: 'skills' },
   { field: 'cloudPlatforms', section: 'skills' },
   { field: 'productionTools', section: 'skills' },

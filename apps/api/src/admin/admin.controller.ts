@@ -151,6 +151,18 @@ export class AdminController {
     return this.courses.update(id, body, user);
   }
 
+  @Delete('courses/:id')
+  @HttpCode(204)
+  async deleteCourse(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.courses.remove(id, user);
+  }
+
+  @Post('courses/:id/archive')
+  @HttpCode(204)
+  async archiveCourse(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.courses.archive(id, user);
+  }
+
   @Put('courses/:id/questions')
   questions(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(questionsInputSchema)) body: z.infer<typeof questionsInputSchema>) {
     return this.courses.setQuestions(id, body.questions, user);

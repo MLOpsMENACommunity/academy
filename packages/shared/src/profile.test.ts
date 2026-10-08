@@ -49,22 +49,33 @@ describe('linksSectionSchema', () => {
 });
 
 describe('computeCompleteness', () => {
-  it('is 0 for an empty profile and lists every core field as missing', () => {
+  it('is 0 for an empty profile and lists every required field as missing', () => {
     const c = computeCompleteness({});
     expect(c.percent).toBe(0);
     expect(c.coreComplete).toBe(false);
-    expect(c.missingCore).toHaveLength(12);
+    expect(c.missingCore).toHaveLength(18);
   });
-  it('gives 60% for a complete core and 100% when everything is filled', () => {
-    const coreOnly: Partial<ProfileDto> = {
+  it('needs the professional and education steps too, not only the basics', () => {
+    const basics: Partial<ProfileDto> = {
       fullNameEn: 'A', phone: '+201001234567', country: 'EG', city: 'Cairo', timezone: 'Africa/Cairo',
       employmentStatus: 'STUDENT', jobTitle: 'Student', experienceYears: 'Y0_1', primaryArea: 'STUDENT',
       googleEmail: 'a@gmail.com', preferredLanguage: 'en', acceptedTermsAt: '2026-01-01T00:00:00Z',
     };
+    const c = computeCompleteness(basics);
+    expect(c.coreComplete).toBe(false);
+    expect(c.missingCore.sort()).toEqual(['educationLevel', 'fieldOfStudy', 'industry', 'mlExperienceYears', 'seniority', 'university']);
+  });
+  it('gives 60% for all required steps and 100% when everything is filled', () => {
+    const coreOnly: Partial<ProfileDto> = {
+      fullNameEn: 'A', phone: '+201001234567', country: 'EG', city: 'Cairo', timezone: 'Africa/Cairo',
+      employmentStatus: 'STUDENT', jobTitle: 'Student', experienceYears: 'Y0_1', primaryArea: 'STUDENT',
+      googleEmail: 'a@gmail.com', preferredLanguage: 'en', acceptedTermsAt: '2026-01-01T00:00:00Z',
+      industry: 'OTHER', mlExperienceYears: 'Y0_1', seniority: 'INTERN', educationLevel: 'BACHELORS', fieldOfStudy: 'CS', university: 'Cairo University',
+    };
     expect(computeCompleteness(coreOnly)).toMatchObject({ percent: 60, coreComplete: true, missingCore: [] });
     const full: Partial<ProfileDto> = {
       ...coreOnly, company: 'X', industry: 'FINTECH', mlExperienceYears: 'Y1_3', seniority: 'MID',
-      secondaryAreas: ['MLOPS'], educationLevel: 'BACHELORS', fieldOfStudy: 'CS', skills: { PYTHON: 4 },
+      secondaryAreas: ['MLOPS'], graduationYear: 2020, skills: { PYTHON: 4 },
       cloudPlatforms: ['AWS'], productionTools: ['MLflow'], learningGoals: ['MOVE_TO_MLOPS'],
       interestedTopics: ['RAG'], weeklyHours: 'H_2_5', preferredTimes: ['WEEKEND_EVENINGS'],
       preferredFormat: 'LIVE', linkedinUrl: 'https://l.in', githubUrl: 'https://g.h', referralSource: 'LINKEDIN',

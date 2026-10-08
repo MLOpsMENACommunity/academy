@@ -107,17 +107,20 @@ export default function ApplicationDetailAdmin() {
                 {t(`admin.apps.events.${ev}`)}
               </Button>
             ))}
-            {a.availableEvents.includes('REJECT') && (
-              <input
-                aria-label={t('admin.apps.reason')}
-                placeholder={t('admin.apps.reason')}
+          </div>
+          {a.availableEvents.includes('REJECT') && (
+            <label className="mt-4 block">
+              <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.apps.reason')}</span>
+              <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 maxLength={1000}
-                className="min-h-9 min-w-64 flex-1 rounded-lg border border-line-strong bg-card px-3 text-sm"
+                rows={3}
+                placeholder={t('admin.apps.reasonPlaceholder')}
+                className="block w-full rounded-lg border border-line-strong bg-card px-3 py-2 text-sm"
               />
-            )}
-          </div>
+            </label>
+          )}
           {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
         </Card>
       )}

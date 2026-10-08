@@ -290,10 +290,10 @@ export function SectionForm({
       body = (
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label={f('company')} autoComplete="organization" value={str('company')} onChange={set('company')} error={errors.company} />
-          <SelectField label={f('industry')} value={str('industry')} onChange={set('industry')} options={options(INDUSTRIES, industryLabels, locale)} />
+          <SelectField label={f('industry')} required value={str('industry')} onChange={set('industry')} error={errors.industry} options={options(INDUSTRIES, industryLabels, locale)} />
           <SelectField label={f('companySize')} value={str('companySize')} onChange={set('companySize')} options={options(COMPANY_SIZES, companySizeLabels, locale)} />
-          <SelectField label={f('mlExperienceYears')} value={str('mlExperienceYears')} onChange={set('mlExperienceYears')} options={options(EXPERIENCE_RANGES, experienceRangeLabels, locale)} />
-          <SelectField label={f('seniority')} value={str('seniority')} onChange={set('seniority')} options={options(SENIORITIES, seniorityLabels, locale)} />
+          <SelectField label={f('mlExperienceYears')} required value={str('mlExperienceYears')} onChange={set('mlExperienceYears')} error={errors.mlExperienceYears} options={options(EXPERIENCE_RANGES, experienceRangeLabels, locale)} />
+          <SelectField label={f('seniority')} required value={str('seniority')} onChange={set('seniority')} error={errors.seniority} options={options(SENIORITIES, seniorityLabels, locale)} />
           <div className="sm:col-span-2">
             <ChipGroup legend={f('secondaryAreas')} options={options(AREAS, areaLabels, locale)} value={arr('secondaryAreas')} onChange={set('secondaryAreas')} />
           </div>
@@ -303,9 +303,9 @@ export function SectionForm({
     case 'education':
       body = (
         <div className="grid gap-5 sm:grid-cols-2">
-          <SelectField label={f('educationLevel')} value={str('educationLevel')} onChange={set('educationLevel')} options={options(EDUCATION_LEVELS, educationLevelLabels, locale)} />
-          <TextField label={f('fieldOfStudy')} value={str('fieldOfStudy')} onChange={set('fieldOfStudy')} />
-          <TextField label={f('university')} value={str('university')} onChange={set('university')} />
+          <SelectField label={f('educationLevel')} required value={str('educationLevel')} onChange={set('educationLevel')} error={errors.educationLevel} options={options(EDUCATION_LEVELS, educationLevelLabels, locale)} />
+          <TextField label={f('fieldOfStudy')} required value={str('fieldOfStudy')} onChange={set('fieldOfStudy')} error={errors.fieldOfStudy} />
+          <TextField label={f('university')} required hint={f('universityHint')} value={str('university')} onChange={set('university')} error={errors.university} />
           <TextField
             label={f('graduationYear')}
             type="number"

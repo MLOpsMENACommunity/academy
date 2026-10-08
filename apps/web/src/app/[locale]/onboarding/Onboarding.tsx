@@ -1,6 +1,6 @@
 'use client';
 
-import { PROFILE_SECTIONS, type ProfileDto, type ProfileSection } from '@academy/shared';
+import { CORE_FIELD_SECTION, computeCompleteness, isRequiredSection, PROFILE_SECTIONS, REQUIRED_SECTIONS, type ProfileDto, type ProfileSection } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -37,8 +37,10 @@ function Stepper() {
     api<ProfileDto>('/me/profile')
       .then((p) => {
         setProfile(p);
-        // Returning users with a complete core start at the first optional step.
-        if (p.coreComplete) setStep(1);
+        // Start at the first required step that still has gaps; if none, at the first optional step.
+        const missing = computeCompleteness(p).missingCore.map((f) => CORE_FIELD_SECTION[f]);
+        const first = STEPS.findIndex((s) => missing.includes(s as (typeof REQUIRED_SECTIONS)[number]));
+        setStep(first >= 0 ? first : REQUIRED_SECTIONS.length);
       })
       .catch(() => setLoadError(true));
   }, []);
@@ -110,10 +112,10 @@ function Stepper() {
       <section className="mt-8 rounded-card border border-line bg-card p-5 sm:p-8">
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-xl">{t(`profile.sections.${section}`)}</h2>
-          {section === 'core' && <span className="text-xs font-semibold text-danger">{t('onboarding.requiredStep')}</span>}
+          {isRequiredSection(section) && <span className="text-xs font-semibold text-danger">{t('onboarding.requiredStep')}</span>}
         </div>
         <p className="-mt-4 mb-6 text-sm text-muted">{t(`profile.sectionHints.${section}`)}</p>
-        {section === 'core' && returnTo && courseSlug && !profile.coreComplete && (
+        {isRequiredSection(section) && returnTo && courseSlug && !profile.coreComplete && (
           <Alert tone="info" className="mb-6">
             {t('profile.coreMissing')}
           </Alert>
@@ -140,7 +142,8 @@ function Stepper() {
                   {t('common.back')}
                 </Button>
               )}
-              {(section !== 'core' || profile.coreComplete) && (
+              {/* Required steps can't be skipped; the optional ones can. */}
+              {!isRequiredSection(section) && (
                 <Button type="button" variant="ghost" onClick={next}>
                   {t('onboarding.skip')}
                 </Button>

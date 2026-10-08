@@ -230,6 +230,23 @@ describe('admin panel API (e2e)', () => {
     expect(bulk.body.map((s: { order: number }) => s.order)).toEqual([1, 2, 3]);
   });
 
+  it('deletes a course nobody applied to, and only archives one with applicants', async () => {
+    const empty = await createCourse(prisma);
+    await as(admin.cookie).del(`/api/admin/courses/${empty.id}`).expect(204);
+    expect(await prisma.course.findUnique({ where: { id: empty.id } })).toBeNull();
+    expect(await prisma.screeningQuestion.count({ where: { courseId: empty.id } })).toBe(0);
+
+    const used = await createCourse(prisma);
+    const s = await createUser(app, prisma, { prefix: 'del' });
+    await http().post('/api/applications').set('Cookie', s.cookie).send({ courseSlug: used.slug, answers: { [used.questionId]: true } }).expect(201);
+    const res = await as(admin.cookie).del(`/api/admin/courses/${used.id}`).expect(409);
+    expect(res.body.code).toBe('COURSE_HAS_APPLICANTS');
+    await as(admin.cookie).post(`/api/admin/courses/${used.id}/archive`).expect(204);
+    expect((await prisma.course.findUniqueOrThrow({ where: { id: used.id } })).status).toBe('ARCHIVED');
+    expect(await prisma.application.count({ where: { courseId: used.id } })).toBe(1);
+    await http().delete(`/api/admin/courses/${used.id}`).set('Cookie', s.cookie).expect(403);
+  });
+
   it('saves English-only drafts but needs Arabic to publish', async () => {
     const input = {
       slug: `draft-${Date.now()}`, titleEn: 'English only', titleAr: '', shortDescriptionEn: 'An English-only draft course', shortDescriptionAr: '',

@@ -133,6 +133,36 @@ export class AdminCoursesService {
     return this.get(id);
   }
 
+  /**
+   * Deletes a course nobody has applied to (e.g. a mistake or a test). Courses with
+   * applicants or students keep their records: archive those instead.
+   */
+  async remove(id: string, admin: Actor) {
+    const c = await this.prisma.course.findUnique({
+      where: { id },
+      select: { slug: true, _count: { select: { applications: true, enrollments: true } } },
+    });
+    if (!c) throw new NotFoundException('Course not found');
+    if (c._count.applications || c._count.enrollments) {
+      throw new ConflictException({
+        code: 'COURSE_HAS_APPLICANTS',
+        message: 'This course has applicants or students, so it can only be archived (their records are kept).',
+      });
+    }
+    await this.prisma.course.delete({ where: { id } });
+    await this.audit.log({ actorId: admin.id, action: 'course.deleted', entityType: 'Course', entityId: id, metadata: { slug: c.slug } });
+  }
+
+  /** Hides a course from the catalog without touching its records. */
+  async archive(id: string, admin: Actor) {
+    const r = await this.prisma.course.updateMany({ where: { id, status: { not: 'ARCHIVED' } }, data: { status: 'ARCHIVED', archivedAt: new Date() } });
+    if (!r.count) {
+      if (!(await this.prisma.course.findUnique({ where: { id }, select: { id: true } }))) throw new NotFoundException('Course not found');
+      return;
+    }
+    await this.audit.log({ actorId: admin.id, action: 'course.archived', entityType: 'Course', entityId: id });
+  }
+
   /** Replaces the question list; existing questions keep their ids so stored answers stay readable. */
   async setQuestions(courseId: string, questions: QuestionInput[], admin: Actor) {
     await this.ensure(courseId);
