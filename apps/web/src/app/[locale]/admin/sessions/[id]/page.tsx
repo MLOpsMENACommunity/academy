@@ -31,7 +31,7 @@ export default function EditSession() {
   return (
     <div>
       <Link href={`/${locale}/admin/sessions`} className="inline-flex min-h-11 items-center text-sm text-muted hover:underline">
-        ← {t('admin.sessions.title')}
+        <span aria-hidden className="me-1 inline-block rtl:-scale-x-100">←</span>{t('admin.sessions.title')}
       </Link>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="min-w-0 text-3xl break-words">{(locale === 'ar' && event.titleAr) || event.titleEn}</h1>

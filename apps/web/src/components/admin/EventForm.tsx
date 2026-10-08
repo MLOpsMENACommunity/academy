@@ -160,6 +160,7 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
           value={v.status}
           onChange={(x) => set('status')((x ?? 'DRAFT') as EventStatus)}
           options={opts(EVENT_STATUSES, eventStatusLabels)}
+          hint={eventId ? f('statusHint') : undefined}
         />
         <TextField label={f('titleEn')} required value={v.titleEn} onChange={set('titleEn')} error={errors.titleEn} maxLength={160} />
         <TextField label={f('titleAr')} hint={f('titleArHint')} dir="rtl" value={v.titleAr} onChange={set('titleAr')} error={errors.titleAr} maxLength={160} />
@@ -203,7 +204,7 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
           onChange={(x) => set('platform')((x ?? 'GOOGLE_MEET') as EventFormValue['platform'])}
           options={opts(DELIVERY_PLATFORMS, deliveryPlatformLabels)}
         />
-        <TextField label={f('liveUrl')} type="url" dir="ltr" value={v.liveUrl ?? ''} onChange={url('liveUrl')} error={errors.liveUrl} hint={f('liveUrlHint')} />
+        <TextField label={f('liveUrl')} required={v.status === 'PUBLISHED'} type="url" dir="ltr" value={v.liveUrl ?? ''} onChange={url('liveUrl')} error={errors.liveUrl} hint={f('liveUrlHint')} />
         <TextField
           label={f('capacity')}
           type="number"
@@ -255,7 +256,7 @@ export function DeleteEvent({ event, onDone }: { event: Pick<AdminEvent, 'id' | 
       await api(`/admin/events/${event.id}`, { method: 'DELETE' });
       onDone();
     } catch (err) {
-      window.alert(errorMessage(err, t));
+      window.alert(err instanceof ApiError && err.code === 'EVENT_HAS_REGISTRATIONS' ? t('admin.sessions.hasRegistrations') : errorMessage(err, t));
     } finally {
       setBusy(false);
     }

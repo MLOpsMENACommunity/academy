@@ -93,7 +93,8 @@
       "mustAccept": "You must accept this to continue.",
       "driveUrl": "Must be a Google Drive link (https://drive.google.com/…)",
       "price": "Paid courses need a price above 0; free courses must be 0",
-      "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only."
+      "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only.",
+      "liveLinkToPublish": "Add the live link before publishing."
     }
   },
   "auth": {
@@ -820,7 +821,7 @@
       "registeredCount": "{count} registered",
       "ofCapacity": "{count} of {capacity} registered",
       "ended": "Ended",
-      "deleteConfirm": "Delete \"{title}\"? Its registrations ({count}) will be removed too. This can't be undone.",
+      "deleteConfirm": "Delete \"{title}\"? This can't be undone.",
       "csv": "Download CSV",
       "noRegistrations": "No one has registered yet.",
       "basics": "Basics",
@@ -847,11 +848,12 @@
         "language": "Language",
         "platform": "Platform",
         "liveUrl": "Live link",
-        "liveUrlHint": "Shown only to registered people, shortly before the start.",
+        "liveUrlHint": "Required to publish. Shown only to registered people, shortly before the start.",
         "recordingUrl": "Recording URL",
         "coverImage": "Cover image URL",
         "capacity": "Capacity",
-        "capacityHint": "Leave empty for no limit."
+        "capacityHint": "Leave empty for no limit.",
+        "statusHint": "Cancelling, or changing the time of, a published session emails everyone registered."
       },
       "columns": {
         "session": "Session",
@@ -861,7 +863,8 @@
         "country": "Country",
         "jobTitle": "Job title",
         "registeredAt": "Registered"
-      }
+      },
+      "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email."
     }
   },
   "learn": {
@@ -907,7 +910,7 @@
   },
   "sessions": {
     "title": "Live sessions",
-    "intro": "Free talks, workshops and open Q&As with practitioners from the region. Register once: we send a calendar invite, a reminder, and the link before it starts.",
+    "intro": "Free talks, workshops and open Q&As with practitioners from the region. Register once: you get a confirmation with calendar links, reminders 24 hours and 1 hour before, and the join link on the session page shortly before it starts.",
     "metaDescription": "Free live talks, workshops and open Q&As on MLOps and AI engineering, hosted by MLOps MENA Community.",
     "nextUp": "Next up",
     "comingUp": "Coming up",
@@ -938,11 +941,11 @@
     "cancelConfirm": "Cancel your registration for this session?",
     "join": "Join the session",
     "linkFrom": "The join link appears here from {time}.",
-    "reminderNote": "We'll also email you a reminder with the link.",
+    "reminderNote": "We'll also email you reminders 24 hours and 1 hour before.",
     "full": "This session is full",
-    "freeNote": "Free. You'll get a calendar invite, a reminder and the link.",
+    "freeNote": "Free. You'll get a confirmation with calendar links, and reminders 24 hours and 1 hour before.",
     "loginNote": "You'll log in or create a free account first.",
-    "registeredNow": "You're in. We've emailed you the details.",
+    "registeredNow": "You're in. See you there!",
     "ended": "This session has ended",
     "endedBody": "Thanks to everyone who joined. Have a look at what's coming up next.",
     "recording": "Watch the recording",
@@ -955,6 +958,8 @@
       "EMAIL_NOT_VERIFIED": "Confirm your email address first, then register."
     },
     "addToGoogle": "Add to Google Calendar",
-    "calendarDetails": "Free live session by MLOps MENA Academy. The join link appears on the session page shortly before it starts."
+    "calendarDetails": "Free live session by MLOps MENA Academy. The join link appears on the session page shortly before it starts.",
+    "linkSoon": "The join link will be posted here shortly.",
+    "confirmHint": "Ready when you are: register with one click."
   }
 }

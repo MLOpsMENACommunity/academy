@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Post, Put, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { eventInputSchema, toCsv, type EventInput, type PublicEventDto } from '@academy/shared';
@@ -6,17 +6,12 @@ import type { Response } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
-import { ENV } from '../config/config.module';
-import type { Env } from '../config/env';
 import { EventsService } from './events.service';
 
 @ApiTags('events')
 @Controller('events')
 export class EventsController {
-  constructor(
-    private readonly events: EventsService,
-    @Inject(ENV) private readonly env: Env,
-  ) {}
+  constructor(private readonly events: EventsService) {}
 
   @Public()
   @SkipThrottle()
@@ -29,25 +24,29 @@ export class EventsController {
   @Public()
   @SkipThrottle()
   @Get(':slug')
-  get(@Param('slug') slug: string, @CurrentUser() user?: AuthUser): Promise<PublicEventDto> {
+  get(@Param('slug') slug: string, @Res({ passthrough: true }) res: Response, @CurrentUser() user?: AuthUser): Promise<PublicEventDto> {
+    // Signed in, the response carries the viewer's registration and possibly the live link.
+    if (user) res.setHeader('Cache-Control', 'private, no-store');
     return this.events.get(slug, user);
   }
 
+  // Each first registration sends an email: keep the loop short.
   @Post(':slug/registration')
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
   register(@CurrentUser() user: AuthUser, @Param('slug') slug: string) {
     return this.events.register(user, slug);
   }
 
   @Delete(':slug/registration')
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
   unregister(@CurrentUser() user: AuthUser, @Param('slug') slug: string) {
     return this.events.unregister(user, slug);
   }
 
   @Public()
   @Get(':slug/calendar.ics')
-  async ics(@Param('slug') slug: string, @Res() res: Response): Promise<void> {
-    const ics = await this.events.ics(slug, this.env.WEB_URL);
+  async ics(@Param('slug') slug: string, @Query('locale') locale: string | undefined, @Res() res: Response): Promise<void> {
+    const ics = await this.events.ics(slug, locale === 'ar' ? 'ar' : 'en');
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${ics.filename}"`);
     res.send(ics.body);
@@ -87,25 +86,21 @@ export class AdminEventsController {
     return this.events.adminGet(id);
   }
 
+  /** Audited in the service, with what changed. */
   @Post()
-  async create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(eventInputSchema)) body: EventInput) {
-    const e = await this.events.save(toData(body));
-    await this.audit.log({ actorId: user.id, action: 'event.created', entityType: 'LiveEvent', entityId: e.id });
-    return e;
+  create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(eventInputSchema)) body: EventInput) {
+    return this.events.save(toData(body), user.id);
   }
 
   @Put(':id')
-  async update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(eventInputSchema)) body: EventInput) {
-    const e = await this.events.save(toData(body), id);
-    await this.audit.log({ actorId: user.id, action: 'event.updated', entityType: 'LiveEvent', entityId: id, metadata: { status: body.status } });
-    return e;
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(eventInputSchema)) body: EventInput) {
+    return this.events.save(toData(body), user.id, id);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    await this.events.remove(id);
-    await this.audit.log({ actorId: user.id, action: 'event.deleted', entityType: 'LiveEvent', entityId: id });
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.events.remove(id, user.id);
   }
 
   @Get(':id/registrations')
@@ -119,6 +114,8 @@ export class AdminEventsController {
     await this.audit.log({ actorId: user.id, action: 'event.registrations_exported', entityType: 'LiveEvent', entityId: id, metadata: { count: rows.length } });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="session-registrations-${new Date().toISOString().slice(0, 10)}.csv"`);
+    // Personal data: never kept by a browser or proxy cache.
+    res.setHeader('Cache-Control', 'private, no-store');
     res.send(
       toCsv(
         ['Name', 'Email', 'Country', 'Job title', 'Experience', 'Seniority', 'Registered at'],

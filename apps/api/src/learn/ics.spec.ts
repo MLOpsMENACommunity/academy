@@ -13,4 +13,13 @@ describe('buildIcs', () => {
     expect(ics).toContain('X-WR-CALNAME:Course\\; One');
     for (const line of ics.split('\r\n')) expect(Buffer.byteLength(line)).toBeLessThanOrEqual(75);
   });
+
+  it('keeps one domain in the UID and marks cancelled entries', () => {
+    const ics = buildIcs('S', [
+      { uid: 'event-abc', title: 'S', description: '', url: 'https://academy/x', start: new Date('2026-10-22T17:00:00Z'), durationMin: 60, cancelled: true },
+    ]);
+    expect(ics).toContain('UID:event-abc@academy.mlopsmena.com\r\n');
+    expect(ics).toContain('STATUS:CANCELLED');
+    expect(buildIcs('S', [{ uid: 'x', title: 'S', description: '', url: 'u', start: new Date(), durationMin: 60 }])).not.toContain('STATUS:');
+  });
 });

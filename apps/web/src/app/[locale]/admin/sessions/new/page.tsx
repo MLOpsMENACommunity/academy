@@ -11,7 +11,7 @@ export default function NewSession() {
   return (
     <div>
       <Link href={`/${locale}/admin/sessions`} className="inline-flex min-h-11 items-center text-sm text-muted hover:underline">
-        ← {t('admin.sessions.title')}
+        <span aria-hidden className="me-1 inline-block rtl:-scale-x-100">←</span>{t('admin.sessions.title')}
       </Link>
       <h1 className="mt-1 text-3xl">{t('admin.sessions.new')}</h1>
       <div className="mt-5">

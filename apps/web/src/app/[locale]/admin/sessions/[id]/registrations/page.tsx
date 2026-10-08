@@ -56,7 +56,7 @@ export default function SessionRegistrations() {
   return (
     <div>
       <Link href={event ? `/${locale}/admin/sessions/${id}` : `/${locale}/admin/sessions`} className="inline-flex min-h-11 items-center text-sm text-muted hover:underline">
-        ← {event ? (locale === 'ar' && event.titleAr) || event.titleEn : t('admin.sessions.title')}
+        <span aria-hidden className="me-1 inline-block rtl:-scale-x-100">←</span>{event ? (locale === 'ar' && event.titleAr) || event.titleEn : t('admin.sessions.title')}
       </Link>
       <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.sessions.registrations')}</h1>

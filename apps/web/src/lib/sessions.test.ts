@@ -28,6 +28,11 @@ describe('registerState', () => {
     expect(registerState({ ...base, startsAt: at(-59) }, now)).toBe('open');
   });
 
+  it('before hydration (epoch clock) trusts only the server flags, so server and client agree', () => {
+    expect(registerState({ ...base, startsAt: at(-500) }, new Date(0))).toBe('open');
+    expect(registerState({ ...base, past: true }, new Date(0))).toBe('ended');
+  });
+
   it('puts cancellation above everything else', () => {
     expect(registerState({ ...base, status: 'CANCELLED', me: me(true) }, now)).toBe('cancelled');
     expect(registerState({ ...base, status: 'CANCELLED', past: true }, now)).toBe('cancelled');

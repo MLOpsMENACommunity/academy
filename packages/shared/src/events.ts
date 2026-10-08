@@ -45,6 +45,10 @@ export const eventInputSchema = z
     if (e.status === 'PUBLISHED' && e.titleAr.length < 2) {
       ctx.addIssue({ code: 'custom', path: ['titleAr'], message: 'Arabic title is required to publish' });
     }
+    // Registered people would otherwise wait for a link that never comes.
+    if (e.status === 'PUBLISHED' && !e.liveUrl) {
+      ctx.addIssue({ code: 'custom', path: ['liveUrl'], message: 'A live link is required to publish' });
+    }
   });
 export type EventInput = z.infer<typeof eventInputSchema>;
 
@@ -67,6 +71,7 @@ export interface PublicEventDto {
   language: CourseLanguage;
   platform: DeliveryPlatform;
   coverImageUrl: string | null;
+  /** Only once the session has ended (admins often paste the live URL here ahead of time). */
   recordingUrl: string | null;
   /** True once the session has ended. */
   past: boolean;

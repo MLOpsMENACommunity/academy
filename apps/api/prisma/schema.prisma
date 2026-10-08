@@ -297,6 +297,7 @@ model User {
   announcementDeliveries  AnnouncementRecipient[]
   eventRegistrations      EventRegistration[]
   eventReminders          EventReminderLog[]
+  eventConfirmations      EventConfirmation[]
   refreshTokens           RefreshToken[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
@@ -947,6 +948,7 @@ model LiveEvent {
   updatedAt         DateTime            @updatedAt
   registrations     EventRegistration[]
   reminders         EventReminderLog[]
+  confirmations     EventConfirmation[]
 
   @@index([status, startsAt])
 }
@@ -972,4 +974,16 @@ model EventReminderLog {
   sentAt  DateTime     @default(now())
 
   @@id([eventId, userId, kind])
+}
+
+/// The registration confirmation goes out once per person and session, even if they unregister and register again.
+model EventConfirmation {
+  eventId String
+  event   LiveEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentAt  DateTime  @default(now())
+
+  @@id([eventId, userId])
+  @@index([userId])
 }

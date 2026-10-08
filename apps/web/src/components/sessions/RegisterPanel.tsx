@@ -18,8 +18,8 @@ const SESSION_ERRORS = ['EVENT_FULL', 'EVENT_CLOSED', 'EMAIL_NOT_VERIFIED'];
 /**
  * Register / cancel for one live session. The page is cached and public; the
  * viewer's own registration (and the join link near the start) is fetched here.
- * Logged-out visitors log in first and come back with ?register=1, which
- * finishes the registration they started.
+ * Logged-out visitors log in first and come back with ?register=1, which only
+ * brings the register button into view: registering always takes a click.
  */
 export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEventDto; title: string; pageUrl: string }) {
   const { locale, t } = useI18n();
@@ -27,8 +27,12 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
   const [event, setEvent] = useState(initial);
   const [now, setNow] = useState<Date | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
-  const autoTried = useRef(false);
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+  const [returned, setReturned] = useState(false);
+  const registeredRef = useRef<HTMLParagraphElement>(null);
+  const registerRef = useRef<HTMLButtonElement>(null);
+  const focusRegistered = useRef(false);
   const slug = initial.slug;
   const path = `/events/${slug}`;
 
@@ -54,38 +58,67 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
     return () => clearTimeout(id);
   }, [event, refresh]);
 
-  const state = registerState(event, now ?? undefined);
+  // Until hydrated, trust only the server's "past" flag so server and client render the same.
+  const state = registerState(event, now ?? new Date(0));
+  const registered = state === 'registered' || state === 'live';
 
-  const fail = useCallback(
-    (err: unknown) => {
-      const code = err instanceof ApiError ? err.code : undefined;
-      setMessage({ tone: 'danger', text: code && SESSION_ERRORS.includes(code) ? t(`sessions.errors.${code}`) : errorMessage(err, t) });
-    },
-    [t],
-  );
+  // The register button disappears on success: put focus on the result instead of <body>.
+  useEffect(() => {
+    if (registered && focusRegistered.current) {
+      focusRegistered.current = false;
+      registeredRef.current?.focus();
+    }
+  }, [registered]);
 
-  const register = useCallback(async () => {
+  // Back from login with ?register=1: bring the button into view, but never register without a click.
+  useEffect(() => {
+    if (!user || !event.me) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('register') !== '1') return;
+    params.delete('register');
+    const qs = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    if (state === 'open') {
+      setReturned(true);
+      registerRef.current?.scrollIntoView({ block: 'center' });
+      registerRef.current?.focus();
+    }
+  }, [user, event.me, state]);
+
+  const fail = (err: unknown) => {
+    const code = err instanceof ApiError ? err.code : undefined;
+    setError(code && SESSION_ERRORS.includes(code) ? t(`sessions.errors.${code}`) : errorMessage(err, t));
+  };
+
+  async function register() {
     setBusy(true);
-    setMessage(null);
+    setStatus('');
+    setError('');
     try {
-      setEvent(await api<PublicEventDto>(`${path}/registration`, { method: 'POST' }));
+      const next = await api<PublicEventDto>(`${path}/registration`, { method: 'POST' });
+      focusRegistered.current = true;
+      setEvent(next);
       forgetMySessions();
-      setMessage({ tone: 'success', text: t('sessions.registeredNow') });
+      setStatus(t('sessions.registeredNow'));
     } catch (err) {
       fail(err);
       void refresh();
     } finally {
       setBusy(false);
     }
-  }, [path, t, fail, refresh]);
+  }
 
   async function cancel() {
     if (!window.confirm(t('sessions.cancelConfirm'))) return;
     setBusy(true);
-    setMessage(null);
+    setStatus('');
+    setError('');
     try {
       setEvent(await api<PublicEventDto>(`${path}/registration`, { method: 'DELETE' }));
       forgetMySessions();
+      setStatus('');
+      // The register button is back: keep keyboard users in the panel.
+      requestAnimationFrame(() => registerRef.current?.focus());
     } catch (err) {
       fail(err);
     } finally {
@@ -93,17 +126,17 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
     }
   }
 
-  // Back from login with ?register=1: finish what the visitor started, once.
-  useEffect(() => {
-    if (!user || !event.me || autoTried.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('register') !== '1') return;
-    autoTried.current = true;
-    params.delete('register');
-    const qs = params.toString();
-    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
-    if (state === 'open') void register();
-  }, [user, event.me, state, register]);
+  // Always in the DOM, so screen readers announce what we put in them.
+  const liveRegions = (
+    <>
+      <div role="status" aria-live="polite" className={status ? 'rounded-lg border border-success/30 bg-success-soft p-4 text-sm text-success' : 'sr-only'}>
+        {status}
+      </div>
+      <div role="alert" className={error ? 'rounded-lg border border-danger/30 bg-danger-soft p-4 text-sm text-danger' : 'sr-only'}>
+        {error}
+      </div>
+    </>
+  );
 
   if (state === 'cancelled' || state === 'ended') {
     return (
@@ -124,15 +157,15 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
   }
 
   const here = `/${locale}/sessions/${slug}`;
-  const registered = state === 'registered' || state === 'live';
+  const linkDue = event.me && now && new Date(event.me.liveUrlFrom).getTime() <= now.getTime();
   const [before, after] = t('sessions.linkFrom', { time: '\u0000' }).split('\u0000');
 
   return (
     <div className="space-y-3">
-      {message && <Alert tone={message.tone}>{message.text}</Alert>}
+      {liveRegions}
 
       {registered && (
-        <p className="flex items-center gap-2 font-semibold text-primary">
+        <p ref={registeredRef} tabIndex={-1} className="flex items-center gap-2 font-semibold text-primary focus:outline-none">
           <span aria-hidden>✓</span>
           {t('sessions.registered')}
         </p>
@@ -146,34 +179,40 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
 
       {state === 'registered' && event.me && (
         <p className="text-sm text-muted">
-          {before}
-          <LocalTime iso={event.me.liveUrlFrom} style="weekday-datetime" />
-          {after} {t('sessions.reminderNote')}
+          {linkDue ? (
+            t('sessions.linkSoon')
+          ) : (
+            <>
+              {before}
+              <LocalTime iso={event.me.liveUrlFrom} style="weekday-datetime" />
+              {after}
+            </>
+          )}{' '}
+          {t('sessions.reminderNote')}
         </p>
       )}
 
-      {state === 'open' &&
-        (user ? (
-          <Button variant="accent" size="lg" className="w-full" onClick={register} loading={busy}>
-            {t('sessions.registerFree')}
-          </Button>
-        ) : (
-          <Link
-            href={`/${locale}/login?returnTo=${encodeURIComponent(`${here}?register=1`)}`}
-            aria-disabled={loading || undefined}
-            className={buttonClass('accent', 'lg', 'w-full')}
-          >
-            {t('sessions.registerFree')}
-          </Link>
-        ))}
-
-      {state === 'full' && (
-        <span className={buttonClass('secondary', 'lg', 'pointer-events-none w-full opacity-70')} aria-disabled>
-          {t('sessions.full')}
-        </span>
+      {state === 'open' && (
+        <>
+          {returned && <p className="text-sm text-body">{t('sessions.confirmHint')}</p>}
+          {user ? (
+            <Button ref={registerRef} variant="accent" size="lg" className="w-full" onClick={register} loading={busy}>
+              {t('sessions.registerFree')}
+            </Button>
+          ) : loading ? (
+            <Button variant="accent" size="lg" className="w-full" disabled>
+              {t('sessions.registerFree')}
+            </Button>
+          ) : (
+            <Link href={`/${locale}/login?returnTo=${encodeURIComponent(`${here}?register=1`)}`} className={buttonClass('accent', 'lg', 'w-full')}>
+              {t('sessions.registerFree')}
+            </Link>
+          )}
+          <p className="text-center text-xs text-muted">{user || loading ? t('sessions.freeNote') : t('sessions.loginNote')}</p>
+        </>
       )}
 
-      {state === 'open' && <p className="text-center text-xs text-muted">{user || loading ? t('sessions.freeNote') : t('sessions.loginNote')}</p>}
+      {state === 'full' && <p className="rounded-lg bg-muted-bg p-3 text-center font-semibold text-fg">{t('sessions.full')}</p>}
 
       {/* Calendar entries point at the public page, never at the join link. */}
       <a
@@ -190,7 +229,7 @@ export function RegisterPanel({ initial, title, pageUrl }: { initial: PublicEven
       >
         {t('sessions.addToGoogle')}
       </a>
-      <a href={`/api${path}/calendar.ics`} className={buttonClass('ghost', 'md', 'w-full')} download>
+      <a href={`/api${path}/calendar.ics?locale=${locale}`} className={buttonClass('ghost', 'md', 'w-full')} download>
         {t('sessions.addToCalendar')}
       </a>
 

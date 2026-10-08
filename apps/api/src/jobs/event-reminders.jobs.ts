@@ -39,12 +39,14 @@ export class EventReminderJobs {
         include: {
           registrations: {
             where: { user: { deletedAt: null } },
-            select: { user: { select: { id: true, email: true, locale: true, profile: { select: { timezone: true } } } } },
+            select: { createdAt: true, user: { select: { id: true, email: true, locale: true, profile: { select: { timezone: true } } } } },
           },
         },
       });
       for (const e of events) {
-        for (const { user } of e.registrations) {
+        for (const { user, createdAt } of e.registrations) {
+          // Registered in the last 2 hours: the confirmation they just got already says when.
+          if (kind === 'H24' && createdAt.getTime() > now.getTime() - 2 * 3_600_000) continue;
           try {
             await this.prisma.eventReminderLog.create({ data: { eventId: e.id, userId: user.id, kind } });
           } catch (err) {
