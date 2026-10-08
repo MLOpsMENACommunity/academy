@@ -53,7 +53,7 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
   let action: React.ReactNode;
   if (status?.enrolled) {
     action = (
-      <Link href={`/${locale}/learn/${slug}`} className={buttonClass('accent', 'lg', 'w-full')}>
+      <Link href={`/${locale}/dashboard`} className={buttonClass('accent', 'lg', 'w-full')}>
         {t('course.goToCourse')}
       </Link>
     );

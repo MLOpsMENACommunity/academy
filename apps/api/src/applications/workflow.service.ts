@@ -24,6 +24,13 @@ export interface Actor {
 
 type Tx = Prisma.TransactionClient;
 
+export interface LockedCourse {
+  id: string;
+  type: Course['type'];
+  capacity: number | null;
+  requiresApproval: boolean;
+}
+
 const FUNNEL_FOR: Partial<Record<ApplicationStatus, FunnelEvent>> = {
   SHORTLISTED: 'SHORTLISTED',
   PAYMENT_SUBMITTED: 'PAYMENT_SUBMITTED',
@@ -50,9 +57,17 @@ export class ApplicationWorkflow {
     private readonly funnel: FunnelService,
   ) {}
 
-  /** Serialises seat decisions per course for the rest of the transaction. */
-  async lockCourse(tx: Tx, courseId: string): Promise<void> {
-    await tx.$queryRaw`SELECT id FROM "Course" WHERE id = ${courseId} FOR UPDATE`;
+  /**
+   * Serialises seat decisions per course for the rest of the transaction and
+   * returns the seat-relevant fields as of the lock (so a concurrent capacity
+   * change can't be missed). NO KEY UPDATE: inserts that merely reference the
+   * course (funnel events, enrolments) aren't blocked.
+   */
+  async lockCourse(tx: Tx, courseId: string): Promise<LockedCourse> {
+    const rows = await tx.$queryRaw<LockedCourse[]>`
+      SELECT id, type, capacity, "requiresApproval" FROM "Course" WHERE id = ${courseId} FOR NO KEY UPDATE`;
+    if (!rows[0]) throw new NotFoundException('Course not found');
+    return rows[0];
   }
 
   async context(tx: Tx, course: Pick<Course, 'id' | 'type' | 'capacity'>, excludeApplicationId?: string): Promise<TransitionContext> {
@@ -85,7 +100,8 @@ export class ApplicationWorkflow {
         create: { userId: app.userId, courseId: app.courseId, applicationId: app.id },
       });
     }
-    if (actor?.role === 'ADMIN') {
+    // Admin decisions about someone else's application (not an admin applying themselves).
+    if (actor?.role === 'ADMIN' && actor.id !== app.userId) {
       await this.audit.log(
         {
           actorId: actor.id,
@@ -110,27 +126,29 @@ export class ApplicationWorkflow {
     opts: { reason?: string | null; within?: (tx: Tx, app: Application) => Promise<void> } = {},
   ): Promise<Application> {
     const { app, from } = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.application.findUnique({
-        where: { id: applicationId },
-        include: { course: { select: { id: true, type: true, capacity: true } } },
-      });
+      const current = await tx.application.findUnique({ where: { id: applicationId }, select: { courseId: true } });
       if (!current) throw new NotFoundException('Application not found');
-      await this.lockCourse(tx, current.courseId);
+      const course = await this.lockCourse(tx, current.courseId);
       // Re-read after taking the lock: another request may have changed it meanwhile.
-      const fresh = await tx.application.findUniqueOrThrow({ where: { id: applicationId } });
-      const ctx = await this.context(tx, current.course, applicationId);
+      const fresh = await tx.application.findUniqueOrThrow({
+        where: { id: applicationId },
+        include: { user: { select: { anonymizedAt: true } } },
+      });
+      const ctx = await this.context(tx, course, applicationId);
       const result = transition(fresh.status, event, ctx);
       if (!result.ok) {
         throw new ConflictException({ code: 'INVALID_TRANSITION', message: result.error });
       }
+      // Never write free text back onto an anonymised account.
+      const reason = fresh.user.anonymizedAt ? null : (opts.reason ?? null);
       const updated = await tx.application.update({
         where: { id: applicationId },
         data: {
           status: result.status,
-          ...(result.status === 'REJECTED' ? { rejectionReason: opts.reason ?? null } : {}),
+          ...(result.status === 'REJECTED' ? { rejectionReason: reason } : {}),
         },
       });
-      await this.recordChange(tx, updated, fresh.status, result.status, actor, opts.reason);
+      await this.recordChange(tx, updated, fresh.status, result.status, actor, reason);
       if (opts.within) await opts.within(tx, updated);
       return { app: updated, from: fresh.status };
     });
@@ -139,19 +157,23 @@ export class ApplicationWorkflow {
     return app;
   }
 
-  /** Email + in-app notification + funnel. Failures here never undo the change. */
+  /** Email + in-app notification + funnel. Each runs independently; failures never undo the change. */
   async afterChange(app: Application, from: ApplicationStatus | null, reason?: string | null): Promise<void> {
     if (from === app.status) return;
-    try {
-      const full = await this.prisma.application.findUniqueOrThrow({
-        where: { id: app.id },
-        include: { user: true, course: { select: { id: true, titleEn: true, titleAr: true } } },
-      });
-      await this.notifyStudent(full.user, full.course, app, reason ?? null);
-      const funnelEvent = FUNNEL_FOR[app.status];
-      if (funnelEvent) await this.funnel.record({ id: app.courseId }, funnelEvent, { userId: app.userId });
-    } catch (err) {
-      this.logger.error(`Post-transition side effects failed: ${(err as Error).name}`);
+    const funnelEvent = FUNNEL_FOR[app.status];
+    const results = await Promise.allSettled([
+      this.prisma.application
+        .findUniqueOrThrow({
+          where: { id: app.id },
+          include: { user: true, course: { select: { id: true, titleEn: true, titleAr: true } } },
+        })
+        .then((full) => this.notifyStudent(full.user, full.course, app, reason ?? null)),
+      funnelEvent ? this.funnel.record({ id: app.courseId }, funnelEvent, { userId: app.userId }) : Promise.resolve(),
+    ]);
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        this.logger.error(`Side effect failed for application ${app.id} (${app.status}): ${(r.reason as Error)?.name}`);
+      }
     }
   }
 
@@ -161,25 +183,31 @@ export class ApplicationWorkflow {
     app: Application,
     reason: string | null,
   ): Promise<void> {
+    // Deleted accounts get nothing: no rows, no emails.
+    if (user.deletedAt) return;
     const link = `/dashboard/applications/${app.id}`;
     const label = applicationStatusLabels[app.status];
     const msg = applicationStatusMessages[app.status];
     const withReason = (text: string, prefix: string) => (reason ? `${text} ${prefix}${reason}` : text);
-    await this.notifications.create(user.id, {
+    const [notified, emailed] = await Promise.allSettled([
+      this.notifications.create(user.id, {
       type: `application.${app.status.toLowerCase()}`,
       titleEn: `${course.titleEn}: ${label.en}`,
       titleAr: `${course.titleAr}: ${label.ar}`,
       bodyEn: withReason(msg.en, 'Reason: '),
       bodyAr: withReason(msg.ar, 'السبب: '),
       link,
-    });
-    if (user.deletedAt) return;
-    await this.email.send(user.email, user.locale, {
-      name: 'applicationStatus',
-      courseTitle: user.locale === 'ar' ? course.titleAr : course.titleEn,
-      status: app.status,
-      reason,
-      url: this.email.url(user.locale, link),
-    });
+    }),
+      this.email.send(user.email, user.locale, {
+        name: 'applicationStatus',
+        courseTitle: user.locale === 'ar' ? course.titleAr : course.titleEn,
+        status: app.status,
+        reason,
+        url: this.email.url(user.locale, link),
+      }),
+    ]);
+    if (notified.status === 'rejected' || emailed.status === 'rejected') {
+      this.logger.error(`Notifying the student failed for application ${app.id}`);
+    }
   }
 }

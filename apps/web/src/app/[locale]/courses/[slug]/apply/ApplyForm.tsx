@@ -24,6 +24,14 @@ import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 
+/** Moves keyboard and screen-reader focus to the first field marked invalid. */
+export function focusFirstInvalid(): void {
+  requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>('[aria-invalid="true"], fieldset[data-invalid="true"] input');
+    el?.focus();
+  });
+}
+
 export function ApplyForm() {
   return <RequireAuth>{(user) => <Inner user={user} />}</RequireAuth>;
 }
@@ -43,6 +51,8 @@ function Inner({ user }: { user: MeResponse }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  /** Changes on every failed submit so the error banner is announced again. */
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -77,7 +87,7 @@ function Inner({ user }: { user: MeResponse }) {
   const shell = (body: React.ReactNode) => (
     <Container className="max-w-2xl py-10">
       <Link href={`/${locale}/courses/${slug}`} className="text-sm text-primary hover:underline">
-        ← {title}
+        <span aria-hidden className="inline-block rtl:rotate-180">←</span> {title}
       </Link>
       <h1 className="mt-2 text-3xl">{t('apply.title', { course: title })}</h1>
       <div className="mt-6">{body}</div>
@@ -112,6 +122,8 @@ function Inner({ user }: { user: MeResponse }) {
     if (!parsed.success) {
       setErrors(issuesToErrors(parsed.error.issues, t));
       setFormError(t('forms.fixErrors'));
+      setAttempt((n) => n + 1);
+      focusFirstInvalid();
       return;
     }
     setErrors({});
@@ -148,7 +160,11 @@ function Inner({ user }: { user: MeResponse }) {
         )}
       </Alert>
       <form onSubmit={onSubmit} noValidate className="mt-6 space-y-6 rounded-card border border-line bg-card p-5 sm:p-8">
-        {formError && <Alert tone="danger">{formError}</Alert>}
+        {formError && (
+          <Alert key={attempt} tone="danger">
+            {formError}
+          </Alert>
+        )}
         {course.screeningQuestions.map((q) => {
           const v = answers[q.id];
           const common = { label: label(q), hint: help(q), error: errors[q.id], required: q.required };

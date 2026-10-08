@@ -97,9 +97,10 @@ export class ApplicationsService {
     let app: Application;
     try {
       app = await this.prisma.$transaction(async (tx) => {
-        await this.workflow.lockCourse(tx, course.id);
-        const ctx = await this.workflow.context(tx, course);
-        const status = initialStatus(course.requiresApproval, ctx);
+        // Seat fields as of the lock, not as read before it.
+        const locked = await this.workflow.lockCourse(tx, course.id);
+        const ctx = await this.workflow.context(tx, locked);
+        const status = initialStatus(locked.requiresApproval, ctx);
         const created = await tx.application.create({
           data: {
             userId,
