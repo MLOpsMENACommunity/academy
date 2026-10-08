@@ -6,11 +6,11 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { CheckboxField } from '@/components/forms/fields';
+import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
-import { downloadViaApi } from '@/lib/download';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
 import { Progress } from '@/components/ui/Progress';
@@ -101,13 +101,7 @@ function Inner() {
       <div className="mt-6 grid gap-4 rounded-card border border-line bg-card p-5 sm:grid-cols-2">
         <Progress value={course.progress.percent} label={t('learn.progress', { completed: course.progress.completed, total: course.progress.total })} />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:justify-end">
-          <button
-            type="button"
-            className="font-semibold text-primary underline"
-            onClick={() => downloadViaApi(`/learn/${course.slug}/calendar.ics`, `${course.slug}.ics`).catch(() => undefined)}
-          >
-            {t('learn.wholeCourse')}
-          </button>
+          <CalendarMenu slug={course.slug} />
           {course.youtubePlaylistUrl && (
             <a href={course.youtubePlaylistUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">
               {t('learn.playlist')}

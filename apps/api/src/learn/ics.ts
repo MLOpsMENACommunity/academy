@@ -12,6 +12,12 @@ export interface IcsEvent {
   cancelled?: boolean;
 }
 
+export interface IcsOptions {
+  /** Subscription feeds: how often clients should poll (ISO 8601 duration, e.g. PT6H). */
+  refreshInterval?: string;
+  description?: string;
+}
+
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
 
@@ -32,7 +38,10 @@ function fold(line: string): string {
   return out.join('\r\n');
 }
 
-export function buildIcs(calendarName: string, events: IcsEvent[], now = new Date()): string {
+/** Increases whenever the event changes (seconds since 2026-01-01), so clients replace their copy. */
+export const sequenceOf = (updatedAt: Date) => Math.max(0, Math.floor((updatedAt.getTime() - Date.UTC(2026, 0, 1)) / 1000));
+
+export function buildIcs(calendarName: string, events: IcsEvent[], now = new Date(), opts: IcsOptions = {}): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -40,6 +49,10 @@ export function buildIcs(calendarName: string, events: IcsEvent[], now = new Dat
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escape(calendarName)}`,
+    ...(opts.description ? [`X-WR-CALDESC:${escape(opts.description)}`] : []),
+    ...(opts.refreshInterval
+      ? [`REFRESH-INTERVAL;VALUE=DURATION:${opts.refreshInterval}`, `X-PUBLISHED-TTL:${opts.refreshInterval}`]
+      : []),
   ];
   for (const e of events) {
     const end = new Date(e.start.getTime() + e.durationMin * 60_000);
@@ -47,7 +60,7 @@ export function buildIcs(calendarName: string, events: IcsEvent[], now = new Dat
       'BEGIN:VEVENT',
       `UID:${e.uid}@academy.mlopsmena.com`,
       `DTSTAMP:${stamp(now)}`,
-      ...(e.updatedAt ? [`LAST-MODIFIED:${stamp(e.updatedAt)}`, `SEQUENCE:${Math.max(0, Math.floor((e.updatedAt.getTime() - Date.UTC(2026, 0, 1)) / 1000))}`] : []),
+      ...(e.updatedAt ? [`LAST-MODIFIED:${stamp(e.updatedAt)}`, `SEQUENCE:${sequenceOf(e.updatedAt)}`] : []),
       `DTSTART:${stamp(e.start)}`,
       `DTEND:${stamp(end)}`,
       `SUMMARY:${escape(e.title)}`,

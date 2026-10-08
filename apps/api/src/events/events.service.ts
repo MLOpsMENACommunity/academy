@@ -15,6 +15,7 @@ import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
 import { buildIcs } from '../learn/ics';
+import { liveEventIcsEvent } from './event-calendar';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -216,26 +217,8 @@ export class EventsService {
   /** Calendar file without the live link (it's revealed on the page near the start). */
   async ics(slug: string, locale: Locale = 'en'): Promise<{ filename: string; body: string }> {
     const e = await this.find(slug);
-    const ar = locale === 'ar';
-    const title = ar ? e.titleAr || e.titleEn : e.titleEn;
-    const url = `${this.env.WEB_URL}/${locale}/sessions/${e.slug}`;
-    return {
-      filename: `${e.slug}.ics`,
-      body: buildIcs(title, [
-        {
-          uid: `event-${e.id}`,
-          title,
-          description: ar
-            ? `جلسة مباشرة من أكاديمية MLOps MENA. يظهر رابط الانضمام في ${url} قبل البدء بوقت قصير.`
-            : `Live session by MLOps MENA Academy. The join link appears on ${url} shortly before the start.`,
-          url,
-          start: e.startsAt,
-          durationMin: e.durationMin,
-          updatedAt: e.updatedAt,
-          cancelled: e.status === 'CANCELLED',
-        },
-      ]),
-    };
+    const event = liveEventIcsEvent(e, locale, this.env.WEB_URL);
+    return { filename: `${e.slug}.ics`, body: buildIcs(event.title, [event]) };
   }
 
   // ------------------------------------------------------------------ admin

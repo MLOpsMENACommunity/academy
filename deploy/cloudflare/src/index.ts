@@ -5,6 +5,7 @@ import { Container } from '@cloudflare/containers';
  *
  *   https://<host>/api/*  ->  ApiContainer (NestJS, apps/api/Dockerfile)
  *   https://<host>/*      ->  WebContainer (Next.js, apps/web/Dockerfile)
+ *   http://*, other hosts ->  301/308 to https://<host>
  *   Cron Trigger          ->  POST /api/internal/jobs/tick on the API (containers sleep when idle)
  *
  * One instance of each (max_instances: 1): rate limits and the login lockout
@@ -131,8 +132,11 @@ function forwardable(request: Request): Request {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    // Old or alternative hostnames (e.g. staging after going live) redirect to the canonical one.
-    if (url.hostname !== env.ACADEMY_HOSTNAME) {
+    // Old or alternative hostnames (e.g. staging after going live) redirect to the canonical one,
+    // and plain http to https. Some calendar clients turn webcal:// into http://, and the private
+    // feed URL is a bearer credential: the redirect answers before anything reaches the API.
+    // (The cron handler talks to the API container directly and never passes through here.)
+    if (url.hostname !== env.ACADEMY_HOSTNAME || url.protocol === 'http:') {
       url.hostname = env.ACADEMY_HOSTNAME;
       url.protocol = 'https:';
       url.port = '';

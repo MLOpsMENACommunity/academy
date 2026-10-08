@@ -119,6 +119,8 @@ export class AccountService {
         sessionProgress: true,
         sessionFeedback: true,
         reminderPreferences: true,
+        // The link itself is a credential: only whether it exists and when it was used.
+        calendarFeed: { select: { createdAt: true, rotatedAt: true, lastFetchedAt: true } },
         notifications: { select: { titleEn: true, bodyEn: true, createdAt: true, readAt: true } },
         eventRegistrations: { select: { createdAt: true, event: { select: { slug: true, titleEn: true, startsAt: true } } } },
       },
@@ -147,6 +149,7 @@ export class AccountService {
       sessionProgress: user.sessionProgress,
       feedback: user.sessionFeedback,
       reminderPreferences: user.reminderPreferences,
+      calendarFeed: user.calendarFeed,
       notifications: user.notifications,
       liveSessionRegistrations: user.eventRegistrations.map((r) => ({ session: r.event, registeredAt: r.createdAt })),
     };
@@ -164,6 +167,8 @@ export class AccountService {
     await this.tokens.revokeAllForUser(userId);
     // Free their seats in live sessions that haven't started (past ones stay until anonymisation).
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
+    // The private calendar link stops working at once (calendar apps poll without signing in).
+    await this.prisma.calendarFeed.deleteMany({ where: { userId } });
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
     await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted' });
@@ -221,6 +226,7 @@ export class AccountService {
       this.prisma.refreshToken.deleteMany({ where: { userId } }),
       this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
       this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+      this.prisma.calendarFeed.deleteMany({ where: { userId } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
       this.prisma.user.update({
         where: { id: userId },

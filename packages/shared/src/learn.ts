@@ -117,3 +117,14 @@ export function googleCalendarUrl(e: { title: string; startsAt: string; duration
   const start = new Date(e.startsAt);
   return googleCalendarLink({ title: e.title, start, end: new Date(start.getTime() + e.durationMin * 60_000), details: e.details });
 }
+
+/**
+ * The student's private calendar subscription link (GET/POST /me/calendar-feed).
+ * `url` is the https feed; calendar apps subscribe to its webcal:// form.
+ */
+export interface CalendarFeedDto {
+  exists: boolean;
+  url: string | null;
+  createdAt: string | null;
+  lastFetchedAt: string | null;
+}

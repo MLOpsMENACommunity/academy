@@ -14,6 +14,7 @@ import type { AuthUser } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { buildIcs } from './ics';
+import { courseSessionEvent } from './session-event';
 
 /**
  * Enrolled-student course content. Every method checks enrolment on the
@@ -189,20 +190,9 @@ export class LearnService {
     });
     if (sessionId && !sessions.length) throw new NotFoundException('Session not found');
     const locale = (await this.prisma.user.findUnique({ where: { id: user.id }, select: { locale: true } }))?.locale ?? 'en';
-    const courseTitle = locale === 'ar' ? course.titleAr : course.titleEn;
-    const url = `${webUrl}/${locale}/learn/${course.slug}`;
     const body = buildIcs(
-      courseTitle,
-      sessions.map((x) => ({
-        uid: x.id,
-        title: `${courseTitle}: ${locale === 'ar' ? x.titleAr : x.titleEn}`,
-        // The live link is deliberately not in the invite (invites get forwarded). Open the course page.
-        description: locale === 'ar' ? `رابط الجلسة في صفحة الدورة: ${url}` : `Join from your course page: ${url}`,
-        url,
-        start: x.startsAt,
-        durationMin: x.durationMin,
-        updatedAt: x.updatedAt,
-      })),
+      locale === 'ar' ? course.titleAr : course.titleEn,
+      sessions.map((x) => courseSessionEvent(x, course, locale, webUrl)),
     );
     return { filename: `${course.slug}${sessionId ? `-session-${sessions[0]!.order}` : ''}.ics`, body };
   }

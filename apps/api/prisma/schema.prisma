@@ -310,6 +310,7 @@ model User {
   adminNotesWritten       AdminNote[]              @relation("AdminNoteAuthor")
   adminNotesAbout         AdminNote[]              @relation("AdminNoteSubject")
   statusChanges           ApplicationStatusHistory[]
+  calendarFeed            CalendarFeed?
 
   @@index([role])
   @@index([createdAt])
@@ -768,6 +769,21 @@ model ReminderPreference {
   emailReminders Boolean @default(true)
 
   @@id([userId, courseId])
+}
+
+/// Private calendar subscription link (webcal) for a student's course and live sessions.
+/// The token is HMAC(server key, userId:version): it can be shown again without
+/// being stored, and bumping `version` resets the link. Only its SHA-256 is
+/// stored, to look the feed up from an incoming request.
+model CalendarFeed {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash     String    @unique
+  version       Int       @default(1)
+  createdAt     DateTime  @default(now())
+  rotatedAt     DateTime?
+  lastFetchedAt DateTime?
 }
 
 /// Idempotency for reminder emails.

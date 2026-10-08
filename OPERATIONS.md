@@ -91,6 +91,7 @@ The API writes one JSON line per request:
 - 5xx responses log at `error`, other 4xx (except 401 and 404) at `warn`. Health checks aren't logged.
 - To watch live: `pnpm --filter @academy/deploy-cloudflare exec wrangler tail`. Or use Cloudflare dashboard → Workers & Pages → mlops-academy → **Logs** (observability is on).
 - `LOG_JSON=false` switches to readable text, which is the default outside production.
+- **Cloudflare request logs contain private calendar feed URLs.** Workers Logs (observability) record the full URL of every request, including `/api/calendar/<token>.ics` each time a calendar app polls. They are kept for 7 days and readable only by members of the Cloudflare account; keep that membership small. A leaked feed URL shows that student's course and live session titles and times (never join links). The student revokes it with **Profile → Account → Calendar → Reset link** (the old URL returns 404 at once); rotating `JWT_ACCESS_SECRET` revokes every link (see below).
 
 ## Error tracking (Sentry, optional)
 
@@ -98,7 +99,7 @@ Off unless `SENTRY_DSN` is set. To turn it on:
 1. Create a free Sentry project (platform: Node.js / NestJS) and copy its DSN.
 2. Add `SENTRY_DSN` to the GitHub `staging` environment, then redeploy. Events are tagged with `SENTRY_ENVIRONMENT` (`staging` in `wrangler.jsonc`; change it to `production` when you go live).
 
-Only unexpected errors are reported (not 4xx). User info, cookies, headers, bodies, query strings and console breadcrumbs are all stripped before anything leaves the server, and email addresses and phone numbers in error text are masked (`apps/api/src/instrument.ts`). Prisma errors use the minimal format, so query arguments aren't in them either. Performance tracing is off. An unhandled promise rejection still crashes the process (Sentry `strict` mode), so the container restarts.
+Only unexpected errors are reported (not 4xx). User info, cookies, headers, bodies, query strings and console breadcrumbs are all stripped before anything leaves the server, calendar feed tokens in URLs and transaction names are replaced with `[redacted]`, and email addresses and phone numbers in error text are masked (`apps/api/src/instrument.ts`). Prisma errors use the minimal format, so query arguments aren't in them either. Performance tracing is off. An unhandled promise rejection still crashes the process (Sentry `strict` mode), so the container restarts.
 
 ## Analytics (optional, cookieless)
 
@@ -137,6 +138,10 @@ If you ever add a tool that sets non-essential cookies (marketing pixels, chat w
 - **Swagger** (`/api/docs`) is off in production unless `API_DOCS=true`.
 - **To add an external origin**, for example a new embed or image host, edit the `csp` list in `apps/web/next.config.ts`. The axe and headers tests in `e2e/a11y.spec.ts` will catch a broken page.
 
+## Calendar feeds (cost)
+
+Students can subscribe to a private feed of their course sessions and the live sessions they registered for. The feed asks clients to poll every 6 hours (`REFRESH-INTERVAL`/`X-PUBLISHED-TTL` `PT6H`). Apple and Outlook follow that; Google polls on its own schedule (often every 12–24 hours). Each poll wakes the API container and the database, so many subscribers mean the containers sleep less often. A shorter interval would keep them awake around the clock. Last-minute session changes reach students through the reminder emails, not the feed.
+
 ## Rate limits
 
 Per signed-in user, otherwise per IP. The default is 300 requests per minute. Stricter limits apply to:
@@ -146,13 +151,15 @@ Per signed-in user, otherwise per IP. The default is 300 requests per minute. St
 - applying;
 - uploading payment proof.
 
+The private calendar feed (`/api/calendar/<token>.ics`) is limited **per token** (20 a minute) instead of per IP, because Google, iCloud and Outlook.com poll every subscriber from a few shared addresses. Malformed, unknown or revoked tokens count against the caller's IP (30 a minute), after which that IP gets 429 for the rest of the minute.
+
 Repeated failed logins also trigger a 15-minute lockout. The limits are held in memory, which is one reason the deployment runs a single API instance (see DEPLOY.md "Limits to know").
 
 ## Rotating secrets
 
 | Secret | Effect of rotating | How |
 |---|---|---|
-| `JWT_ACCESS_SECRET` | Access tokens become invalid; sessions renew silently via the refresh cookie | New value in GitHub env → redeploy |
+| `JWT_ACCESS_SECRET` | Access tokens become invalid; sessions renew silently via the refresh cookie. **Every private calendar link is revoked at once** (feed tokens are derived from this secret and checked on each request): subscriptions return 404 and stop updating. Students see their new link the next time they open the calendar menu or Profile → Account, and must add it to their calendar again. Tell enrolled students when you rotate | New value in GitHub env → redeploy |
 | `RESEND_API_KEY` | None, if the new key is set before the old one is revoked | Create a new key in Resend → GitHub env → redeploy → revoke the old one |
 | R2 keys (`S3_*`) | None, as above | New R2 API token → GitHub env → redeploy → delete the old token |
 | `JOBS_TOKEN` | None | GitHub env → redeploy (the Worker and the API read the same value) |
