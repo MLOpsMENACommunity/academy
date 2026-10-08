@@ -263,3 +263,7 @@ export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
 export const REMINDER_KINDS = ['H24', 'H1'] as const;
 export const ReminderKind = defineEnum(REMINDER_KINDS);
 export type ReminderKind = (typeof REMINDER_KINDS)[number];
+
+export function isLocaleValue(v: unknown): v is Locale {
+  return v === 'en' || v === 'ar';
+}

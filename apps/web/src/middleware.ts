@@ -23,7 +23,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (PROTECTED.test(pathname)) {
-    const hasSession = req.cookies.has('access_token') || req.cookies.has('refresh_token');
+    const hasSession = req.cookies.has('access_token') || req.cookies.has('has_session');
     if (!hasSession) {
       const url = req.nextUrl.clone();
       url.pathname = `/${first}/login`;
