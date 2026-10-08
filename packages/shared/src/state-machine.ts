@@ -71,6 +71,18 @@ export function transition(
   event: ApplicationEvent,
   ctx: TransitionContext,
 ): TransitionResult {
+  const result = nextStatus(current, event, ctx);
+  // A transition that lands where it started (e.g. promoting from a full waitlist) changed
+  // nothing; treat it as a failure so callers never write history or send emails for it.
+  if (result.ok && result.status === current) return fail('Course is full');
+  return result;
+}
+
+function nextStatus(
+  current: ApplicationStatus,
+  event: ApplicationEvent,
+  ctx: TransitionContext,
+): TransitionResult {
   const S = ApplicationStatus;
   switch (event) {
     case 'SHORTLIST':
@@ -133,8 +145,5 @@ export function availableAdminEvents(
   current: ApplicationStatus,
   ctx: TransitionContext,
 ): AdminApplicationEvent[] {
-  return ADMIN_APPLICATION_EVENTS.filter((e) => {
-    const r = transition(current, e, ctx);
-    return r.ok && r.status !== current;
-  });
+  return ADMIN_APPLICATION_EVENTS.filter((e) => transition(current, e, ctx).ok);
 }

@@ -44,6 +44,8 @@ const envSchema = z.object({
   SEED_ADMIN_PASSWORD: z.string().min(10).optional(),
 
   SENTRY_DSN: z.string().optional(),
+  /** Escape hatch for the local all-in-Docker stack, which runs production builds against MinIO. */
+  ALLOW_INSECURE_PRODUCTION: bool.default('false'),
   /** Disable scheduled jobs (e.g. in tests or on secondary replicas). */
   JOBS_ENABLED: bool.default('true'),
 });
@@ -57,8 +59,21 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
   const env = parsed.data;
-  if (env.NODE_ENV === 'production' && env.JWT_ACCESS_SECRET.startsWith('dev-only')) {
-    throw new Error('JWT_ACCESS_SECRET must be set in production');
+  if (env.NODE_ENV === 'production') {
+    const problems: string[] = [];
+    if (env.JWT_ACCESS_SECRET.startsWith('dev-only')) problems.push('JWT_ACCESS_SECRET must be set');
+    if (!env.S3_ENDPOINT) problems.push('S3_ENDPOINT must be set (Cloudflare R2 endpoint)');
+    if (env.S3_ACCESS_KEY_ID === 'minioadmin' || env.S3_SECRET_ACCESS_KEY === 'minioadmin') {
+      problems.push('S3 credentials must be set (not the MinIO defaults)');
+    }
+    if (env.EMAIL_PROVIDER === 'resend' && !env.RESEND_API_KEY) problems.push('RESEND_API_KEY must be set');
+    // Compose runs NODE_ENV=production locally over http; only enforce https for real domains.
+    if (!env.WEB_URL.startsWith('https://') && !/localhost|127\.0\.0\.1/.test(env.WEB_URL)) {
+      problems.push('WEB_URL must use https');
+    }
+    if (problems.length && !env.ALLOW_INSECURE_PRODUCTION) {
+      throw new Error(`Invalid production configuration:\n  ${problems.join('\n  ')}`);
+    }
   }
   return env;
 }
