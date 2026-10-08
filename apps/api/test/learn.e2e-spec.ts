@@ -78,6 +78,16 @@ describe('learn (e2e)', () => {
     expect((await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: later.id, rating: 5 }).expect(403)).body.code).toBe('NOT_STARTED');
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: past.id, rating: 4, comment: 'Great' }).expect(204);
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: past.id, rating: 5 }).expect(204);
+    // Course feedback opens at the last session.
+    expect((await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ rating: 3 }).expect(403)).body.code).toBe('NOT_STARTED');
+    // Move the whole course into the past so its last session has started.
+    await prisma.courseSession.updateMany({ where: { courseId: course.id, id: { not: later.id } }, data: { startsAt: new Date(Date.now() - 2 * 24 * 60 * MIN) } });
+    await prisma.courseSession.update({ where: { id: later.id }, data: { startsAt: new Date(Date.now() - 60 * MIN) } });
+    // Double submit: still exactly one course-level row.
+    await Promise.all([
+      http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ rating: 2 }),
+      http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ rating: 2 }),
+    ]);
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ rating: 3, comment: 'Course end' }).expect(204);
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ rating: 7 }).expect(400);
     expect(await prisma.sessionFeedback.count({ where: { userId: student.id, courseId: course.id } })).toBe(2);
@@ -116,5 +126,28 @@ describe('learn (e2e)', () => {
     const res = await http().get('/api/me/next-sessions').set('Cookie', student.cookie).expect(200);
     expect(res.body[0]).toMatchObject({ sessionId: soon.id, titleEn: 'Soon' });
     expect(JSON.stringify(res.body)).not.toContain('meet.google');
+  });
+
+  it('lets admins preview but not write as a student', async () => {
+    const { course, past } = await setup();
+    const slug = await slugOf(course.id);
+    const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin' });
+    const view = await http().get(`/api/learn/${slug}`).set('Cookie', admin.cookie).expect(200);
+    expect(view.body.sessions.every((s: { liveUrl: string | null }) => s.liveUrl)).toBe(true);
+    expect((await http().put(`/api/learn/${slug}/sessions/${past.id}/progress`).set('Cookie', admin.cookie).send({ completed: true }).expect(403)).body.code).toBe('NOT_ENROLLED');
+    await http().put(`/api/learn/${slug}/feedback`).set('Cookie', admin.cookie).send({ sessionId: past.id, rating: 5 }).expect(403);
+  });
+
+  it('retries a reminder whose email failed', async () => {
+    const { student, soon } = await setup();
+    const { EmailService } = await import('../src/email/email.service');
+    const email = app.get(EmailService);
+    const spy = jest.spyOn(email, 'send').mockResolvedValue(false);
+    const jobs = app.get(ReminderJobs);
+    await jobs.run();
+    expect(await prisma.reminderLog.count({ where: { sessionId: soon.id, userId: student.id } })).toBe(0);
+    spy.mockRestore();
+    await jobs.run();
+    expect(await prisma.reminderLog.count({ where: { sessionId: soon.id, userId: student.id, kind: 'H1' } })).toBe(1);
   });
 });

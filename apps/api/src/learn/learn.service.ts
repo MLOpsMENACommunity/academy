@@ -27,11 +27,15 @@ export class LearnService {
     private readonly settings: SettingsService,
   ) {}
 
-  /** The course, if the user may see its content; throws otherwise. */
-  private async access(user: AuthUser, slug: string): Promise<Course> {
+  /**
+   * The course, if the user may see its content; throws otherwise. Admins may
+   * preview (read) any course, but writes (progress, feedback, reminders)
+   * require a real enrolment so admin clicks never look like student data.
+   */
+  private async access(user: AuthUser, slug: string, mode: 'read' | 'write' = 'read'): Promise<Course> {
     const course = await this.prisma.course.findUnique({ where: { slug } });
     if (!course) throw new NotFoundException('Course not found');
-    if (user.role === 'ADMIN') return course;
+    if (user.role === 'ADMIN' && mode === 'read') return course;
     const enrolled = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
       select: { id: true },
@@ -42,13 +46,17 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const course = await this.access(user, slug);
-    const [sessions, progress, feedback, pref, profile, s] = await Promise.all([
+    const [sessions, progress, feedback, pref, profile, s, enrollment] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
       this.prisma.profile.findUnique({ where: { userId: user.id }, select: { googleEmail: true } }),
       this.settings.get(),
+      this.prisma.enrollment.findUnique({
+        where: { userId_courseId: { userId: user.id, courseId: course.id } },
+        select: { driveAccessGranted: true },
+      }),
     ]);
     const done = new Set(progress.map((p) => p.sessionId));
     const fbBySession = new Map(feedback.filter((f) => f.sessionId).map((f) => [f.sessionId!, f]));
@@ -67,6 +75,7 @@ export class LearnService {
       youtubePlaylistUrl: course.youtubePlaylistUrl,
       driveFolderUrl: isPaidDrive ? course.driveFolderUrl : null,
       googleEmail: profile?.googleEmail ?? null,
+      driveAccessGranted: enrollment?.driveAccessGranted ?? false,
       liveLinkRevealMinutes: reveal,
       emailReminders: pref?.emailReminders ?? true,
       progress: { completed, total: sessions.length, percent: sessions.length ? Math.round((completed / sessions.length) * 100) : 0 },
@@ -98,15 +107,15 @@ export class LearnService {
     };
   }
 
-  private async sessionOf(user: AuthUser, slug: string, sessionId: string) {
-    const course = await this.access(user, slug);
+  private async sessionOf(user: AuthUser, slug: string, sessionId: string, mode: 'read' | 'write' = 'read') {
+    const course = await this.access(user, slug, mode);
     const session = await this.prisma.courseSession.findFirst({ where: { id: sessionId, courseId: course.id } });
     if (!session) throw new NotFoundException('Session not found');
     return { course, session };
   }
 
   async setProgress(user: AuthUser, slug: string, sessionId: string, completed: boolean): Promise<void> {
-    await this.sessionOf(user, slug, sessionId);
+    await this.sessionOf(user, slug, sessionId, 'write');
     if (completed) {
       await this.prisma.sessionProgress.upsert({
         where: { userId_sessionId: { userId: user.id, sessionId } },
@@ -119,23 +128,34 @@ export class LearnService {
   }
 
   async setFeedback(user: AuthUser, slug: string, input: FeedbackInput, now = new Date()): Promise<void> {
-    const course = await this.access(user, slug);
+    const course = await this.access(user, slug, 'write');
     let sessionId: string | null = null;
+    if (!input.sessionId) {
+      // End-of-course feedback opens once the last session has started.
+      const last = await this.prisma.courseSession.findFirst({ where: { courseId: course.id }, orderBy: { startsAt: 'desc' } });
+      if (last && last.startsAt > now) {
+        throw new ForbiddenException({ code: 'NOT_STARTED', message: 'Course feedback opens at the last session' });
+      }
+    }
     if (input.sessionId) {
-      const { session } = await this.sessionOf(user, slug, input.sessionId);
+      const { session } = await this.sessionOf(user, slug, input.sessionId, 'write');
       if (session.startsAt > now) {
         throw new ForbiddenException({ code: 'NOT_STARTED', message: 'Feedback opens once the session has started' });
       }
       sessionId = session.id;
     }
-    const existing = await this.prisma.sessionFeedback.findFirst({ where: { userId: user.id, courseId: course.id, sessionId } });
     const data = { rating: input.rating, comment: input.comment ?? null };
-    if (existing) await this.prisma.sessionFeedback.update({ where: { id: existing.id }, data });
-    else await this.prisma.sessionFeedback.create({ data: { ...data, userId: user.id, courseId: course.id, sessionId } });
+    const scopeKey = sessionId ?? 'course';
+    // One row per student per session (or per course): an atomic upsert, safe under double-submits.
+    await this.prisma.sessionFeedback.upsert({
+      where: { userId_courseId_scopeKey: { userId: user.id, courseId: course.id, scopeKey } },
+      update: data,
+      create: { ...data, userId: user.id, courseId: course.id, sessionId, scopeKey },
+    });
   }
 
   async setReminders(user: AuthUser, slug: string, emailReminders: boolean): Promise<void> {
-    const course = await this.access(user, slug);
+    const course = await this.access(user, slug, 'write');
     await this.prisma.reminderPreference.upsert({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
       update: { emailReminders },
@@ -163,6 +183,7 @@ export class LearnService {
         url,
         start: x.startsAt,
         durationMin: x.durationMin,
+        updatedAt: x.updatedAt,
       })),
     );
     return { filename: `${course.slug}${sessionId ? `-session-${sessions[0]!.order}` : ''}.ics`, body };
@@ -172,15 +193,17 @@ export class LearnService {
   async nextSessions(userId: string, now = new Date()): Promise<NextSessionDto[]> {
     const rows = await this.prisma.courseSession.findMany({
       where: {
-        startsAt: { gte: new Date(now.getTime() - 3 * 3600_000) },
-        course: { enrollments: { some: { userId } } },
+        // Sessions can run up to 10 h; ended ones are filtered below.
+        startsAt: { gte: new Date(now.getTime() - 10 * 3600_000) },
+        course: { status: { in: ['OPEN', 'CLOSED'] }, enrollments: { some: { userId } } },
       },
       include: { course: { select: { slug: true, titleEn: true, titleAr: true } } },
       orderBy: { startsAt: 'asc' },
-      take: 5,
+      take: 30,
     });
     return rows
       .filter((r) => r.startsAt.getTime() + r.durationMin * 60_000 > now.getTime())
+      .slice(0, 5)
       .map((r) => ({
         courseSlug: r.course.slug,
         courseTitleEn: r.course.titleEn,

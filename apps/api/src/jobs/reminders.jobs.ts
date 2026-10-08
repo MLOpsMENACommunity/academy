@@ -17,6 +17,8 @@ const WINDOWS: Record<ReminderKind, { from: number; to: number; hours: 24 | 1 }>
   H1: { from: 10, to: 75, hours: 1 },
 };
 
+const SEND_INTERVAL_MS = process.env.NODE_ENV === 'test' ? 0 : 400;
+
 @Injectable()
 export class ReminderJobs {
   private readonly logger = new Logger(ReminderJobs.name);
@@ -35,6 +37,7 @@ export class ReminderJobs {
 
   async run(now = new Date()): Promise<number> {
     let sent = 0;
+    let failed = 0;
     for (const [kind, w] of Object.entries(WINDOWS) as [ReminderKind, (typeof WINDOWS)[ReminderKind]][]) {
       const sessions = await this.prisma.courseSession.findMany({
         where: {
@@ -80,11 +83,20 @@ export class ReminderJobs {
             url: page,
             unsubscribeUrl: `${page}#reminders`,
           });
-          if (ok) sent++;
+          if (ok) {
+            sent++;
+          } else {
+            // Release the claim so the next run retries (the window is wider than the cron interval).
+            failed++;
+            await this.prisma.reminderLog.deleteMany({ where: { sessionId: s.id, userId: user.id, kind } });
+          }
+          // Gentle pacing: email providers rate-limit bursts (Resend allows a few requests per second).
+          await new Promise((r) => setTimeout(r, SEND_INTERVAL_MS));
         }
       }
     }
     if (sent) this.logger.log(`Sent ${sent} session reminder(s)`);
+    if (failed) this.logger.warn(`${failed} session reminder(s) failed and will be retried`);
     return sent;
   }
 }

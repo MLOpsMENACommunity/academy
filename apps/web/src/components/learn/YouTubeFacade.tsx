@@ -16,6 +16,8 @@ export function YouTubeFacade({ id, title }: { id: string; title: string }) {
     <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-ink">
       {playing ? (
         <iframe
+          // Keyboard users keep their place: focus moves into the player that replaced the button.
+          ref={(el) => el?.focus()}
           className="absolute inset-0 size-full"
           src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0`}
           title={title}

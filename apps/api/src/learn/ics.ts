@@ -6,22 +6,27 @@ export interface IcsEvent {
   url: string;
   start: Date;
   durationMin: number;
+  /** Drives SEQUENCE/LAST-MODIFIED so calendars apply reschedules. */
+  updatedAt?: Date;
 }
 
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
 
 /** Folds lines longer than 75 octets, as the spec requires. */
 function fold(line: string): string {
+  // Split on code points (never inside an emoji or Arabic letter), at most 75 octets per line.
   const out: string[] = [];
-  let rest = line;
-  while (Buffer.byteLength(rest) > 75) {
-    let cut = 75;
-    while (Buffer.byteLength(rest.slice(0, cut)) > 75) cut--;
-    out.push(rest.slice(0, cut));
-    rest = ` ${rest.slice(cut)}`;
+  let current = '';
+  for (const ch of Array.from(line)) {
+    if (Buffer.byteLength(current + ch) > 75) {
+      out.push(current);
+      current = ` ${ch}`;
+    } else {
+      current += ch;
+    }
   }
-  out.push(rest);
+  out.push(current);
   return out.join('\r\n');
 }
 
@@ -40,6 +45,7 @@ export function buildIcs(calendarName: string, events: IcsEvent[], now = new Dat
       'BEGIN:VEVENT',
       `UID:${e.uid}@academy.mlopsmena.com`,
       `DTSTAMP:${stamp(now)}`,
+      ...(e.updatedAt ? [`LAST-MODIFIED:${stamp(e.updatedAt)}`, `SEQUENCE:${Math.max(0, Math.floor((e.updatedAt.getTime() - Date.UTC(2026, 0, 1)) / 1000))}`] : []),
       `DTSTART:${stamp(e.start)}`,
       `DTEND:${stamp(end)}`,
       `SUMMARY:${escape(e.title)}`,
