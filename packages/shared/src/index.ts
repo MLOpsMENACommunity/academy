@@ -13,3 +13,4 @@ export * from './funnel';
 export * from './course';
 export * from './application';
 export * from './messages';
+export * from './payment';

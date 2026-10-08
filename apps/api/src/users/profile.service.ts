@@ -137,7 +137,7 @@ export class ProfileService {
     const after = await this.recompute(userId);
 
     if (section === 'core' && before.googleEmail && after.googleEmail !== before.googleEmail) {
-      await this.onGoogleEmailChanged(userId);
+      await this.alertDriveAccess(userId, 'changed', before.googleEmail);
     }
     return toProfileDto(after);
   }
@@ -158,41 +158,50 @@ export class ProfileService {
 
   /**
    * Paid Drive courses are shared with the student's Google account by hand.
-   * When that account changes on an active enrolment, flag it so an admin
-   * re-shares the folder (Risk 1).
+   * When that account changes (or the student deletes their account) on an
+   * active enrolment, flag it so an admin updates the folder sharing (Risk 1).
    */
-  private async onGoogleEmailChanged(userId: string): Promise<void> {
+  async alertDriveAccess(userId: string, reason: 'changed' | 'deleted', oldGoogleEmail: string | null): Promise<void> {
     const enrollments = await this.prisma.enrollment.findMany({
       where: { userId, course: { type: 'PAID', recordingsPlatform: 'GOOGLE_DRIVE', status: { not: 'ARCHIVED' } } },
       include: { course: { select: { id: true, slug: true, titleEn: true, titleAr: true } } },
     });
     if (!enrollments.length) return;
 
+    // The address to remove lives on the enrolment (shown on the admin's enrolled-students
+    // page and cleared on anonymisation), never in notifications or emails, which persist.
     await this.prisma.enrollment.updateMany({
       where: { id: { in: enrollments.map((e) => e.id) } },
-      data: { driveAccessGranted: false, driveAccessGrantedAt: null },
+      data: { driveAccessGranted: false, driveAccessGrantedAt: null, driveRevokeEmail: oldGoogleEmail },
     });
     for (const e of enrollments) {
       await this.audit.log({
         actorId: userId,
-        action: 'profile.google_email_changed',
+        action: reason === 'changed' ? 'profile.google_email_changed' : 'account.deleted_with_drive_access',
         entityType: 'Enrollment',
         entityId: e.id,
         metadata: { courseId: e.course.id },
       });
       const link = `/admin/courses/${e.course.id}/enrollments?driveAccess=pending`;
-      const admins = await this.notifications.notifyAdmins({
-        type: 'admin.google_email_changed',
-        titleEn: 'Drive access needs updating',
-        titleAr: 'يجب تحديث صلاحية الوصول إلى Drive',
-        bodyEn: `An enrolled student in "${e.course.titleEn}" changed their Google account. Share the Drive folder with the new account and remove the old one.`,
-        bodyAr: `غيّر طالب مسجل في "${e.course.titleAr}" حساب Google الخاص به. شارك مجلد Drive مع الحساب الجديد واحذف القديم.`,
-        link,
-      });
+      const copy =
+        reason === 'changed'
+          ? {
+              titleEn: 'Drive access needs updating',
+              titleAr: 'يجب تحديث صلاحية الوصول إلى Drive',
+              bodyEn: `An enrolled student in "${e.course.titleEn}" changed their Google account. Share the Drive folder with the new account and remove the old one (see the enrolled students page).`,
+              bodyAr: `غيّر طالب مسجل في "${e.course.titleAr}" حساب Google الخاص به. شارك مجلد Drive مع الحساب الجديد واحذف القديم (راجع صفحة الطلاب المسجلين).`,
+            }
+          : {
+              titleEn: 'Remove Drive access',
+              titleAr: 'أزل صلاحية الوصول إلى Drive',
+              bodyEn: `A student enrolled in "${e.course.titleEn}" deleted their account. Remove their Google account from the Drive folder (see the enrolled students page).`,
+              bodyAr: `حذف طالب مسجل في "${e.course.titleAr}" حسابه. أزل حساب Google الخاص به من مجلد Drive (راجع صفحة الطلاب المسجلين).`,
+            };
+      const admins = await this.notifications.notifyAdmins({ type: `admin.drive_access_${reason}`, ...copy, link });
       for (const a of admins) {
         await this.email.send(a.email, a.locale, {
           name: 'adminAlert',
-          message: `A student enrolled in "${e.course.titleEn}" changed their Google account email. Update Drive sharing.`,
+          message: a.locale === 'ar' ? copy.bodyAr : copy.bodyEn,
           url: this.email.url(a.locale, link),
         });
       }
@@ -212,7 +221,10 @@ export class ProfileService {
     const profile = await this.load(userId);
     const key = await this.storage.put('cvs', file.buffer, 'application/pdf');
     await this.prisma.profile.update({ where: { id: profile.id }, data: { cvKey: key, cvUploadedAt: new Date() } });
-    if (profile.cvKey) await this.safeDelete(profile.cvKey);
+    if (profile.cvKey && !(await this.safeDelete(profile.cvKey))) {
+      // Keys are random (no personal data), so logging one for manual cleanup is safe.
+      this.logger.warn(`Orphaned CV object needs manual deletion: ${profile.cvKey}`);
+    }
     this.logger.log(`CV uploaded (sha256 prefix ${sha256(file.buffer).slice(0, 8)})`);
     return toProfileDto(await this.recompute(userId));
   }
@@ -221,15 +233,20 @@ export class ProfileService {
     const profile = await this.load(userId);
     if (!profile.cvKey) throw new NotFoundException();
     await this.prisma.profile.update({ where: { id: profile.id }, data: { cvKey: null, cvUploadedAt: null } });
-    await this.safeDelete(profile.cvKey);
+    if (!(await this.safeDelete(profile.cvKey))) {
+      this.logger.warn(`Orphaned CV object needs manual deletion: ${profile.cvKey}`);
+    }
     return toProfileDto(await this.recompute(userId));
   }
 
-  async safeDelete(key: string): Promise<void> {
+  /** Deletes a private object; returns false (and logs) instead of throwing. */
+  async safeDelete(key: string): Promise<boolean> {
     try {
       await this.storage.delete(key);
+      return true;
     } catch (err) {
-      this.logger.warn(`Could not delete object: ${(err as Error).message}`);
+      this.logger.warn(`Could not delete object: ${(err as Error).name}`);
+      return false;
     }
   }
 }

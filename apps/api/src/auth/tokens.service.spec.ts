@@ -13,6 +13,7 @@ function setup(row: Partial<Row>) {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       create: jest.fn().mockResolvedValue({}),
     },
+    user: { update: jest.fn().mockResolvedValue({}) },
   };
   const svc = new TokensService(prisma as never, {} as never, { REFRESH_TOKEN_TTL_DAYS: 30 } as never);
   return { svc, prisma };
@@ -28,10 +29,16 @@ describe('TokensService.rotate', () => {
     await expect(svc.rotate('tok')).resolves.toEqual({ ok: false, reason: 'concurrent' });
     expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
   });
-  it('revokes the whole family when an old rotated token is replayed', async () => {
+  it('ends every session (refresh tokens and token version) when an old rotated token is replayed', async () => {
     const { svc, prisma } = setup({ rotatedAt: new Date(Date.now() - 60_000) });
     await expect(svc.rotate('tok')).resolves.toEqual({ ok: false, reason: 'reused' });
-    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { family: 'f1', revokedAt: null } }));
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'u1', revokedAt: null } }));
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { tokenVersion: { increment: 1 } } });
+  });
+  it('carries the original sign-in method and time through rotation', async () => {
+    const authTime = new Date('2026-10-01T10:00:00Z');
+    const { svc } = setup({ authMethod: 'google', authTime } as never);
+    await expect(svc.rotate('tok')).resolves.toMatchObject({ ok: true, session: { amr: 'google', authTime } });
   });
   it('rejects revoked, expired and deleted-user tokens', async () => {
     for (const row of [{ revokedAt: new Date() }, { expiresAt: new Date(0) }, { user: { deletedAt: new Date() } }]) {

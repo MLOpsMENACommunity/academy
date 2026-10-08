@@ -5,6 +5,9 @@ import type { Request } from 'express';
 export interface AuthUser {
   id: string;
   role: Role;
+  /** How and when the current session authenticated (for re-auth checks). */
+  amr: 'pwd' | 'google';
+  authTime: Date;
 }
 
 export interface AuthedRequest extends Request {

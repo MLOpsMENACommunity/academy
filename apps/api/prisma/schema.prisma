@@ -280,6 +280,8 @@ model User {
   role            Role      @default(STUDENT)
   locale          Locale    @default(en)
   lastLoginAt     DateTime?
+  /// Embedded in access tokens; bumping it invalidates every issued token at once.
+  tokenVersion    Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   /// Soft delete: login is blocked immediately; PII is anonymised 30 days later.
@@ -316,6 +318,9 @@ model RefreshToken {
   /// All tokens from one login share a family; reuse of a rotated token revokes the family.
   family     String
   expiresAt  DateTime
+  /// How and when this login family authenticated (carried through rotation, used for re-auth).
+  authMethod String    @default("pwd")
+  authTime   DateTime  @default(now())
   /// Replaced by a newer token in the same family (normal rotation).
   rotatedAt  DateTime?
   /// Explicitly invalidated: logout, password change, or theft detection.
@@ -645,6 +650,8 @@ model Payment {
   amount            Int
   currency          String        @default("EGP")
   transactionRef    String
+  /// Upper-case alphanumerics of transactionRef, for duplicate detection.
+  transactionRefKey String        @default("")
   senderName        String
   senderPhone       String
   paidAt            DateTime
@@ -662,7 +669,7 @@ model Payment {
   createdAt         DateTime      @default(now())
 
   @@index([status, createdAt])
-  @@index([transactionRef])
+  @@index([transactionRefKey])
   @@index([screenshotSha256])
   @@index([applicationId])
 }
@@ -678,6 +685,9 @@ model Enrollment {
   enrolledAt           DateTime  @default(now())
   driveAccessGranted   Boolean   @default(false)
   driveAccessGrantedAt DateTime?
+  /// Google address an admin must remove from the Drive folder (old address or deleted account).
+  /// Cleared when access is updated or the account is anonymised; kept out of notifications.
+  driveRevokeEmail     String?
 
   projectSubmissions ProjectSubmission[]
   certificate        Certificate?
