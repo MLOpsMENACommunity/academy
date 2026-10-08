@@ -44,7 +44,21 @@ jobs:
         run: pnpm --filter @academy/api exec prisma migrate deploy
       - name: Unit tests
         run: pnpm test
+      # MinIO plays the private R2 bucket (signed URLs, uploads) for the e2e tests.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
+          for i in $(seq 1 30); do curl -fsS http://localhost:9000/minio/health/live && break; sleep 1; done
       - name: API e2e tests
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: academy-private
+          S3_ACCESS_KEY_ID: minioadmin
+          S3_SECRET_ACCESS_KEY: minioadmin
+          S3_FORCE_PATH_STYLE: 'true'
+          S3_CREATE_BUCKET: 'true'
         run: pnpm --filter @academy/api test:e2e --passWithNoTests
       - name: Build
         run: pnpm build

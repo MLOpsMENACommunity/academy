@@ -436,8 +436,11 @@
       "GOOGLE_EMAIL_REQUIRED": "Add your Google account email to your profile first.",
       "FILE_TYPE": "Upload a JPG, PNG or PDF file.",
       "FILE_TOO_LARGE": "The file must be 5 MB or smaller.",
-      "FILE_REQUIRED": "Upload a screenshot of the payment."
-    }
+      "FILE_REQUIRED": "Upload a screenshot of the payment.",
+      "PAYMENTS_NOT_CONFIGURED": "Payment details aren't available yet. Please try again later."
+    },
+    "retry": "Try again",
+    "notConfigured": "Payment details aren't available yet. Please check back soon or contact {email}."
   },
   "admin": {
     "title": "Admin",

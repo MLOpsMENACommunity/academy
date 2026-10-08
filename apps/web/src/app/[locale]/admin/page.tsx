@@ -12,8 +12,8 @@ export default function AdminHome() {
   const { locale, t } = useI18n();
   const [pending, setPending] = useState<number | null>(null);
   useEffect(() => {
-    api<unknown[]>('/admin/payments?status=PENDING_REVIEW')
-      .then((r) => setPending(r.length))
+    api<{ count: number }>('/admin/payments-count?status=PENDING_REVIEW')
+      .then((r) => setPending(r.count))
       .catch(() => setPending(null));
   }, []);
   return (

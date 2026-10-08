@@ -42,7 +42,7 @@ export class RetentionJobs {
   private async purgeOldCvs(retentionDays: number, now: Date): Promise<number> {
     const cutoff = new Date(now.getTime() - retentionDays * 86_400_000);
     const due = await this.prisma.profile.findMany({
-      where: { cvKey: { not: null }, cvUploadedAt: { lt: cutoff } },
+      where: { cvKey: { not: null }, cvUploadedAt: { lt: cutoff }, user: { deletedAt: null } },
       select: { id: true, userId: true, cvKey: true },
       orderBy: { cvUploadedAt: 'asc' },
       take: 500,
@@ -54,8 +54,11 @@ export class RetentionJobs {
       } catch {
         continue; // retried next run
       }
-      // Raw update: removing the CV is not the student editing their profile (don't bump updatedAt).
-      await this.prisma.$executeRaw`UPDATE "Profile" SET "cvKey" = NULL, "cvUploadedAt" = NULL WHERE "id" = ${p.id}`;
+      // Only if the CV wasn't replaced meanwhile (a new upload keeps its new key). Raw update so
+      // removing the CV isn't treated as the student editing their profile (no updatedAt bump).
+      const changed = await this.prisma.$executeRaw`
+        UPDATE "Profile" SET "cvKey" = NULL, "cvUploadedAt" = NULL WHERE "id" = ${p.id} AND "cvKey" = ${p.cvKey}`;
+      if (changed !== 1) continue;
       await this.notifications.create(p.userId, {
         type: 'profile.cv_expired',
         titleEn: 'Your CV was removed',

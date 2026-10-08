@@ -3,11 +3,14 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   computePaymentFlags,
   normalizeTransactionRef,
+  paymentsConfigured,
   paymentProofSchema,
   type AdminPaymentDto,
   type MyPaymentDto,
@@ -49,6 +52,8 @@ function toMyPayment(p: Payment): MyPaymentDto {
  */
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly workflow: ApplicationWorkflow,
@@ -79,6 +84,7 @@ export class PaymentsService {
       vodafoneCashName: s.vodafoneCashName,
       supportEmail: s.supportEmail,
       supportWhatsapp: s.supportWhatsapp,
+      configured: paymentsConfigured(s),
     };
   }
 
@@ -104,6 +110,10 @@ export class PaymentsService {
       if (!profile?.googleEmail) {
         throw new BadRequestException({ code: 'GOOGLE_EMAIL_REQUIRED', message: 'Add your Google account email to your profile first' });
       }
+    }
+    const s = await this.settings.get();
+    if (!paymentsConfigured(s)) {
+      throw new ServiceUnavailableException({ code: 'PAYMENTS_NOT_CONFIGURED', message: 'Payment details are not configured yet' });
     }
     const parsed = paymentProofSchema.safeParse(fields);
     if (!parsed.success) {
@@ -146,7 +156,10 @@ export class PaymentsService {
       });
     } catch (err) {
       // Don't leave an orphaned screenshot behind if the transition failed.
-      await this.storage.delete(key).catch(() => undefined);
+      await this.storage.delete(key).catch(() => {
+        // Keys are random (no personal data); logged so it can be removed by hand.
+        this.logger.warn(`Orphaned payment screenshot needs manual deletion: ${key}`);
+      });
       throw err;
     }
     return toMyPayment(payment!);
@@ -154,45 +167,45 @@ export class PaymentsService {
 
   // ------------------------------------------------------------------ admin
 
-  async queue(status: PaymentStatus = 'PENDING_REVIEW'): Promise<AdminPaymentDto[]> {
-    const payments = await this.prisma.payment.findMany({
-      where: { status },
-      // Oldest first: first in, first reviewed.
-      orderBy: { createdAt: status === 'PENDING_REVIEW' ? 'asc' : 'desc' },
-      take: 200,
-      select: { id: true },
-    });
-    return Promise.all(payments.map((p) => this.adminGet(p.id)));
-  }
-
-  async adminGet(id: string): Promise<AdminPaymentDto> {
-    const p = await this.prisma.payment.findUnique({
-      where: { id },
+  private static readonly ADMIN_INCLUDE = {
+    reviewedBy: { select: { email: true } },
+    application: {
       include: {
-        reviewedBy: { select: { email: true } },
-        application: {
-          include: {
-            course: { select: { id: true, slug: true, titleEn: true, price: true, currency: true } },
-            user: { include: { profile: true } },
-          },
-        },
+        course: { select: { id: true, slug: true, titleEn: true, titleAr: true, price: true, currency: true } },
+        user: { include: { profile: true } },
       },
-    });
-    if (!p) throw new NotFoundException('Payment not found');
-    const others = await this.prisma.payment.findMany({
-      where: {
-        id: { not: p.id },
-        OR: [
-          { transactionRefKey: p.transactionRefKey },
-          ...(p.screenshotSha256 ? [{ screenshotSha256: p.screenshotSha256 }] : []),
-        ],
-      },
+    },
+  } as const;
+
+  /** Payments sharing a reference key or screenshot hash with any of `payments` (one query). */
+  private async related(payments: { transactionRefKey: string; screenshotSha256: string | null }[]) {
+    const keys = [...new Set(payments.map((p) => p.transactionRefKey).filter(Boolean))];
+    const hashes = [...new Set(payments.map((p) => p.screenshotSha256).filter((h): h is string => Boolean(h)))];
+    if (!keys.length && !hashes.length) return [];
+    return this.prisma.payment.findMany({
+      where: { OR: [...(keys.length ? [{ transactionRefKey: { in: keys } }] : []), ...(hashes.length ? [{ screenshotSha256: { in: hashes } }] : [])] },
       include: {
         application: {
           select: { course: { select: { titleEn: true } }, user: { select: { profile: { select: { fullNameEn: true } } } } },
         },
       },
+      take: 500,
     });
+  }
+
+  private toAdmin(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- shape of ADMIN_INCLUDE
+    p: Payment & { reviewedBy: { email: string } | null; application: any },
+    related: Awaited<ReturnType<PaymentsService['related']>>,
+  ): AdminPaymentDto {
+    // A student's own earlier attempts on the same application are not "duplicates".
+    const others = related.filter(
+      (o) =>
+        o.id !== p.id &&
+        o.applicationId !== p.applicationId &&
+        ((p.transactionRefKey && o.transactionRefKey === p.transactionRefKey) ||
+          (p.screenshotSha256 && o.screenshotSha256 === p.screenshotSha256)),
+    );
     const flags = computePaymentFlags(
       { id: p.id, transactionRef: p.transactionRef, screenshotSha256: p.screenshotSha256, amount: p.amount },
       p.application.course.price,
@@ -210,7 +223,7 @@ export class PaymentsService {
       reviewedAt: p.reviewedAt?.toISOString() ?? null,
       reviewedBy: p.reviewedBy?.email ?? null,
       flags,
-      duplicates: others.map((o) => ({
+      duplicates: others.slice(0, 20).map((o) => ({
         id: o.id,
         studentName: o.application.user.profile?.fullNameEn ?? null,
         courseTitle: o.application.course.titleEn,
@@ -231,6 +244,30 @@ export class PaymentsService {
     };
   }
 
+  /** Two queries per page regardless of size (no per-row lookups). */
+  async queue(status: PaymentStatus = 'PENDING_REVIEW', page = 1, pageSize = 50): Promise<AdminPaymentDto[]> {
+    const payments = await this.prisma.payment.findMany({
+      where: { status },
+      // Oldest first for review: first in, first verified.
+      orderBy: { createdAt: status === 'PENDING_REVIEW' ? 'asc' : 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: PaymentsService.ADMIN_INCLUDE,
+    });
+    const related = await this.related(payments);
+    return payments.map((p) => this.toAdmin(p, related));
+  }
+
+  async count(status: PaymentStatus): Promise<number> {
+    return this.prisma.payment.count({ where: { status } });
+  }
+
+  async adminGet(id: string): Promise<AdminPaymentDto> {
+    const p = await this.prisma.payment.findUnique({ where: { id }, include: PaymentsService.ADMIN_INCLUDE });
+    if (!p) throw new NotFoundException('Payment not found');
+    return this.toAdmin(p, await this.related([p]));
+  }
+
   /** Short-lived link to view the screenshot. Every view is audited (Risk 3). */
   async screenshotUrl(id: string, admin: Actor): Promise<{ url: string; mime: string | null; expiresIn: number }> {
     const p = await this.prisma.payment.findUnique({ where: { id }, select: { screenshotKey: true, screenshotMime: true } });
@@ -240,9 +277,15 @@ export class PaymentsService {
     return { url: await this.storage.signedUrl(p.screenshotKey), mime: p.screenshotMime, expiresIn: SIGNED_URL_TTL_SECONDS };
   }
 
-  private async pending(id: string): Promise<Payment> {
-    const p = await this.prisma.payment.findUnique({ where: { id } });
+  private async pending(id: string, admin: Actor) {
+    const p = await this.prisma.payment.findUnique({
+      where: { id },
+      include: { application: { select: { userId: true, user: { select: { anonymizedAt: true } } } } },
+    });
     if (!p) throw new NotFoundException('Payment not found');
+    if (p.application.userId === admin.id) {
+      throw new ForbiddenException({ code: 'SELF_REVIEW', message: 'Another admin must review your own payment' });
+    }
     if (p.status !== 'PENDING_REVIEW') {
       throw new ConflictException({ code: 'ALREADY_REVIEWED', message: 'This payment has already been reviewed' });
     }
@@ -254,7 +297,7 @@ export class PaymentsService {
     if (!verifiedInHistory) {
       throw new BadRequestException({ code: 'VERIFY_REQUIRED', message: 'Confirm you verified it in the transaction history' });
     }
-    const p = await this.pending(id);
+    const p = await this.pending(id, admin);
     await this.workflow.transition(p.applicationId, 'APPROVE_PAYMENT', admin, {
       within: async (tx) => {
         const claimed = await tx.payment.updateMany({
@@ -279,13 +322,15 @@ export class PaymentsService {
 
   async reject(id: string, admin: Actor, reason: string): Promise<AdminPaymentDto> {
     if (admin.role !== 'ADMIN') throw new ForbiddenException();
-    const p = await this.pending(id);
+    const p = await this.pending(id, admin);
+    // No free text is written back onto an anonymised account.
+    const storedReason = p.application.user.anonymizedAt ? null : reason;
     await this.workflow.transition(p.applicationId, 'REJECT_PAYMENT', admin, {
-      reason,
+      reason: storedReason,
       within: async (tx) => {
         const claimed = await tx.payment.updateMany({
           where: { id, status: 'PENDING_REVIEW' },
-          data: { status: 'REJECTED', rejectionReason: reason, reviewedById: admin.id, reviewedAt: new Date() },
+          data: { status: 'REJECTED', rejectionReason: storedReason, reviewedById: admin.id, reviewedAt: new Date() },
         });
         if (claimed.count === 0) throw new ConflictException({ code: 'ALREADY_REVIEWED', message: 'Already reviewed' });
         await this.audit.log(
@@ -301,7 +346,8 @@ export class PaymentsService {
   async purgeOldScreenshots(retentionDays: number, now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - retentionDays * 86_400_000);
     const due = await this.prisma.payment.findMany({
-      where: { screenshotKey: { not: null }, createdAt: { lt: cutoff } },
+      // Never delete evidence an admin hasn't reviewed yet.
+      where: { screenshotKey: { not: null }, createdAt: { lt: cutoff }, status: { not: 'PENDING_REVIEW' } },
       select: { id: true, screenshotKey: true },
       orderBy: { createdAt: 'asc' },
       take: 500,

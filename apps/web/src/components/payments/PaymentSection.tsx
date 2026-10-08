@@ -22,6 +22,12 @@ import { formatDate, formatMoney } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 const MAX = 5 * 1024 * 1024;
+
+/** Today's date in the viewer's own timezone (not UTC), as YYYY-MM-DD. */
+function localToday(): string {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 const ACCEPT = ['image/jpeg', 'image/png', 'application/pdf'];
 
 function CopyValue({ value }: { value: string }) {
@@ -65,7 +71,8 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
   const [transactionRef, setRef] = useState('');
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
-  const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paidAt, setPaidAt] = useState(localToday);
+  const [loadError, setLoadError] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -74,12 +81,17 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
+    setLoadError(false);
     api<PaymentInstructionsDto>(`/me/applications/${app.id}/payment-instructions`)
       .then((i) => {
         setInfo(i);
         setAmount((a) => a || String(i.amount));
+        // Deep links (#payment-title from the dashboard) can only scroll once this has rendered.
+        if (window.location.hash === '#payment-title') {
+          requestAnimationFrame(() => document.getElementById('payment-title')?.scrollIntoView({ block: 'start' }));
+        }
       })
-      .catch(() => undefined);
+      .catch(() => setLoadError(true));
     api<MyPaymentDto[]>(`/me/applications/${app.id}/payments`).then(setPayments).catch(() => undefined);
     api<ProfileDto>('/me/profile')
       .then((p) => setGoogleEmail(p.googleEmail))
@@ -121,6 +133,9 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
       onChanged();
     } catch (err) {
       const code = err instanceof ApiError ? err.code : undefined;
+      if (err instanceof ApiError && err.errors.length) {
+        setErrors(Object.fromEntries(err.errors.map((x) => [x.path, t('forms.errors.invalid')])));
+      }
       const known = code ? t(`payment.errors.${code}`) : '';
       setFormError(known && known !== `payment.errors.${code}` ? known : errorMessage(err, t));
       setAttempt((n) => n + 1);
@@ -129,6 +144,16 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
     }
   }
 
+  if (loadError) {
+    return (
+      <Alert tone="danger" className="mt-8">
+        {t('errors.generic')}{' '}
+        <button type="button" className="font-semibold underline" onClick={load}>
+          {t('payment.retry')}
+        </button>
+      </Alert>
+    );
+  }
   if (!info) return null;
   const due = formatMoney(info.amount, info.currency, locale);
   const [termsBefore, termsMiddle, termsAfter] = t('payment.policyNote').split(/\{terms\}|\{refund\}/);
@@ -189,7 +214,9 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
 
       {app.status === 'PAYMENT_SUBMITTED' && <Alert tone="success">{t('payment.submitted')}</Alert>}
 
-      {canSubmit && (
+      {canSubmit && !info.configured && <Alert tone="warning">{t('payment.notConfigured', { email: info.supportEmail })}</Alert>}
+
+      {canSubmit && info.configured && (
         <form id="payment-form" onSubmit={onSubmit} noValidate className="space-y-5 rounded-card border border-line bg-card p-5 sm:p-6">
           <h3 className="text-lg">{t('payment.formTitle')}</h3>
           {formError && (
@@ -207,7 +234,7 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
           />
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={t('payment.amount')} required type="number" inputMode="numeric" min={1} value={amount} onChange={setAmount} error={errors.amount} />
-            <TextField label={t('payment.paidAt')} required type="date" value={paidAt} onChange={setPaidAt} error={errors.paidAt} max={new Date().toISOString().slice(0, 10)} />
+            <TextField label={t('payment.paidAt')} required type="date" value={paidAt} onChange={setPaidAt} error={errors.paidAt} max={localToday()} />
             <TextField
               label={t('payment.transactionRef')}
               hint={t('payment.transactionRefHint')}
@@ -232,13 +259,18 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
               accept="image/jpeg,image/png,application/pdf"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               aria-invalid={errors.screenshot ? true : undefined}
-              aria-describedby="payment-file-hint"
+              aria-required="true"
+              aria-describedby={errors.screenshot ? 'payment-file-hint payment-file-error' : 'payment-file-hint'}
               className="block w-full text-sm file:me-3 file:min-h-10 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:font-semibold file:text-white"
             />
             <p id="payment-file-hint" className="mt-1 text-xs text-muted">
               🔒 {t('payment.screenshotHint')}
             </p>
-            {errors.screenshot && <p className="mt-1 text-sm font-medium text-danger">{errors.screenshot}</p>}
+            {errors.screenshot && (
+              <p id="payment-file-error" className="mt-1 text-sm font-medium text-danger">
+                {errors.screenshot}
+              </p>
+            )}
           </div>
           <Button type="submit" size="lg" variant="accent" loading={busy}>
             {t('payment.submit')}

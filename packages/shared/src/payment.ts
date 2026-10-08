@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { MANUAL_PAYMENT_METHODS, type PaymentMethod, type PaymentStatus } from './enums';
 
 /** Proof-of-payment fields (the screenshot is a separate multipart file). */
+/** References are compared case- and punctuation-insensitively for duplicate checks. */
+export function normalizeTransactionRef(ref: string): string {
+  return ref.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
 export const paymentProofSchema = z.object({
   method: z.enum(MANUAL_PAYMENT_METHODS),
   amount: z.coerce.number().int('Enter a whole amount').positive('Enter the amount you paid').max(1_000_000),
@@ -11,7 +16,9 @@ export const paymentProofSchema = z.object({
     .min(4, 'Enter the transaction reference number')
     .max(64)
     // Spaces allowed: references are often copied as 'IP 1234 5678'. Duplicate checks ignore them.
-    .regex(/^[A-Za-z0-9\-_/. ]+$/, 'Use the reference exactly as shown (letters and digits)'),
+    .regex(/^[A-Za-z0-9\-_/. ]+$/, 'Use the reference exactly as shown (letters and digits)')
+    // '----' would normalise to '' and "match" every other blank reference.
+    .refine((v) => normalizeTransactionRef(v).length >= 4, 'Enter the transaction reference number'),
   senderName: z.string().trim().min(2, 'Enter the sender name').max(120),
   /** Phone number (Vodafone Cash) or InstaPay handle / IPA. */
   senderPhone: z.string().trim().min(4, 'Enter the sender phone or InstaPay handle').max(80),
@@ -21,11 +28,6 @@ export const paymentProofSchema = z.object({
     .refine((d) => d.getTime() >= Date.now() - 365 * 86_400_000, 'The payment date is too far in the past'),
 });
 export type PaymentProofInput = z.infer<typeof paymentProofSchema>;
-
-/** References are compared case- and punctuation-insensitively for duplicate checks. */
-export function normalizeTransactionRef(ref: string): string {
-  return ref.toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
 
 export interface PaymentFlags {
   /** Same transaction reference used on another payment. */
@@ -65,6 +67,13 @@ export interface PaymentInstructionsDto {
   vodafoneCashName: string;
   supportEmail: string;
   supportWhatsapp: string;
+  /** False while the admin hasn't replaced the placeholder payment details in Settings. */
+  configured: boolean;
+}
+
+/** Payments are refused until real InstaPay and Vodafone Cash details are set in Settings. */
+export function paymentsConfigured(s: { instapayHandle: string; vodafoneCashNumber: string }): boolean {
+  return ![s.instapayHandle, s.vodafoneCashNumber].some((v) => !v || v.includes('[PLACEHOLDER]'));
 }
 
 export interface MyPaymentDto {
@@ -92,7 +101,7 @@ export interface AdminPaymentDto extends MyPaymentDto {
   /** Other payments sharing this reference or screenshot, for the admin to inspect. */
   duplicates: { id: string; studentName: string | null; courseTitle: string; status: PaymentStatus; createdAt: string }[];
   application: { id: string; status: string; createdAt: string };
-  course: { id: string; slug: string; titleEn: string; price: number; currency: string };
+  course: { id: string; slug: string; titleEn: string; titleAr: string; price: number; currency: string };
   student: {
     id: string;
     email: string;
