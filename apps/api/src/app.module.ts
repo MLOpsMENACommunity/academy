@@ -13,6 +13,7 @@ import { EmailModule } from './email/email.module';
 import { FunnelModule } from './funnel/funnel.module';
 import { HealthController } from './health/health.controller';
 import { JobsModule } from './jobs/jobs.module';
+import { LearnModule } from './learn/learn.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -37,6 +38,7 @@ import { UsersModule } from './users/users.module';
     CoursesModule,
     ApplicationsModule,
     PaymentsModule,
+    LearnModule,
     JobsModule,
   ],
   controllers: [HealthController],

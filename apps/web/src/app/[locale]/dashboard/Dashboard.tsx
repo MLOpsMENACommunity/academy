@@ -4,6 +4,7 @@ import { PROFILE_REVIEW_DAYS, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { MyCourses } from '@/components/applications/MyCourses';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { NextSessions } from '@/components/learn/NextSessions';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -38,6 +39,7 @@ function Home({ user }: { user: MeResponse }) {
           {t('dashboard.nextTitle')}
         </h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <NextSessions />
           {!user.profile.coreComplete && (
             <Card className="border-accent/40">
               <h3 className="text-lg">{t('dashboard.completeProfile')}</h3>

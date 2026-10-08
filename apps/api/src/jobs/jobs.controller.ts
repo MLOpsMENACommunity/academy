@@ -6,6 +6,7 @@ import { Public } from '../common/decorators';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { AccountJobs } from './account.jobs';
+import { ReminderJobs } from './reminders.jobs';
 import { RetentionJobs } from './retention.jobs';
 
 /**
@@ -19,6 +20,7 @@ export class JobsController {
   constructor(
     private readonly accountJobs: AccountJobs,
     private readonly retention: RetentionJobs,
+    private readonly reminders: ReminderJobs,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -38,6 +40,7 @@ export class JobsController {
     const r = await this.retention.run();
     results.screenshotsDeleted = r.screenshots;
     results.cvsDeleted = r.cvs;
+    results.remindersSent = await this.reminders.run();
     return results;
   }
 }

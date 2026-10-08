@@ -50,7 +50,7 @@ export function MyCourses() {
             <p className="mt-3 text-sm text-body">{t(`applications.next.${a.status}`)}</p>
             <div className="mt-auto flex flex-wrap gap-2 pt-4">
               {a.enrolled ? (
-                <Link href={`/${locale}/courses/${a.course.slug}`} className={buttonClass('accent', 'md')}>
+                <Link href={`/${locale}/learn/${a.course.slug}`} className={buttonClass('accent', 'md')}>
                   {t('applications.goToCourse')}
                 </Link>
               ) : needsPayment ? (

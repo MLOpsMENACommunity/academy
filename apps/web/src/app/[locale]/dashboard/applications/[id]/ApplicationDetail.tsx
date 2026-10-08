@@ -73,7 +73,7 @@ function Inner() {
         {app.rejectionReason && <p className="mt-2 text-sm text-muted">{t('applications.reason', { reason: app.rejectionReason })}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
           {app.enrolled && (
-            <Link href={`/${locale}/courses/${app.course.slug}`} className={buttonClass('accent', 'md')}>
+            <Link href={`/${locale}/learn/${app.course.slug}`} className={buttonClass('accent', 'md')}>
               {t('applications.goToCourse')}
             </Link>
           )}

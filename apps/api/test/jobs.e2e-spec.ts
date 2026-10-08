@@ -27,6 +27,7 @@ describe('internal jobs endpoint (e2e)', () => {
       profileReviewEmails: expect.any(Number),
       screenshotsDeleted: expect.any(Number),
       cvsDeleted: expect.any(Number),
+      remindersSent: expect.any(Number),
     });
   });
 });
