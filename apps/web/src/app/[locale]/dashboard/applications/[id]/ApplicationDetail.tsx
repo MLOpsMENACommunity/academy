@@ -11,7 +11,7 @@ import { buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/format';
 
 export function ApplicationDetail() {
@@ -22,17 +22,19 @@ function Inner() {
   const { locale, t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const [app, setApp] = useState<MyApplicationDetailDto | null>(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<'notFound' | 'generic' | null>(null);
 
   const load = useCallback(() => {
-    api<MyApplicationDetailDto>(`/me/applications/${id}`).then(setApp).catch(() => setError(true));
+    api<MyApplicationDetailDto>(`/me/applications/${id}`)
+      .then(setApp)
+      .catch((err: unknown) => setError(err instanceof ApiError && err.status === 404 ? 'notFound' : 'generic'));
   }, [id]);
   useEffect(load, [load]);
 
   if (error) {
     return (
       <Container className="py-12">
-        <Alert tone="danger">{t('errors.generic')}</Alert>
+        <Alert tone="danger">{error === 'notFound' ? t('errors.notFoundTitle') : t('errors.generic')}</Alert>
       </Container>
     );
   }
@@ -46,13 +48,13 @@ function Inner() {
       const o = options?.find((o) => o.value === x);
       return o ? (locale === 'ar' ? o.labelAr : o.labelEn) : x;
     };
-    return Array.isArray(v) ? v.map(lbl).join('، ') : lbl(String(v));
+    return Array.isArray(v) ? v.map(lbl).join(locale === 'ar' ? '، ' : ', ') : lbl(String(v));
   };
 
   return (
     <Container className="max-w-3xl py-10">
       <Link href={`/${locale}/dashboard`} className="text-sm text-primary hover:underline">
-        ← {t('applications.back')}
+        <span aria-hidden className="inline-block rtl:rotate-180">←</span> {t('applications.back')}
       </Link>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -68,7 +70,7 @@ function Inner() {
         {app.rejectionReason && <p className="mt-2 text-sm text-muted">{t('applications.reason', { reason: app.rejectionReason })}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
           {app.enrolled && (
-            <Link href={`/${locale}/learn/${app.course.slug}`} className={buttonClass('accent', 'md')}>
+            <Link href={`/${locale}/courses/${app.course.slug}`} className={buttonClass('accent', 'md')}>
               {t('applications.goToCourse')}
             </Link>
           )}
@@ -77,8 +79,6 @@ function Inner() {
           </Link>
         </div>
       </section>
-
-      <div id="payment" />
 
       <section className="mt-8" aria-labelledby="timeline">
         <h2 id="timeline" className="text-xl">
