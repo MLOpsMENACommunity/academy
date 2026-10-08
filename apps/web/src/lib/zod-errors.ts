@@ -29,7 +29,7 @@ function translateIssue(i: ZodIssue, t: Translate): string {
       return i.type === 'string' ? t('forms.errors.tooLong', { max: Number(i.maximum) }) : t('forms.errors.invalid');
     case 'invalid_string':
       if (i.validation === 'email') return t('forms.errors.email');
-      if (i.validation === 'url') return t('forms.errors.url');
+      if (i.validation === 'url' || i.message.includes('http(s)')) return t('forms.errors.url');
       return t('forms.errors.invalid');
     case 'invalid_enum_value':
       return t('forms.errors.choose');
@@ -38,6 +38,8 @@ function translateIssue(i: ZodIssue, t: Translate): string {
     case 'custom': {
       const m = i.message.toLowerCase();
       if (m.includes('required') || m.includes('choose at least')) return t('forms.errors.required');
+      if (m.includes('drive.google.com')) return t('forms.errors.driveUrl');
+      if (m.includes('price')) return t('forms.errors.price');
       if (m.includes('url')) return t('forms.errors.url');
       if (m.includes('international') || m.includes('phone')) return t('forms.errors.phone');
       if (m.includes('timezone')) return t('forms.errors.choose');

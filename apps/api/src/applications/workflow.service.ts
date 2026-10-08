@@ -123,7 +123,7 @@ export class ApplicationWorkflow {
     applicationId: string,
     event: ApplicationEvent,
     actor: Actor | null,
-    opts: { reason?: string | null; within?: (tx: Tx, app: Application) => Promise<void> } = {},
+    opts: { reason?: string | null; within?: (tx: Tx, app: Application) => Promise<void>; awaitSideEffects?: boolean } = {},
   ): Promise<Application> {
     const { app, from } = await this.prisma.$transaction(async (tx) => {
       const current = await tx.application.findUnique({ where: { id: applicationId }, select: { courseId: true } });
@@ -153,7 +153,9 @@ export class ApplicationWorkflow {
       return { app: updated, from: fresh.status };
     });
 
-    await this.afterChange(app, from, opts.reason);
+    // Bulk actions don't wait for each email; afterChange never throws (allSettled + logging).
+    if (opts.awaitSideEffects === false) void this.afterChange(app, from, opts.reason).catch(() => undefined);
+    else await this.afterChange(app, from, opts.reason);
     return app;
   }
 
