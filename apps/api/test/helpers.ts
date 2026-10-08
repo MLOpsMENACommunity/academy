@@ -10,7 +10,7 @@ export async function createTestApp(): Promise<{ app: NestExpressApplication; pr
   process.env.JOBS_ENABLED = 'false';
   process.env.S3_CREATE_BUCKET = 'false';
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: ['error'] });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: ['error'], bodyParser: false });
   configureApp(app);
   await app.init();
   return { app, prisma: app.get(PrismaService) };

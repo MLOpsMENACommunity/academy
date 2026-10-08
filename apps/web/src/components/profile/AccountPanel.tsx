@@ -47,11 +47,24 @@ export function AccountPanel({ user }: { user: MeResponse }) {
   }
   const note = (key: string) => {
     const m = msg[key];
-    return m ? (
+    if (!m) return null;
+    const reauth = m.text === t('auth.errors.REAUTH_REQUIRED');
+    return (
       <Alert tone={m.tone} className="mt-3">
         {m.text}
+        {reauth && (
+          <>
+            {' '}
+            <a
+              className="font-semibold underline"
+              href={`/api/auth/google?locale=${locale}&returnTo=${encodeURIComponent(`/${locale}/profile?tab=account`)}`}
+            >
+              {t('auth.google')}
+            </a>
+          </>
+        )}
       </Alert>
-    ) : null;
+    );
   };
 
   return (
@@ -163,9 +176,27 @@ export function AccountPanel({ user }: { user: MeResponse }) {
 
       <Block title={t('account.exportTitle')}>
         <p className="text-sm text-muted">{t('account.exportBody')}</p>
-        <a href="/api/me/export" download className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-line-strong px-4 text-sm font-semibold hover:bg-muted-bg">
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3"
+          loading={busy === 'export'}
+          onClick={() =>
+            run('export', async () => {
+              // Through api() so an expired session refreshes instead of saving a 401 as the "export".
+              const blob = await api<Blob>('/me/export', { headers: { Accept: 'application/octet-stream' } });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'mlops-mena-academy-data.json';
+              a.click();
+              URL.revokeObjectURL(url);
+            })
+          }
+        >
           ⬇ {t('account.exportCta')}
-        </a>
+        </Button>
+        {note('export')}
       </Block>
 
       <Block title={t('account.deleteTitle')} tone="danger">

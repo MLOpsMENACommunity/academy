@@ -1,6 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
-import { sha256 } from '../src/common/crypto';
+import { randomToken, sha256 } from '../src/common/crypto';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { cookieHeader, createTestApp, uniqueEmail } from './helpers';
 
@@ -70,13 +70,15 @@ describe('auth & profile (e2e)', () => {
 
   it('verifies the email with a single-use token', async () => {
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
-    const token = 'x'.repeat(43);
+    const token = randomToken();
     await prisma.emailVerificationToken.create({
       data: { userId: user.id, email, tokenHash: sha256(token), returnTo: '/ar/courses/kubernetes', expiresAt: new Date(Date.now() + 60_000) },
     });
-    const res = await http().post('/api/auth/verify-email').send({ token }).expect(200);
+    // Must be signed in to the same account.
+    await http().post('/api/auth/verify-email').send({ token }).expect(401);
+    const res = await http().post('/api/auth/verify-email').set('Cookie', cookies).send({ token }).expect(200);
     expect(res.body.returnTo).toBe('/ar/courses/kubernetes');
-    await http().post('/api/auth/verify-email').send({ token }).expect(400);
+    await http().post('/api/auth/verify-email').set('Cookie', cookies).send({ token }).expect(400);
     const me = await http().get('/api/auth/me').set('Cookie', cookies).expect(200);
     expect(me.body.emailVerified).toBe(true);
   });

@@ -31,9 +31,10 @@ function Tabs({ user }: { user: MeResponse }) {
   const [tab, setTab] = useState<Tab>(initial);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    api<ProfileDto>('/me/profile').then(setProfile);
+    api<ProfileDto>('/me/profile').then(setProfile).catch(() => setLoadError(true));
   }, []);
 
   const select = (next: Tab, focus = false) => {
@@ -53,6 +54,13 @@ function Tabs({ user }: { user: MeResponse }) {
     e.preventDefault();
   };
 
+  if (loadError) {
+    return (
+      <Container className="py-12">
+        <Alert tone="danger">{t('errors.generic')}</Alert>
+      </Container>
+    );
+  }
   if (!profile) return <PageSpinner />;
   const completeness = computeCompleteness(profile);
 
