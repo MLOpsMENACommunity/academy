@@ -1,5 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { AnnouncementDelivery } from '../src/announcements/announcement-delivery.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createCourse, createTestApp, createUser } from './helpers';
 
@@ -152,6 +153,60 @@ describe('admin panel API (e2e)', () => {
     expect(await prisma.auditLog.count({ where: { entityId: e.id, action: 'enrollment.drive_access_granted' } })).toBe(1);
     const csv = await as(admin.cookie).get(`/api/admin/courses/${course.id}/enrollments.csv`).expect(200);
     expect(csv.text).toContain(`g.${s.email}`);
+  });
+
+  it('sends announcements to the chosen statuses, in-app and by email, exactly once', async () => {
+    const course = await createCourse(prisma);
+    const enrolled = await createUser(app, prisma, { prefix: 'ann-in' });
+    const waiting = await createUser(app, prisma, { prefix: 'ann-wait' });
+    const gone = await createUser(app, prisma, { prefix: 'ann-gone' });
+    for (const [u, status] of [[enrolled, 'ENROLLED'], [waiting, 'WAITLISTED'], [gone, 'ENROLLED']] as const) {
+      await prisma.application.create({ data: { userId: u.id, courseId: course.id, status, answers: {}, profileSnapshot: {} } });
+    }
+    await prisma.enrollment.create({ data: { userId: enrolled.id, courseId: course.id } });
+    await prisma.user.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
+
+    const audience = (s: string) => as(admin.cookie).get(`/api/admin/courses/${course.id}/announcements/audience?statuses=${s}`).expect(200);
+    expect((await audience('ENROLLED')).body.count).toBe(1);
+    expect((await audience('ENROLLED,WAITLISTED')).body.count).toBe(2);
+    const key = () => `test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    await as(admin.cookie).post(`/api/admin/courses/${course.id}/announcements`).send({ subjectEn: 'Hi', bodyEn: 'x', statuses: ['REJECTED'], idempotencyKey: key() }).expect(400);
+    await as(admin.cookie).post(`/api/admin/courses/${course.id}/announcements`).send({ subjectEn: 'Hi', bodyEn: 'x', statuses: ['ENROLLED'] }).expect(400);
+
+    const payload = { subjectEn: 'Telegram group', bodyEn: 'Join here: https://t.me/example', statuses: ['ENROLLED'], idempotencyKey: key() };
+    const sent = await as(admin.cookie).post(`/api/admin/courses/${course.id}/announcements`).send(payload).expect(201);
+    expect(sent.body.recipients).toBe(1);
+    // A retried request (same key) returns the same announcement and sends nothing new.
+    const again = await as(admin.cookie).post(`/api/admin/courses/${course.id}/announcements`).send(payload).expect(201);
+    expect(again.body.id).toBe(sent.body.id);
+    expect(await prisma.notification.count({ where: { userId: enrolled.id, type: 'course.announcement' } })).toBe(1);
+    const n = await prisma.notification.findFirstOrThrow({ where: { userId: enrolled.id, type: 'course.announcement' } });
+    expect(n).toMatchObject({ bodyAr: 'Join here: https://t.me/example', link: expect.stringMatching(/^\/learn\//) });
+    expect(await prisma.notification.count({ where: { userId: waiting.id, type: 'course.announcement' } })).toBe(0);
+
+    // Delivery runs after the response from the durable queue.
+    let history: { subject: string; recipients: number; sent: number; pending: number }[] = [];
+    for (let i = 0; i < 50 && !history[0]?.sent; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      history = (await as(admin.cookie).get(`/api/admin/courses/${course.id}/announcements`).expect(200)).body;
+    }
+    expect(history[0]).toMatchObject({ subject: 'Telegram group', recipients: 1, sent: 1, pending: 0 });
+    await http().get(`/api/admin/courses/${course.id}/announcements`).set('Cookie', enrolled.cookie).expect(403);
+
+    // The enrolled student also sees it on the course page.
+    const learn = await http().get(`/api/learn/${course.slug}`).set('Cookie', enrolled.cookie).expect(200);
+    expect(learn.body.announcements[0]).toMatchObject({ subjectEn: 'Telegram group', bodyAr: 'Join here: https://t.me/example' });
+  });
+
+  it('resumes announcement emails left pending (e.g. by a restart)', async () => {
+    const course = await createCourse(prisma);
+    const u = await createUser(app, prisma, { prefix: 'ann-resume' });
+    const a = await prisma.announcement.create({
+      data: { courseId: course.id, idempotencyKey: `resume-${Date.now()}`, subjectEn: 'S', subjectAr: '', bodyEn: 'B', bodyAr: '', statuses: ['ENROLLED'] },
+    });
+    const r = await prisma.announcementRecipient.create({ data: { announcementId: a.id, userId: u.id, enrolled: true } });
+    await app.get(AnnouncementDelivery).process();
+    expect(await prisma.announcementRecipient.findUniqueOrThrow({ where: { id: r.id } })).toMatchObject({ status: 'SENT', attempts: 1 });
   });
 
   it('duplicates a course as a draft and adds weekly sessions in bulk', async () => {

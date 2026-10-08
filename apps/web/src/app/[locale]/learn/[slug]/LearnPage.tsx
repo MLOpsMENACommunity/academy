@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { CheckboxField } from '@/components/forms/fields';
 import { FeedbackForm } from '@/components/learn/FeedbackForm';
+import { CourseAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
 import { downloadViaApi } from '@/lib/download';
@@ -143,6 +144,8 @@ function Inner() {
           </p>
         </div>
       </div>
+
+      <CourseAnnouncements items={course.announcements ?? []} />
 
       <h2 className="mt-10 text-2xl">{t('learn.sessions')}</h2>
       <div className="mt-4 space-y-4">

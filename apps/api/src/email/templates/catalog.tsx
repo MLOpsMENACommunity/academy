@@ -27,7 +27,9 @@ export type EmailTemplate =
   | { name: 'accountDeleted' }
   /** Sent to the account's (old) address after a sensitive change. */
   | { name: 'securityNotice'; kind: 'emailChanged' | 'passwordChanged'; url: string }
-  | { name: 'adminAlert'; message: string; url: string };
+  | { name: 'adminAlert'; message: string; url: string }
+  /** Sent by an admin to a course's students. */
+  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -160,6 +162,22 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 ? `يظهر رابط الجلسة المباشرة في صفحة الدورة قبل بدايتها. لإيقاف التذكيرات لهذه الدورة: ${t.unsubscribeUrl}`
                 : `The live link appears on the course page shortly before the session starts. To stop reminders for this course: ${t.unsubscribeUrl}`
             }
+          />
+        ),
+      };
+    }
+    case 'announcement': {
+      const subject = `${t.courseTitle}: ${t.subject}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={t.subject}
+            heading={t.subject}
+            paragraphs={t.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)}
+            cta={{ label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }}
+            note={ar ? `أُرسلت هذه الرسالة إلى طلاب ${t.courseTitle}.` : `Sent to students of ${t.courseTitle}.`}
           />
         ),
       };

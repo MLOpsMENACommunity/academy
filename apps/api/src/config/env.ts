@@ -27,6 +27,8 @@ const envSchema = z.object({
 
   EMAIL_PROVIDER: z.enum(['smtp', 'resend', 'log']).default('smtp'),
   EMAIL_FROM: z.string().default('MLOps MENA Academy <academy@mlopsmena.com>'),
+  /** Minimum gap between provider calls; defaults to 550 ms for Resend (2 requests/s account limit), 0 otherwise. */
+  EMAIL_MIN_INTERVAL_MS: z.coerce.number().int().min(0).max(10_000).optional(),
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().int().default(1025),
   RESEND_API_KEY: z.string().optional(),

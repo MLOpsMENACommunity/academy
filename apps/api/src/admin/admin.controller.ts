@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import {
   adminNoteSchema,
@@ -11,6 +12,9 @@ import {
   SAVED_FILTER_SCOPES,
   savedFilterSchema,
   sessionInputSchema,
+  announcementSchema,
+  announcementAudienceSchema,
+  type AnnouncementInput,
   sessionsBulkSchema,
   duplicateCourseSchema,
   sessionOrderSchema,
@@ -25,6 +29,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
+import { AdminAnnouncementsService } from './admin-announcements.service';
 import { AdminApplicationsService } from './admin-applications.service';
 import { AdminCoursesService } from './admin-courses.service';
 import { AdminMiscService } from './admin-misc.service';
@@ -56,6 +61,7 @@ export class AdminController {
     private readonly students: AdminStudentsService,
     private readonly courses: AdminCoursesService,
     private readonly misc: AdminMiscService,
+    private readonly announcements: AdminAnnouncementsService,
   ) {}
 
   @Get('dashboard')
@@ -205,6 +211,24 @@ export class AdminController {
   @HttpCode(204)
   async driveRemoved(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.courses.markDriveRemoved(id, user);
+  }
+
+  // ------------------------------------------------------------------ announcements
+
+  @Get('courses/:id/announcements')
+  announcementHistory(@Param('id') id: string) {
+    return this.announcements.history(id);
+  }
+
+  @Get('courses/:id/announcements/audience')
+  announcementAudience(@Param('id') id: string, @Query(new ZodPipe(announcementAudienceSchema)) q: z.infer<typeof announcementAudienceSchema>) {
+    return this.announcements.audience(id, q.statuses);
+  }
+
+  @Post('courses/:id/announcements')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  sendAnnouncement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(announcementSchema)) body: AnnouncementInput & { idempotencyKey: string }) {
+    return this.announcements.send(id, body, user);
   }
 
   @Get('courses/:id/feedback')

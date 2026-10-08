@@ -96,15 +96,28 @@ On the very first run, step 4 of the setup (R2 credentials) isn't possible
 yet: run the workflow once to create the bucket, add the R2 keys, then run it
 again.
 
-## Change the hostname (e.g. go live on academy.mlopsmena.com)
+## Go live on academy.mlopsmena.com (or change the hostname)
 
-In `deploy/cloudflare/wrangler.jsonc`, change `ACADEMY_HOSTNAME`, the
-`routes` pattern and `NEXT_PUBLIC_SITE_URL` together. Update the Google OAuth
-redirect URI too, then redeploy. With `custom_domain: true`, Cloudflare creates
-the DNS record and the certificate.
+No code change needed. In GitHub → Settings → Environments → `staging` → **Variables**, add:
 
-For production, remove `SEED_PLACEHOLDER_STATUS` (placeholder courses then
-stay as drafts) and change the admin password after the first sign-in.
+| Variable | Value |
+|---|---|
+| `ACADEMY_HOSTNAME` | `academy.mlopsmena.com` |
+| `ACADEMY_REDIRECT_HOSTS` | `academy-staging.mlopsmena.com` (old links redirect to the new host) |
+| `SENTRY_ENVIRONMENT` | `production` (only if Sentry is on) |
+
+Then run **Deploy to Cloudflare**. Cloudflare creates the DNS record and certificate for each host (`custom_domain: true`), the app's links, emails, sitemap and cookies switch to the new host, and the smoke test checks the redirect. People signed in on the old host sign in again once.
+
+If Google sign-in is enabled, add `https://academy.mlopsmena.com/api/auth/google/callback` to the OAuth client's redirect URIs first.
+
+During the deploy, the old host may redirect to the new one about a minute before Cloudflare finishes issuing its certificate; expect a brief certificate warning if you test at that exact moment.
+
+**To undo the switch,** don't just delete `ACADEMY_HOSTNAME` (that would remove academy.mlopsmena.com and break links already sent by email). Set `ACADEMY_HOSTNAME` back to `academy-staging.mlopsmena.com` and put `academy.mlopsmena.com` in `ACADEMY_REDIRECT_HOSTS`, then deploy.
+
+Before going live, also:
+- change the seeded admin password after your first sign-in (Profile → Account);
+- delete test accounts and applications, so the first announcement to enrolled students doesn't reach them;
+- `SEED_PLACEHOLDER_STATUS` is no longer needed (there are no placeholder courses). Removing it from GitHub doesn't remove it from the Worker; also run `pnpm --filter @academy/deploy-cloudflare exec wrangler secret delete SEED_PLACEHOLDER_STATUS` (harmless to leave).
 
 ## Operating
 

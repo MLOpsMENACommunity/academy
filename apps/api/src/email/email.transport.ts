@@ -9,6 +9,22 @@ export interface EmailMessage {
   text: string;
 }
 
+/** A provider rejection with enough detail to decide whether to retry (no addresses in it). */
+export class EmailSendError extends Error {
+  constructor(
+    readonly code: string,
+    readonly statusCode?: number,
+  ) {
+    super(`Email provider error: ${code}${statusCode ? ` (${statusCode})` : ''}`);
+    this.name = 'EmailSendError';
+  }
+
+  /** Too many requests right now: worth retrying shortly. A daily quota is not. */
+  get retryable(): boolean {
+    return this.statusCode === 429 && this.code !== 'daily_quota_exceeded';
+  }
+}
+
 /**
  * Delivery adapter. Swapping provider (e.g. to Amazon SES) means adding one
  * class here and one case in email.module.ts; nothing else changes.
@@ -53,7 +69,7 @@ export class ResendTransport extends EmailTransport {
       html: m.html,
       text: m.text,
     });
-    if (error) throw new Error(`Resend error: ${error.name}`);
+    if (error) throw new EmailSendError(error.name, (error as { statusCode?: number }).statusCode ?? undefined);
   }
 }
 

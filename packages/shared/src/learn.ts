@@ -86,6 +86,8 @@ export interface LearnCourseDto {
   progress: { completed: number; total: number; percent: number };
   courseFeedback: { rating: number; comment: string | null } | null;
   sessions: LearnSessionDto[];
+  /** Messages from the course team, newest first. Arabic falls back to English. */
+  announcements: { id: string; at: string; subjectEn: string; subjectAr: string; bodyEn: string; bodyAr: string }[];
 }
 
 export interface NextSessionDto {

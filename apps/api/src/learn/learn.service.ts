@@ -46,7 +46,7 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const course = await this.access(user, slug);
-    const [sessions, progress, feedback, pref, profile, s, enrollment] = await Promise.all([
+    const [sessions, progress, feedback, pref, profile, s, enrollment, announcements] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
@@ -56,6 +56,16 @@ export class LearnService {
       this.prisma.enrollment.findUnique({
         where: { userId_courseId: { userId: user.id, courseId: course.id } },
         select: { driveAccessGranted: true },
+      }),
+      // Course-wide announcements to enrolled students, plus any sent to this student directly.
+      this.prisma.announcement.findMany({
+        where: {
+          courseId: course.id,
+          ...(user.role === 'ADMIN' ? {} : { OR: [{ statuses: { array_contains: ['ENROLLED'] } }, { recipients: { some: { userId: user.id } } }] }),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: { id: true, createdAt: true, subjectEn: true, subjectAr: true, bodyEn: true, bodyAr: true },
       }),
     ]);
     const done = new Set(progress.map((p) => p.sessionId));
@@ -80,6 +90,14 @@ export class LearnService {
       emailReminders: pref?.emailReminders ?? true,
       progress: { completed, total: sessions.length, percent: sessions.length ? Math.round((completed / sessions.length) * 100) : 0 },
       courseFeedback: courseFb ? { rating: courseFb.rating, comment: courseFb.comment } : null,
+      announcements: announcements.map((a) => ({
+        id: a.id,
+        at: a.createdAt.toISOString(),
+        subjectEn: a.subjectEn,
+        subjectAr: a.subjectAr || a.subjectEn,
+        bodyEn: a.bodyEn,
+        bodyAr: a.bodyAr || a.bodyEn,
+      })),
       sessions: sessions.map((x) => {
         const visible = user.role === 'ADMIN' || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
         const fb = fbBySession.get(x.id);

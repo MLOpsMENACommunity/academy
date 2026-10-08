@@ -293,6 +293,8 @@ model User {
   applications            Application[]
   enrollments             Enrollment[]
   notifications           Notification[]
+  announcementsAuthored   Announcement[]           @relation("AnnouncementAuthor")
+  announcementDeliveries  AnnouncementRecipient[]
   refreshTokens           RefreshToken[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
@@ -536,6 +538,7 @@ model Course {
   reminderPreferences ReminderPreference[]
 
   @@index([status])
+  announcements       Announcement[]
 }
 
 model CourseInstructor {
@@ -855,4 +858,50 @@ model FunnelEventLog {
 
   @@index([courseId, event])
   @@index([createdAt])
+}
+
+// ------------------------------------------------------------------ announcements
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// A message from admins to a course's students (in-app + email), delivered from a durable queue.
+model Announcement {
+  id             String                  @id @default(cuid())
+  courseId       String
+  course         Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?                   @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  /// Client-generated per send attempt: retrying the same request can't send twice.
+  idempotencyKey String                  @unique
+  subjectEn      String
+  subjectAr      String
+  bodyEn         String
+  bodyAr         String
+  statuses       Json
+  createdAt      DateTime                @default(now())
+  recipients     AnnouncementRecipient[]
+
+  @@index([courseId, createdAt])
+}
+
+model AnnouncementRecipient {
+  id             String         @id @default(cuid())
+  announcementId String
+  announcement   Announcement   @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Enrolled students are linked to the learning page, others to their dashboard.
+  enrolled       Boolean
+  status         DeliveryStatus @default(PENDING)
+  attempts       Int            @default(0)
+  sentAt         DateTime?
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([announcementId, userId])
+  @@index([status, announcementId])
 }

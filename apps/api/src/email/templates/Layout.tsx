@@ -34,7 +34,7 @@ export function Layout({ locale, preview, heading, paragraphs, cta, note, footer
             {heading}
           </Heading>
           {paragraphs.map((p, i) => (
-            <Text key={i} style={{ color: '#33415a', fontSize: 15, lineHeight: '24px', textAlign: align }}>
+            <Text key={i} style={{ color: '#33415a', fontSize: 15, lineHeight: '24px', textAlign: align, whiteSpace: 'pre-line' }}>
               {p}
             </Text>
           ))}

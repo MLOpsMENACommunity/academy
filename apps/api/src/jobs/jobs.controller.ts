@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { Public } from '../common/decorators';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
+import { AnnouncementDelivery } from '../announcements/announcement-delivery.service';
 import { AccountJobs } from './account.jobs';
 import { ReminderJobs } from './reminders.jobs';
 import { RetentionJobs } from './retention.jobs';
@@ -23,6 +24,7 @@ export class JobsController {
     private readonly accountJobs: AccountJobs,
     private readonly retention: RetentionJobs,
     private readonly reminders: ReminderJobs,
+    private readonly announcements: AnnouncementDelivery,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -54,6 +56,12 @@ export class JobsController {
       return { screenshotsDeleted: r.screenshots, cvsDeleted: r.cvs };
     });
     await run('remindersSent', () => this.reminders.run());
+    // Resume any announcement emails left pending (e.g. by a restart); runs after the response.
+    await run('announcementEmailsPending', async () => {
+      const pending = await this.announcements.pending();
+      if (pending) void this.announcements.process().catch(() => undefined);
+      return pending;
+    });
     return results;
   }
 }

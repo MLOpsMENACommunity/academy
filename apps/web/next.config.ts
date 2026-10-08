@@ -10,6 +10,8 @@ function analyticsOrigin(): string | null {
   return src ? new URL(src).origin : null;
 }
 const analytics = analyticsOrigin();
+// Cloudflare Web Analytics (cookieless) is injected by Cloudflare when enabled on the zone.
+const cfInsights = { script: 'https://static.cloudflareinsights.com', connect: 'https://cloudflareinsights.com' };
 
 /**
  * Content Security Policy. Next.js inlines its hydration scripts, so scripts need
@@ -19,12 +21,12 @@ const analytics = analyticsOrigin();
  */
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${analytics ? ` ${analytics}` : ''}`,
+  `script-src 'self' 'unsafe-inline' ${cfInsights.script}${isDev ? " 'unsafe-eval'" : ''}${analytics ? ` ${analytics}` : ''}`,
   "style-src 'self' 'unsafe-inline'",
   // Signed storage URLs: R2 over https in production, MinIO on localhost in the local stacks.
   "img-src 'self' data: blob: https: http://localhost:* http://127.0.0.1:*",
   "font-src 'self' data:",
-  `connect-src 'self'${analytics ? ` ${analytics}` : ''}${isDev ? ' ws:' : ''}`,
+  `connect-src 'self' ${cfInsights.connect}${analytics ? ` ${analytics}` : ''}${isDev ? ' ws:' : ''}`,
   'frame-src https://www.youtube-nocookie.com',
   "object-src 'none'",
   "base-uri 'self'",

@@ -40,6 +40,24 @@ export interface Env {
 const optional = (pairs: Record<string, string | undefined>): Record<string, string> =>
   Object.fromEntries(Object.entries(pairs).filter((e): e is [string, string] => Boolean(e[1])));
 
+/**
+ * Restarts a running container when its configuration changes (new hostname, rotated
+ * secret): env vars are only read when a container starts, so without this a config-only
+ * deploy would keep serving with the old values until the container next slept.
+ * Only a hash of the configuration is stored.
+ */
+async function restartIfConfigChanged(container: Container<Env>, ctx: DurableObjectState<Env>): Promise<void> {
+  const bytes = new TextEncoder().encode(JSON.stringify(container.envVars));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const key = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const previous = await ctx.storage.get<string>('configKey');
+  if (previous !== key) {
+    // Also on the first run of this code (no stored hash): one harmless restart picks up the current config.
+    if (ctx.container?.running) await container.destroy();
+    await ctx.storage.put('configKey', key);
+  }
+}
+
 export class ApiContainer extends Container<Env> {
   defaultPort = 4000;
   sleepAfter = '30m';
@@ -78,6 +96,7 @@ export class ApiContainer extends Container<Env> {
         SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,
       }),
     };
+    void ctx.blockConcurrencyWhile(() => restartIfConfigChanged(this, ctx));
   }
 }
 
@@ -92,6 +111,7 @@ export class WebContainer extends Container<Env> {
       // Server-side fetches go back through the public hostname (and this Worker) to the API.
       API_INTERNAL_URL: `https://${env.ACADEMY_HOSTNAME}`,
     };
+    void ctx.blockConcurrencyWhile(() => restartIfConfigChanged(this, ctx));
   }
 }
 
@@ -111,6 +131,14 @@ function forwardable(request: Request): Request {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // Old or alternative hostnames (e.g. staging after going live) redirect to the canonical one.
+    if (url.hostname !== env.ACADEMY_HOSTNAME) {
+      url.hostname = env.ACADEMY_HOSTNAME;
+      url.protocol = 'https:';
+      url.port = '';
+      const permanent = request.method === 'GET' || request.method === 'HEAD' ? 301 : 308;
+      return Response.redirect(url.toString(), permanent);
+    }
     const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
     if (isApi && url.pathname.startsWith('/api/internal/')) {
       // Internal endpoints are only reachable from the cron handler below.
