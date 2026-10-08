@@ -154,6 +154,39 @@ describe('admin panel API (e2e)', () => {
     expect(csv.text).toContain(`g.${s.email}`);
   });
 
+  it('duplicates a course as a draft and adds weekly sessions in bulk', async () => {
+    const src = await createCourse(prisma);
+    await prisma.course.update({ where: { id: src.id }, data: { preparation: { en: 'Create a repo', ar: 'أنشئ مستودعًا' } } });
+    await prisma.courseSession.create({ data: { courseId: src.id, order: 1, titleEn: 'S1', titleAr: 'ج1', startsAt: new Date('2026-10-18T16:00:00Z'), liveUrl: 'https://meet.google.com/old-link' } });
+    const slug = `copy-${Date.now()}`;
+    const dup = await as(admin.cookie).post(`/api/admin/courses/${src.id}/duplicate`).send({ slug, titleEn: 'Next cohort' }).expect(201);
+    const copy = (await as(admin.cookie).get(`/api/admin/courses/${dup.body.id}`).expect(200)).body;
+    expect(copy).toMatchObject({ slug, titleEn: 'Next cohort', status: 'DRAFT', preparation: { en: 'Create a repo', ar: 'أنشئ مستودعًا' } });
+    expect(copy.questions).toHaveLength(1);
+    expect(copy.questions[0].id).not.toBe(src.questionId);
+    expect(copy.sessions).toHaveLength(1);
+    expect(copy.sessions[0].liveUrl).toBeNull();
+    await as(admin.cookie).post(`/api/admin/courses/${src.id}/duplicate`).send({ slug, titleEn: 'Again' }).expect(409);
+
+    const bulk = await as(admin.cookie)
+      .post(`/api/admin/courses/${dup.body.id}/sessions/bulk`)
+      .send({ sessions: [1, 2].map((n) => ({ titleEn: `Session ${n + 1}`, titleAr: `الجلسة ${n + 1}`, startsAt: `2026-11-0${n}T17:00:00Z`, durationMin: 90 })) })
+      .expect(201);
+    expect(bulk.body.map((s: { order: number }) => s.order)).toEqual([1, 2, 3]);
+  });
+
+  it('saves English-only drafts but needs Arabic to publish', async () => {
+    const input = {
+      slug: `draft-${Date.now()}`, titleEn: 'English only', titleAr: '', shortDescriptionEn: 'An English-only draft course', shortDescriptionAr: '',
+      longDescriptionEn: '', longDescriptionAr: '', type: 'FREE', price: 0, requiresApproval: true, status: 'DRAFT', level: 'ALL_LEVELS', language: 'EN',
+      targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' }, learningOutcomes: { en: [], ar: [] }, prerequisites: { en: [], ar: [] },
+      outline: [], faq: [], included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+      deliveryPlatform: 'GOOGLE_MEET', recordingsPlatform: 'YOUTUBE', instructorIds: [],
+    };
+    const created = await as(admin.cookie).post('/api/admin/courses').send(input).expect(201);
+    await as(admin.cookie).put(`/api/admin/courses/${created.body.id}`).send({ ...input, status: 'OPEN' }).expect(400);
+  });
+
   it('keeps deleted students listed until their old Drive address is removed', async () => {
     const course = await createCourse(prisma);
     const s = await createUser(app, prisma, { prefix: 'leaver' });

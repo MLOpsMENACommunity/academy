@@ -21,6 +21,8 @@ import {
 } from '@academy/shared';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { CheckboxField, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
+import { InstructorPicker } from './InstructorEditor';
+import { MarkdownField } from './MarkdownField';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -69,6 +71,7 @@ export const EMPTY_COURSE: CourseFormValue = {
   coverImageUrl: null,
   targetAudience: { en: '', ar: '' },
   notFor: { en: '', ar: '' },
+  preparation: { en: '', ar: '' },
   learningOutcomes: { en: [], ar: [] },
   prerequisites: { en: [], ar: [] },
   outline: [],
@@ -100,7 +103,6 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [instructors, setInstructors] = useState<InstructorDto[]>([]);
-  const [newInstructor, setNewInstructor] = useState({ name: '', titleEn: '', bioEn: '' });
   const f = (k: string) => t(`admin.courses.fields.${k}`);
   const set = <K extends keyof CourseFormValue>(k: K) => (val: CourseFormValue[K]) => {
     setV((p) => ({ ...p, [k]: val }));
@@ -146,19 +148,6 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
     }
   }
 
-  async function addInstructor() {
-    if (!newInstructor.name.trim() || !newInstructor.titleEn.trim() || !newInstructor.bioEn.trim()) return;
-    setFormError(null);
-    try {
-      const created = await api<InstructorDto>('/admin/instructors', { method: 'POST', json: newInstructor });
-      setInstructors((xs) => [...xs, created]);
-      set('instructorIds')([...v.instructorIds, created.id]);
-      setNewInstructor({ name: '', titleEn: '', bioEn: '' });
-    } catch (err) {
-      setFormError(errorMessage(err, t));
-    }
-  }
-
   const isPaidDrive = v.type === 'PAID' && v.recordingsPlatform === 'GOOGLE_DRIVE';
 
   return (
@@ -173,8 +162,8 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
           <TextField label={f('titleAr')} required dir="rtl" value={v.titleAr} onChange={set('titleAr')} error={errors.titleAr} />
           <TextAreaField label={f('shortEn')} required value={v.shortDescriptionEn} onChange={set('shortDescriptionEn')} error={errors.shortDescriptionEn} rows={2} maxLength={400} />
           <TextAreaField label={f('shortAr')} required value={v.shortDescriptionAr} onChange={set('shortDescriptionAr')} error={errors.shortDescriptionAr} rows={2} maxLength={400} />
-          <TextAreaField label={f('longEn')} value={v.longDescriptionEn} onChange={set('longDescriptionEn')} rows={8} />
-          <TextAreaField label={f('longAr')} value={v.longDescriptionAr} onChange={set('longDescriptionAr')} rows={8} />
+          <MarkdownField label={f('longEn')} hint={f('markdownHint')} value={v.longDescriptionEn} onChange={set('longDescriptionEn')} rows={12} />
+          <MarkdownField label={f('longAr')} hint={f('markdownHint')} dir="rtl" value={v.longDescriptionAr} onChange={set('longDescriptionAr')} rows={12} />
           <SelectField label={f('type')} required value={v.type} onChange={(x) => set('type')((x ?? 'FREE') as CourseFormValue['type'])} options={opts(['FREE', 'PAID'], courseTypeLabels)} />
           <div className="grid grid-cols-[1fr_6rem] gap-2">
             <TextField label={f('price')} required type="number" inputMode="numeric" min={0} value={String(v.price)} onChange={(x) => set('price')(Number(x || 0))} error={errors.price} />
@@ -231,6 +220,8 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
           <TextAreaField label={f('outcomesAr')} value={lines(v.learningOutcomes.ar)} onChange={(x) => set('learningOutcomes')({ ...v.learningOutcomes, ar: toList(x) })} rows={5} />
           <TextAreaField label={f('prereqEn')} value={lines(v.prerequisites.en)} onChange={(x) => set('prerequisites')({ ...v.prerequisites, en: toList(x) })} rows={3} />
           <TextAreaField label={f('prereqAr')} value={lines(v.prerequisites.ar)} onChange={(x) => set('prerequisites')({ ...v.prerequisites, ar: toList(x) })} rows={3} />
+          <MarkdownField label={f('preparationEn')} hint={f('preparationHint')} value={v.preparation.en} onChange={(x) => set('preparation')({ ...v.preparation, en: x })} />
+          <MarkdownField label={f('preparationAr')} hint={f('preparationHint')} dir="rtl" value={v.preparation.ar} onChange={(x) => set('preparation')({ ...v.preparation, ar: x })} />
         </div>
 
         <ListEditor<OutlineModule>
@@ -280,29 +271,7 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
       </Fieldset>
 
       <Fieldset title={t('admin.courses.instructors')}>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {instructors.map((i) => (
-            <CheckboxField
-              key={i.id}
-              label={`${i.name} · ${i.titleEn}`}
-              checked={v.instructorIds.includes(i.id)}
-              onChange={(on) => set('instructorIds')(on ? [...v.instructorIds, i.id] : v.instructorIds.filter((x) => x !== i.id))}
-            />
-          ))}
-        </div>
-        <details className="rounded-lg border border-line p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-primary">{t('admin.courses.newInstructor')}</summary>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <TextField label={t('admin.courses.instructorName')} required value={newInstructor.name} onChange={(x) => setNewInstructor({ ...newInstructor, name: x })} />
-            <TextField label={t('admin.courses.instructorTitle')} required value={newInstructor.titleEn} onChange={(x) => setNewInstructor({ ...newInstructor, titleEn: x })} />
-            <div className="sm:col-span-2">
-              <TextAreaField label={t('admin.courses.instructorBio')} required value={newInstructor.bioEn} onChange={(x) => setNewInstructor({ ...newInstructor, bioEn: x })} rows={3} />
-            </div>
-          </div>
-          <Button type="button" size="sm" variant="secondary" className="mt-2" onClick={addInstructor}>
-            {t('admin.common.add')}
-          </Button>
-        </details>
+        <InstructorPicker instructors={instructors} selected={v.instructorIds} onSelect={set('instructorIds')} onChange={setInstructors} />
       </Fieldset>
 
       <div className="sticky bottom-0 z-10 flex items-center gap-3 border-t border-line bg-page/95 py-3 backdrop-blur">

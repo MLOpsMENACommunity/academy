@@ -106,7 +106,7 @@ export function ApplicationsTable() {
     }
   }
 
-  const title = (c: { titleEn: string; titleAr: string }) => (locale === 'ar' ? c.titleAr : c.titleEn);
+  const title = (c: { titleEn: string; titleAr: string }) => ((locale === 'ar' && c.titleAr) || c.titleEn);
   const allChecked = !!data?.items.length && data.items.every((r) => selected.has(r.id));
 
   return (

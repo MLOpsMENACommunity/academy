@@ -79,10 +79,10 @@ export default function AdminHome() {
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-xl">
                 <Link href={`/${locale}/admin/courses/${c.id}`} className="hover:underline">
-                  {locale === 'ar' ? c.titleAr : c.titleEn}
+                  {(locale === 'ar' && c.titleAr) || c.titleEn}
                 </Link>
               </h2>
-              <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : 'neutral'}>{courseStatusLabels[c.status][locale]}</Badge>
+              <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : c.status === 'COMING_SOON' ? 'info' : 'neutral'}>{courseStatusLabels[c.status][locale]}</Badge>
             </div>
             <div className="mt-4 grid gap-6 lg:grid-cols-2">
               <section>

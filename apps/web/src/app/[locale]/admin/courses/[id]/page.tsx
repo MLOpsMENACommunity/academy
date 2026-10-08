@@ -1,9 +1,10 @@
 'use client';
 
-import { courseStatusLabels, type CourseStatus, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
+import { courseStatusLabels, PUBLIC_COURSE_STATUSES, type CourseStatus, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
+import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor, type QuestionRow, type SessionRow } from '@/components/admin/CourseTabs';
 import { Alert } from '@/components/ui/Alert';
@@ -14,11 +15,12 @@ import { api, ApiError } from '@/lib/api';
 const TABS = ['details', 'questions', 'sessions', 'enrolled', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
-interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included'> {
+interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included'> {
   id: string;
   status: CourseStatus;
   targetAudience: LocalizedText;
   notFor: LocalizedText;
+  preparation?: LocalizedText;
   learningOutcomes: LocalizedList;
   prerequisites: LocalizedList;
   outline: OutlineModule[];
@@ -53,6 +55,7 @@ function toForm(c: AdminCourse): CourseFormValue {
     coverImageUrl: c.coverImageUrl,
     targetAudience: c.targetAudience,
     notFor: c.notFor,
+    preparation: c.preparation ?? { en: '', ar: '' },
     learningOutcomes: c.learningOutcomes,
     prerequisites: c.prerequisites,
     outline: c.outline,
@@ -102,13 +105,16 @@ function CourseEditor() {
         ← {t('admin.courses.title')}
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl">{locale === 'ar' ? course.titleAr : course.titleEn}</h1>
-        <Badge tone={course.status === 'OPEN' ? 'success' : course.status === 'DRAFT' ? 'warning' : 'neutral'}>{courseStatusLabels[course.status][locale]}</Badge>
-        {(course.status === 'OPEN' || course.status === 'CLOSED') && (
+        <h1 className="text-3xl">{(locale === 'ar' && course.titleAr) || course.titleEn}</h1>
+        <Badge tone={course.status === 'OPEN' ? 'success' : course.status === 'DRAFT' ? 'warning' : course.status === 'COMING_SOON' ? 'info' : 'neutral'}>{courseStatusLabels[course.status][locale]}</Badge>
+        {(PUBLIC_COURSE_STATUSES as readonly string[]).includes(course.status) && (
           <a href={`/${locale}/courses/${course.slug}`} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
             {t('admin.courses.viewPublic')} ↗
           </a>
         )}
+        <div className="ms-auto">
+          <DuplicateCourse courseId={course.id} slug={course.slug} titleEn={course.titleEn} />
+        </div>
       </div>
 
       <div role="tablist" aria-label={t('admin.courses.title')} className="mt-5 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>

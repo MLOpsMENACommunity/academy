@@ -14,6 +14,8 @@ export function Markdown({ children }: { children: string }) {
           ),
           h1: ({ children: c }) => <h3>{c}</h3>,
           h2: ({ children: c }) => <h3>{c}</h3>,
+          // Code and folder trees read left to right, even on Arabic pages.
+          pre: ({ children: c }) => <pre dir="ltr">{c}</pre>,
         }}
       >
         {children}

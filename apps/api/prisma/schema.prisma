@@ -186,6 +186,7 @@ enum CourseType {
 
 enum CourseStatus {
   DRAFT
+  COMING_SOON
   OPEN
   CLOSED
   ARCHIVED
@@ -505,6 +506,8 @@ model Course {
   /// Localized markdown blocks: { en, ar }
   targetAudience      Json
   notFor              Json
+  /// Markdown shown right after the prerequisites ("Before the course starts").
+  preparation         Json     @default("{\"en\":\"\",\"ar\":\"\"}")
   /// Localized lists: { en: string[], ar: string[] }
   learningOutcomes    Json
   prerequisites       Json

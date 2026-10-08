@@ -1,7 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTestApp } from './helpers';
+import { createTestApp, createUser } from './helpers';
 
 describe('public catalog (e2e)', () => {
   let app: NestExpressApplication;
@@ -11,8 +11,8 @@ describe('public catalog (e2e)', () => {
 
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
-    for (const status of ['DRAFT', 'ARCHIVED', 'OPEN'] as const) {
-      const slug = `vis-${status.toLowerCase()}-${Date.now()}`;
+    for (const status of ['DRAFT', 'ARCHIVED', 'OPEN', 'COMING_SOON'] as const) {
+      const slug = `vis-${status.toLowerCase().replace('_', '-')}-${Date.now()}`;
       slugs[status] = slug;
       await prisma.course.create({
         data: {
@@ -33,7 +33,7 @@ describe('public catalog (e2e)', () => {
           outline: [],
           faq: [],
           included: {},
-          sessions: { create: { order: 1, titleEn: 's', titleAr: 's', startsAt: new Date(), liveUrl: 'https://meet.google.com/SECRET' } },
+          sessions: { create: { order: 1, titleEn: 's', titleAr: 's', descriptionEn: 'Topics', startsAt: new Date(), liveUrl: 'https://meet.google.com/SECRET' } },
         },
       });
     }
@@ -53,6 +53,23 @@ describe('public catalog (e2e)', () => {
     expect(listed).not.toContain(slugs.ARCHIVED);
     const s = ((await http().get('/api/courses/slugs').expect(200)).body as { slug: string }[]).map((x) => x.slug);
     expect(s).not.toContain(slugs.DRAFT);
+  });
+
+  it('lists coming-soon courses as upcoming and refuses applications to them', async () => {
+    const detail = (await http().get(`/api/courses/${slugs.COMING_SOON}`).expect(200)).body;
+    expect(detail.availability).toBe('UPCOMING');
+    const upcoming = (await http().get('/api/courses?availability=UPCOMING').expect(200)).body as { slug: string }[];
+    expect(upcoming.map((c) => c.slug)).toContain(slugs.COMING_SOON);
+    const student = await createUser(app, prisma, { prefix: 'soon' });
+    const res = await http().post('/api/applications').set('Cookie', student.cookie).send({ courseSlug: slugs.COMING_SOON, answers: {} }).expect(409);
+    expect(res.body.code).toBe('COURSE_CLOSED');
+    expect(await prisma.application.count({ where: { userId: student.id } })).toBe(0);
+  });
+
+  it('shows session topics and preparation, but never private links', async () => {
+    const detail = (await http().get(`/api/courses/${slugs.OPEN}`).expect(200)).body;
+    expect(detail.sessions[0].descriptionEn).toBe('Topics');
+    expect(detail.preparation).toEqual({ en: '', ar: '' });
   });
 
   it('never returns private links in public responses', async () => {

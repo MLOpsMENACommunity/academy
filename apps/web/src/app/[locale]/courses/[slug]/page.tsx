@@ -25,6 +25,7 @@ import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
+import { formatDateTime } from '@/lib/format';
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -75,6 +76,9 @@ export default async function CoursePage({ params }: Props) {
   const full = c.seatsRemaining === 0;
   const outcomes = c.learningOutcomes[locale] ?? [];
   const prereqs = c.prerequisites[locale] ?? [];
+  const audience = pick(locale, c.targetAudience.en, c.targetAudience.ar).trim();
+  const notFor = pick(locale, c.notFor.en, c.notFor.ar).trim();
+  const preparation = pick(locale, c.preparation?.en ?? '', c.preparation?.ar).trim();
   const lastSession = c.sessions.at(-1);
 
   const included = (
@@ -96,7 +100,8 @@ export default async function CoursePage({ params }: Props) {
     [t('course.facts.language'), courseLanguageLabels[c.language][locale]],
     [t('course.facts.price'), price],
     ...(c.applicationDeadline
-      ? ([[t('course.facts.deadline'), <LocalTime key="d" iso={c.applicationDeadline} style="date" />]] as [string, ReactNode][])
+      ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
+        ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
     ...(c.seatsRemaining !== null
       ? ([[t('course.facts.seats'), full ? t('catalog.full') : t('catalog.seatsLeft', { count: c.seatsRemaining })]] as [string, ReactNode][])
@@ -130,8 +135,8 @@ export default async function CoursePage({ params }: Props) {
       offers: {
         '@type': 'Offer',
         category: c.type === 'FREE' ? 'Free' : 'Paid',
-        price: c.price,
-        priceCurrency: c.currency,
+        // No price yet (e.g. a paid course still "coming soon"): leave it out rather than claim 0.
+        ...(c.type === 'FREE' || c.price > 0 ? { price: c.price, priceCurrency: c.currency } : {}),
         availability: {
           OPEN: full ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
           UPCOMING: 'https://schema.org/PreOrder',
@@ -243,28 +248,42 @@ export default async function CoursePage({ params }: Props) {
             <Markdown>{pick(locale, c.longDescriptionEn, c.longDescriptionAr)}</Markdown>
           </Section>
 
-          <Section id="audience" title={t('course.fit')}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-card border border-success/30 bg-success-soft/40 p-4">
-                <h3 className="text-base text-success">{t('course.audience')}</h3>
-                <p className="mt-2 text-sm">{c.targetAudience[locale]}</p>
-              </div>
-              <div className="rounded-card border border-line bg-muted-bg/50 p-4">
-                <h3 className="text-base">{t('course.notFor')}</h3>
-                <p className="mt-2 text-sm">{c.notFor[locale]}</p>
-              </div>
-            </div>
-            {prereqs.length > 0 && (
-              <>
-                <h3 className="mt-6 text-lg">{t('course.prerequisites')}</h3>
-                <ul className="mt-2 list-disc space-y-1 ps-5 text-sm">
-                  {prereqs.map((p) => (
-                    <li key={p}>{p}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </Section>
+          {(audience || notFor || prereqs.length > 0) && (
+            <Section id="audience" title={t('course.fit')}>
+              {(audience || notFor) && (
+                <div className={`grid gap-4 ${audience && notFor ? 'md:grid-cols-2' : ''}`}>
+                  {audience && (
+                    <div className="rounded-card border border-success/30 bg-success-soft/40 p-4">
+                      <h3 className="text-base text-success">{t('course.audience')}</h3>
+                      <p className="mt-2 text-sm">{audience}</p>
+                    </div>
+                  )}
+                  {notFor && (
+                    <div className="rounded-card border border-line bg-muted-bg/50 p-4">
+                      <h3 className="text-base">{t('course.notFor')}</h3>
+                      <p className="mt-2 text-sm">{notFor}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {prereqs.length > 0 && (
+                <>
+                  <h3 className="mt-6 text-lg">{t('course.prerequisites')}</h3>
+                  <ul className="mt-2 list-disc space-y-1 ps-5 text-sm">
+                    {prereqs.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Section>
+          )}
+
+          {preparation && (
+            <Section id="preparation" title={t('course.preparation')}>
+              <Markdown>{preparation}</Markdown>
+            </Section>
+          )}
 
           {c.outline.length > 0 && (
             <Section id="syllabus" title={t('course.syllabus')}>
@@ -291,14 +310,22 @@ export default async function CoursePage({ params }: Props) {
               </p>
               <ol className="divide-y divide-line rounded-card border border-line bg-card">
                 {c.sessions.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
-                    <span className="font-semibold text-fg">
-                      <span className="me-2 text-muted">{s.order}.</span>
-                      {pick(locale, s.titleEn, s.titleAr)}
-                    </span>
-                    <span className="text-sm text-body">
-                      <LocalTime iso={s.startsAt} style="weekday-datetime" /> · {t('course.minutes', { count: s.durationMin })}
-                    </span>
+                  <li key={s.id} className="p-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-semibold text-fg">
+                        <span className="me-2 text-muted">{s.order}.</span>
+                        {pick(locale, s.titleEn, s.titleAr)}
+                      </span>
+                      <span className="text-sm text-body">
+                        <LocalTime iso={s.startsAt} style="weekday-datetime" /> · {t('course.minutes', { count: s.durationMin })}
+                      </span>
+                    </div>
+                    {pick(locale, s.descriptionEn ?? '', s.descriptionAr) && (
+                      <details className="mt-2 text-sm">
+                        <summary className="cursor-pointer text-primary">{t('course.sessionTopics')}</summary>
+                        <p className="mt-2 whitespace-pre-line text-body">{pick(locale, s.descriptionEn ?? '', s.descriptionAr)}</p>
+                      </details>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -321,7 +348,7 @@ export default async function CoursePage({ params }: Props) {
                     <div>
                       <h3 className="text-lg">{pick(locale, i.name, i.nameAr)}</h3>
                       <p className="text-sm font-semibold text-primary">{pick(locale, i.titleEn, i.titleAr)}</p>
-                      <p className="mt-2 text-sm">{pick(locale, i.bioEn, i.bioAr)}</p>
+                      <p className="mt-2 text-sm whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>
                       {i.linkedinUrl && (
                         <a href={i.linkedinUrl} rel="noopener" className="mt-2 inline-block text-sm text-primary underline">
                           LinkedIn

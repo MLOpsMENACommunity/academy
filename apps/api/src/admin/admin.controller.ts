@@ -11,6 +11,8 @@ import {
   SAVED_FILTER_SCOPES,
   savedFilterSchema,
   sessionInputSchema,
+  sessionsBulkSchema,
+  duplicateCourseSchema,
   sessionOrderSchema,
   studentFilterSchema,
   type ApplicationFilter,
@@ -151,6 +153,16 @@ export class AdminController {
   @Post('courses/:id/sessions')
   createSession(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(sessionInputSchema)) body: SessionInput) {
     return this.courses.createSession(id, body, user);
+  }
+
+  @Post('courses/:id/sessions/bulk')
+  createSessions(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(sessionsBulkSchema)) body: z.infer<typeof sessionsBulkSchema>) {
+    return this.courses.createSessions(id, body.sessions, user);
+  }
+
+  @Post('courses/:id/duplicate')
+  duplicate(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(duplicateCourseSchema)) body: z.infer<typeof duplicateCourseSchema>) {
+    return this.courses.duplicate(id, body, user);
   }
 
   @Put('courses/:id/sessions/order')
