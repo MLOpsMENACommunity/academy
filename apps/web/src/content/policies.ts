@@ -1,9 +1,10 @@
 import type { Locale } from '@academy/shared';
 
 /**
- * [PLACEHOLDER] Policy text pending legal review. It describes what the
- * platform actually does today so the review starts from facts, but it is not
- * legal advice and must be reviewed before launch.
+ * Policy texts. They describe what the platform actually does (retention, storage,
+ * recordings, payments) and were written to be launch-ready, but they are not legal
+ * advice: have them reviewed when you can, especially before the first paid course.
+ * A "[PLACEHOLDER]" anywhere in a policy shows a "pending review" banner on its page.
  */
 
 export const POLICY_SLUGS = ['privacy', 'terms', 'refund-policy', 'code-of-conduct', 'contact'] as const;
@@ -20,34 +21,45 @@ interface Policy {
   sections: Section[];
 }
 
+const UPDATED_EN = 'Last updated: 9 October 2026';
+const UPDATED_AR = 'آخر تحديث: 9 أكتوبر 2026';
+const EMAIL = 'academy@mlopsmena.com';
+
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
     en: {
       title: 'Privacy Policy',
       description: 'How MLOps MENA Academy collects, uses and protects your personal data.',
-      updated: '[PLACEHOLDER] October 2026',
+      updated: UPDATED_EN,
       sections: [
         {
           heading: 'Who we are',
           body: [
-            '[PLACEHOLDER] MLOps MENA Academy (academy.mlopsmena.com) is operated by MLOps MENA Community. We process personal data in line with Egypt\'s Personal Data Protection Law (Law No. 151 of 2020).',
+            `MLOps MENA Academy (academy.mlopsmena.com) is run by MLOps MENA Community, a volunteer-led community for ML, MLOps and AI practitioners across the Middle East and North Africa. We are responsible for the personal data described here and process it in line with Egypt's Personal Data Protection Law (Law No. 151 of 2020). You can reach us at ${EMAIL}.`,
           ],
         },
         {
           heading: 'What we collect',
           body: [
             'Account data: your email address, a hashed password (or your Google account identifier if you sign in with Google), and your language preference.',
-            'Profile data you choose to give us: name, phone, location, professional background, education, skills, learning goals, links and an optional CV.',
-            'Course data: your applications and answers, enrolment, session progress and feedback.',
+            'Profile data you choose to give us: name, phone, country and city, professional background, education, skills, learning goals, links (LinkedIn, GitHub and similar) and an optional CV.',
+            'Course data: your applications and answers to screening questions, your enrolment, session progress, quiz and feedback responses you submit through the academy.',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
+            'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Logs do not contain your email address, IP address or the content you submit.',
           ],
         },
         {
-          heading: 'Why we use it',
+          heading: 'Why we use it, and on what basis',
           body: [
-            'To run the courses you apply to: screening applications, verifying payments, giving enrolled students their session links and sending course emails and reminders.',
-            'To plan future courses for the community, using aggregated profile data.',
-            'Only if you opt in: to share your profile with MLOps MENA hiring partners, and to email you about new courses and events. Both are off by default and you can turn them off at any time.',
+            'To run the courses you apply to (screening applications, verifying payments, giving enrolled students their session links, sending course emails and reminders). This is necessary to provide the service you asked for.',
+            'To plan future courses for the community, using aggregated and anonymised profile data. This is in our legitimate interest and does not single you out.',
+            'Only with your consent: sharing your profile with MLOps MENA hiring partners, and emailing you about new courses and events. Both are off by default and you can withdraw consent at any time from your profile.',
+          ],
+        },
+        {
+          heading: 'Live sessions and recordings',
+          body: [
+            'Live sessions are held on Google Meet and are usually recorded. Recordings of free courses are published on YouTube; recordings of paid courses are shared only with enrolled students. If you speak, turn on your camera or write in the chat during a recorded session, that may appear in the recording. You can take part with your camera and microphone off and ask questions in the chat under any display name.',
           ],
         },
         {
@@ -60,50 +72,73 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Who we share it with',
           body: [
-            'We do not sell your data. We use service providers to operate the academy: email delivery (Resend), private file storage (Cloudflare R2), hosting, and Google (Meet, YouTube and Drive) to deliver sessions and recordings. For paid courses, your Google account email is shared with the course Drive folder so you can access recordings.',
+            'We do not sell your data. We use service providers to operate the academy: hosting and private file storage (Cloudflare), the database (Neon), email delivery (Resend), and Google (Meet, YouTube and Drive) to deliver sessions and recordings. Some of these providers process data outside Egypt; we only use providers that protect it with appropriate security and contractual safeguards.',
+            "Instructors of a course you apply to can see your application and profile to screen it. For paid courses, your Google account email is shared with the course's Drive folder so you can access recordings.",
+          ],
+        },
+        {
+          heading: 'How long we keep it',
+          body: [
+            'Your account and profile are kept until you delete your account. Applications and enrolments are kept for course records and certificates. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting.',
+            'Encrypted database backups are kept for up to 30 days, so deleted data disappears from them within 30 days after anonymisation.',
           ],
         },
         {
           heading: 'Your rights',
           body: [
-            'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting. Encrypted database backups are kept for up to 30 days, so deleted data disappears from them within 30 days after anonymisation.',
-            'To exercise any other right, contact academy@mlopsmena.com.',
+            'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. You can also ask us to correct, restrict or explain how we process your data.',
+            `To exercise any right or raise a concern, email ${EMAIL}. We reply within 30 days. You may also complain to Egypt's Personal Data Protection Center.`,
           ],
+        },
+        {
+          heading: 'Age',
+          body: ['The academy is for adults. You must be at least 18 to create an account.'],
         },
         {
           heading: 'Cookies',
           body: [
-            'We only use essential cookies: your sign-in session and your language preference. Analytics, if enabled, are cookieless.',
+            'We only use essential cookies: your sign-in session and your language preference. Analytics, if enabled, are cookieless, so we do not show a cookie banner.',
           ],
+        },
+        {
+          heading: 'Changes',
+          body: ['If we change this policy in a way that matters, we will tell you by email or on the site before it takes effect.'],
         },
       ],
     },
     ar: {
       title: 'سياسة الخصوصية',
       description: 'كيف تجمع أكاديمية MLOps MENA بياناتك الشخصية وتستخدمها وتحميها.',
-      updated: '[PLACEHOLDER] أكتوبر 2026',
+      updated: UPDATED_AR,
       sections: [
         {
           heading: 'من نحن',
           body: [
-            '[PLACEHOLDER] يدير مجتمع MLOps MENA أكاديمية MLOps MENA (academy.mlopsmena.com). نعالج البيانات الشخصية وفقًا لقانون حماية البيانات الشخصية المصري (القانون رقم 151 لسنة 2020).',
+            `يدير مجتمع MLOps MENA أكاديمية MLOps MENA ‏(academy.mlopsmena.com)، وهو مجتمع تطوعي لممارسي تعلم الآلة وMLOps والذكاء الاصطناعي في منطقة الشرق الأوسط وشمال أفريقيا. نحن المسؤولون عن البيانات الشخصية الموضحة هنا، ونعالجها وفقًا لقانون حماية البيانات الشخصية المصري (القانون رقم 151 لسنة 2020). يمكنك التواصل معنا عبر ${EMAIL}.`,
           ],
         },
         {
           heading: 'ما الذي نجمعه',
           body: [
             'بيانات الحساب: بريدك الإلكتروني، وكلمة مرور مشفرة (أو معرّف حساب Google إذا سجلت الدخول عبر Google)، ولغتك المفضلة.',
-            'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والموقع والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط وسيرة ذاتية اختيارية.',
-            'بيانات الدورات: طلباتك وإجاباتك وتسجيلك وتقدمك في الجلسات وتقييماتك.',
+            'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والدولة والمدينة والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط (مثل LinkedIn وGitHub) وسيرة ذاتية اختيارية.',
+            'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، وما ترسله عبر الأكاديمية من إجابات وتقييمات.',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
+            'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن السجلات بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله.',
           ],
         },
         {
-          heading: 'لماذا نستخدمها',
+          heading: 'لماذا نستخدمها وعلى أي أساس',
           body: [
-            'لتشغيل الدورات التي تقدم عليها: مراجعة الطلبات، والتحقق من المدفوعات، وإتاحة روابط الجلسات للطلاب المسجلين، وإرسال رسائل الدورة والتذكيرات.',
-            'لتخطيط الدورات المستقبلية للمجتمع باستخدام بيانات مجمّعة.',
-            'فقط بموافقتك: مشاركة ملفك مع شركاء التوظيف لدى MLOps MENA، ومراسلتك بشأن الدورات والفعاليات الجديدة. كلاهما غير مفعّل افتراضيًا ويمكنك إيقافه في أي وقت.',
+            'لتشغيل الدورات التي تقدم عليها (مراجعة الطلبات، والتحقق من المدفوعات، وإتاحة روابط الجلسات للطلاب المسجلين، وإرسال رسائل الدورة والتذكيرات). وهذا ضروري لتقديم الخدمة التي طلبتها.',
+            'لتخطيط الدورات المستقبلية للمجتمع باستخدام بيانات مجمّعة ومجهولة الهوية، وهذا في إطار مصلحتنا المشروعة ولا يحدد هويتك.',
+            'فقط بموافقتك: مشاركة ملفك مع شركاء التوظيف لدى MLOps MENA، ومراسلتك بشأن الدورات والفعاليات الجديدة. كلاهما غير مفعّل افتراضيًا، ويمكنك سحب موافقتك في أي وقت من ملفك الشخصي.',
+          ],
+        },
+        {
+          heading: 'الجلسات المباشرة والتسجيلات',
+          body: [
+            'تُعقد الجلسات المباشرة على Google Meet وتُسجَّل عادةً. تُنشر تسجيلات الدورات المجانية على YouTube، بينما تُتاح تسجيلات الدورات المدفوعة للطلاب المسجلين فقط. إذا تحدثت أو فتحت الكاميرا أو كتبت في المحادثة أثناء جلسة مسجلة، فقد يظهر ذلك في التسجيل. يمكنك المشاركة والكاميرا والميكروفون مغلقان، وطرح أسئلتك في المحادثة بأي اسم عرض تختاره.',
           ],
         },
         {
@@ -116,21 +151,37 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'مع من نشاركها',
           body: [
-            'لا نبيع بياناتك. نستعين بمزودي خدمات لتشغيل الأكاديمية: إرسال البريد (Resend)، والتخزين الخاص للملفات (Cloudflare R2)، والاستضافة، وGoogle (Meet وYouTube وDrive) لتقديم الجلسات والتسجيلات. في الدورات المدفوعة، يُشارك بريد حساب Google الخاص بك مع مجلد Drive الخاص بالدورة لتتمكن من الوصول إلى التسجيلات.',
+            'لا نبيع بياناتك. نستعين بمزودي خدمات لتشغيل الأكاديمية: الاستضافة والتخزين الخاص للملفات (Cloudflare)، وقاعدة البيانات (Neon)، وإرسال البريد (Resend)، وGoogle ‏(Meet وYouTube وDrive) لتقديم الجلسات والتسجيلات. يعالج بعض هؤلاء المزودين البيانات خارج مصر، ولا نستعين إلا بمزودين يحمونها بضمانات أمنية وتعاقدية مناسبة.',
+            'يمكن لمحاضري الدورة التي تقدم عليها الاطلاع على طلبك وملفك الشخصي لمراجعته. وفي الدورات المدفوعة، يُشارك بريد حساب Google الخاص بك مع مجلد Drive الخاص بالدورة لتتمكن من الوصول إلى التسجيلات.',
+          ],
+        },
+        {
+          heading: 'مدة الاحتفاظ بالبيانات',
+          body: [
+            'نحتفظ بحسابك وملفك الشخصي حتى تحذف حسابك. ونحتفظ بالطلبات والتسجيلات لسجلات الدورات والشهادات. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.',
+            'نحتفظ بنسخ احتياطية مشفرة من قاعدة البيانات لمدة أقصاها 30 يومًا، لذا تختفي البيانات المحذوفة منها خلال 30 يومًا بعد التجهيل.',
           ],
         },
         {
           heading: 'حقوقك',
           body: [
-            'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية. نحتفظ بنسخ احتياطية مشفرة من قاعدة البيانات لمدة أقصاها 30 يومًا، لذا تختفي البيانات المحذوفة منها خلال 30 يومًا بعد التجهيل.',
-            'لممارسة أي حق آخر، تواصل معنا عبر academy@mlopsmena.com.',
+            'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. ويمكنك أيضًا أن تطلب منا تصحيح بياناتك أو تقييد معالجتها أو توضيح كيفية معالجتها.',
+            `لممارسة أي حق أو تقديم شكوى، راسلنا عبر ${EMAIL}، وسنرد خلال 30 يومًا. ويمكنك أيضًا تقديم شكوى إلى مركز حماية البيانات الشخصية في مصر.`,
           ],
+        },
+        {
+          heading: 'السن',
+          body: ['الأكاديمية مخصصة للبالغين. يجب أن يكون عمرك 18 عامًا على الأقل لإنشاء حساب.'],
         },
         {
           heading: 'ملفات تعريف الارتباط (Cookies)',
           body: [
-            'نستخدم ملفات تعريف الارتباط الأساسية فقط: جلسة تسجيل الدخول وتفضيل اللغة. أدوات التحليل، إن فُعّلت، لا تستخدم ملفات تعريف الارتباط.',
+            'نستخدم ملفات تعريف الارتباط الأساسية فقط: جلسة تسجيل الدخول وتفضيل اللغة. أدوات التحليل، إن فُعّلت، لا تستخدم ملفات تعريف الارتباط، لذا لا نعرض شريط موافقة عليها.',
           ],
+        },
+        {
+          heading: 'التغييرات',
+          body: ['إذا غيّرنا هذه السياسة بشكل مهم، فسنخبرك عبر البريد الإلكتروني أو على الموقع قبل سريان التغيير.'],
         },
       ],
     },
@@ -140,70 +191,124 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     en: {
       title: 'Terms of Use',
       description: 'The rules for using MLOps MENA Academy.',
-      updated: '[PLACEHOLDER] October 2026',
+      updated: UPDATED_EN,
       sections: [
         {
-          heading: 'Your account',
+          heading: 'About these terms',
           body: [
-            '[PLACEHOLDER] Keep your login details private and give accurate profile information. One account per person.',
+            'By creating an account or applying to a course on academy.mlopsmena.com you agree to these terms, the Privacy Policy and the Code of Conduct. The academy is run by MLOps MENA Community.',
           ],
         },
         {
-          heading: 'Course content',
+          heading: 'Your account',
           body: [
-            '[PLACEHOLDER] Session links, recordings and materials are for your personal use as an enrolled student. Do not share them, re-upload them or give others access to paid content. Sharing paid content may lead to removal from the course without a refund.',
+            'You must be at least 18. Give accurate profile information, keep your login details private, and use one account per person. You are responsible for activity on your account; tell us at once if you think someone else has used it.',
           ],
         },
         {
           heading: 'Applications and acceptance',
           body: [
-            '[PLACEHOLDER] Applying does not guarantee a place. Instructors screen applications to shape each cohort and may decline or waitlist an application.',
+            'Applying does not guarantee a place. Instructors screen applications to shape each cohort, and may accept, waitlist or decline an application. Seats can be limited, and the decision is final for that cohort.',
+          ],
+        },
+        {
+          heading: 'Courses, schedules and certificates',
+          body: [
+            "We may change a course's schedule, session links, instructors or content when needed, and will tell enrolled students as early as we can. Each course page lists what is required to earn its certificate; certificates are issued only when those requirements are met.",
+          ],
+        },
+        {
+          heading: 'Course content and your work',
+          body: [
+            'Course materials, slides and recordings belong to their instructors and MLOps MENA Community. Session links and paid-course recordings are for your personal use as an enrolled student: do not share, re-upload or sell them, or give others access. Sharing paid content can lead to removal from the course without a refund.',
+            'Work you create during a course (assignments, diagrams, your capstone) stays yours. By submitting it you allow the instructors to review and grade it, and with your permission to show it as an example.',
           ],
         },
         {
           heading: 'Payments',
           body: [
-            '[PLACEHOLDER] Paid courses are paid manually by InstaPay or Vodafone Cash. Your seat is confirmed only after an administrator verifies the payment. See the Refund Policy.',
+            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application. Your seat is confirmed only after an administrator verifies the payment. Refunds follow the Refund Policy.',
           ],
         },
         {
-          heading: 'Conduct',
-          body: ['[PLACEHOLDER] Everyone must follow the Code of Conduct in sessions and community spaces.'],
+          heading: 'Acceptable use',
+          body: [
+            'Do not misuse the academy: no attempts to access other accounts or data, no automated scraping, no uploading of malicious or unlawful content, and no submitting payment proof that is not genuine. We may suspend or close accounts that break these terms or the Code of Conduct.',
+          ],
+        },
+        {
+          heading: 'Liability',
+          body: [
+            'The academy and its courses are provided as they are, largely by volunteers. We work to keep them accurate and available but cannot guarantee uninterrupted service or specific career outcomes. To the extent the law allows, our liability is limited to the amount you paid for the course concerned.',
+          ],
+        },
+        {
+          heading: 'Law and changes',
+          body: [
+            `These terms are governed by the laws of the Arab Republic of Egypt. We may update them; if a change matters, we will tell you before it takes effect. Questions: ${EMAIL}.`,
+          ],
         },
       ],
     },
     ar: {
       title: 'شروط الاستخدام',
       description: 'قواعد استخدام أكاديمية MLOps MENA.',
-      updated: '[PLACEHOLDER] أكتوبر 2026',
+      updated: UPDATED_AR,
       sections: [
         {
-          heading: 'حسابك',
+          heading: 'عن هذه الشروط',
           body: [
-            '[PLACEHOLDER] حافظ على سرية بيانات الدخول وقدّم معلومات صحيحة في ملفك الشخصي. حساب واحد لكل شخص.',
+            'بإنشاء حساب أو التقديم على دورة في academy.mlopsmena.com فإنك توافق على هذه الشروط وعلى سياسة الخصوصية وقواعد السلوك. يدير الأكاديمية مجتمع MLOps MENA.',
           ],
         },
         {
-          heading: 'محتوى الدورات',
+          heading: 'حسابك',
           body: [
-            '[PLACEHOLDER] روابط الجلسات والتسجيلات والمواد مخصصة لاستخدامك الشخصي كطالب مسجل. لا تشاركها أو تعيد رفعها أو تمنح الآخرين الوصول إلى المحتوى المدفوع. قد تؤدي مشاركة المحتوى المدفوع إلى الإزالة من الدورة دون استرداد.',
+            'يجب ألا يقل عمرك عن 18 عامًا. قدّم معلومات صحيحة في ملفك الشخصي، وحافظ على سرية بيانات الدخول، واستخدم حسابًا واحدًا لكل شخص. أنت مسؤول عن النشاط الذي يتم عبر حسابك، وأبلغنا فورًا إذا اعتقدت أن غيرك استخدمه.',
           ],
         },
         {
           heading: 'الطلبات والقبول',
           body: [
-            '[PLACEHOLDER] التقديم لا يضمن الحصول على مقعد. يراجع المحاضرون الطلبات لتشكيل كل مجموعة، وقد يعتذرون عن قبول طلب أو يضعونه في قائمة الانتظار.',
+            'التقديم لا يضمن الحصول على مقعد. يراجع المحاضرون الطلبات لتشكيل كل دفعة، وقد يقبلون الطلب أو يضعونه في قائمة الانتظار أو يعتذرون عنه. قد تكون المقاعد محدودة، والقرار نهائي بالنسبة لتلك الدفعة.',
+          ],
+        },
+        {
+          heading: 'الدورات والمواعيد والشهادات',
+          body: [
+            'قد نغيّر مواعيد الدورة أو روابط الجلسات أو المحاضرين أو المحتوى عند الحاجة، وسنُبلغ الطلاب المسجلين في أقرب وقت ممكن. توضح صفحة كل دورة متطلبات الحصول على شهادتها، ولا تُمنح الشهادة إلا عند استيفاء هذه المتطلبات.',
+          ],
+        },
+        {
+          heading: 'محتوى الدورات وأعمالك',
+          body: [
+            'مواد الدورات والعروض والتسجيلات مملوكة لمحاضريها ولمجتمع MLOps MENA. روابط الجلسات وتسجيلات الدورات المدفوعة مخصصة لاستخدامك الشخصي كطالب مسجل: لا تشاركها أو تعيد رفعها أو تبيعها أو تمنح الآخرين الوصول إليها. قد تؤدي مشاركة المحتوى المدفوع إلى الإزالة من الدورة دون استرداد.',
+            'الأعمال التي تُنجزها خلال الدورة (الواجبات والمخططات ومشروعك الختامي) تبقى ملكك. وبتسليمها فإنك تسمح للمحاضرين بمراجعتها وتقييمها، وبإذنك عرضها كمثال.',
           ],
         },
         {
           heading: 'المدفوعات',
           body: [
-            '[PLACEHOLDER] تُدفع الدورات المدفوعة يدويًا عبر InstaPay أو فودافون كاش. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. راجع سياسة الاسترداد.',
+            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. ويخضع الاسترداد لسياسة الاسترداد.',
           ],
         },
         {
-          heading: 'السلوك',
-          body: ['[PLACEHOLDER] يلتزم الجميع بقواعد السلوك في الجلسات ومساحات المجتمع.'],
+          heading: 'الاستخدام المقبول',
+          body: [
+            'لا تسئ استخدام الأكاديمية: لا محاولات للوصول إلى حسابات أو بيانات الآخرين، ولا جمع آلي للبيانات، ولا رفع لمحتوى ضار أو مخالف للقانون، ولا تقديم إثبات دفع غير حقيقي. قد نوقف أو نغلق الحسابات التي تخالف هذه الشروط أو قواعد السلوك.',
+          ],
+        },
+        {
+          heading: 'المسؤولية',
+          body: [
+            'تُقدَّم الأكاديمية ودوراتها كما هي، ويقوم عليها متطوعون إلى حد كبير. نعمل على إبقائها دقيقة ومتاحة، لكن لا يمكننا ضمان استمرار الخدمة دون انقطاع أو تحقيق نتائج مهنية بعينها. وفي الحدود التي يسمح بها القانون، تقتصر مسؤوليتنا على المبلغ الذي دفعته للدورة المعنية.',
+          ],
+        },
+        {
+          heading: 'القانون والتغييرات',
+          body: [
+            `تخضع هذه الشروط لقوانين جمهورية مصر العربية. قد نحدّثها، وإذا كان التغيير مهمًا فسنخبرك قبل سريانه. للأسئلة: ${EMAIL}.`,
+          ],
         },
       ],
     },
@@ -213,26 +318,32 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     en: {
       title: 'Refund Policy',
       description: 'When and how payments for paid courses can be refunded.',
-      updated: '[PLACEHOLDER] October 2026',
+      updated: UPDATED_EN,
       sections: [
         {
-          heading: 'Before the course starts',
-          body: ['[PLACEHOLDER] Full refund if you withdraw at least 7 days before the first session.'],
+          heading: 'Free courses',
+          body: ['Free courses involve no payment, so there is nothing to refund. If you can no longer attend, withdraw so your seat can go to someone on the waitlist.'],
         },
         {
-          heading: 'After the course starts',
+          heading: 'Before a paid course starts',
+          body: ['Full refund if you withdraw at least 7 days before the first session. Between 7 days and the first session, 50% is refunded.'],
+        },
+        {
+          heading: 'After a paid course starts',
           body: [
-            '[PLACEHOLDER] Partial or no refund after the first session, at the academy\'s discretion.',
+            'No refund after the first session, except where a serious and documented reason prevents you from continuing; these requests are reviewed case by case.',
           ],
         },
         {
-          heading: 'If we cancel',
-          body: ['[PLACEHOLDER] If the academy cancels a course, you receive a full refund.'],
+          heading: 'If we cancel or reschedule',
+          body: [
+            'If the academy cancels a course, you receive a full refund. If we reschedule it and the new dates do not work for you, you can choose a full refund instead.',
+          ],
         },
         {
           heading: 'How refunds are paid',
           body: [
-            '[PLACEHOLDER] Refunds are sent back by the same method used to pay (InstaPay or Vodafone Cash) within 14 days. Contact academy@mlopsmena.com to request one.',
+            `Email ${EMAIL} with your course name and transaction reference. Approved refunds are sent back by the method you used to pay (InstaPay or Vodafone Cash) within 14 days.`,
           ],
         },
       ],
@@ -240,24 +351,30 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     ar: {
       title: 'سياسة الاسترداد',
       description: 'متى وكيف يمكن استرداد مدفوعات الدورات المدفوعة.',
-      updated: '[PLACEHOLDER] أكتوبر 2026',
+      updated: UPDATED_AR,
       sections: [
         {
-          heading: 'قبل بدء الدورة',
-          body: ['[PLACEHOLDER] استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل.'],
+          heading: 'الدورات المجانية',
+          body: ['لا تتطلب الدورات المجانية أي دفع، لذا لا يوجد ما يُسترد. إذا لم يعد بإمكانك الحضور، فانسحب ليذهب مقعدك إلى أحد المنتظرين.'],
         },
         {
-          heading: 'بعد بدء الدورة',
-          body: ['[PLACEHOLDER] استرداد جزئي أو عدم استرداد بعد الجلسة الأولى، وفقًا لتقدير الأكاديمية.'],
+          heading: 'قبل بدء الدورة المدفوعة',
+          body: ['استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل. وفي الفترة بين سبعة أيام والجلسة الأولى يُسترد 50% من المبلغ.'],
         },
         {
-          heading: 'إذا ألغينا الدورة',
-          body: ['[PLACEHOLDER] إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
+          heading: 'بعد بدء الدورة المدفوعة',
+          body: ['لا يوجد استرداد بعد الجلسة الأولى، إلا إذا منعك سبب جدي وموثق من الاستمرار؛ وتُراجع هذه الطلبات كل حالة على حدة.'],
+        },
+        {
+          heading: 'إذا ألغينا الدورة أو غيّرنا موعدها',
+          body: [
+            'إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل. وإذا غيّرنا موعدها ولم تناسبك المواعيد الجديدة، يمكنك اختيار الاسترداد الكامل بدلًا من ذلك.',
+          ],
         },
         {
           heading: 'كيف يُرد المبلغ',
           body: [
-            '[PLACEHOLDER] يُرد المبلغ بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا. تواصل مع academy@mlopsmena.com لطلب الاسترداد.',
+            `راسل ${EMAIL} مع ذكر اسم الدورة والرقم المرجعي للعملية. يُرد المبلغ المعتمد بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا.`,
           ],
         },
       ],
@@ -268,30 +385,42 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     en: {
       title: 'Code of Conduct',
       description: 'How we expect everyone to behave in academy sessions and community spaces.',
-      updated: '[PLACEHOLDER] October 2026',
+      updated: UPDATED_EN,
       sections: [
+        {
+          heading: 'Where it applies',
+          body: [
+            'In live sessions, course chats and study groups (including Telegram), feedback and submissions, and any other academy or community space. It applies to students, instructors, volunteers and guests alike.',
+          ],
+        },
         {
           heading: 'Be respectful',
           body: [
-            '[PLACEHOLDER] Treat instructors and fellow students with respect, in both Arabic and English. Harassment, discrimination and personal attacks are not tolerated.',
+            'Treat instructors and fellow students with respect, in Arabic and in English. Disagree with ideas, not people. Harassment, discrimination, hate speech, sexual content, threats and personal attacks are not tolerated.',
           ],
         },
         {
           heading: 'Keep sessions useful',
           body: [
-            '[PLACEHOLDER] Stay on topic, keep your microphone muted unless speaking, and use the Q&A or chat for questions.',
+            'Stay on topic, keep your microphone muted unless you are speaking, and use the chat or Q&A for questions. No advertising, recruiting or self-promotion in sessions or study groups without the organisers\' permission.',
           ],
         },
         {
-          heading: 'Protect others\' privacy',
+          heading: 'Do your own work',
           body: [
-            '[PLACEHOLDER] Do not record, screenshot or share other participants\' personal information without consent.',
+            'Learning from others is encouraged, but quizzes and the work you submit for a certificate must be your own. Copying someone else\'s work, or submitting AI-generated work as if you wrote it without saying so, can lead to losing the certificate.',
           ],
         },
         {
-          heading: 'Reporting',
+          heading: "Protect others' privacy",
           body: [
-            '[PLACEHOLDER] Report any concern to academy@mlopsmena.com. Reports are handled confidentially. Breaking this code can lead to removal from a course or the community.',
+            "Do not record, screenshot or share other participants' personal information or messages without their consent. Do not share session links or paid-course content outside the course.",
+          ],
+        },
+        {
+          heading: 'Reporting and consequences',
+          body: [
+            `Report any concern to ${EMAIL}, or privately to an organiser in the study group. Reports are handled confidentially. Depending on what happened, we may give a warning, remove someone from a session or study group, or remove them from the course or the community.`,
           ],
         },
       ],
@@ -299,30 +428,42 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     ar: {
       title: 'قواعد السلوك',
       description: 'السلوك المتوقع من الجميع في جلسات الأكاديمية ومساحات المجتمع.',
-      updated: '[PLACEHOLDER] أكتوبر 2026',
+      updated: UPDATED_AR,
       sections: [
+        {
+          heading: 'أين تُطبَّق',
+          body: [
+            'في الجلسات المباشرة، ومحادثات الدورات ومجموعات الدراسة (بما فيها Telegram)، والتقييمات والتسليمات، وأي مساحة أخرى للأكاديمية أو المجتمع. وتنطبق على الطلاب والمحاضرين والمتطوعين والضيوف على حد سواء.',
+          ],
+        },
         {
           heading: 'كن محترمًا',
           body: [
-            '[PLACEHOLDER] تعامل مع المحاضرين وزملائك باحترام، بالعربية والإنجليزية. لا نتسامح مع التحرش أو التمييز أو الإساءة الشخصية.',
+            'تعامل مع المحاضرين وزملائك باحترام، بالعربية والإنجليزية. اختلف مع الأفكار لا مع الأشخاص. لا نتسامح مع التحرش أو التمييز أو خطاب الكراهية أو المحتوى الجنسي أو التهديد أو الإساءة الشخصية.',
           ],
         },
         {
           heading: 'حافظ على فائدة الجلسات',
           body: [
-            '[PLACEHOLDER] التزم بموضوع الجلسة، وأبقِ الميكروفون مغلقًا إلا عند الحديث، واستخدم الأسئلة أو المحادثة لطرح أسئلتك.',
+            'التزم بموضوع الجلسة، وأبقِ الميكروفون مغلقًا إلا عند الحديث، واستخدم المحادثة أو قسم الأسئلة لطرح أسئلتك. لا إعلانات أو توظيف أو ترويج شخصي في الجلسات أو مجموعات الدراسة دون إذن المنظمين.',
+          ],
+        },
+        {
+          heading: 'أنجز عملك بنفسك',
+          body: [
+            'نشجع التعلم من الآخرين، لكن الاختبارات والأعمال التي تسلّمها للحصول على الشهادة يجب أن تكون من عملك. نسخ عمل غيرك، أو تقديم عمل أنتجه الذكاء الاصطناعي على أنه من كتابتك دون الإفصاح عن ذلك، قد يؤدي إلى فقدان الشهادة.',
           ],
         },
         {
           heading: 'احمِ خصوصية الآخرين',
           body: [
-            '[PLACEHOLDER] لا تسجّل أو تلتقط صورًا أو تشارك معلومات شخصية لمشاركين آخرين دون موافقتهم.',
+            'لا تسجّل أو تلتقط صورًا أو تشارك معلومات شخصية أو رسائل لمشاركين آخرين دون موافقتهم. ولا تشارك روابط الجلسات أو محتوى الدورات المدفوعة خارج الدورة.',
           ],
         },
         {
-          heading: 'الإبلاغ',
+          heading: 'الإبلاغ والعواقب',
           body: [
-            '[PLACEHOLDER] أبلغ عن أي مشكلة عبر academy@mlopsmena.com. تُعالج البلاغات بسرية. قد تؤدي مخالفة هذه القواعد إلى الإزالة من الدورة أو المجتمع.',
+            `أبلغ عن أي مشكلة عبر ${EMAIL}، أو بشكل خاص لأحد المنظمين في مجموعة الدراسة. تُعالج البلاغات بسرية. وبحسب ما حدث، قد نوجّه تحذيرًا، أو نزيل الشخص من جلسة أو مجموعة دراسة، أو من الدورة أو المجتمع.`,
           ],
         },
       ],
@@ -337,7 +478,13 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
       sections: [
         {
           heading: 'Email',
-          body: ['academy@mlopsmena.com. We usually reply within 2 working days.'],
+          body: [`${EMAIL}. We usually reply within 2 working days.`],
+        },
+        {
+          heading: 'Applications and courses',
+          body: [
+            'Questions about a course or your application? Include the course name and the email address you registered with. Your application status is always visible on your dashboard.',
+          ],
         },
         {
           heading: 'Payments',
@@ -346,8 +493,12 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           ],
         },
         {
+          heading: 'Your data',
+          body: [`To download or delete your data, use your profile page. For anything else about your personal data, email ${EMAIL}.`],
+        },
+        {
           heading: 'Community',
-          body: ['For general questions, ask in the community Discord or Telegram.'],
+          body: ['For general questions, ask in the MLOps MENA community channels. Enrolled students also get a course study group.'],
         },
       ],
     },
@@ -358,17 +509,23 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
       sections: [
         {
           heading: 'البريد الإلكتروني',
-          body: ['academy@mlopsmena.com. نرد عادةً خلال يومي عمل.'],
+          body: [`${EMAIL}. نرد عادةً خلال يومي عمل.`],
+        },
+        {
+          heading: 'الطلبات والدورات',
+          body: ['لديك سؤال عن دورة أو عن طلبك؟ اذكر اسم الدورة والبريد الإلكتروني الذي سجلت به. تظهر حالة طلبك دائمًا في لوحة التحكم الخاصة بك.'],
         },
         {
           heading: 'المدفوعات',
-          body: [
-            'لديك سؤال عن عملية دفع؟ اذكر اسم الدورة والرقم المرجعي للعملية. لا ترسل كلمة المرور أو بيانات البطاقة كاملة أبدًا.',
-          ],
+          body: ['لديك سؤال عن عملية دفع؟ اذكر اسم الدورة والرقم المرجعي للعملية. لا ترسل كلمة المرور أو بيانات البطاقة كاملة أبدًا.'],
+        },
+        {
+          heading: 'بياناتك',
+          body: [`لتنزيل بياناتك أو حذفها، استخدم صفحة ملفك الشخصي. ولأي أمر آخر يخص بياناتك الشخصية، راسل ${EMAIL}.`],
         },
         {
           heading: 'المجتمع',
-          body: ['للأسئلة العامة، اسأل في Discord أو Telegram الخاص بالمجتمع.'],
+          body: ['للأسئلة العامة، اسأل في قنوات مجتمع MLOps MENA. ويحصل الطلاب المسجلون أيضًا على مجموعة دراسة خاصة بالدورة.'],
         },
       ],
     },

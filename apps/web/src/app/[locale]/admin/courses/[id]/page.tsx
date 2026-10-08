@@ -4,6 +4,7 @@ import { courseStatusLabels, PUBLIC_COURSE_STATUSES, type CourseStatus, type Faq
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
+import { Announcements } from '@/components/admin/Announcements';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor, type QuestionRow, type SessionRow } from '@/components/admin/CourseTabs';
@@ -12,7 +13,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'sessions', 'enrolled', 'feedback'] as const;
+const TABS = ['details', 'questions', 'sessions', 'enrolled', 'announcements', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included'> {
@@ -142,6 +143,7 @@ function CourseEditor() {
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
+        {tab === 'announcements' && <Announcements courseId={course.id} />}
         {tab === 'feedback' && <FeedbackPanel courseId={course.id} />}
       </div>
     </div>

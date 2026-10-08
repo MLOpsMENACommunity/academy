@@ -749,7 +749,26 @@
       },
       "topicsEn": "Topics (English)",
       "topicsAr": "Topics (Arabic)",
-      "topicsHint": "Shown publicly on the course page. Don’t put links or private details here; use the link fields and materials instead."
+      "topicsHint": "Shown publicly on the course page. Don’t put links or private details here; use the link fields and materials instead.",
+      "announcements": "Announcements",
+      "ann": {
+        "title": "Send an announcement",
+        "help": "An email and an in-app notification to everyone whose application has one of the chosen statuses, e.g. the study-group link, quiz links or a schedule change. Students who were deleted are skipped.",
+        "subjectEn": "Subject (English)",
+        "subjectAr": "Subject (Arabic)",
+        "bodyEn": "Message (English)",
+        "bodyAr": "Message (Arabic)",
+        "arHint": "Optional: the English text is used when empty.",
+        "audience": "Send to",
+        "recipients": "{count} recipients",
+        "send": "Send",
+        "confirm": "Send this announcement to {count} people? It can’t be undone.",
+        "sent": "Sent to {count} people. Emails go out over the next few minutes.",
+        "history": "Sent announcements",
+        "sending": "Sending to {count}…",
+        "delivered": "Emailed {sent} of {count}",
+        "failed": "{count} failed"
+      }
     },
     "settings": {
       "title": "Settings",

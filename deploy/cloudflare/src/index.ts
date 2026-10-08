@@ -111,6 +111,14 @@ function forwardable(request: Request): Request {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // Old or alternative hostnames (e.g. staging after going live) redirect to the canonical one.
+    if (url.hostname !== env.ACADEMY_HOSTNAME) {
+      url.hostname = env.ACADEMY_HOSTNAME;
+      url.protocol = 'https:';
+      url.port = '';
+      const permanent = request.method === 'GET' || request.method === 'HEAD' ? 301 : 308;
+      return Response.redirect(url.toString(), permanent);
+    }
     const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
     if (isApi && url.pathname.startsWith('/api/internal/')) {
       // Internal endpoints are only reachable from the cron handler below.

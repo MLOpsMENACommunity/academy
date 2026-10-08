@@ -225,6 +225,17 @@ export type SessionInput = z.infer<typeof sessionInputSchema>;
 /** Create several sessions at once (e.g. "every Sunday for 6 weeks"). */
 export const sessionsBulkSchema = z.object({ sessions: z.array(sessionInputSchema).min(1).max(52) });
 export const duplicateCourseSchema = z.object({ slug, titleEn: z.string().trim().min(2).max(160) });
+/** A message to a course's students: email + in-app notification. Arabic falls back to English. */
+export const announcementSchema = z.object({
+  subjectEn: z.string().trim().min(2).max(150),
+  subjectAr: z.string().trim().max(150).default(''),
+  bodyEn: z.string().trim().min(2).max(5000),
+  bodyAr: z.string().trim().max(5000).default(''),
+  statuses: z.array(z.enum(APPLICATION_STATUSES)).min(1).max(APPLICATION_STATUSES.length).default(['ENROLLED']),
+});
+export type AnnouncementInput = z.infer<typeof announcementSchema>;
+export const announcementAudienceSchema = z.object({ statuses: list(APPLICATION_STATUSES).pipe(z.array(z.enum(APPLICATION_STATUSES)).min(1)) });
+
 export const sessionOrderSchema = z.object({ ids: z.array(z.string().min(1).max(40)).min(1).max(200) });
 
 export const instructorInputSchema = z.object({

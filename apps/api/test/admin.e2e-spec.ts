@@ -154,6 +154,40 @@ describe('admin panel API (e2e)', () => {
     expect(csv.text).toContain(`g.${s.email}`);
   });
 
+  it('sends announcements to the chosen statuses, in-app and by email', async () => {
+    const course = await createCourse(prisma);
+    const enrolled = await createUser(app, prisma, { prefix: 'ann-in' });
+    const waiting = await createUser(app, prisma, { prefix: 'ann-wait' });
+    const gone = await createUser(app, prisma, { prefix: 'ann-gone' });
+    for (const [u, status] of [[enrolled, 'ENROLLED'], [waiting, 'WAITLISTED'], [gone, 'ENROLLED']] as const) {
+      await prisma.application.create({ data: { userId: u.id, courseId: course.id, status, answers: {}, profileSnapshot: {} } });
+    }
+    await prisma.user.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
+
+    const audience = (s: string) => as(admin.cookie).get(`/api/admin/courses/${course.id}/announcements/audience?statuses=${s}`).expect(200);
+    expect((await audience('ENROLLED')).body.count).toBe(1);
+    expect((await audience('ENROLLED,WAITLISTED')).body.count).toBe(2);
+    await as(admin.cookie).post(`/api/admin/courses/${course.id}/announcements`).send({ subjectEn: 'Hi', bodyEn: 'x', statuses: ['REJECTED'] }).expect(400);
+
+    const sent = await as(admin.cookie)
+      .post(`/api/admin/courses/${course.id}/announcements`)
+      .send({ subjectEn: 'Telegram group', bodyEn: 'Join here: https://t.me/example', statuses: ['ENROLLED'] })
+      .expect(201);
+    expect(sent.body.recipients).toBe(1);
+    const n = await prisma.notification.findFirstOrThrow({ where: { userId: enrolled.id, type: 'course.announcement' } });
+    expect(n).toMatchObject({ bodyAr: 'Join here: https://t.me/example', link: expect.stringMatching(/^\/learn\//) });
+    expect(await prisma.notification.count({ where: { userId: waiting.id, type: 'course.announcement' } })).toBe(0);
+
+    // Delivery runs after the response; wait for it to finish and be recorded.
+    let history: { subject: string; recipients: number; sent: number | null }[] = [];
+    for (let i = 0; i < 20 && !history[0]?.sent; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      history = (await as(admin.cookie).get(`/api/admin/courses/${course.id}/announcements`).expect(200)).body;
+    }
+    expect(history[0]).toMatchObject({ subject: 'Telegram group', recipients: 1, sent: 1 });
+    await http().get(`/api/admin/courses/${course.id}/announcements`).set('Cookie', enrolled.cookie).expect(403);
+  });
+
   it('duplicates a course as a draft and adds weekly sessions in bulk', async () => {
     const src = await createCourse(prisma);
     await prisma.course.update({ where: { id: src.id }, data: { preparation: { en: 'Create a repo', ar: 'أنشئ مستودعًا' } } });

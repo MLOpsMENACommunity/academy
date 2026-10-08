@@ -96,15 +96,21 @@ On the very first run, step 4 of the setup (R2 credentials) isn't possible
 yet: run the workflow once to create the bucket, add the R2 keys, then run it
 again.
 
-## Change the hostname (e.g. go live on academy.mlopsmena.com)
+## Go live on academy.mlopsmena.com (or change the hostname)
 
-In `deploy/cloudflare/wrangler.jsonc`, change `ACADEMY_HOSTNAME`, the
-`routes` pattern and `NEXT_PUBLIC_SITE_URL` together. Update the Google OAuth
-redirect URI too, then redeploy. With `custom_domain: true`, Cloudflare creates
-the DNS record and the certificate.
+No code change needed. In GitHub → Settings → Environments → `staging` → **Variables**, add:
 
-For production, remove `SEED_PLACEHOLDER_STATUS` (placeholder courses then
-stay as drafts) and change the admin password after the first sign-in.
+| Variable | Value |
+|---|---|
+| `ACADEMY_HOSTNAME` | `academy.mlopsmena.com` |
+| `ACADEMY_REDIRECT_HOSTS` | `academy-staging.mlopsmena.com` (old links redirect to the new host) |
+| `SENTRY_ENVIRONMENT` | `production` (only if Sentry is on) |
+
+Then run **Deploy to Cloudflare**. Cloudflare creates the DNS record and certificate for each host (`custom_domain: true`), the app's links, emails, sitemap and cookies switch to the new host, and the smoke test checks the redirect. People signed in on the old host sign in again once.
+
+If Google sign-in is enabled, add `https://academy.mlopsmena.com/api/auth/google/callback` to the OAuth client's redirect URIs first.
+
+For a real production database, also remove `SEED_PLACEHOLDER_STATUS` and change the admin password after the first sign-in.
 
 ## Operating
 

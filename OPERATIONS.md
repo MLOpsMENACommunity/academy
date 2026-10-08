@@ -109,6 +109,8 @@ Off unless configured at **build time**. Pick one:
 | Plausible | `NEXT_PUBLIC_ANALYTICS_PROVIDER=plausible`, `NEXT_PUBLIC_ANALYTICS_DOMAIN=academy.mlopsmena.com`, optional `NEXT_PUBLIC_ANALYTICS_SRC` (self-hosted) |
 | Umami | `NEXT_PUBLIC_ANALYTICS_PROVIDER=umami`, `NEXT_PUBLIC_ANALYTICS_SRC=https://…/script.js`, `NEXT_PUBLIC_ANALYTICS_WEBSITE_ID=…` |
 
+Cloudflare **Web Analytics** (also cookieless) works with no setup: if it's enabled on the zone, Cloudflare injects its beacon and the content security policy already allows it.
+
 On Cloudflare, add them to the web container's `image_vars` in `deploy/cloudflare/wrangler.jsonc`, next to `NEXT_PUBLIC_SITE_URL`. The content security policy picks up the script's origin automatically.
 
 Both tools are cookieless, so **no cookie banner is needed.** The academy's own cookies are all strictly necessary:
