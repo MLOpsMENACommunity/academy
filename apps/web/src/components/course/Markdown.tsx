@@ -14,8 +14,13 @@ export function Markdown({ children }: { children: string }) {
           ),
           h1: ({ children: c }) => <h3>{c}</h3>,
           h2: ({ children: c }) => <h3>{c}</h3>,
-          // Code and folder trees read left to right, even on Arabic pages.
-          pre: ({ children: c }) => <pre dir="ltr">{c}</pre>,
+          // Code and folder trees read left to right, even on Arabic pages. Wide
+          // blocks scroll sideways, so they take focus for keyboard scrolling.
+          pre: ({ children: c }) => (
+            <pre dir="ltr" tabIndex={0}>
+              {c}
+            </pre>
+          ),
         }}
       >
         {children}
