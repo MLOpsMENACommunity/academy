@@ -589,9 +589,11 @@ model CourseSession {
 model Application {
   id              String            @id @default(cuid())
   userId          String
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Restrict: users are soft-deleted and anonymised, never hard-deleted, so records stay for accounting.
+  user            User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   courseId        String
-  course          Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Restrict: courses are archived, not deleted, once anyone has applied.
+  course          Course            @relation(fields: [courseId], references: [id], onDelete: Restrict)
   status          ApplicationStatus @default(SUBMITTED)
   /// { [questionId]: string | string[] | number | boolean }
   answers         Json
@@ -634,7 +636,8 @@ model ApplicationStatusHistory {
 model Payment {
   id                String        @id @default(cuid())
   applicationId     String
-  application       Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  /// Restrict: payment records are kept for accounting.
+  application       Application   @relation(fields: [applicationId], references: [id], onDelete: Restrict)
   method            PaymentMethod
   amount            Int
   currency          String        @default("EGP")
@@ -664,9 +667,9 @@ model Payment {
 model Enrollment {
   id                   String    @id @default(cuid())
   userId               String
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   courseId             String
-  course               Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course               Course    @relation(fields: [courseId], references: [id], onDelete: Restrict)
   applicationId        String?   @unique
   application          Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   enrolledAt           DateTime  @default(now())
@@ -727,6 +730,8 @@ model SessionFeedback {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
+  /// One feedback per session per student (end-of-course feedback, sessionId NULL, is enforced in code).
+  @@unique([userId, sessionId])
   @@index([courseId, sessionId])
   @@index([userId])
 }

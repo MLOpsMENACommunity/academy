@@ -28,15 +28,16 @@ export function Button({
   size = 'md',
   className = '',
   loading,
+  disabled,
   children,
   ...props
 }: ComponentProps<'button'> & { variant?: Variant; size?: Size; loading?: boolean }) {
   return (
     <button
-      className={buttonClass(variant, size, className)}
-      disabled={loading || props.disabled}
-      aria-busy={loading || undefined}
       {...props}
+      className={buttonClass(variant, size, className)}
+      disabled={loading || disabled}
+      aria-busy={loading || undefined}
     >
       {loading && (
         <span
