@@ -86,7 +86,9 @@
       "email": "Enter a valid email address.",
       "url": "Enter a full link starting with https://",
       "phone": "Use international format with country code, e.g. +201001234567",
-      "mustAccept": "You must accept this to continue."
+      "mustAccept": "You must accept this to continue.",
+      "driveUrl": "Must be a Google Drive link (https://drive.google.com/…)",
+      "price": "Paid courses need a price above 0; free courses must be 0"
     }
   },
   "auth": {

@@ -3,6 +3,9 @@ import { APPLICATION_STATUSES, FUNNEL_EVENTS, type FunnelEvent, type SavedFilter
 import type { Actor } from '../applications/workflow.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Most recent active courses shown with per-course breakdowns. */
+const DASHBOARD_COURSES = 12;
+
 @Injectable()
 export class AdminMiscService {
   constructor(private readonly prisma: PrismaService) {}
@@ -10,10 +13,13 @@ export class AdminMiscService {
   /** Counts per course by status, pending payments, new applications this week, funnel per course. */
   async dashboard() {
     const weekAgo = new Date(Date.now() - 7 * 86_400_000);
-    const [courses, statusCounts, pendingPayments, newApplications, funnelRows] = await Promise.all([
+    const active = { status: { not: 'ARCHIVED' as const } };
+    const [courseCount, courses, statusCounts, pendingPayments, newApplications, funnelRows] = await Promise.all([
+      this.prisma.course.count({ where: active }),
       this.prisma.course.findMany({
-        where: { status: { not: 'ARCHIVED' } },
+        where: active,
         orderBy: { createdAt: 'desc' },
+        take: DASHBOARD_COURSES,
         select: { id: true, slug: true, titleEn: true, titleAr: true, type: true, status: true, capacity: true },
       }),
       this.prisma.application.groupBy({ by: ['courseId', 'status'], _count: { _all: true } }),
@@ -25,6 +31,7 @@ export class AdminMiscService {
         FROM "FunnelEventLog" GROUP BY "courseId", "event"`,
     ]);
     return {
+      courseCount,
       pendingPayments,
       newApplications7d: newApplications,
       courses: courses.map((c) => ({

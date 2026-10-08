@@ -163,6 +163,8 @@ describe('admin panel API (e2e)', () => {
     const row = dash.body.courses.find((c: { id: string }) => c.id === course.id);
     expect(row.funnel.COURSE_VIEW).toBe(2);
     expect(typeof dash.body.pendingPayments).toBe('number');
+    expect(dash.body.courseCount).toBeGreaterThanOrEqual(dash.body.courses.length);
+    expect(dash.body.courses.length).toBeLessThanOrEqual(12);
 
     expect((await as(admin.cookie).get(`/api/admin/courses/${course.id}/feedback`).expect(200)).body.course.count).toBe(0);
     const audit = await as(admin.cookie).get('/api/admin/audit?action=enrollment').expect(200);

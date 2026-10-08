@@ -6,8 +6,8 @@ import type { ReactNode } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { useI18n } from '@/i18n/client';
 
-/** Sections of the admin panel; later phases add entries here. */
-export const ADMIN_NAV = ['dashboard', 'payments'] as const;
+/** Sections of the admin panel. */
+export const ADMIN_NAV = ['dashboard', 'payments', 'applications', 'students', 'courses', 'settings', 'audit'] as const;
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { locale, t } = useI18n();

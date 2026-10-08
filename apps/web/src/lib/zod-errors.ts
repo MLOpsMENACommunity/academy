@@ -38,6 +38,8 @@ function translateIssue(i: ZodIssue, t: Translate): string {
     case 'custom': {
       const m = i.message.toLowerCase();
       if (m.includes('required') || m.includes('choose at least')) return t('forms.errors.required');
+      if (m.includes('drive.google.com')) return t('forms.errors.driveUrl');
+      if (m.includes('price')) return t('forms.errors.price');
       if (m.includes('url')) return t('forms.errors.url');
       if (m.includes('international') || m.includes('phone')) return t('forms.errors.phone');
       if (m.includes('timezone')) return t('forms.errors.choose');
