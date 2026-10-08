@@ -1,6 +1,6 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import {
   forgotPasswordSchema,
   isLocaleValue,
@@ -37,9 +37,10 @@ const oauthStateSchema = z.object({ nonce: z.string(), returnTo: z.string(), loc
 
 @ApiTags('auth')
 @Controller('auth')
-@UseGuards(ThrottlerGuard)
 @Throttle({ default: { limit: 20, ttl: 60_000 } })
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly auth: AuthService,
     private readonly tokens: TokensService,
@@ -55,7 +56,8 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // Per IP. Generous because many students share carrier-grade NAT addresses on mobile data.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async register(
     @Body(new ZodPipe(registerSchema)) body: RegisterInput,
     @Req() req: Request,
@@ -69,7 +71,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(200)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async login(
     @Body(new ZodPipe(loginSchema)) body: LoginInput,
     @Req() req: Request,
@@ -215,7 +217,10 @@ export class AuthController {
       const { user } = await this.auth.loginWithGoogle(identity, lang);
       await this.startSession(res, user, req);
       res.redirect(`${this.env.WEB_URL}${safeReturnTo(state.returnTo, `/${lang}/dashboard`)}`);
-    } catch {
+    } catch (err) {
+      const e = err as Error;
+      // Error type and Google's error string only; never the code, tokens or email.
+      this.logger.warn(`Google sign-in failed: ${e.name} ${e.message.slice(0, 80)}`);
       fail('google_failed');
     }
   }

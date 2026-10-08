@@ -137,3 +137,28 @@ grep -rn "\[PLACEHOLDER\]" apps packages --include=*.ts --include=*.tsx
 Dependency majors are pinned to the latest patch of lines we have verified
 (Next 15.5, Nest 11, Prisma 6, TypeScript 5.9, zod 3). Upgrading to Next 16,
 Nest 12, Prisma 7+ and TypeScript 7 is a deliberate, separate task.
+
+## Security notes
+
+- **Sessions.** Access tokens are 15-minute JWTs in httpOnly, SameSite=Lax
+  cookies. Refresh tokens are opaque, stored hashed, scoped to `/api/auth`, and
+  rotated on every use. Replaying an old refresh token revokes the whole login
+  family; these events are logged as "Refresh token reuse detected".
+- **Revocation lag.** Revocation (logout, password change, account deletion)
+  takes effect at the next refresh. An already-issued access token stays valid
+  for up to 15 minutes.
+- **CSRF.** The API parses JSON bodies only, and rejects writes whose `Origin`
+  isn't `WEB_URL` (or `CORS_ORIGINS`) or whose `Sec-Fetch-Site` is
+  `cross-site`.
+- **Google sign-in.** Google identities with an unverified email are refused.
+  When Google signs in to an account whose email was never verified, any
+  password and sessions on it are removed first, so pre-registering someone
+  else's email gives no access.
+- **Re-authentication.** Changing the email or password, or deleting the
+  account, requires the current password. Google-only accounts must instead
+  have signed in with Google within the last 10 minutes. The account's
+  address is emailed after every password or email change.
+- **Rate limits.** 120 requests/min per IP globally. Stricter limits apply to
+  auth, uploads and account deletion, plus a per-account lockout after 10
+  failed logins in 15 minutes. The lockout lives in memory, so it assumes a
+  single API instance.

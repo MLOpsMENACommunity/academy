@@ -28,6 +28,8 @@ export class ApiError extends Error {
 }
 
 let refreshing: Promise<boolean> | null = null;
+/** Endpoints where a 401 means "bad credentials", not "expired session". */
+const NO_REFRESH = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout']);
 
 export function hasSessionCookie(): boolean {
   return typeof document !== 'undefined' && /(?:^|;\s*)has_session=/.test(document.cookie);
@@ -70,7 +72,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   let res: Response;
   try {
     res = await fetch(`/api${path}`, opts);
-    if (res.status === 401 && !path.startsWith('/auth/') && (await refreshSession())) {
+    if (res.status === 401 && !NO_REFRESH.has(path) && (await refreshSession())) {
       res = await fetch(`/api${path}`, opts);
     }
   } catch {
@@ -78,6 +80,9 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   }
   if (!res.ok) throw await toError(res);
   if (res.status === 204) return undefined as T;
+  if (init.headers && (init.headers as Record<string, string>).Accept === 'application/octet-stream') {
+    return (await res.blob()) as T;
+  }
   const type = res.headers.get('content-type') ?? '';
   return (type.includes('application/json') ? res.json() : res.text()) as Promise<T>;
 }

@@ -12,12 +12,11 @@ import {
   Put,
   Res,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import {
   changeEmailSchema,
   changePasswordSchema,
@@ -66,7 +65,6 @@ export class MeController {
   }
 
   @Post('profile/cv')
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } }))
@@ -90,7 +88,6 @@ export class MeController {
 
   @Post('password')
   @HttpCode(200)
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async changePassword(
     @CurrentUser() user: AuthUser,
@@ -105,7 +102,6 @@ export class MeController {
 
   @Post('email')
   @HttpCode(200)
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async changeEmail(
     @CurrentUser() user: AuthUser,
@@ -131,6 +127,7 @@ export class MeController {
 
   @Post('delete')
   @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async deleteAccount(
     @CurrentUser() user: AuthUser,
     @Body(new ZodPipe(deleteAccountSchema)) body: z.infer<typeof deleteAccountSchema>,

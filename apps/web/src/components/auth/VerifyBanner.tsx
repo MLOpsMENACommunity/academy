@@ -9,7 +9,7 @@ import { useAuth } from './AuthProvider';
 export function VerifyBanner() {
   const { user } = useAuth();
   const { t } = useI18n();
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<'idle' | 'sent' | 'error'>('idle');
   if (!user || user.emailVerified) return null;
   return (
     <div className="border-b border-warning/30 bg-warning-soft text-warning" role="status">
@@ -20,17 +20,22 @@ export function VerifyBanner() {
             .split('\u0000')
             .flatMap((part, i) => (i === 0 ? [part] : [<bdi key={i}>{user.email}</bdi>, part]))}
         </span>
-        {sent ? (
+        {sent === 'sent' ? (
           <span className="font-semibold">{t('auth.resent')}</span>
         ) : (
           <button
             type="button"
             className="min-h-9 font-semibold underline"
-            onClick={() => api('/auth/resend-verification', { method: 'POST' }).then(() => setSent(true)).catch(() => setSent(true))}
+            onClick={() =>
+              api('/auth/resend-verification', { method: 'POST' })
+                .then(() => setSent('sent'))
+                .catch(() => setSent('error'))
+            }
           >
             {t('auth.resend')}
           </button>
         )}
+        {sent === 'error' && <span className="font-semibold text-danger">{t('errors.generic')}</span>}
       </div>
     </div>
   );

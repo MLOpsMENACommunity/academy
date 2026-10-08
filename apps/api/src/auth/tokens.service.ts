@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { User } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -21,6 +21,8 @@ export type RotateResult =
  */
 @Injectable()
 export class TokensService {
+  private readonly logger = new Logger(TokensService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -58,6 +60,8 @@ export class TokensService {
         return { ok: false, reason: 'concurrent' };
       }
       // An old token came back after it was replaced: assume it was stolen.
+      // Logged (no PII) so real theft can be told apart from flaky-network noise.
+      this.logger.warn(`Refresh token reuse detected; revoked login family ${existing.family.slice(0, 8)}`);
       await this.revokeFamily(existing.family);
       return { ok: false, reason: 'reused' };
     }

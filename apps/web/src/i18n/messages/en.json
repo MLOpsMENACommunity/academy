@@ -110,16 +110,19 @@
     "continue": "Continue",
     "errors": {
       "INVALID_CREDENTIALS": "That email and password don't match.",
-      "USE_GOOGLE": "This account uses Google sign-in. Use \"Continue with Google\".",
       "EMAIL_TAKEN": "An account with this email already exists. Try logging in.",
       "TOKEN_INVALID": "This link is invalid or has expired.",
       "WRONG_PASSWORD": "Your current password is incorrect.",
       "google_unavailable": "Google sign-in isn't available right now. Use email and password.",
       "google_state": "Google sign-in expired. Please try again.",
       "google_failed": "Google sign-in failed. Please try again.",
-      "rateLimited": "Too many attempts. Please wait a minute and try again."
+      "rateLimited": "Too many attempts. Please wait a minute and try again.",
+      "REAUTH_REQUIRED": "For your security, sign in with Google again, then retry.",
+      "TOO_MANY_ATTEMPTS": "Too many failed attempts. Wait 15 minutes or reset your password.",
+      "CROSS_SITE": "This request was blocked for your security. Reload the page and try again."
     },
-    "termsNotice": "By creating an account you agree to the {terms} and {privacy}."
+    "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
+    "googleHint": "If you signed up with Google, use “Continue with Google”."
   },
   "account": {
     "title": "Account",

@@ -58,7 +58,12 @@ export function LoginForm() {
     <AuthCard title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
       <GoogleButton returnTo={returnTo} />
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        {error && <Alert tone="danger">{error}</Alert>}
+        {error && (
+          <Alert tone="danger">
+            {error}
+            {error === t('auth.errors.INVALID_CREDENTIALS') && <p className="mt-1 text-xs">{t('auth.googleHint')}</p>}
+          </Alert>
+        )}
         <TextField label={t('auth.email')} type="email" autoComplete="email" required value={email} onChange={setEmail} />
         <TextField
           label={t('auth.password')}

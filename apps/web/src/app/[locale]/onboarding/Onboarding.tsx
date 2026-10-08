@@ -32,12 +32,15 @@ function Stepper() {
   const heading = useRef<HTMLHeadingElement>(null);
   const courseSlug = courseSlugFromPath(returnTo);
 
+  const [loadError, setLoadError] = useState(false);
   useEffect(() => {
-    api<ProfileDto>('/me/profile').then((p) => {
-      setProfile(p);
-      // Returning users with a complete core start at the first optional step.
-      if (p.coreComplete) setStep(1);
-    });
+    api<ProfileDto>('/me/profile')
+      .then((p) => {
+        setProfile(p);
+        // Returning users with a complete core start at the first optional step.
+        if (p.coreComplete) setStep(1);
+      })
+      .catch(() => setLoadError(true));
   }, []);
 
   // Move focus to the new step's heading so screen-reader users hear the change.
@@ -45,6 +48,13 @@ function Stepper() {
     heading.current?.focus();
   }, [step, done]);
 
+  if (loadError) {
+    return (
+      <Container className="py-12">
+        <Alert tone="danger">{t('errors.generic')}</Alert>
+      </Container>
+    );
+  }
   if (!profile) return <PageSpinner />;
   const section = STEPS[step]!;
   const next = () => (step + 1 < STEPS.length ? setStep(step + 1) : setDone(true));
