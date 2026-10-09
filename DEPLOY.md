@@ -263,6 +263,15 @@ A deploy refuses to run unless `ACADEMY_ENVIRONMENT` matches the environment, an
 staging deploy also refuses database URLs that don't point at a staging database.
 `setup-staging.sh` sets the staging marker last, once staging's secrets are its own.
 
+Only production is indexed by search engines. `configure-host.mjs` writes the deploy
+target into the Worker's `ACADEMY_ENVIRONMENT` var and the web build's
+`NEXT_PUBLIC_ACADEMY_ENVIRONMENT`. Anything other than `production` gets
+`robots.txt` with `Disallow: /` and `X-Robots-Tag: noindex, nofollow` on every response
+(from the Worker, `deploy/cloudflare/src/robots.ts`), and the web app's own robots.txt,
+sitemap and `<meta name="robots">` say the same. Canonical and `og:url` links on staging
+point at staging on purpose: staging content differs from production, and noindex already
+keeps it out of search results.
+
 ## What a deploy does
 
 Both release workflows call `.github/workflows/deploy-cloudflare.yml` with the

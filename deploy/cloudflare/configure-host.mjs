@@ -12,6 +12,7 @@
 //   EMAIL_REDIRECT_TO       staging only, optional: where everyone else's staging email goes
 //   SHA                     optional, the commit being deployed (names the web build)
 //
+// Sets ACADEMY_ENVIRONMENT (Worker var and web build arg) to the target: only production is indexed.
 // Writes host, url and bucket to $GITHUB_OUTPUT for the later steps. Refuses to let one
 // environment claim the other's hostname, and refuses a staging config that would share
 // production's Worker name or bucket, or that has no email redirect.
@@ -54,9 +55,11 @@ if (target === 'staging') {
 }
 
 block.vars.ACADEMY_HOSTNAME = host;
+// The deploy target, not a variable, says whether search engines may index this deployment.
+block.vars.ACADEMY_ENVIRONMENT = target;
 block.routes = [host, ...aliases].map((pattern) => ({ pattern, custom_domain: true }));
 const web = block.containers.find((c) => c.class_name === 'WebContainer');
-web.image_vars = { ...web.image_vars, NEXT_PUBLIC_SITE_URL: `https://${host}` };
+web.image_vars = { ...web.image_vars, NEXT_PUBLIC_SITE_URL: `https://${host}`, NEXT_PUBLIC_ACADEMY_ENVIRONMENT: target };
 // The commit being deployed names the web build (Next's deploymentId), so pages and assets
 // of different builds can tell each other apart while a rollout replaces the containers.
 const sha = process.env.SHA?.trim();

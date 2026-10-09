@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cacheKind, localeCookie, PAGE_TTL, storableCacheControl } from './edge-cache.ts';
+import { cacheKind, localeCookie, PAGE_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
 
 const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
   new Request(`https://academy.mlopsmena.com${path}`, init);
@@ -50,8 +50,8 @@ test('only shared-cacheable, cookie-free, fresh 200 HTML is stored, capped at PA
   assert.equal(storableCacheControl('page', html({ 'cache-control': 's-maxage=300' })), `public, max-age=0, s-maxage=${PAGE_TTL}`);
   // Dynamic (per-request) pages.
   assert.equal(storableCacheControl('page', html({ 'cache-control': 'private, no-cache, no-store, max-age=0, must-revalidate' })), null);
-  // Anything that sets a cookie.
-  assert.equal(storableCacheControl('page', html({ ...isr, 'set-cookie': 'NEXT_LOCALE=en; Path=/' })), null);
+  // Anything that sets a cookie other than NEXT_LOCALE alone (see the first-visit test below).
+  assert.equal(storableCacheControl('page', html({ ...isr, 'set-cookie': 'session=abc; Path=/' })), null);
   // Not found / errors / redirects.
   assert.equal(storableCacheControl('page', html(isr, 404)), null);
   assert.equal(storableCacheControl('page', html(isr, 500)), null);
@@ -68,4 +68,32 @@ test('pages served from the edge still remember the locale like the middleware d
   assert.equal(localeCookie(req('/ar/courses')), 'NEXT_LOCALE=ar; Path=/; Max-Age=31536000; SameSite=Lax');
   assert.equal(localeCookie(req('/ar/courses', { headers: { cookie: 'NEXT_LOCALE=en' } })), 'NEXT_LOCALE=ar; Path=/; Max-Age=31536000; SameSite=Lax');
   assert.equal(localeCookie(req('/en/courses', { headers: { cookie: 'NEXT_LOCALE=en' } })), null);
+});
+
+const withCookies = (cookies: string[]) => {
+  const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', ...isr });
+  for (const c of cookies) headers.append('set-cookie', c);
+  return new Response('<html>page</html>', { status: 200, headers });
+};
+
+test('first visits (only the middleware NEXT_LOCALE cookie) are stored, without the cookie', async () => {
+  const visitorResponse = withCookies(['NEXT_LOCALE=ar; Path=/; Max-Age=31536000; SameSite=lax']);
+  const cc = storableCacheControl('page', visitorResponse);
+  assert.equal(cc, `public, max-age=0, s-maxage=${PAGE_TTL}`);
+  const stored = storedCopy(visitorResponse.clone(), cc!);
+  assert.equal(stored.headers.get('set-cookie'), null);
+  assert.equal(stored.headers.get('cache-control'), cc);
+  assert.equal(await stored.text(), '<html>page</html>');
+  // The visitor's own response (the miss) still carries the cookie...
+  assert.match(visitorResponse.headers.get('set-cookie') ?? '', /^NEXT_LOCALE=ar;/);
+  // ...and a later hit for a first-time visitor gets it from the Worker.
+  assert.equal(localeCookie(req('/ar/courses')), 'NEXT_LOCALE=ar; Path=/; Max-Age=31536000; SameSite=Lax');
+});
+
+test('NEXT_LOCALE plus any other cookie is never stored', () => {
+  assert.equal(storableCacheControl('page', withCookies(['NEXT_LOCALE=en; Path=/', 'other=1; Path=/'])), null);
+  assert.equal(storableCacheControl('page', withCookies(['other=1; Path=/', 'NEXT_LOCALE=en; Path=/'])), null);
+  // Assets never carry cookies into the cache, NEXT_LOCALE or not.
+  const asset = new Response('x', { headers: { 'cache-control': 'public, max-age=31536000, immutable', 'set-cookie': 'NEXT_LOCALE=en' } });
+  assert.equal(storableCacheControl('asset', asset), null);
 });

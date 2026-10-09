@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { ArchiveModule } from './archive/archive.module';
@@ -9,6 +9,7 @@ import { ApplicationsModule } from './applications/applications.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
+import { ApiExceptionFilter } from './common/exception.filter';
 import { CalendarModule } from './calendar/calendar.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
@@ -57,8 +58,9 @@ import { WaitlistModule } from './waitlist/waitlist.module';
   // Order matters: AuthGuard first (sets req.user), then the throttler keys by user or IP.
   // Default 300/min; auth, uploads and account changes set stricter limits.
   providers: [
-    // Reports unexpected (non-HTTP) errors to Sentry when SENTRY_DSN is set; a no-op otherwise.
-    { provide: APP_FILTER, useClass: SentryGlobalFilter },
+    // Reports unexpected (non-HTTP) errors to Sentry when SENTRY_DSN is set (a no-op otherwise),
+    // and answers framework errors (unknown route, throttling, bad JSON) with generic messages.
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],

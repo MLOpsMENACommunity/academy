@@ -87,6 +87,43 @@ describe('auth security (e2e)', () => {
     expect(evil.headers['access-control-allow-origin']).toBeUndefined();
   });
 
+  it('sends HSTS for two years, like the web pages', async () => {
+    const res = await http().get('/api/health').expect(200);
+    expect(res.headers['strict-transport-security']).toBe('max-age=63072000; includeSubDomains');
+  });
+
+  it('answers framework errors with generic bodies (no route names, parser or framework messages)', async () => {
+    for (const path of ['/api', '/api/does-not-exist']) {
+      const res = await http().get(path).expect(404);
+      expect(res.body).toEqual({ statusCode: 404, message: 'Not found' });
+    }
+    await http().post('/api/nope').send({}).expect(404, { statusCode: 404, message: 'Not found' });
+
+    const bad = await http().post('/api/auth/login').set('Content-Type', 'application/json').send('{"email": "a@b.c",').expect(400);
+    expect(bad.body).toEqual({ statusCode: 400, message: 'Invalid request body' });
+
+    const big = await http()
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ email: 'a@b.c', password: 'x'.repeat(300 * 1024) }))
+      .expect(413);
+    expect(big.body).toEqual({ statusCode: 413, message: 'Request body too large' });
+
+    // Validation errors keep their field errors for the forms.
+    const invalid = await http().post('/api/auth/reset-password').send({ token: 'short', password: 'long-enough-password' }).expect(400);
+    expect(invalid.body.errors).toEqual([expect.objectContaining({ path: 'token' })]);
+    for (const res of [bad, big, invalid]) expect(JSON.stringify(res.body)).not.toMatch(/JSON\.parse|Unexpected|SyntaxError|Nest|Express|at \//);
+  });
+
+  it('throttles with a friendly message and a Retry-After', async () => {
+    // forgot-password allows 5 a minute per IP.
+    let res: request.Response | undefined;
+    for (let i = 0; i < 6; i++) res = await http().post('/api/auth/forgot-password').send({ email: uniqueEmail('throttle'), locale: 'en' });
+    expect(res!.status).toBe(429);
+    expect(res!.body).toEqual({ statusCode: 429, message: 'Too many requests. Please wait a moment and try again.' });
+    expect(Number(res!.headers['retry-after'])).toBeGreaterThan(0);
+  });
+
   it('blocks state-changing requests from other origins', async () => {
     const res = await http()
       .post('/api/auth/login')

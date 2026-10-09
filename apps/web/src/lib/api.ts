@@ -2,8 +2,9 @@
 
 /**
  * Browser-side API client. Talks to same-origin /api (cookies are httpOnly).
- * On 401 it refreshes the session once (deduplicated across concurrent calls)
- * and retries.
+ * When the access token has expired (the has_session cookie says when) it refreshes
+ * first; otherwise, on a 401, it refreshes and retries. Either way at most one refresh
+ * per call, deduplicated across concurrent calls.
  */
 
 export interface FieldError {
@@ -33,6 +34,25 @@ const NO_REFRESH = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/
 
 export function hasSessionCookie(): boolean {
   return typeof document !== 'undefined' && /(?:^|;\s*)has_session=/.test(document.cookie);
+}
+
+/** Refresh this many seconds before the access token expires (slow networks, small clock drift). */
+const EXPIRY_MARGIN_S = 30;
+/** Set when this browser's clock disagrees with the server's: rely on 401s instead. */
+let expiryUnreliable = false;
+
+/**
+ * When the access token expires (Unix seconds), from the has_session cookie the API sets
+ * alongside it; null when unknown (signed out, or a session from before the cookie held it).
+ */
+export function accessTokenExpiry(cookie: string = typeof document === 'undefined' ? '' : document.cookie): number | null {
+  const m = /(?:^|;\s*)has_session=(\d{9,12})(?:;|$)/.exec(cookie);
+  return m ? Number(m[1]) : null;
+}
+
+function accessTokenExpired(): boolean {
+  const exp = accessTokenExpiry();
+  return exp !== null && Date.now() / 1000 >= exp - EXPIRY_MARGIN_S;
 }
 
 async function refreshSession(): Promise<boolean> {
@@ -71,8 +91,19 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   };
   let res: Response;
   try {
+    const mayRefresh = !NO_REFRESH.has(path);
+    // Refresh first when the access token is known to have expired: no doomed request, no 401
+    // (downloads, exports and anything else after the tab sat idle past the token's lifetime).
+    let refreshed = false;
+    if (mayRefresh && !expiryUnreliable && accessTokenExpired()) {
+      refreshed = true;
+      // Still "expired" right after a successful refresh: this clock is off; stop trusting it.
+      if ((await refreshSession()) && accessTokenExpired()) expiryUnreliable = true;
+    }
     res = await fetch(`/api${path}`, opts);
-    if (res.status === 401 && !NO_REFRESH.has(path) && (await refreshSession())) {
+    // Never a second refresh in one call: a refresh whose new cookies were lost would look like
+    // token theft to the API (see AuthProvider).
+    if (res.status === 401 && mayRefresh && !refreshed && (await refreshSession())) {
       res = await fetch(`/api${path}`, opts);
     }
   } catch {

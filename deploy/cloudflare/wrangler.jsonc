@@ -20,6 +20,8 @@
   "observability": { "enabled": true },
 
   "vars": {
+    // Only "production" is indexed by search engines (src/robots.ts, and the web build below).
+    "ACADEMY_ENVIRONMENT": "production",
     "ACADEMY_HOSTNAME": "academy.mlopsmena.com",
     "EMAIL_FROM": "MLOps MENA Academy <academy@mlopsmena.com>",
     "S3_BUCKET": "academy-private",
@@ -48,7 +50,7 @@
       "class_name": "WebContainer",
       "image": "../../apps/web/Dockerfile",
       "image_build_context": "../..",
-      "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy.mlopsmena.com" },
+      "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy.mlopsmena.com", "NEXT_PUBLIC_ACADEMY_ENVIRONMENT": "production" },
       "instance_type": "basic",
       // Stateless: the Worker spreads requests over WEB_INSTANCES of these
       // (MAX_WEB_INSTANCES in src/instances.ts must match; a test checks).
@@ -77,6 +79,8 @@
     "staging": {
       "name": "mlops-academy-staging",
       "vars": {
+        // Not production: noindex everywhere, robots.txt "Disallow: /".
+        "ACADEMY_ENVIRONMENT": "staging",
         "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
         "EMAIL_FROM": "MLOps MENA Academy (staging) <academy@mlopsmena.com>",
         "S3_BUCKET": "academy-staging-private",
@@ -105,7 +109,7 @@
           "class_name": "WebContainer",
           "image": "../../apps/web/Dockerfile",
           "image_build_context": "../..",
-          "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com" },
+          "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com", "NEXT_PUBLIC_ACADEMY_ENVIRONMENT": "staging" },
           "instance_type": "basic",
           "max_instances": 1
         }

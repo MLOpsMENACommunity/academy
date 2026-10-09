@@ -2,6 +2,7 @@
   "meta": {
     "siteName": "MLOps MENA Academy",
     "tagline": "Live, cohort-based ML, MLOps and AI engineering courses for engineers across the Middle East and North Africa.",
+    "verifyEmailTitle": "Verify your email",
     "homeTitle": "MLOps MENA Academy: live ML, MLOps & AI engineering courses"
   },
   "common": {
@@ -128,6 +129,7 @@
     "resetTitle": "Choose a new password",
     "resetCta": "Save new password",
     "resetDone": "Your password has been changed. Log in with your new password.",
+    "resetInvalidCta": "Request a new reset link",
     "verifyTitle": "Confirming your email…",
     "verifyDone": "Your email is confirmed.",
     "verifyFailed": "This link is invalid or has expired.",

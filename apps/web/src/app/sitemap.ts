@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { POLICY_SLUGS } from '@/content/policies';
 import { serverGet } from '@/lib/server-api';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, indexable } from '@/lib/site';
 
 // Built on request (the API isn't reachable at image build time). If the API is down
 // the request fails rather than publishing a sitemap with every course missing.
@@ -18,6 +18,8 @@ function entry(path: string, lastModified?: Date | string, priority = 0.5): Meta
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Not production (staging, local): an empty sitemap, so nothing points crawlers at these URLs.
+  if (!indexable) return [];
   const courses = (await serverGet<{ slug: string; updatedAt: string }[]>('/courses/slugs', 3600)) ?? [];
   const events = (await serverGet<{ upcoming: { slug: string }[]; past: { slug: string }[] }>('/events', 3600)) ?? { upcoming: [], past: [] };
   // Every past session with a recording, not only the recent ones /events lists.
