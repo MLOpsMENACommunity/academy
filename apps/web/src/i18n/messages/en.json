@@ -94,7 +94,9 @@
       "driveUrl": "Must be a Google Drive link (https://drive.google.com/…)",
       "price": "Paid courses need a price above 0; free courses must be 0",
       "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only.",
-      "liveLinkToPublish": "Add the live link before publishing."
+      "liveLinkToPublish": "Add the live link before publishing.",
+      "linkedinUrl": "Enter your LinkedIn profile link (https://www.linkedin.com/in/…)",
+      "githubUrl": "Enter your GitHub profile link (https://github.com/…)"
     }
   },
   "auth": {

@@ -3,7 +3,6 @@
 import {
   areaLabels,
   cloudPlatformLabels,
-  companySizeLabels,
   countryName,
   educationLevelLabels,
   employmentStatusLabels,
@@ -60,7 +59,6 @@ export function ProfileView({ profile: p }: { profile: ProfileDto }) {
       [
         [f('company'), p.company],
         [f('industry'), one(industryLabels, p.industry)],
-        [f('companySize'), one(companySizeLabels, p.companySize)],
         [f('mlExperienceYears'), one(experienceRangeLabels, p.mlExperienceYears)],
         [f('seniority'), one(seniorityLabels, p.seniority)],
         [f('secondaryAreas'), many(areaLabels, p.secondaryAreas)],

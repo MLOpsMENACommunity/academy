@@ -6,8 +6,6 @@ import {
   areaLabels,
   CLOUD_PLATFORMS,
   cloudPlatformLabels,
-  COMPANY_SIZES,
-  companySizeLabels,
   countryName,
   EDUCATION_LEVELS,
   educationLevelLabels,
@@ -98,7 +96,6 @@ function initialValues(section: ProfileSection, p: ProfileDto): Values {
       return {
         company: p.company ?? '',
         industry: p.industry,
-        companySize: p.companySize,
         mlExperienceYears: p.mlExperienceYears,
         seniority: p.seniority,
         secondaryAreas: p.secondaryAreas,
@@ -130,12 +127,13 @@ function initialValues(section: ProfileSection, p: ProfileDto): Values {
         huggingfaceUrl: p.huggingfaceUrl ?? '',
       };
     case 'community':
+      // Unanswered until the student saves this step once: no Yes/No is preselected.
       return {
         referralSource: p.referralSource,
-        communityMember: p.communityMember ?? false,
-        openToOpportunities: p.openToOpportunities,
-        shareWithPartners: p.shareWithPartners,
-        marketingEmails: p.marketingEmails,
+        communityMember: p.communityAnsweredAt ? Boolean(p.communityMember) : null,
+        openToOpportunities: p.communityAnsweredAt ? p.openToOpportunities : null,
+        shareWithPartners: p.communityAnsweredAt ? p.shareWithPartners : null,
+        marketingEmails: p.communityAnsweredAt ? p.marketingEmails : null,
       };
   }
 }
@@ -171,6 +169,26 @@ export function SectionForm({
   const str = (key: string) => (values[key] as string | null | undefined) ?? '';
   const arr = (key: string) => (values[key] as string[] | undefined) ?? [];
   const f = (key: string) => t(`profile.fields.${key}`);
+  /** A required Yes/No question with nothing preselected. */
+  // A render helper, not a component: a component defined here would remount on every keystroke.
+  const yesNo = (name: string, label: string, hint?: string) => {
+    const v = values[name];
+    return (
+      <RadioGroup
+        legend={label}
+        hint={hint}
+        required
+        name={name}
+        error={errors[name]}
+        value={v === true ? 'yes' : v === false ? 'no' : null}
+        onChange={(x) => set(name)(x === 'yes')}
+        options={[
+          { value: 'yes', label: t('common.yes') },
+          { value: 'no', label: t('common.no') },
+        ]}
+      />
+    );
+  };
 
   const countryOptions = useMemo(() => {
     const all = ALL_COUNTRIES.map((c) => ({ value: c, label: countryName(c, locale) })).sort((a, b) =>
@@ -290,8 +308,7 @@ export function SectionForm({
       body = (
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label={f('company')} autoComplete="organization" value={str('company')} onChange={set('company')} error={errors.company} />
-          <SelectField label={f('industry')} required value={str('industry')} onChange={set('industry')} error={errors.industry} options={options(INDUSTRIES, industryLabels, locale)} />
-          <SelectField label={f('companySize')} value={str('companySize')} onChange={set('companySize')} options={options(COMPANY_SIZES, companySizeLabels, locale)} />
+          <SelectField label={f('industry')} value={str('industry')} onChange={set('industry')} error={errors.industry} options={options(INDUSTRIES, industryLabels, locale)} />
           <SelectField label={f('mlExperienceYears')} required value={str('mlExperienceYears')} onChange={set('mlExperienceYears')} error={errors.mlExperienceYears} options={options(EXPERIENCE_RANGES, experienceRangeLabels, locale)} />
           <SelectField label={f('seniority')} required value={str('seniority')} onChange={set('seniority')} error={errors.seniority} options={options(SENIORITIES, seniorityLabels, locale)} />
           <div className="sm:col-span-2">
@@ -376,7 +393,9 @@ export function SectionForm({
       body = (
         <div className="space-y-6">
           <div className="grid gap-5 sm:grid-cols-2">
-            {(['linkedinUrl', 'githubUrl', 'websiteUrl', 'kaggleUrl', 'huggingfaceUrl'] as const).map((k) => (
+            <TextField label={f('linkedinUrl')} required type="url" inputMode="url" placeholder="https://www.linkedin.com/in/…" value={str('linkedinUrl')} onChange={set('linkedinUrl')} error={errors.linkedinUrl} />
+            <TextField label={f('githubUrl')} required type="url" inputMode="url" placeholder="https://github.com/…" value={str('githubUrl')} onChange={set('githubUrl')} error={errors.githubUrl} />
+            {(['websiteUrl', 'kaggleUrl', 'huggingfaceUrl'] as const).map((k) => (
               <TextField key={k} label={f(k)} type="url" inputMode="url" placeholder="https://" value={str(k)} onChange={set(k)} error={errors[k]} />
             ))}
           </div>
@@ -387,17 +406,12 @@ export function SectionForm({
     case 'community':
       body = (
         <div className="space-y-5">
-          <SelectField label={f('referralSource')} value={str('referralSource')} onChange={set('referralSource')} options={options(REFERRAL_SOURCES, referralSourceLabels, locale)} />
-          <CheckboxField label={f('communityMember')} checked={Boolean(values.communityMember)} onChange={set('communityMember')} />
+          <SelectField label={f('referralSource')} required value={str('referralSource')} onChange={set('referralSource')} error={errors.referralSource} options={options(REFERRAL_SOURCES, referralSourceLabels, locale)} />
+          {yesNo('communityMember', f('communityMember'))}
           <hr className="border-line" />
-          <CheckboxField label={f('openToOpportunities')} checked={Boolean(values.openToOpportunities)} onChange={set('openToOpportunities')} />
-          <CheckboxField
-            label={f('shareWithPartners')}
-            hint={f('shareWithPartnersHint')}
-            checked={Boolean(values.shareWithPartners)}
-            onChange={set('shareWithPartners')}
-          />
-          <CheckboxField label={f('marketingEmails')} checked={Boolean(values.marketingEmails)} onChange={set('marketingEmails')} />
+          {yesNo('openToOpportunities', f('openToOpportunities'))}
+          {yesNo('shareWithPartners', f('shareWithPartners'), f('shareWithPartnersHint'))}
+          {yesNo('marketingEmails', f('marketingEmails'))}
         </div>
       );
       break;

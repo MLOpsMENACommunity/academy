@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   AREAS,
   CLOUD_PLATFORMS,
-  COMPANY_SIZES,
   EDUCATION_LEVELS,
   EMPLOYMENT_STATUSES,
   EXPERIENCE_RANGES,
@@ -42,6 +41,23 @@ const optionalUrl = z
   .refine((v) => v === null || /^https?:\/\/[^\s]+\.[^\s]+/i.test(v), {
     message: 'Enter a full URL starting with https://',
   });
+
+/** Required profile link on one site, e.g. linkedin.com or github.com. */
+const requiredProfileUrl = (host: string) =>
+  z
+    .string({ required_error: 'Required' })
+    .trim()
+    .min(1, 'Required')
+    .max(300)
+    .refine((v) => /^https?:\/\/[^\s]+\.[^\s]+/i.test(v), { message: 'Enter a full URL starting with https://' })
+    .refine((v) => {
+      try {
+        const h = new URL(v).hostname.toLowerCase();
+        return h === host || h.endsWith(`.${host}`);
+      } catch {
+        return false;
+      }
+    }, { message: `Enter your ${host} profile link` });
 
 /** E.164-ish: + then 8–15 digits. Spaces and dashes are stripped first. */
 export const phoneSchema = z
@@ -83,11 +99,10 @@ export type CoreSection = z.infer<typeof coreSectionSchema>;
 
 const requiredText = (max: number) => z.string().trim().min(1).max(max);
 
-/** Required (no skip): admins screen and filter applicants on these. */
+/** Required (no skip): admins screen and filter applicants on these. Industry is optional. */
 export const professionalSectionSchema = z.object({
   company: optionalText(120),
-  industry: z.enum(INDUSTRIES),
-  companySize: z.enum(COMPANY_SIZES).nullish(),
+  industry: z.enum(INDUSTRIES).nullish(),
   mlExperienceYears: z.enum(EXPERIENCE_RANGES),
   seniority: z.enum(SENIORITIES),
   secondaryAreas: unique(z.enum(AREAS), AREAS.length),
@@ -131,36 +146,38 @@ export const goalsSectionSchema = z.object({
 export type GoalsSection = z.infer<typeof goalsSectionSchema>;
 
 export const linksSectionSchema = z.object({
-  linkedinUrl: optionalUrl,
-  githubUrl: optionalUrl,
+  linkedinUrl: requiredProfileUrl('linkedin.com'),
+  githubUrl: requiredProfileUrl('github.com'),
   websiteUrl: optionalUrl,
   kaggleUrl: optionalUrl,
   huggingfaceUrl: optionalUrl,
 });
 export type LinksSection = z.infer<typeof linksSectionSchema>;
 
+/** Required: every question needs an explicit answer. Yes/No, never pre-ticked (consent stays a free choice). */
 export const communitySectionSchema = z.object({
-  referralSource: z.enum(REFERRAL_SOURCES).nullish(),
-  communityMember: z.boolean().nullish(),
-  openToOpportunities: z.boolean().default(false),
-  shareWithPartners: z.boolean().default(false),
-  marketingEmails: z.boolean().default(false),
+  referralSource: z.enum(REFERRAL_SOURCES),
+  communityMember: z.boolean(),
+  openToOpportunities: z.boolean(),
+  shareWithPartners: z.boolean(),
+  marketingEmails: z.boolean(),
 });
 export type CommunitySection = z.infer<typeof communitySectionSchema>;
 
+/** Required steps first, then the optional ones (onboarding relies on this order). */
 export const PROFILE_SECTIONS = [
   'core',
   'professional',
   'education',
-  'skills',
-  'goals',
   'links',
   'community',
+  'skills',
+  'goals',
 ] as const;
 export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
 
 /** Steps every student must complete (no "skip") before applying. */
-export const REQUIRED_SECTIONS = ['core', 'professional', 'education'] as const satisfies readonly ProfileSection[];
+export const REQUIRED_SECTIONS = ['core', 'professional', 'education', 'links', 'community'] as const satisfies readonly ProfileSection[];
 export const isRequiredSection = (s: ProfileSection): boolean => (REQUIRED_SECTIONS as readonly string[]).includes(s);
 
 export const profileSectionSchemas = {
@@ -192,7 +209,6 @@ export interface ProfileDto {
   acceptedTermsAt: string | null;
   company: string | null;
   industry: string | null;
-  companySize: string | null;
   mlExperienceYears: string | null;
   seniority: string | null;
   secondaryAreas: string[];
@@ -221,6 +237,8 @@ export interface ProfileDto {
   openToOpportunities: boolean;
   shareWithPartners: boolean;
   marketingEmails: boolean;
+  /** When the community step was last answered; null = its Yes/No questions are still unanswered. */
+  communityAnsweredAt: string | null;
   completeness: number;
   coreComplete: boolean;
   updatedAt: string | null;
@@ -240,13 +258,18 @@ export const CORE_FIELDS = [
   'preferredLanguage',
   'acceptedTermsAt',
   // Professional background
-  'industry',
   'mlExperienceYears',
   'seniority',
   // Education
   'educationLevel',
   'fieldOfStudy',
   'university',
+  // Links
+  'linkedinUrl',
+  'githubUrl',
+  // Community
+  'referralSource',
+  'communityAnsweredAt',
 ] as const;
 export type CoreField = (typeof CORE_FIELDS)[number];
 
@@ -264,17 +287,21 @@ export const CORE_FIELD_SECTION: Record<CoreField, (typeof REQUIRED_SECTIONS)[nu
   googleEmail: 'core',
   preferredLanguage: 'core',
   acceptedTermsAt: 'core',
-  industry: 'professional',
   mlExperienceYears: 'professional',
   seniority: 'professional',
   educationLevel: 'education',
   fieldOfStudy: 'education',
   university: 'education',
+  linkedinUrl: 'links',
+  githubUrl: 'links',
+  referralSource: 'community',
+  communityAnsweredAt: 'community',
 };
 
 /** Optional fields that count toward completeness, grouped by section. */
 const OPTIONAL_FIELDS: { field: keyof ProfileDto; section: ProfileSection }[] = [
   { field: 'company', section: 'professional' },
+  { field: 'industry', section: 'professional' },
   { field: 'secondaryAreas', section: 'professional' },
   { field: 'graduationYear', section: 'education' },
   { field: 'skills', section: 'skills' },
@@ -285,9 +312,7 @@ const OPTIONAL_FIELDS: { field: keyof ProfileDto; section: ProfileSection }[] = 
   { field: 'weeklyHours', section: 'goals' },
   { field: 'preferredTimes', section: 'goals' },
   { field: 'preferredFormat', section: 'goals' },
-  { field: 'linkedinUrl', section: 'links' },
-  { field: 'githubUrl', section: 'links' },
-  { field: 'referralSource', section: 'community' },
+  { field: 'websiteUrl', section: 'links' },
 ];
 
 function filled(v: unknown): boolean {

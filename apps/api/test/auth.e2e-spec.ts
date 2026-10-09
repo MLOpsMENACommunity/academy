@@ -117,7 +117,28 @@ describe('auth & profile (e2e)', () => {
       .set('Cookie', cookies)
       .send({ educationLevel: 'BACHELORS', fieldOfStudy: 'Computer Science', university: 'Cairo University' })
       .expect(200);
-    expect(edu.body).toMatchObject({ coreComplete: true, completeness: 60 });
+    // Links and the community questions are required too.
+    expect(edu.body).toMatchObject({ coreComplete: false });
+    await http()
+      .put('/api/me/profile/links')
+      .set('Cookie', cookies)
+      .send({ linkedinUrl: 'https://github.com/x', githubUrl: 'https://github.com/x' })
+      .expect(400);
+    await http()
+      .put('/api/me/profile/links')
+      .set('Cookie', cookies)
+      .send({ linkedinUrl: 'https://www.linkedin.com/in/student', githubUrl: 'https://github.com/student' })
+      .expect(200);
+    // Every community question needs an explicit answer; nothing defaults to "no".
+    // 63% = every required field (60%) plus the optional industry given above.
+    await http().put('/api/me/profile/community').set('Cookie', cookies).send({ referralSource: 'LINKEDIN' }).expect(400);
+    const community = await http()
+      .put('/api/me/profile/community')
+      .set('Cookie', cookies)
+      .send({ referralSource: 'LINKEDIN', communityMember: true, openToOpportunities: false, shareWithPartners: false, marketingEmails: true })
+      .expect(200);
+    expect(community.body).toMatchObject({ coreComplete: true, completeness: 63, marketingEmails: true, shareWithPartners: false });
+    expect(community.body.communityAnsweredAt).toBeTruthy();
     const skills = await http()
       .put('/api/me/profile/skills')
       .set('Cookie', cookies)
