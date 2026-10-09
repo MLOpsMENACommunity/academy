@@ -365,8 +365,8 @@
       "titleAr": "LLMOps",
       "shortDescriptionEn": "Serving, evaluating, and operating LLM systems in production — the operational half of GenAI that almost nobody teaches.",
       "shortDescriptionAr": "تقديم أنظمة النماذج اللغوية الكبيرة وتقييمها وتشغيلها في الإنتاج — الجانب التشغيلي من الذكاء الاصطناعي التوليدي الذي لا يكاد أحد يدرّسه.",
-      "longDescriptionEn": "Serving, evaluating, and operating LLM systems in production — the operational half of GenAI that almost nobody teaches.\n\nThis course is coming soon. We're finalising the curriculum, the instructor and the dates.\n\nWhat it will cover:\n\n- High-throughput serving with vLLM\n- RAG architecture and retrieval quality\n- Evaluation without ground truth\n- Tracing and observability with Langfuse\n- Token cost and latency budgets\n- Guardrails and safety filtering",
-      "longDescriptionAr": "تقديم أنظمة النماذج اللغوية الكبيرة وتقييمها وتشغيلها في الإنتاج — الجانب التشغيلي من الذكاء الاصطناعي التوليدي الذي لا يكاد أحد يدرّسه.\n\nستنطلق هذه الدورة قريبًا. نعمل حاليًا على وضع اللمسات الأخيرة على المحتوى والمحاضر والمواعيد.\n\nما الذي ستغطيه:\n\n- تقديم عالي الإنتاجية باستخدام vLLM\n- معمارية RAG وجودة الاسترجاع\n- التقييم دون إجابات مرجعية (ground truth)\n- التتبّع والمراقبة باستخدام Langfuse\n- ميزانيات تكلفة الـ tokens وزمن الاستجابة\n- الضوابط (Guardrails) وتصفية المحتوى غير الآمن",
+      "longDescriptionEn": "Will be announced soon.",
+      "longDescriptionAr": "سيُعلَن عنه قريبًا.",
       "status": "COMING_SOON",
       "type": "PAID",
       "price": 0,
@@ -376,28 +376,20 @@
       ],
       "learningOutcomes": {
         "en": [
-          "High-throughput serving with vLLM",
-          "RAG architecture and retrieval quality",
-          "Evaluation without ground truth",
-          "Tracing and observability with Langfuse",
-          "Token cost and latency budgets",
-          "Guardrails and safety filtering"
+          "Will be announced soon."
         ],
         "ar": [
-          "تقديم عالي الإنتاجية باستخدام vLLM",
-          "معمارية RAG وجودة الاسترجاع",
-          "التقييم دون إجابات مرجعية (ground truth)",
-          "التتبّع والمراقبة باستخدام Langfuse",
-          "ميزانيات تكلفة الـ tokens وزمن الاستجابة",
-          "الضوابط (Guardrails) وتصفية المحتوى غير الآمن"
+          "سيُعلَن عنه قريبًا."
         ]
       },
       "included": {
-        "liveSessions": true,
-        "recordings": true,
+        "liveSessions": false,
+        "recordings": false,
         "assignments": false,
         "finalProject": false,
-        "certificate": false
+        "certificate": false,
+        "notesEn": "Will be announced soon.",
+        "notesAr": "سيُعلَن عنه قريبًا."
       }
     }
   ]
