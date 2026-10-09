@@ -1,6 +1,4 @@
 import {
-  BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -71,22 +69,6 @@ export class AccountService {
       kind: 'passwordChanged',
       url: this.email.url(user.locale, '/forgot-password'),
     });
-  }
-
-  /** Login-email change: takes effect only after the new address is verified. */
-  async requestEmailChange(session: AuthUser, newEmail: string, password: string | undefined): Promise<void> {
-    await this.checkPassword(session, password);
-    const userId = session.id;
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (newEmail === user.email) throw new BadRequestException({ code: 'SAME_EMAIL', message: 'This is already your email' });
-    const taken = await this.prisma.user.findUnique({ where: { email: newEmail } });
-    if (taken) throw new ConflictException({ code: 'EMAIL_TAKEN', message: 'This email is already in use' });
-    const updated = await this.prisma.user.update({ where: { id: userId }, data: { pendingEmail: newEmail } });
-    await this.auth.sendVerification(updated, newEmail, null);
-  }
-
-  async cancelEmailChange(userId: string): Promise<void> {
-    await this.prisma.user.update({ where: { id: userId }, data: { pendingEmail: null } });
   }
 
   /** Everything we hold about the student, as JSON (data portability, Law 151/2020). */

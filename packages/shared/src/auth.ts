@@ -40,11 +40,6 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
-export const changeEmailSchema = z.object({
-  newEmail: emailSchema,
-  password: z.string().max(128).optional(),
-});
-
 export const deleteAccountSchema = z.object({
   /** The user types this word to confirm. */
   confirm: z.literal('DELETE'),
@@ -57,7 +52,6 @@ export const updateAccountSchema = z.object({ locale: z.enum(LOCALES) });
 export interface MeResponse {
   id: string;
   email: string;
-  pendingEmail: string | null;
   role: (typeof ROLES)[number];
   locale: (typeof LOCALES)[number];
   emailVerified: boolean;

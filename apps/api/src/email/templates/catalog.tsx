@@ -6,7 +6,6 @@ import { Layout } from './Layout';
 /** Every email the academy sends, with the data each one needs. */
 export type EmailTemplate =
   | { name: 'verifyEmail'; url: string }
-  | { name: 'confirmNewEmail'; url: string }
   | { name: 'resetPassword'; url: string }
   | {
       name: 'applicationStatus';
@@ -225,30 +224,6 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
               ar
                 ? 'ينتهي هذا الرابط خلال 24 ساعة. إذا لم تنشئ حسابًا، تجاهل هذه الرسالة.'
                 : "This link expires in 24 hours. If you didn't create an account, ignore this email."
-            }
-          />
-        ),
-      };
-    }
-    case 'confirmNewEmail': {
-      const subject = ar ? 'أكّد بريدك الإلكتروني الجديد' : 'Confirm your new email address';
-      return {
-        subject,
-        element: (
-          <Layout
-            {...base}
-            preview={subject}
-            heading={subject}
-            paragraphs={[
-              ar
-                ? 'طلبت تغيير البريد الإلكتروني لتسجيل الدخول. أكّد العنوان الجديد لإتمام التغيير.'
-                : 'You asked to change your login email. Confirm this new address to complete the change.',
-            ]}
-            cta={{ label: ar ? 'تأكيد البريد الجديد' : 'Confirm new email', url: t.url }}
-            note={
-              ar
-                ? 'ينتهي هذا الرابط خلال 24 ساعة. إذا لم تطلب هذا التغيير، تجاهل هذه الرسالة.'
-                : "This link expires in 24 hours. If you didn't ask for this, ignore this email."
             }
           />
         ),

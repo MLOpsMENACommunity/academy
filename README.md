@@ -167,11 +167,14 @@ are in [OPERATIONS.md](OPERATIONS.md).
   When Google signs in to an account whose email was never verified, any
   password and sessions on it are removed first, so pre-registering someone
   else's email gives no access.
-- **Re-authentication.** Changing the email or password, or deleting the
-  account, requires the current password. Google-only accounts must use a
+- **Re-authentication.** Changing the password or deleting the account
+  requires the current password. Google-only accounts must use a
   session that itself signed in with Google within the last 10 minutes; each
   session's sign-in method and time are carried through refresh. The account's
-  address is emailed after every password or email change.
+  address is emailed after every password change.
+- **No self-service email change.** Students cannot change their login email
+  (it was removed as an account-takeover risk); a confirmation link sent for an
+  old pending change no longer changes anything.
 - **Email verification** only works while signed in to the account the link
   was sent for, so clicking a link for someone else's pre-registration of your
   address does nothing.

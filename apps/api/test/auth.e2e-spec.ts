@@ -84,6 +84,32 @@ describe('auth & profile (e2e)', () => {
     expect(me.body.emailVerified).toBe(true);
   });
 
+  it('no longer lets a student change their login email', async () => {
+    await http().post('/api/me/email').set('Cookie', cookies).send({ newEmail: uniqueEmail('new'), password }).expect(404);
+    await http().delete('/api/me/email').set('Cookie', cookies).expect(404);
+    const me = await http().get('/api/auth/me').set('Cookie', cookies).expect(200);
+    expect(me.body.email).toBe(email);
+    expect(me.body).not.toHaveProperty('pendingEmail');
+  });
+
+  it('ignores a confirmation link sent for a pending email change before it was removed', async () => {
+    // State left by the old flow: a pending address and an unused link sent to it.
+    const newAddress = uniqueEmail('pending');
+    const user = await prisma.user.update({ where: { email }, data: { pendingEmail: newAddress } });
+    const token = randomToken();
+    await prisma.emailVerificationToken.create({
+      data: { userId: user.id, email: newAddress, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60_000) },
+    });
+    const res = await http().post('/api/auth/verify-email').set('Cookie', cookies).send({ token }).expect(400);
+    expect(res.body.code).toBe('TOKEN_INVALID');
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe(email);
+    expect(await prisma.user.findUnique({ where: { email: newAddress } })).toBeNull();
+    // The session still works: nothing was revoked by a change that did not happen.
+    await http().get('/api/auth/me').set('Cookie', cookies).expect(200);
+    await prisma.user.update({ where: { id: user.id }, data: { pendingEmail: null } });
+  });
+
   it('validates and saves the core profile, then computes completeness', async () => {
     const bad = await http().put('/api/me/profile/core').set('Cookie', cookies).send({ fullNameEn: 'A' }).expect(400);
     expect(bad.body.errors.length).toBeGreaterThan(3);
