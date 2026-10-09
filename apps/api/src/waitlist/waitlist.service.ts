@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   PUBLIC_COURSE_STATUSES,
   toCsv,
@@ -17,6 +17,8 @@ import type { AuthUser } from '../common/decorators';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { capRows, EXPORT_LIMIT } from '../admin/export';
+
+const CONFIRMATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** Not told yet and not in the middle of being told (a failed send can be retried by notifying again). */
 const WAITING = {
@@ -80,7 +82,14 @@ export class WaitlistService {
       if (userId) await this.prisma.courseInterest.updateMany({ where: { courseId: course.id, email, userId: null }, data: { userId } });
     }
 
-    if (created) {
+    // One confirmation per address per day across all courses: the form can't be used to
+    // flood someone's inbox by signing them up for every course.
+    const recent = created
+      ? await this.prisma.courseInterest.count({
+          where: { email, id: { not: created.id }, createdAt: { gt: new Date(Date.now() - CONFIRMATION_WINDOW_MS) } },
+        })
+      : 0;
+    if (created && recent === 0) {
       const ar = locale === 'ar';
       void this.email
         .send(
@@ -101,7 +110,9 @@ export class WaitlistService {
 
   /** Signed-in students leave from the course page. */
   async leaveAsUser(slug: string, userId: string): Promise<void> {
-    const course = await this.publicCourse(slug);
+    // Any status: leaving must keep working after a course is unpublished.
+    const course = await this.prisma.course.findUnique({ where: { slug }, select: { id: true } });
+    if (!course) throw new NotFoundException('Course not found');
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
     await this.prisma.courseInterest.deleteMany({ where: { courseId: course.id, OR: [{ userId }, { email: user.email.toLowerCase() }] } });
   }
@@ -145,18 +156,19 @@ export class WaitlistService {
 
   async list(courseId: string): Promise<WaitlistDto> {
     await this.adminCourse(courseId);
-    const [rows, groups] = await Promise.all([
+    const [rows, groups, notified, waiting] = await Promise.all([
       this.rows(courseId, 1000),
       this.prisma.courseInterest.groupBy({ by: ['deliveryStatus'], where: { courseId }, _count: { _all: true } }),
+      this.prisma.courseInterest.count({ where: { courseId, notifiedAt: { not: null } } }),
+      this.prisma.courseInterest.count({ where: { courseId, ...WAITING } }),
     ]);
     const n = (s: string | null) => groups.find((g) => g.deliveryStatus === s)?._count._all ?? 0;
     const count = groups.reduce((a, g) => a + g._count._all, 0);
-    const notified = await this.prisma.courseInterest.count({ where: { courseId, notifiedAt: { not: null } } });
     return {
       count,
       notified,
       sending: n('PENDING'),
-      waiting: await this.prisma.courseInterest.count({ where: { courseId, ...WAITING } }),
+      waiting,
       entries: rows.map((r) => ({
         id: r.id,
         email: r.email,
@@ -196,9 +208,17 @@ export class WaitlistService {
       where: { idempotencyKey: input.idempotencyKey },
       include: { _count: { select: { waitlist: true } } },
     });
-    if (existing) return { id: existing.id, recipients: existing._count.waitlist };
+    if (existing) {
+      if (existing.courseId !== courseId) throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REUSED', message: 'Generate a new key for this message' });
+      return { id: existing.id, recipients: existing._count.waitlist };
+    }
 
-    const course = await this.adminCourse(courseId);
+    const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, slug: true, titleEn: true, titleAr: true, status: true } });
+    if (!course) throw new NotFoundException('Course not found');
+    // "It's open" to a course people can't apply to would use up everyone's one notification.
+    if (course.status !== 'OPEN') {
+      throw new BadRequestException({ code: 'COURSE_NOT_OPEN', message: 'Open the course for applications before notifying the waiting list' });
+    }
     const where: Prisma.CourseInterestWhereInput = { courseId, ...WAITING };
     const subjectAr = input.subjectAr || input.subjectEn;
     const bodyAr = input.bodyAr || input.bodyEn;
@@ -218,10 +238,14 @@ export class WaitlistService {
             statuses: ['WAITLIST'],
           },
         });
-        await tx.courseInterest.updateMany({
-          where: { id: { in: people.map((p) => p.id) } },
+        // Only rows still waiting: a second notify running at the same time can't claim them twice.
+        const claimed = await tx.courseInterest.updateMany({
+          where: { id: { in: people.map((p) => p.id) }, ...WAITING },
           data: { announcementId: a.id, deliveryStatus: 'PENDING', attempts: 0 },
         });
+        if (claimed.count !== people.length) {
+          throw new ConflictException({ code: 'NOTIFY_IN_PROGRESS', message: 'The waiting list is being notified already. Refresh the page.' });
+        }
         const users = [...new Set(people.map((p) => p.userId).filter((x): x is string => Boolean(x)))];
         if (users.length) {
           await tx.notification.createMany({

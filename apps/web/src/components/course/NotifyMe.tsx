@@ -16,6 +16,8 @@ import { errorMessage } from '@/lib/errors';
  * as a convenience: the list itself lives on the server.
  */
 const joined = new Map<string, boolean>();
+/** Courses joined or left on this page visit: newer than a cached my-status answer. */
+const changedHere = new Set<string>();
 const listeners = new Set<() => void>();
 const storageKey = (slug: string) => `academy.waitlist.${slug}`;
 function setJoined(slug: string, value: boolean, remember: boolean) {
@@ -61,7 +63,7 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
   useEffect(() => {
     if (loading) return;
     if (user) {
-      if (interested !== undefined) setJoined(slug, interested, false);
+      if (interested !== undefined && !changedHere.has(slug)) setJoined(slug, interested, false);
       return;
     }
     let remembered = false;
@@ -85,6 +87,7 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
     setBusy(true);
     try {
       await api(`/courses/${slug}/interest`, { method: 'POST', json: parsed.data });
+      changedHere.add(slug);
       setJoined(slug, true, !user);
     } catch (err) {
       setError(errorMessage(err, t));
@@ -103,6 +106,7 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
     setBusy(true);
     try {
       await api(`/courses/${slug}/interest`, { method: 'DELETE' });
+      changedHere.add(slug);
       setJoined(slug, false, false);
     } catch (err) {
       setError(errorMessage(err, t));

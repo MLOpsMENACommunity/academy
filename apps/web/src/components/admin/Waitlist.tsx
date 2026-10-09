@@ -143,13 +143,14 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
           <p className="text-sm text-muted" aria-live="polite">
             {w('recipients', { count: data.waiting })}
           </p>
-          <Button type="button" className="ms-auto" loading={busy} disabled={!data.waiting} onClick={notify}>
+          <Button type="button" className="ms-auto" loading={busy} disabled={!data.waiting || status !== 'OPEN'} onClick={notify}>
             {w('notify')}
           </Button>
         </div>
       </Card>
 
-      <div className="overflow-x-auto rounded-card border border-line bg-card">
+      {/* relative: keeps the sr-only header inside the scroll box (it would widen the page otherwise). */}
+      <div className="relative overflow-x-auto rounded-card border border-line bg-card">
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-muted-bg text-xs text-muted">
             <tr>

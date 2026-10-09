@@ -834,7 +834,7 @@
         "sending": "Sending now",
         "notifyTitle": "Notify the waiting list",
         "notifyHelp": "Emails everyone not told yet, with a button to the course page and a link to leave the list. Students with an account also get an in-app notification. People who were already told are not emailed again.",
-        "notOpen": "This course isn't open for applications yet. Set its status to Open (Details tab) before telling the list, or people will land on a page where they can't apply.",
+        "notOpen": "You can notify the list once the course is open for applications: set its status to Open in the Details tab. Nothing is sent automatically.",
         "recipients": "Recipients: {count}",
         "notify": "Notify the waiting list",
         "confirm": "Email {count} people now? It can’t be undone.",

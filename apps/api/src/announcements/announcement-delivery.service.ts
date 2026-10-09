@@ -47,7 +47,19 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
   }
 
   private async drain(): Promise<number> {
-    return (await this.drainStudents()) + (await this.drainWaitlist());
+    // One queue failing must not hold up the other.
+    let sent = 0;
+    for (const [name, drain] of [
+      ['announcements', () => this.drainStudents()],
+      ['waiting list', () => this.drainWaitlist()],
+    ] as const) {
+      try {
+        sent += await drain();
+      } catch (err) {
+        this.logger.error(`Delivery run for ${name} failed: ${(err as Error).name}`);
+      }
+    }
+    return sent;
   }
 
   private async drainStudents(): Promise<number> {

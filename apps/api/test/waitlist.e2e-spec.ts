@@ -98,6 +98,15 @@ describe('waiting list (e2e)', () => {
     await http().post('/api/waitlist/leave').send({ token }).expect(200, { left: true, course: null });
   });
 
+  it('sends one confirmation per address per day, however many courses it is signed up for', async () => {
+    const [a, b] = [await comingSoon(), await comingSoon()];
+    const email = uniqueEmail('flood');
+    await http().post(`/api/courses/${a.slug}/interest`).set('X-Forwarded-For', ip()).send({ email }).expect(200);
+    await http().post(`/api/courses/${b.slug}/interest`).set('X-Forwarded-For', ip()).send({ email }).expect(200);
+    expect(await prisma.courseInterest.count({ where: { email } })).toBe(2);
+    expect(templates()).toEqual(['waitlistJoined']);
+  });
+
   it('ignores bots that fill in the honeypot (no row, no email)', async () => {
     const course = await comingSoon();
     const email = uniqueEmail('bot');
@@ -143,6 +152,14 @@ describe('waiting list (e2e)', () => {
     expect(csv.text).toContain('"Email"');
     expect(csv.text).toContain(visitor);
     expect(csv.text).toContain(student.email);
+
+    // Not while the course is still closed: people would land on a page where they can't apply.
+    const early = await http()
+      .post(`/api/admin/courses/${course.id}/waitlist/notify`)
+      .set('Cookie', admin.cookie)
+      .send({ subjectEn: 'Open', bodyEn: 'Apply now.', idempotencyKey: `wl-early-${Date.now()}-abcdef` })
+      .expect(400);
+    expect(early.body.code).toBe('COURSE_NOT_OPEN');
 
     await prisma.course.update({ where: { id: course.id }, data: { status: 'OPEN' } });
     sendSpy.mockClear();

@@ -43,12 +43,12 @@ ALTER TABLE "CourseInterest" ADD CONSTRAINT "CourseInterest_announcementId_fkey"
 UPDATE "LiveEvent"
 SET "descriptionEn" = regexp_replace("descriptionEn", '\s*Originally hosted on \[zomra\.io\]\([^)]*\)\.', '', 'g'),
     "descriptionAr" = regexp_replace("descriptionAr", '\s*استُضيفت الجلسة في الأصل على \[zomra\.io\]\([^)]*\)\.', '', 'g')
-WHERE "descriptionEn" ILIKE '%zomra.io%' OR "descriptionAr" ILIKE '%zomra.io%';
+WHERE "descriptionEn" LIKE '%[zomra.io](https://zomra.io/%' OR "descriptionAr" LIKE '%[zomra.io](https://zomra.io/%';
 
 UPDATE "Course"
 SET "longDescriptionEn" = regexp_replace("longDescriptionEn", ' on \[zomra\.io\]\([^)]*\)', '', 'g'),
     "longDescriptionAr" = regexp_replace("longDescriptionAr", ' على \[zomra\.io\]\([^)]*\)', '', 'g'),
-    "externalPlatform" = CASE WHEN "externalPlatform" ILIKE '%zomra%' THEN NULL ELSE "externalPlatform" END,
-    "externalUrl" = CASE WHEN "externalUrl" ILIKE '%zomra.io%' THEN NULL ELSE "externalUrl" END
-WHERE "longDescriptionEn" ILIKE '%zomra.io%' OR "longDescriptionAr" ILIKE '%zomra.io%'
-   OR "externalPlatform" ILIKE '%zomra%' OR "externalUrl" ILIKE '%zomra.io%';
+    "externalPlatform" = CASE WHEN lower("externalPlatform") = 'zomra.io' THEN NULL ELSE "externalPlatform" END,
+    "externalUrl" = CASE WHEN "externalUrl" LIKE 'https://zomra.io/%' THEN NULL ELSE "externalUrl" END
+WHERE "longDescriptionEn" LIKE '%[zomra.io](https://zomra.io/%' OR "longDescriptionAr" LIKE '%[zomra.io](https://zomra.io/%'
+   OR lower("externalPlatform") = 'zomra.io' OR "externalUrl" LIKE 'https://zomra.io/%';
