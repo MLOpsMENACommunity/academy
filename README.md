@@ -95,6 +95,7 @@ Web (`apps/web/.env.local`):
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | Canonical origin for SEO tags and the sitemap |
+| `NEXT_PUBLIC_ACADEMY_ENVIRONMENT` | `production` lets search engines index the site (robots.txt, sitemap); anything else, including unset, is noindex. Set per target by `deploy/cloudflare/configure-host.mjs` |
 | `API_INTERNAL_URL` | Where the Next server reaches the API (`/api/*` proxy and SSR fetches) |
 | `NEXT_PUBLIC_ANALYTICS_*` | Optional cookieless analytics (Plausible or Umami) |
 

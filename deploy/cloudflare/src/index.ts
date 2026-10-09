@@ -1,6 +1,7 @@
 import { Container } from '@cloudflare/containers';
-import { cacheKind, localeCookie, storableCacheControl, type CacheKind } from './edge-cache';
+import { cacheKind, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
+import { disallowAllRobots, isProduction, withNoindex } from './robots';
 
 /**
  * Entry Worker for academy on Cloudflare.
@@ -9,6 +10,7 @@ import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
  *   https://<host>/*      ->  WebContainer (Next.js, apps/web/Dockerfile)
  *   http://*, other hosts ->  301/308 to https://<host>
  *   Cron Trigger          ->  POST /api/internal/jobs/tick on the API (containers sleep when idle)
+ *   not production        ->  robots.txt "Disallow: /", X-Robots-Tag: noindex on everything (robots.ts)
  *
  * One API instance (max_instances: 1): rate limits and the login lockout are in-memory
  * in the API. The web app is stateless, so requests are spread over WEB_INSTANCES
@@ -22,6 +24,8 @@ export interface Env {
   API: DurableObjectNamespace<ApiContainer>;
   WEB: DurableObjectNamespace<WebContainer>;
   // vars
+  /** "production" or "staging" (set per target by configure-host.mjs). Only production is indexed. */
+  ACADEMY_ENVIRONMENT?: string;
   ACADEMY_HOSTNAME: string;
   EMAIL_FROM: string;
   S3_BUCKET: string;
@@ -202,32 +206,41 @@ async function web(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   const response = await webFetch(request, env, kind);
   const cacheControl = storableCacheControl(kind, response);
   if (!cacheControl) return withHeaders(response, { 'x-edge-cache': 'MISS' });
-  const stored = withHeaders(response.clone(), { 'cache-control': cacheControl });
+  // Stored without Set-Cookie; the visitor still gets the response as the container sent it.
+  const stored = storedCopy(response.clone(), cacheControl);
   ctx.waitUntil(cache.put(key, stored));
   return withHeaders(response, { 'x-edge-cache': 'MISS' });
 }
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
+/** Routes one request. Non-production deployments are kept out of search engines in fetch() below. */
+async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
     // Old or alternative hostnames (e.g. staging after going live) redirect to the canonical one,
     // and plain http to https. Some calendar clients turn webcal:// into http://, and the private
     // feed URL is a bearer credential: the redirect answers before anything reaches the API.
     // (The cron handler talks to the API container directly and never passes through here.)
-    if (url.hostname !== env.ACADEMY_HOSTNAME || url.protocol === 'http:') {
-      url.hostname = env.ACADEMY_HOSTNAME;
-      url.protocol = 'https:';
-      url.port = '';
-      const permanent = request.method === 'GET' || request.method === 'HEAD' ? 301 : 308;
-      return Response.redirect(url.toString(), permanent);
-    }
-    const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
-    if (isApi && url.pathname.startsWith('/api/internal/')) {
-      // Internal endpoints are only reachable from the cron handler below.
-      return new Response('Not found', { status: 404 });
-    }
-    if (isApi) return fromContainer(env.API.getByName(INSTANCE), request, 'api');
-    return web(request, env, ctx);
+  if (url.hostname !== env.ACADEMY_HOSTNAME || url.protocol === 'http:') {
+    url.hostname = env.ACADEMY_HOSTNAME;
+    url.protocol = 'https:';
+    url.port = '';
+    const permanent = request.method === 'GET' || request.method === 'HEAD' ? 301 : 308;
+    return Response.redirect(url.toString(), permanent);
+  }
+  const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
+  if (isApi && url.pathname.startsWith('/api/internal/')) {
+    // Internal endpoints are only reachable from the cron handler below. Same body as the API's own 404.
+    return Response.json({ statusCode: 404, message: 'Not found' }, { status: 404 });
+  }
+  if (isApi) return fromContainer(env.API.getByName(INSTANCE), request, 'api');
+  return web(request, env, ctx);
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    if (isProduction(env.ACADEMY_ENVIRONMENT)) return route(request, env, ctx);
+    // Staging (anything not production): never indexed. See robots.ts.
+    if (new URL(request.url).pathname === '/robots.txt') return disallowAllRobots();
+    return withNoindex(await route(request, env, ctx));
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {

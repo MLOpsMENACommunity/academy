@@ -14,7 +14,8 @@
  *   - Next client-navigation requests (RSC payloads, prefetches, server actions),
  *   - signed-in areas (dashboard, profile, onboarding, admin, learn, apply) and token
  *     links (verify-email, reset-password, waitlist/leave),
- *   - any response that sets a cookie, is not 200, or is private / no-store.
+ *   - any response that sets a cookie (other than the middleware's NEXT_LOCALE on a page,
+ *     which is stripped from the stored copy: see storedCopy), is not 200, or is private / no-store.
  *
  * The page HTML is the same for every visitor: personal state (who is signed in, my
  * application status, Notify me) is fetched by client components after load.
@@ -99,7 +100,9 @@ export function parseCacheControl(value: string | null): CacheControl {
  */
 export function storableCacheControl(kind: CacheKind, response: Response): string | null {
   if (response.status !== 200) return null;
-  if (response.headers.has('set-cookie')) return null;
+  // First-time visitors get the middleware's NEXT_LOCALE cookie on every page: that one alone
+  // doesn't stop caching (storedCopy drops it), or a launch spike of new visitors would never hit.
+  if (response.headers.has('set-cookie') && !(kind === 'page' && onlySetsLocaleCookie(response))) return null;
   const cc = parseCacheControl(response.headers.get('cache-control'));
   if (['private', 'no-store', 'no-cache'].some((d) => cc.directives.has(d))) return null;
   if (kind === 'asset') {
@@ -122,4 +125,30 @@ export function localeCookie(request: Request): string | null {
   const locale = pathLocale(new URL(request.url).pathname);
   if (!locale || cookieValue(request, LOCALE_COOKIE) === locale) return null;
   return `${LOCALE_COOKIE}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+/** Every Set-Cookie header of a response (one entry per cookie). */
+export function setCookies(response: Response): string[] {
+  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+  if (typeof headers.getSetCookie === 'function') return headers.getSetCookie();
+  const one = headers.get('set-cookie');
+  return one ? [one] : [];
+}
+
+/** True when the response sets cookies and every one of them is NEXT_LOCALE. */
+export function onlySetsLocaleCookie(response: Response): boolean {
+  const cookies = setCookies(response);
+  return cookies.length > 0 && cookies.every((c) => c.trimStart().startsWith(`${LOCALE_COOKIE}=`));
+}
+
+/**
+ * The copy to put in the edge cache: with the storable Cache-Control and never a Set-Cookie
+ * (the only one storableCacheControl lets through is NEXT_LOCALE, which the Worker sets per
+ * visitor itself: the miss passes the middleware's on, and hits add it with localeCookie).
+ */
+export function storedCopy(response: Response, cacheControl: string): Response {
+  const out = new Response(response.body, response);
+  out.headers.delete('set-cookie');
+  out.headers.set('cache-control', cacheControl);
+  return out;
 }
