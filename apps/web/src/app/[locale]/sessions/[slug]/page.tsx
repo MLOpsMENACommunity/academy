@@ -1,4 +1,12 @@
-import { courseLanguageLabels, deliveryPlatformLabels, eventEnded, youtubeId, type PublicEventDto } from '@academy/shared';
+import {
+  courseLanguageLabels,
+  deliveryPlatformLabels,
+  eventEnded,
+  eventSpeakerRoleLabels,
+  youtubeId,
+  type EventSpeakerRole,
+  type PublicEventDto,
+} from '@academy/shared';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -75,6 +83,39 @@ export default async function SessionPage({ params }: Props) {
   const past = e.status !== 'CANCELLED' && (e.past || eventEnded(new Date(e.startsAt), e.durationMin));
   const video = e.recordingUrl ? youtubeId(e.recordingUrl) : null;
   const speakerSlug = e.speaker?.slug ?? null;
+  // The main speaker, then hosts and guests. Unknown fields (a title, a photo) are left out, never made up.
+  const people: {
+    key: string;
+    name: string;
+    title: string;
+    photoUrl: string | null;
+    slug: string | null;
+    linkedinUrl: string | null;
+    role: EventSpeakerRole | null;
+  }[] = [
+    ...(speaker
+      ? [
+          {
+            key: 'main',
+            name: speaker,
+            title: speakerTitle,
+            photoUrl: e.speakerPhotoUrl,
+            slug: speakerSlug,
+            linkedinUrl: e.speakerLinkedinUrl,
+            role: null,
+          },
+        ]
+      : []),
+    ...(e.coSpeakers ?? []).map((c, i) => ({
+      key: `co-${i}`,
+      name: pick(locale, c.name, c.nameAr),
+      title: pick(locale, c.titleEn ?? '', c.titleAr),
+      photoUrl: c.photoUrl,
+      slug: c.slug,
+      linkedinUrl: null,
+      role: c.role,
+    })),
+  ];
 
   const facts: [string, ReactNode][] = [
     // Where it streamed only matters before it happens.
@@ -99,14 +140,14 @@ export default async function SessionPage({ params }: Props) {
       isAccessibleForFree: true,
       ...(e.coverImageUrl ? { image: [e.coverImageUrl] } : {}),
       organizer: { '@type': 'Organization', name: 'MLOps MENA Community', url: community.mainSite },
-      ...(e.speakerName
+      ...(people.length
         ? {
-            performer: {
+            performer: people.map((p) => ({
               '@type': 'Person',
-              name: e.speakerName,
-              ...(e.speakerTitleEn ? { jobTitle: e.speakerTitleEn } : {}),
-              ...(speakerSlug ? { url: absoluteUrl(speakerPath(locale, speakerSlug)) } : {}),
-            },
+              name: p.name,
+              ...(p.title ? { jobTitle: p.title } : {}),
+              ...(p.slug ? { url: absoluteUrl(speakerPath(locale, p.slug)) } : {}),
+            })),
           }
         : {}),
       offers: {
@@ -237,7 +278,13 @@ export default async function SessionPage({ params }: Props) {
                 {t('sessions.recordingHeading')}
               </h2>
               {e.recordingUrl ? (
-                <RecordingPlayer url={e.recordingUrl} youtubeId={video} title={title} locale={locale} />
+                <RecordingPlayer
+                  url={e.recordingUrl}
+                  youtubeId={video}
+                  title={title}
+                  locale={locale}
+                  sizes="(min-width: 1024px) 688px, calc(100vw - 40px)"
+                />
               ) : (
                 <p className="rounded-card border border-dashed border-line-strong/50 p-6 text-center text-muted">{t('sessions.recordingSoon')}</p>
               )}
@@ -254,38 +301,65 @@ export default async function SessionPage({ params }: Props) {
             </section>
           )}
 
-          {speaker && (
+          {people.length > 0 && (
             <section aria-labelledby="speaker">
               <h2 id="speaker" className="text-[1.5rem] sm:text-[1.625rem]">
-                {t('sessions.speaker')}
+                {people.length > 1 ? t('sessions.speakers') : t('sessions.speaker')}
               </h2>
-              <div className="mt-5 flex items-center gap-4">
-                {e.speakerPhotoUrl ? (
-                  // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
-                  <Image src={e.speakerPhotoUrl} alt="" width={64} height={64} unoptimized className="size-16 shrink-0 rounded-full object-cover" />
-                ) : (
-                  <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-logo-cyan-soft text-xl font-semibold text-primary">
-                    {speaker.charAt(0)}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="text-lg font-medium text-fg">
-                    {speakerSlug ? (
-                      <Link href={speakerPath(locale, speakerSlug)} className="underline decoration-line-strong/60 underline-offset-4 hover:text-primary">
-                        {speaker}
-                      </Link>
+              <ul className="mt-5 space-y-5">
+                {people.map((p) => (
+                  <li key={p.key} className="flex items-center gap-4">
+                    {p.photoUrl ? (
+                      // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
+                      <Image
+                        src={p.photoUrl}
+                        alt=""
+                        width={64}
+                        height={64}
+                        unoptimized
+                        className="size-16 shrink-0 rounded-full object-cover"
+                      />
                     ) : (
-                      speaker
+                      <span
+                        aria-hidden
+                        className="grid size-16 shrink-0 place-items-center rounded-full bg-logo-cyan-soft text-xl font-semibold text-primary"
+                      >
+                        {p.name.charAt(0)}
+                      </span>
                     )}
-                  </p>
-                  {speakerTitle && <p className="text-[0.9375rem] text-muted">{speakerTitle}</p>}
-                  {e.speakerLinkedinUrl && (
-                    <a href={e.speakerLinkedinUrl} rel="noopener noreferrer" target="_blank" className="inline-flex min-h-11 items-center text-[0.9375rem] text-primary underline">
-                      LinkedIn
-                    </a>
-                  )}
-                </div>
-              </div>
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-baseline gap-x-2 text-lg font-medium text-fg">
+                        {p.slug ? (
+                          <Link
+                            href={speakerPath(locale, p.slug)}
+                            className="underline decoration-line-strong/60 underline-offset-4 hover:text-primary"
+                          >
+                            {p.name}
+                          </Link>
+                        ) : (
+                          p.name
+                        )}
+                        {p.role && (
+                          <span className="text-sm font-normal text-muted">
+                            {eventSpeakerRoleLabels[p.role][locale]}
+                          </span>
+                        )}
+                      </p>
+                      {p.title && <p className="text-[0.9375rem] text-muted">{p.title}</p>}
+                      {p.linkedinUrl && (
+                        <a
+                          href={p.linkedinUrl}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                          className="inline-flex min-h-11 items-center text-[0.9375rem] text-primary underline"
+                        >
+                          LinkedIn
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
         </div>

@@ -40,6 +40,8 @@ interface Detail {
   notes: Note[];
   payments: AdminPaymentDto[];
   availableEvents: AdminApplicationEvent[];
+  /** The signed-in admin's own application: no status changes (another admin decides). */
+  ownApplication: boolean;
 }
 
 export default function ApplicationDetailAdmin() {
@@ -98,6 +100,8 @@ export default function ApplicationDetailAdmin() {
         </div>
         <StatusBadge status={a.status} locale={locale} />
       </div>
+
+      {a.ownApplication && <Alert tone="info">{t('admin.apps.ownApplication')}</Alert>}
 
       {a.availableEvents.length > 0 && (
         <Card>

@@ -4,7 +4,7 @@ import {
   APPLICATION_STATUSES,
   applicationStatusLabels,
   courseStatusLabels,
-  FUNNEL_EVENTS,
+  funnelBars,
   type ApplicationStatus,
   type CourseStatus,
   type FunnelEvent,
@@ -73,7 +73,6 @@ export default function AdminHome() {
       </div>
 
       {d?.courses.map((c) => {
-        const top = Math.max(1, ...Object.values(c.funnel));
         return (
           <Card key={c.id} className="mt-6">
             <div className="flex flex-wrap items-center gap-3">
@@ -103,23 +102,21 @@ export default function AdminHome() {
               </section>
               <section>
                 <h3 className="text-sm font-semibold text-muted">{t('admin.dashboard.funnel')}</h3>
+                {/* Counts only: people skip steps, so step-to-step percentages could pass 100% (see funnelBars). */}
+                <p className="mt-1 text-xs text-muted">{t('admin.dashboard.funnelNote')}</p>
                 <ol className="mt-2 space-y-1.5 text-sm">
-                  {FUNNEL_EVENTS.map((e, i) => {
-                    const n = c.funnel[e];
-                    const prev = i > 0 ? c.funnel[FUNNEL_EVENTS[i - 1]!] : 0;
-                    return (
-                      <li key={e} className="grid grid-cols-[8rem_1fr_5.5rem] items-center gap-2">
-                        <span className="truncate">{t(`admin.dashboard.events.${e}`)}</span>
-                        <span className="h-3 rounded-full bg-muted-bg" aria-hidden>
-                          <span className="block h-3 rounded-full bg-primary" style={{ width: `${(n / top) * 100}%` }} />
-                        </span>
-                        <span className="text-end tabular-nums">
-                          {n}
-                          {i > 0 && prev > 0 && <span className="ms-1 text-xs text-muted">({Math.round((n / prev) * 100)}%)</span>}
-                        </span>
-                      </li>
-                    );
-                  })}
+                  {funnelBars(c.funnel).map(({ event: e, count: n, width }) => (
+                    <li key={e} className="grid grid-cols-[8rem_1fr_3.5rem] items-center gap-2">
+                      <span className="truncate">{t(`admin.dashboard.events.${e}`)}</span>
+                      <span className="h-3 rounded-full bg-muted-bg" aria-hidden>
+                        <span
+                          className="block h-3 rounded-full bg-primary"
+                          style={{ width: `${width}%` }}
+                        />
+                      </span>
+                      <span className="text-end tabular-nums">{n}</span>
+                    </li>
+                  ))}
                 </ol>
               </section>
             </div>

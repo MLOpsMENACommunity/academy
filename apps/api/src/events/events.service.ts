@@ -6,6 +6,8 @@ import {
   isValidTimezone,
   liveLinkVisible,
   type Locale,
+  type CoSpeakerDto,
+  type EventSpeakerRole,
   type PublicEventDto,
   type SpeakerRefDto,
 } from '@academy/shared';
@@ -43,8 +45,27 @@ type SpeakerRef = Prisma.InstructorGetPayload<{ select: typeof speakerRefSelect 
 const withCount = {
   _count: { select: { registrations: { where: { user: { deletedAt: null } } } } },
   speaker: { select: speakerRefSelect },
+  coSpeakers: {
+    orderBy: { order: 'asc' },
+    select: { role: true, instructorId: true, instructor: { select: speakerRefSelect } },
+  },
 } satisfies Prisma.LiveEventInclude;
-type EventWithCount = LiveEvent & { _count: { registrations: number }; speaker: SpeakerRef | null };
+type CoSpeakerRow = { role: EventSpeakerRole; instructorId: string; instructor: SpeakerRef };
+type EventWithCount = LiveEvent & {
+  _count: { registrations: number };
+  speaker: SpeakerRef | null;
+  coSpeakers: CoSpeakerRow[];
+};
+
+/** Hosts and guests in order, without the main speaker (listed once, as the speaker). */
+export function toCoSpeakers(e: {
+  speakerId: string | null;
+  coSpeakers: CoSpeakerRow[];
+}): CoSpeakerDto[] {
+  return e.coSpeakers
+    .filter((c) => c.instructorId !== e.speakerId)
+    .map((c) => ({ ...toSpeakerRef(c.instructor), role: c.role }));
+}
 
 /** The viewer's side of one event, computed once per request. */
 interface ViewerContext {
@@ -83,6 +104,7 @@ export class EventsService {
       speakerPhotoUrl: e.speakerPhotoUrl ?? sp?.photoUrl ?? null,
       speakerLinkedinUrl: e.speakerLinkedinUrl ?? sp?.linkedinUrl ?? null,
       speaker: sp ? toSpeakerRef(sp) : null,
+      coSpeakers: toCoSpeakers(e),
       topics: e.topics,
       startsAt: e.startsAt.toISOString(),
       durationMin: e.durationMin,
@@ -259,8 +281,19 @@ export class EventsService {
    * Creates or updates a session. A new time resets the reminders (so the 24h and 1h
    * reminders go out again for the new time) and tells registrants; cancelling tells them too.
    */
-  async save(input: Prisma.LiveEventUncheckedCreateInput, actorId: string, id?: string): Promise<LiveEvent> {
-    const before = id ? await this.prisma.liveEvent.findUnique({ where: { id } }) : null;
+  async save(
+    input: Prisma.LiveEventUncheckedCreateInput,
+    actorId: string,
+    id?: string,
+    /** Hosts and guests, in order. Undefined: keep the current ones. */
+    coSpeakers?: { instructorId: string; role: EventSpeakerRole }[],
+  ): Promise<LiveEvent> {
+    const before = id
+      ? await this.prisma.liveEvent.findUnique({
+          where: { id },
+          include: { coSpeakers: { orderBy: { order: 'asc' } } },
+        })
+      : null;
     if (id && !before) throw new NotFoundException('Session not found');
     let saved: LiveEvent;
     try {
@@ -269,6 +302,19 @@ export class EventsService {
         const e = id ? await tx.liveEvent.update({ where: { id }, data: { ...input, importHash: null } }) : await tx.liveEvent.create({ data: input });
         if (before && before.startsAt.getTime() !== e.startsAt.getTime()) {
           await tx.eventReminderLog.deleteMany({ where: { eventId: e.id } });
+        }
+        if (coSpeakers) {
+          await tx.liveEventSpeaker.deleteMany({ where: { eventId: e.id } });
+          const list = coSpeakers.filter((c) => c.instructorId !== e.speakerId);
+          if (list.length)
+            await tx.liveEventSpeaker.createMany({
+              data: list.map((c, order) => ({
+                eventId: e.id,
+                instructorId: c.instructorId,
+                role: c.role,
+                order,
+              })),
+            });
         }
         return e;
       });
@@ -286,11 +332,29 @@ export class EventsService {
     const rescheduled = Boolean(before && before.startsAt.getTime() !== saved.startsAt.getTime());
     const metadata: Record<string, unknown> = { slug: saved.slug };
     if (!before) metadata.status = saved.status;
-    if (before && before.status !== saved.status) metadata.status = { from: before.status, to: saved.status };
-    if (before && rescheduled) metadata.startsAt = { from: before.startsAt.toISOString(), to: saved.startsAt.toISOString() };
-    if (before && before.durationMin !== saved.durationMin) metadata.durationMin = { from: before.durationMin, to: saved.durationMin };
-    if (before && (before.liveUrl ?? null) !== (saved.liveUrl ?? null)) metadata.liveUrlChanged = true;
-    await this.audit.log({ actorId, action: before ? 'event.updated' : 'event.created', entityType: 'LiveEvent', entityId: saved.id, metadata });
+    if (before && before.status !== saved.status)
+      metadata.status = { from: before.status, to: saved.status };
+    if (before && rescheduled)
+      metadata.startsAt = { from: before.startsAt.toISOString(), to: saved.startsAt.toISOString() };
+    if (before && before.durationMin !== saved.durationMin)
+      metadata.durationMin = { from: before.durationMin, to: saved.durationMin };
+    if (before && (before.liveUrl ?? null) !== (saved.liveUrl ?? null))
+      metadata.liveUrlChanged = true;
+    if (before && coSpeakers) {
+      const ids = (list: { instructorId: string; role: string }[]) =>
+        list.map((c) => `${c.instructorId}:${c.role}`).join(',');
+      if (
+        ids(before.coSpeakers) !== ids(coSpeakers.filter((c) => c.instructorId !== saved.speakerId))
+      )
+        metadata.coSpeakersChanged = true;
+    }
+    await this.audit.log({
+      actorId,
+      action: before ? 'event.updated' : 'event.created',
+      entityType: 'LiveEvent',
+      entityId: saved.id,
+      metadata,
+    });
 
     if (before?.status === 'PUBLISHED' && saved.status === 'CANCELLED') {
       await this.notifyRegistrants(saved, 'eventCancelled');

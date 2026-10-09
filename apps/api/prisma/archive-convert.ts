@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { slugify } from '@academy/shared';
 import * as defaultCuration from './archive-curation';
+import type { CuratedCoSpeaker, SessionDetails } from './archive-curation';
 import { ARCHIVE_FORMAT_VERSION, archiveFileSchema, type ArchiveFileInput } from './archive-schema';
 
 /**
@@ -98,31 +99,70 @@ function videoMinutes(input: WebsiteInput, id: string | undefined | null): numbe
 const bullets = (items: readonly string[]) => items.map((x) => `- ${x}`).join('\n');
 const paragraphs = (...parts: (string | undefined | false)[]) => parts.filter(Boolean).join('\n\n');
 
-export function convertWebsite(input: WebsiteInput, curation: Curation = defaultCuration): ArchiveFileInput {
-  const out: Required<Pick<ArchiveFileInput, 'speakers' | 'sessions' | 'courses'>> = { speakers: [], sessions: [], courses: [] };
+/** One item reads as a paragraph, several as a list. */
+const block = (items: readonly string[]) => (items.length === 1 ? items[0]! : bullets(items));
+
+/**
+ * "Why attend", "What you'll learn" and "Requirements" from the owner's list, in the reader's
+ * language. `lead`: the first paragraph, when the "why" is already said there.
+ */
+function detailsMarkdown(
+  d: SessionDetails,
+  lang: 'en' | 'ar',
+  opts: { whyAsLead?: boolean } = {},
+): string {
+  const en = lang === 'en';
+  const why = en ? d.whyEn : d.whyAr;
+  const learn = en ? d.learnEn : d.learnAr;
+  const req = (en ? d.requirementsEn : d.requirementsAr) ?? [];
+  return paragraphs(
+    !opts.whyAsLead &&
+      why.length > 0 &&
+      `### ${en ? 'Why attend' : 'لماذا تحضر هذه الجلسة'}\n\n${block(why)}`,
+    learn.length > 0 && `### ${en ? "What you'll learn" : 'ما ستتعلمه'}\n\n${bullets(learn)}`,
+    req.length > 0 && `### ${en ? 'Requirements' : 'المتطلبات'}\n\n${bullets(req)}`,
+  );
+}
+
+export function convertWebsite(
+  input: WebsiteInput,
+  curation: Curation = defaultCuration,
+): ArchiveFileInput {
+  const out: Required<Pick<ArchiveFileInput, 'speakers' | 'sessions' | 'courses'>> = {
+    speakers: [],
+    sessions: [],
+    courses: [],
+  };
   const speakerSlugs = new Map<string, string>();
 
-  /** One speaker per person (by name), enriched from the team page when they're on it. */
-  const speaker = (name: string, role: string): string => {
+  /**
+   * One speaker per person (by name), enriched from the team page when they're on it and
+   * from the curated profile (Arabic, and roles or bios the website lacks).
+   */
+  const speaker = (name: string, role = ''): string => {
     const known = speakerSlugs.get(name);
     if (known) return known;
     const slug = slugify(name);
     const member = input.team.find((m) => m.name === name);
-    const ar = curation.speakersAr[name] ?? {};
+    const cur = curation.speakerProfiles[name] ?? {};
     const photo = `/speakers/${slug}.webp`;
+    const bioEn = member?.bio || cur.bioEn || '';
     out.speakers.push({
       slug,
       name,
-      titleEn: role,
-      ...(ar.titleAr ? { titleAr: ar.titleAr } : {}),
-      bioEn: member?.bio ?? '',
-      ...(ar.bioAr && member ? { bioAr: ar.bioAr } : {}),
+      ...(cur.nameAr ? { nameAr: cur.nameAr } : {}),
+      titleEn: cur.titleEn ?? role,
+      ...(cur.titleAr ? { titleAr: cur.titleAr } : {}),
+      bioEn,
+      ...(cur.bioAr && bioEn ? { bioAr: cur.bioAr } : {}),
       ...(input.publicFiles?.includes(photo) ? { photoUrl: photo } : {}),
       ...(member?.linkedin ? { linkedinUrl: member.linkedin } : {}),
     });
     speakerSlugs.set(name, slug);
     return slug;
   };
+  const coSpeakers = (list: CuratedCoSpeaker[] | undefined) =>
+    (list ?? []).map((c) => ({ speaker: speaker(c.name), role: c.role }));
 
   // ---- The MLOps Practitioner (course 01), with its lessons as they ran
   const c = input.course;
@@ -155,7 +195,7 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
     // The website keeps the course's name in English in Arabic too.
     titleAr: c.title,
     shortDescriptionEn:
-      'Take an ML model from notebook to production: packaging and APIs, experiment tracking and CI/CD, serving at scale, drift monitoring and model optimization. Cohort 1 ran Aug–Oct 2026, and every lesson is recorded.',
+      'Take an ML model from notebook to production: packaging and APIs, experiment tracking and CI/CD, serving at scale, drift monitoring and model optimization. Cohort 1 ran Aug–Sep 2026; four of its five lessons are recorded.',
     shortDescriptionAr: ar.shortDescription,
     longDescriptionEn: paragraphs(
       c.summary,
@@ -165,7 +205,7 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
       bullets(c.description.learn),
       c.description.outro,
       '## Cohort 1',
-      'Cohort 1 ran from 15 August to 2 October 2026: five live lessons on YouTube Live, two project weeks and a final project.',
+      'Cohort 1 ran its five live lessons on YouTube Live from 16 August to 20 September 2026, with a project week and a final project. Lessons 1 to 4 are recorded; lesson 5 (Model Optimization, 20 September) has no public recording.',
       '## Course materials',
       bullets([`[Course repository](${repo}): all code, notebooks and module projects.`, ...(slides ? [`[Slides for every session](${slides}): a Google Drive folder.`] : [])]),
     ),
@@ -186,9 +226,10 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
     price: 0,
     level: 'INTERMEDIATE',
     cohortNumber: 1,
-    startDate: c.dates.start,
-    endDate: c.dates.end,
-    durationWeeks: c.outline.length,
+    // The website's dates and its 7-week outline describe the plan; these are when the lessons ran.
+    startDate: curation.practitionerDates.start,
+    endDate: curation.practitionerDates.end,
+    durationWeeks: curation.practitionerDates.weeks,
     publicRecordings: true,
     deliveryPlatform: 'YOUTUBE_LIVE',
     recordingsPlatform: 'YOUTUBE',
@@ -197,16 +238,23 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
     targetAudience: { en: c.audience.map((a) => `- ${a}`).join('\n'), ar: ar.audience.map((a) => `- ${a}`).join('\n') },
     learningOutcomes: { en: [...c.objectives], ar: ar.objectives },
     prerequisites: { en: [...c.requirements], ar: ar.requirements },
-    outline: c.outline.map((w) => {
-      const wAr = curation.practitionerWeeksAr[w.week];
-      const descriptionEn = w.project ?? w.note;
-      return {
-        titleEn: w.title,
-        titleAr: wAr?.title ?? w.title,
-        ...(descriptionEn ? { descriptionEn } : {}),
-        ...(descriptionEn ? { descriptionAr: wAr?.description ?? descriptionEn } : {}),
-      };
-    }),
+    // In the order the weeks were taught (see practitionerWeekOrder).
+    outline: [...c.outline]
+      .sort(
+        (a, b) =>
+          curation.practitionerWeekOrder.indexOf(a.week) -
+          curation.practitionerWeekOrder.indexOf(b.week),
+      )
+      .map((w) => {
+        const wAr = curation.practitionerWeeksAr[w.week];
+        const descriptionEn = w.project ?? w.note;
+        return {
+          titleEn: w.title,
+          titleAr: wAr?.title ?? w.title,
+          ...(descriptionEn ? { descriptionEn } : {}),
+          ...(descriptionEn ? { descriptionAr: wAr?.description ?? descriptionEn } : {}),
+        };
+      }),
     included: {
       liveSessions: true,
       recordings: true,
@@ -225,24 +273,31 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
     if (youtubeId) usedVideos.add(youtubeId);
     const recordingUrl = youtubeId ? watchUrl(youtubeId) : s.recordingUrl;
     const topicsAr = cur?.topicsAr?.length === s.topics.length ? cur.topicsAr : s.topics;
+    // The owner's "why / what you'll learn / requirements" replace the website's note and topic list.
+    const d = cur?.details;
     out.sessions.push({
       slug: s.slug,
       titleEn: s.title,
       titleAr: cur?.titleAr ?? '',
-      descriptionEn: paragraphs(
-        cur?.summaryEn ?? s.subtitle,
-        s.note,
-        s.topics.length > 0 && `### What we covered\n\n${bullets(s.topics)}`,
-      ),
+      descriptionEn: d
+        ? paragraphs(cur?.summaryEn ?? s.subtitle, detailsMarkdown(d, 'en'))
+        : paragraphs(
+            cur?.summaryEn ?? s.subtitle,
+            s.note,
+            s.topics.length > 0 && `### What we covered\n\n${bullets(s.topics)}`,
+          ),
       descriptionAr: cur?.summaryAr
-        ? paragraphs(
-            cur.summaryAr,
-            cur.noteAr,
-            s.topics.length > 0 && `### ما تناولته الجلسة\n\n${bullets(topicsAr)}`,
-          )
+        ? d
+          ? paragraphs(cur.summaryAr, detailsMarkdown(d, 'ar'))
+          : paragraphs(
+              cur.summaryAr,
+              cur.noteAr,
+              s.topics.length > 0 && `### ما تناولته الجلسة\n\n${bullets(topicsAr)}`,
+            )
         : '',
       speaker: speaker(s.speaker, s.speakerRole),
-      startsAt: s.startsAt,
+      coSpeakers: coSpeakers(cur?.coSpeakers),
+      startsAt: cur?.startsAt ?? s.startsAt,
       // A recording's length is what actually happened; otherwise what the website planned.
       durationMin: videoMinutes(input, youtubeId) ?? s.durationMinutes ?? WEBSITE_DEFAULT_MINUTES,
       topics: cur?.tags ?? [],
@@ -254,19 +309,47 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
   for (const v of input.youtube.videos) {
     if (usedVideos.has(v.id) || curation.skipVideos[v.id]) continue;
     const cur = curation.videos[v.id];
+    const d = cur?.details;
     out.sessions.push({
       slug: cur?.slug ?? (slugify(v.title) || `video-${v.id.toLowerCase()}`),
       titleEn: cur?.titleEn ?? v.title,
       titleAr: cur?.titleAr ?? '',
-      descriptionEn: cur?.descriptionEn ?? '',
-      descriptionAr: cur?.descriptionAr ?? '',
+      descriptionEn: paragraphs(cur?.descriptionEn, d && detailsMarkdown(d, 'en')),
+      descriptionAr: cur?.descriptionAr
+        ? paragraphs(cur.descriptionAr, d && detailsMarkdown(d, 'ar'))
+        : '',
+      ...(cur?.speaker ? { speaker: speaker(cur.speaker) } : {}),
+      ...(cur?.coSpeakers ? { coSpeakers: coSpeakers(cur.coSpeakers) } : {}),
       ...(cur?.speakerName ? { speakerName: cur.speakerName } : {}),
+      ...(cur?.speakerNameAr ? { speakerNameAr: cur.speakerNameAr } : {}),
       ...(cur?.speakerLinkedinUrl ? { speakerLinkedinUrl: cur.speakerLinkedinUrl } : {}),
-      // Uploaded recordings: the upload time stands in for the session date.
-      startsAt: v.published,
+      // Uploaded recordings: the upload time stands in for the session date, unless we know it.
+      startsAt: cur?.startsAt ?? v.published,
       durationMin: videoMinutes(input, v.id) ?? 60,
       topics: cur?.tags ?? [],
       recordingUrl: watchUrl(v.id),
+    });
+  }
+
+  // ---- past sessions only the owner's list has (no website entry, no recording yet)
+  for (const e of curation.extraSessions) {
+    out.sessions.push({
+      slug: e.slug,
+      titleEn: e.titleEn,
+      titleAr: e.titleAr,
+      descriptionEn: paragraphs(
+        block(e.details.whyEn),
+        detailsMarkdown(e.details, 'en', { whyAsLead: true }),
+      ),
+      descriptionAr: paragraphs(
+        block(e.details.whyAr),
+        detailsMarkdown(e.details, 'ar', { whyAsLead: true }),
+      ),
+      speaker: speaker(e.speaker),
+      coSpeakers: coSpeakers(e.coSpeakers),
+      startsAt: e.startsAt,
+      durationMin: e.durationMin,
+      topics: e.tags,
     });
   }
 

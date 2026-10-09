@@ -9,7 +9,31 @@
  * (src/lib/content-i18n.ts).
  */
 
+/** A person's part in a session besides its main speaker (from the owner's list of past sessions). */
+export interface CuratedCoSpeaker {
+  name: string;
+  role: 'HOST' | 'GUEST' | 'SPEAKER';
+}
+
+/**
+ * What the owner's list of past sessions (9 Oct 2026) says a session taught, why to attend
+ * and what you needed. It replaces the website's topic list in the description.
+ */
+export interface SessionDetails {
+  learnEn: string[];
+  learnAr: string[];
+  /** One item: a paragraph. Several: a list. */
+  whyEn: string[];
+  whyAr: string[];
+  requirementsEn?: string[];
+  requirementsAr?: string[];
+}
+
 export interface CuratedSession {
+  /** Corrects the website's date (the owner's list is authoritative for dates). */
+  startsAt?: string;
+  coSpeakers?: CuratedCoSpeaker[];
+  details?: SessionDetails;
   titleAr?: string;
   /** Replaces the subtitle as the first paragraph. */
   summaryEn?: string;
@@ -31,8 +55,29 @@ export interface CuratedVideo {
   descriptionEn: string;
   descriptionAr: string;
   tags: string[];
+  /** A speaker with a page (by name; see speakerProfiles). */
+  speaker?: string;
+  coSpeakers?: CuratedCoSpeaker[];
+  details?: SessionDetails;
+  /** The session's date when it isn't the upload time (the owner's list is authoritative for dates). */
+  startsAt?: string;
+  /** A one-off speaker without a page. */
   speakerName?: string;
+  speakerNameAr?: string;
   speakerLinkedinUrl?: string;
+}
+
+/** A past session that is neither on the website nor on YouTube yet, from the owner's list. */
+export interface CuratedExtraSession {
+  slug: string;
+  titleEn: string;
+  titleAr: string;
+  speaker: string;
+  coSpeakers: CuratedCoSpeaker[];
+  startsAt: string;
+  durationMin: number;
+  tags: string[];
+  details: SessionDetails;
 }
 
 export interface CuratedLesson {
@@ -52,21 +97,105 @@ export interface CuratedLesson {
 
 // ------------------------------------------------------------------ speakers
 
-export const speakersAr: Record<string, { titleAr?: string; bioAr?: string }> = {
+/**
+ * Speaker profiles: Arabic, plus English the website lacks. Roles and bios are short
+ * factual lines from the owner's list of past sessions (9 Oct 2026); nothing is made up,
+ * and a field we don't know stays empty (pages hide it). Arabic names: REVIEW.
+ */
+export interface SpeakerProfile {
+  nameAr?: string;
+  /** Replaces the website's role. */
+  titleEn?: string;
+  titleAr?: string;
+  /** For people without a bio on the website's team page. */
+  bioEn?: string;
+  bioAr?: string;
+}
+
+export const speakerProfiles: Record<string, SpeakerProfile> = {
   'Aya Nasser Salama': {
+    nameAr: 'آية ناصر سلامة',
     titleAr: 'مؤسِّسة مجتمع MLOps MENA ومهندسة MLOps أولى',
     bioAr:
       'مهندسة MLOps وLLMOps أولى بخبرة تتجاوز 6 سنوات في الذكاء الاصطناعي. في Unifonic هي المرجع المركزي لدعم MLOps/LLMOps عبر فرق الذكاء الاصطناعي — منتجات وكيلة باستخدام LangGraph وMCP، وتقييم ومراقبة النماذج اللغوية، وخدمة نماذج تتجاوز 30 مليار معامل على Kubernetes. صمّمت وتدرّس مادة «Production ML Engineering» في ITI، وبنت أول نظام RAG إنتاجي في Valeo.',
   },
-  'Mahmoud Sharif': { titleAr: 'مدرّب · خبرة أكثر من 3 سنوات' },
-  'Abdallah Almalawany': { titleAr: 'مهندس DevOps' },
-  'Mohamed Rashad': { titleAr: 'شريك مؤسس ومدير تقني، DevisionX' },
+  // The website said "Instructor · 3+ years experience"; the owner's list says with whom.
+  'Mahmoud Sharif': {
+    nameAr: 'محمود شريف',
+    titleEn: 'Instructor with eYouth and Mindset',
+    titleAr: 'مدرّب مع eYouth وMindset',
+    bioEn: '3+ years instructing with eYouth and Mindset.',
+    bioAr: 'أكثر من 3 سنوات في التدريب مع eYouth وMindset.',
+  },
+  'Abdallah Almalawany': {
+    nameAr: 'عبدالله الملواني',
+    titleEn: 'DevOps Engineer',
+    titleAr: 'مهندس DevOps',
+  },
+  'Mohamed Rashad': {
+    nameAr: 'محمد رشاد',
+    titleEn: 'Co-Founder and CTO, DevisionX',
+    titleAr: 'شريك مؤسس ومدير تقني، DevisionX',
+    bioEn:
+      "Co-Founder and CTO of DevisionX. His on-prem Llama-2 work was featured on Meta's Engineering Blog.",
+    bioAr:
+      'شريك مؤسس ومدير تقني في DevisionX. عُرض عمله على تشغيل Llama-2 داخل المؤسسة (On-Prem) في مدونة Meta الهندسية.',
+  },
+  // The owner's list gives no role for Mohamed Samy: the page shows his name only.
+  'Mohamed Samy': { nameAr: 'محمد سامي' },
+  // Bio and LinkedIn from the website's team page; the role from the owner's list.
+  'Mariam Qotob': {
+    nameAr: 'مريم قطب',
+    titleEn: 'AI Engineer',
+    titleAr: 'مهندسة ذكاء اصطناعي',
+    bioAr:
+      'مهندسة ذكاء اصطناعي وتعلّم آلة، حاصلة على ماجستير مهني في الذكاء الاصطناعي من جامعة Queen’s، وتعمل عبر مسار تعلّم الآلة كاملًا مع خبرة تطبيقية في النماذج اللغوية الكبيرة (LLMs) وRAG. تعمل حاليًا مساعدة تدريس في مبادرة Digilians.',
+  },
 };
 
 // ------------------------------------------------------------------ free sessions (data/sessions.ts)
 
 export const sessions: Record<string, CuratedSession> = {
   'docker-deep-dive': {
+    // The website had 20:00 Cairo; the owner's list: Saturday 22 Aug, 4:00 PM UTC (7:00 PM Cairo).
+    startsAt: '2026-08-22T19:00:00+03:00',
+    coSpeakers: [
+      { name: 'Aya Nasser Salama', role: 'HOST' },
+      { name: 'Mariam Qotob', role: 'GUEST' },
+    ],
+    details: {
+      learnEn: [
+        'Virtualization vs containerization, and Docker architecture.',
+        'Docker images and containers in practice.',
+        'Docker networking and storage/volumes.',
+        'Writing a Dockerfile with best practices, plus Docker security.',
+        'Docker Compose for multi-container setups.',
+      ],
+      learnAr: [
+        'المحاكاة الافتراضية مقابل الحاويات، ومعمارية Docker.',
+        'صور Docker وحاوياته عمليًا.',
+        'الشبكات والتخزين ووحدات التخزين (Volumes) في Docker.',
+        'كتابة Dockerfile بأفضل الممارسات، وأمان Docker.',
+        'Docker Compose لتشغيل عدة حاويات معًا.',
+      ],
+      whyEn: [
+        "Deeper hands-on Docker for anyone whose Docker part of the MLOps course isn't solid yet, focused on what you need when building ML systems. Delivered by Mahmoud Sharif (3+ years instructing with eYouth and Mindset). Live on Google Meet; MLOps Practitioner students could ask directly.",
+      ],
+      whyAr: [
+        'تعمّق عملي في Docker لكل من لم يتمكّن بعد من جزء Docker في دورة MLOps، مع التركيز على ما تحتاجه عند بناء أنظمة تعلّم الآلة. قدّمها محمود شريف (أكثر من 3 سنوات في التدريب مع eYouth وMindset). بثّ مباشر على Google Meet، وكان بإمكان طلاب MLOps Practitioner طرح أسئلتهم مباشرة.',
+      ],
+      // The list's "Google Meet limited to 150 engineers (join early)" was for the live session only.
+      requirementsEn: [
+        'Docker installed (recommended).',
+        'Basic terminal familiarity (nice to have).',
+        'No prior Docker or Kubernetes background needed.',
+      ],
+      requirementsAr: [
+        'Docker مثبّت على جهازك (يُنصح به).',
+        'إلمام أساسي بالطرفية (Terminal) (ميزة إضافية).',
+        'لا تحتاج خبرة سابقة في Docker أو Kubernetes.',
+      ],
+    },
     titleAr: 'تعمّق في Docker', // REVIEW
     summaryAr: 'Docker: أساس البناء لـ MLOps — اليوم الأول',
     noteAr: 'لا متطلبات سابقة — لا تحتاج خبرة مسبقة بـ Docker أو Kubernetes.',
@@ -83,6 +212,49 @@ export const sessions: Record<string, CuratedSession> = {
     tags: ['docker', 'mlops'],
   },
   'hands-on-cicd-github-actions': {
+    coSpeakers: [{ name: 'Aya Nasser Salama', role: 'HOST' }],
+    details: {
+      learnEn: [
+        'Writing a workflow from scratch: `.github/workflows/ci.yml`, triggers with `on:`, jobs from `run:` and `uses:`.',
+        'Ordering and parallelism: `needs:` and `strategy: matrix`.',
+        'Choosing runners: GitHub-hosted vs self-hosted, and `container:` jobs.',
+        'Artifacts, `actions/cache`, repository secrets and scoped `GITHUB_TOKEN` permissions.',
+        'Controlling execution: `if:` conditions, environment approval gates, PR checks, schedules, `continue-on-error`.',
+      ],
+      learnAr: [
+        'كتابة workflow من الصفر: ملف `.github/workflows/ci.yml`، والتشغيل عبر `on:`، والمهام عبر `run:` و`uses:`.',
+        'الترتيب والتوازي: `needs:` و`strategy: matrix`.',
+        'اختيار الـ runners: المستضافة على GitHub مقابل المستضافة ذاتيًا، ومهام `container:`.',
+        'الملفات الناتجة (Artifacts)، و`actions/cache`، وأسرار المستودع، وصلاحيات `GITHUB_TOKEN` محددة النطاق.',
+        'التحكم في التنفيذ: شروط `if:`، وبوابات الموافقة على البيئات، وفحوص الـ PR، والجدولة، و`continue-on-error`.',
+      ],
+      whyEn: [
+        'Build a working `ci.yml` incrementally.',
+        'Understand why workflows are correct, not just green.',
+        'Real trade-offs: runners, caching, approval gates.',
+        'Supply-chain security: pin actions to SHAs, least-privilege permissions, `pull_request_target` risks.',
+        'Ruff + pre-commit enforced both locally and in CI.',
+        'Live Q&A.',
+      ],
+      whyAr: [
+        'بناء ملف `ci.yml` يعمل خطوة بخطوة.',
+        'فهم لماذا يكون الـ workflow صحيحًا، لا مجرد ناجح بعلامة خضراء.',
+        'موازنات حقيقية: الـ runners والتخزين المؤقت وبوابات الموافقة.',
+        'أمن سلسلة التوريد: تثبيت الـ actions على SHA، وأقل الصلاحيات اللازمة، ومخاطر `pull_request_target`.',
+        'فرض Ruff وpre-commit محليًا وفي CI.',
+        'أسئلة وأجوبة مباشرة.',
+      ],
+      requirementsEn: [
+        'Git fundamentals (branching, commits, merge requests).',
+        'Linux command line and Bash basics.',
+        'Docker basics (build, tag, push images).',
+      ],
+      requirementsAr: [
+        'أساسيات Git (الفروع والـ commits وطلبات الدمج).',
+        'سطر أوامر Linux وأساسيات Bash.',
+        'أساسيات Docker (بناء الصور ووسمها ورفعها).',
+      ],
+    },
     titleAr: 'CI/CD وGitHub Actions عمليًا', // REVIEW
     summaryAr: 'اخرج بملف workflow جاهز تضعه في مستودعك في نفس اليوم، لا بمجرد ملاحظات',
     noteAr: 'يفترض معرفتك بفروع Git وأساسيات Bash وبناء صورة Docker ورفعها.',
@@ -104,6 +276,29 @@ export const sessions: Record<string, CuratedSession> = {
     youtubeIdReason: 'matched by title and date (uploaded two days after the session)',
   },
   'on-prem-mlops-playbook': {
+    coSpeakers: [{ name: 'Aya Nasser Salama', role: 'HOST' }],
+    details: {
+      learnEn: [
+        'Partitioning and scheduling a fixed GPU pool across training, inference and experimentation.',
+        'Managing CUDA/driver versions without breaking running jobs.',
+        'Monitoring utilization to catch idle or contended hardware.',
+        'Designing around power, cooling and bandwidth.',
+        'When on-prem is mandatory: data residency, air-gapped environments, regulation.',
+      ],
+      learnAr: [
+        'تقسيم مجموعة ثابتة من وحدات GPU وجدولتها بين التدريب والاستدلال والتجارب.',
+        'إدارة إصدارات CUDA والتعريفات دون تعطيل المهام الجارية.',
+        'مراقبة الاستخدام لاكتشاف العتاد الخامل أو المتنازَع عليه.',
+        'التصميم في حدود الطاقة والتبريد وعرض النطاق.',
+        'متى يكون التشغيل داخل المؤسسة إلزاميًا: توطين البيانات، والبيئات المعزولة (Air-gapped)، والمتطلبات التنظيمية.',
+      ],
+      whyEn: [
+        'In MENA, on-prem is the default for banks, telecoms, government and healthcare due to data-residency rules, while most MLOps content assumes the cloud. A production playbook from regulated deployments, plus Q&A with a CTO. For MLOps/DevOps engineers moving into AI workloads, ML engineers, and tech leads weighing cloud vs on-prem. Hosted by MLOps MENA Community in partnership with DevisionX.',
+      ],
+      whyAr: [
+        'في منطقة الشرق الأوسط وشمال أفريقيا، التشغيل داخل المؤسسة (On-Prem) هو الأصل في البنوك وشركات الاتصالات والجهات الحكومية والقطاع الصحي بسبب قواعد توطين البيانات، بينما يفترض معظم محتوى MLOps وجود السحابة. دليل عملي للإنتاج مستخلص من بيئات خاضعة للتنظيم، مع أسئلة وأجوبة مع مدير تقني. لمهندسي MLOps وDevOps المنتقلين إلى أحمال الذكاء الاصطناعي، ومهندسي تعلّم الآلة، والقادة التقنيين الذين يوازنون بين السحابة والتشغيل داخل المؤسسة. بالشراكة بين مجتمع MLOps MENA وDevisionX.',
+      ],
+    },
     titleAr: 'دليل MLOps داخل المؤسسة (On-Prem)', // REVIEW
     summaryAr: 'الجسر بين DevOps التقليدي وأحمال الذكاء الاصطناعي الخاصة',
     // The website has no description; this follows the recording's YouTube description.
@@ -140,9 +335,10 @@ export const videos: Record<string, CuratedVideo> = {
     titleEn: 'Kubernetes Deployment Strategies, Part 1: Recreate, Rolling Update, Blue-Green',
     titleAr: 'استراتيجيات النشر في Kubernetes (الجزء الأول): Recreate وRolling Update وBlue-Green', // REVIEW
     descriptionEn:
-      'Three Kubernetes deployment approaches: Recreate, Rolling Update and A/B routing. When each one fits, how rolling updates reduce downtime during a release, how Recreate replaces the old version completely, and how A/B routing sends users to different versions by routing rules.\n\n[Session slides](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)',
+      // A/B routing is Part 2; Part 1 is Recreate, Rolling Update and Blue-Green (the video's title).
+      'Three Kubernetes deployment approaches: Recreate, Rolling Update and Blue-Green. When each one fits, how Recreate replaces the old version completely, how rolling updates reduce downtime during a release, and how Blue-Green runs the new version alongside the old one and switches traffic over once it is ready. Canary, A/B routing and shadow traffic follow in Part 2.\n\n[Session slides](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)',
     descriptionAr:
-      'ثلاث طرق للنشر في Kubernetes: Recreate وRolling Update وتوجيه A/B. متى تناسب كل طريقة، وكيف يقلّل Rolling Update التوقف أثناء الإصدار، وكيف يستبدل Recreate النسخة القديمة بالكامل، وكيف يوجّه A/B المستخدمين إلى نسخ مختلفة وفق قواعد التوجيه.\n\n[شرائح الجلسة](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)', // REVIEW
+      'ثلاث طرق للنشر في Kubernetes: Recreate وRolling Update وBlue-Green. متى تناسب كل طريقة، وكيف يستبدل Recreate النسخة القديمة بالكامل، وكيف يقلّل Rolling Update التوقف أثناء الإصدار، وكيف يشغّل Blue-Green النسخة الجديدة بجانب القديمة ثم يحوّل الحركة إليها حين تجهز. أما Canary وتوجيه A/B وShadow Traffic ففي الجزء الثاني.\n\n[شرائح الجلسة](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)', // REVIEW
     tags: ['kubernetes', 'deployment'],
   },
   Wx9RfYuO3WY: {
@@ -164,6 +360,37 @@ export const videos: Record<string, CuratedVideo> = {
     descriptionAr:
       'جلسة عملية مليئة بالكود عن مهارات الـ Backend التي يحتاجها كل مهندس ذكاء اصطناعي وتعلّم آلي، من أساسيات HTTP وواجهات API إلى تقديم النماذج اللغوية في الإنتاج باستخدام FastAPI وvLLM: التحقق من مدخلات النماذج ومخرجاتها بـ Pydantic، وهيكلة مشروع FastAPI مع SQLAlchemy، وحقن الاعتماديات، والبرمجة غير المتزامنة والتزامن، وتحديد معدل الطلبات والـ middleware والمصادقة ومعالجة الأخطاء.', // REVIEW
     tags: ['fastapi', 'python', 'model-serving'],
+    // Uploaded 13 Sep; the session ran Saturday 12 Sep, 4:00 PM UTC (7:00 PM Cairo) (owner's list).
+    startsAt: '2026-09-12T19:00:00+03:00',
+    speaker: 'Mohamed Samy',
+    coSpeakers: [
+      { name: 'Aya Nasser Salama', role: 'HOST' },
+      { name: 'Mariam Qotob', role: 'GUEST' },
+    ],
+    details: {
+      learnEn: [
+        'Backend basics and how APIs work.',
+        'HTTP methods.',
+        'Databases and ORM with FastAPI.',
+        'Streaming responses with WebSocket and SSE.',
+        'Authentication, authorization and rate limiting.',
+      ],
+      learnAr: [
+        'أساسيات الـ Backend وكيف تعمل واجهات API.',
+        'طرق HTTP ‏(HTTP methods).',
+        'قواعد البيانات والـ ORM مع FastAPI.',
+        'بث الردود عبر WebSocket وSSE.',
+        'المصادقة والتفويض وتحديد معدل الطلبات (Rate Limiting).',
+      ],
+      whyEn: ['Learn how to build a backend service for your AI project.'],
+      whyAr: ['تعلّم كيف تبني خدمة Backend لمشروع الذكاء الاصطناعي الخاص بك.'],
+      requirementsEn: ['Basic Python.', 'Basic command-line skills.', 'Basic database knowledge.'],
+      requirementsAr: [
+        'أساسيات Python.',
+        'مهارات أساسية في سطر الأوامر.',
+        'معرفة أساسية بقواعد البيانات.',
+      ],
+    },
   },
   n9iphdrNfr8: {
     slug: 'prometheus-grafana-monitoring-stack-part-1',
@@ -186,6 +413,7 @@ export const videos: Record<string, CuratedVideo> = {
     tags: ['llmops'],
     // From the video description ("Eng Omar Linkedin"); the full name follows the LinkedIn address. CONFIRM.
     speakerName: 'Omar Khalil',
+    speakerNameAr: 'عمر خليل', // REVIEW
     speakerLinkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01/',
   },
   PXR2zcjaqWQ: {
@@ -209,6 +437,41 @@ export const videos: Record<string, CuratedVideo> = {
     tags: ['python'],
   },
 };
+
+/** Past sessions from the owner's list (9 Oct 2026) that are on neither the website nor YouTube yet. */
+export const extraSessions: CuratedExtraSession[] = [
+  {
+    slug: 'introduction-to-llm-inference-engines',
+    titleEn: 'Introduction to LLM Inference Engines',
+    titleAr: 'مقدمة في محركات الاستدلال للنماذج اللغوية الكبيرة',
+    speaker: 'Mohamed Rashad',
+    coSpeakers: [{ name: 'Aya Nasser Salama', role: 'HOST' }],
+    // Thursday 8 Oct 2026, 5:00 PM UTC (8:00 PM Cairo), 1 h 30 min. The recording isn't uploaded yet.
+    startsAt: '2026-10-08T20:00:00+03:00',
+    durationMin: 90,
+    tags: ['llmops', 'model-serving'],
+    details: {
+      whyEn: [
+        'How inference engines turn a trained LLM into a fast, cheap, scalable and reliable service: token generation, memory, batching, scheduling, caching, quantization and hardware execution.',
+      ],
+      whyAr: [
+        'كيف تحوّل محركات الاستدلال نموذجًا لغويًا كبيرًا مُدرَّبًا إلى خدمة سريعة ومنخفضة التكلفة وقابلة للتوسع وموثوقة: توليد الـ tokens، والذاكرة، والتجميع (Batching)، والجدولة، والتخزين المؤقت، والتكميم (Quantization)، والتنفيذ على العتاد.',
+      ],
+      learnEn: [
+        'Where an inference engine sits between model weights and the application.',
+        'Architectures of vLLM, TensorRT-LLM, SGLang, llama.cpp and others compared.',
+        'KV cache management, continuous batching, speculative decoding, tensor parallelism and quantization.',
+        'Choosing and configuring the right engine, from a single local GPU to high-throughput production clusters.',
+      ],
+      learnAr: [
+        'أين يقع محرك الاستدلال بين أوزان النموذج والتطبيق.',
+        'مقارنة بين معماريات vLLM وTensorRT-LLM وSGLang وllama.cpp وغيرها.',
+        'إدارة KV cache، والتجميع المستمر (Continuous Batching)، وفك الترميز التخميني (Speculative Decoding)، وتوازي الموترات (Tensor Parallelism)، والتكميم.',
+        'اختيار المحرك المناسب وضبطه، من وحدة GPU محلية واحدة إلى عناقيد إنتاج عالية الإنتاجية.',
+      ],
+    },
+  },
+];
 
 // ------------------------------------------------------------------ The MLOps Practitioner (data/mlops-practitioner.ts)
 
@@ -329,6 +592,15 @@ export const practitionerLessons: CuratedLesson[] = [
   },
 ];
 
+/**
+ * When the cohort ran: its live lessons, 16 Aug to 20 Sep 2026 (the website said 15 Aug to
+ * 2 Oct). Six calendar weeks of lessons; the final project followed.
+ */
+export const practitionerDates = { start: '2026-08-16', end: '2026-09-20', weeks: 6 };
+
+/** The syllabus weeks in the order they were taught: Observability (week 6) came before Optimization (week 5). */
+export const practitionerWeekOrder = [1, 2, 3, 4, 6, 5, 7];
+
 /** Arabic for the syllabus weeks. Titles REVIEW except weeks 3 and 7; projects from the website. */
 export const practitionerWeeksAr: Record<number, { title: string; description?: string }> = {
   1: {
@@ -361,7 +633,7 @@ export const practitionerWeeksAr: Record<number, { title: string; description?: 
 export const practitionerAr = {
   // REVIEW
   shortDescription:
-    'انقل نموذج تعلّم آلي من الـ notebook إلى الإنتاج: الحزم وواجهات API، وتتبّع التجارب وCI/CD، وخدمة النماذج على نطاق واسع، ورصد الانحراف وتحسين النماذج. أُقيمت الدفعة الأولى بين أغسطس وأكتوبر 2026، وكل دروسها مسجّلة.',
+    'انقل نموذج تعلّم آلي من الـ notebook إلى الإنتاج: الحزم وواجهات API، وتتبّع التجارب وCI/CD، وخدمة النماذج على نطاق واسع، ورصد الانحراف وتحسين النماذج. أُقيمت الدفعة الأولى بين أغسطس وسبتمبر 2026، وأربعة من دروسها الخمسة مسجّلة.',
   summary:
     'بنهاية هذه الدورة سينقل الدارس نموذج تعلّم آلي من الـ notebook إلى الإنتاج — ببناء مسارات CI/CD آلية، وتتبّع للتجارب، وإعادة تدريب مجدولة. وسيقدّم التنبؤات على نطاق واسع باستخدام FastAPI وBentoML وTriton وvLLM، ويرصد الانحراف قبل أن يلاحظه المستخدمون، ويحسّن النماذج لوحدات GPU وCPU والأجهزة الطرفية. وسيفكّر ويعمل كمهندس تعلّم آلي إنتاجي.',
   hook: 'معظم مهندسي التعلّم الآلي يعرفون كيف يدرّبون نموذجًا. وقليلون جدًا يعرفون كيف يشغّلونه في الإنتاج.',
@@ -369,7 +641,8 @@ export const practitionerAr = {
   outro: 'كل جلسة تنتهي بمشروع قابل للنشر يبني على ما قبله. وبنهاية الدورة سيكون لديك ملف أعمال MLOps كامل يثبت مهارات هندسة إنتاج حقيقية.',
   // REVIEW
   cohortHeading: 'الدفعة الأولى',
-  cohortBody: 'أُقيمت الدفعة الأولى من 15 أغسطس إلى 2 أكتوبر 2026: خمسة دروس مباشرة على YouTube Live، وأسبوعان للمشروع، ومشروع نهائي.',
+  cohortBody:
+    'أُقيمت دروس الدفعة الأولى الخمسة مباشرةً على YouTube Live من 16 أغسطس إلى 20 سبتمبر 2026، مع أسبوع للمشروع ومشروع نهائي. الدروس من 1 إلى 4 مسجّلة؛ أما الدرس 5 (تحسين النماذج، 20 سبتمبر) فليس له تسجيل منشور.',
   materialsHeading: 'مواد الدورة',
   repo: { label: 'مستودع الدورة', desc: 'كل الأكواد والدفاتر ومشاريع الوحدات.' },
   slides: { label: 'شرائح كل الجلسات', desc: 'مجلد Google Drive.' },

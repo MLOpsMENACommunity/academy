@@ -6,6 +6,7 @@ import { useQueryState } from '@/components/admin/query';
 import { Alert } from '@/components/ui/Alert';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
+import { auditLines } from '@/lib/audit';
 import { formatDateTime } from '@/lib/format';
 
 interface Row {
@@ -93,8 +94,12 @@ function AuditLog() {
                   {r.entityType}
                   {r.entityId && <span className="block font-mono text-muted">{r.entityId}</span>}
                 </td>
-                <td className="max-w-xs p-3 font-mono text-xs break-all text-muted">
-                  {r.metadata && Object.keys(r.metadata as object).length ? JSON.stringify(r.metadata) : ''}
+                <td className="max-w-xs p-3 text-xs break-words text-muted">
+                  <ul className="space-y-0.5">
+                    {auditLines(r.metadata).map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
                 </td>
               </tr>
             ))}

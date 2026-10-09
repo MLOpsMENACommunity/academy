@@ -50,12 +50,30 @@ export function RecordingsProvider({ items, children }: { items: RecordingFacets
   /** Text-search result from the API, for `searched`. */
   const [found, setFound] = useState<{ key: string; ids: Set<string> } | null>(null);
 
+  // Tags in the library. A topic that isn't one of them (a typo, an old link) is ignored
+  // rather than showing "No recordings", and dropped from the address bar.
+  const known = useMemo(() => new Set(items.flatMap((i) => i.topics)), [items]);
   useEffect(() => {
-    const sync = () => setQuery(readUrl());
+    const sync = () => {
+      const q = readUrl();
+      if (q.topic && !known.has(q.topic)) {
+        const p = new URLSearchParams(window.location.search);
+        p.delete('topic');
+        const qs = p.toString();
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${window.location.pathname}${qs ? `?${qs}` : ''}`,
+        );
+        setQuery({ q: q.q });
+      } else {
+        setQuery(q);
+      }
+    };
     sync();
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
-  }, []);
+  }, [known]);
 
   const searchKey = query.q ? new URLSearchParams({ q: query.q }).toString() : '';
   useEffect(() => {
@@ -181,7 +199,7 @@ export function RecordingsResults({ total, children }: { total: number; children
   return (
     <>
       <p className="mt-8 text-[0.9375rem] text-muted" aria-live="polite">
-        {loading ? ' ' : count === 1 ? t('sessions.recordingsCountOne') : t('sessions.recordingsCount', { count })}
+        {loading ? ' ' : t('sessions.recordingsCount', { count })}
       </p>
       {!loading && count === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-line-strong/50 px-6 py-12 text-center sm:py-16">

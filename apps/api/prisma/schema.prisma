@@ -496,6 +496,8 @@ model Instructor {
 
   courses CourseInstructor[]
   events  LiveEvent[]
+  /// Sessions they hosted or joined as a guest (besides each session's main speaker).
+  coSpeaking LiveEventSpeaker[]
 }
 
 model Course {
@@ -967,6 +969,12 @@ enum EventStatus {
   CANCELLED
 }
 
+enum EventSpeakerRole {
+  SPEAKER
+  HOST
+  GUEST
+}
+
 /// A standalone free live session (talk, workshop, AMA), not part of a course.
 model LiveEvent {
   id                String              @id @default(cuid())
@@ -1007,10 +1015,25 @@ model LiveEvent {
   registrations     EventRegistration[]
   reminders         EventReminderLog[]
   confirmations     EventConfirmation[]
+  /// Hosts and guests besides the main speaker, in display order.
+  coSpeakers        LiveEventSpeaker[]
 
   @@index([status, startsAt])
   @@index([speakerId])
   @@index([topics], type: Gin)
+}
+
+/// A host or guest of a live session, besides its main speaker (LiveEvent.speakerId).
+model LiveEventSpeaker {
+  eventId      String
+  event        LiveEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   Instructor       @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  role         EventSpeakerRole @default(GUEST)
+  order        Int              @default(0)
+
+  @@id([eventId, instructorId])
+  @@index([instructorId])
 }
 
 model EventRegistration {

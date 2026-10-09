@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   courseAvailability,
+  matchesCatalog,
   SEAT_HOLDING_STATUSES,
   type CatalogQuery,
   type CourseDetailDto,
@@ -30,23 +31,28 @@ export class CoursesService {
   }
 
   async listPublic(q: CatalogQuery): Promise<CourseSummaryDto[]> {
+    // The catalog is a few dozen courses: filter in memory with the same matcher as the static
+    // catalog page (English/Arabic include bilingual courses; "Paid" means a price is set).
     const courses = await this.prisma.course.findMany({
-      where: {
-        status: { in: [...PUBLIC_COURSE_STATUSES] },
-        ...(q.level ? { level: q.level } : {}),
-        ...(q.type ? { type: q.type } : {}),
-        ...(q.language ? { language: q.language } : {}),
-      },
+      where: { status: { in: [...PUBLIC_COURSE_STATUSES] } },
       include: { instructors: { include: { instructor: true } } },
       orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
     });
-    const seats = await this.seatsTaken(courses.map((c) => c.id));
     const now = new Date();
-    return courses
-      .filter((c) => !q.availability || courseAvailability(c, now) === q.availability)
-      .map((c) => toCourseSummary(c, seats.get(c.id) ?? 0))
-      // Open courses first, then upcoming, then closed.
-      .sort((a, b) => ['OPEN', 'UPCOMING', 'CLOSED'].indexOf(a.availability) - ['OPEN', 'UPCOMING', 'CLOSED'].indexOf(b.availability));
+    const matching = courses.filter((c) =>
+      matchesCatalog({ ...c, availability: courseAvailability(c, now) }, q),
+    );
+    const seats = await this.seatsTaken(matching.map((c) => c.id));
+    return (
+      matching
+        .map((c) => toCourseSummary(c, seats.get(c.id) ?? 0))
+        // Open courses first, then upcoming, then closed.
+        .sort(
+          (a, b) =>
+            ['OPEN', 'UPCOMING', 'CLOSED'].indexOf(a.availability) -
+            ['OPEN', 'UPCOMING', 'CLOSED'].indexOf(b.availability),
+        )
+    );
   }
 
   async getPublic(slug: string): Promise<CourseDetailDto> {

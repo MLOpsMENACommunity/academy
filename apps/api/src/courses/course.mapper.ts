@@ -64,6 +64,7 @@ export function toCourseSummary(c: CourseWithRelations, seatsTaken: number): Cou
     seatsRemaining: c.capacity === null ? null : Math.max(0, c.capacity - seatsTaken),
     instructorNames: instructors.map((x) => x.instructor.name),
     completed: c.status === 'COMPLETED',
+    comingSoon: c.status === 'COMING_SOON',
     cohortNumber: c.cohortNumber,
     endDate: iso(c.endDate),
     topics: c.topics,

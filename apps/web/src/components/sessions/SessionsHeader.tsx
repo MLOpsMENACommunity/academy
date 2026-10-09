@@ -16,7 +16,9 @@ export function SessionsHeader({ locale, view }: { locale: Locale; view: 'upcomi
   return (
     <section className="border-b border-line bg-card">
       <Container className="flex flex-col gap-4 pt-12 pb-8 sm:pt-16 sm:pb-10 lg:pt-20">
-        <h1 className="text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{t('sessions.title')}</h1>
+        <h1 className="text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">
+          {view === 'recordings' ? t('sessions.recordingsTitle') : t('sessions.title')}
+        </h1>
         <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">
           {view === 'upcoming' ? t('sessions.intro') : t('sessions.recordingsIntro')}
         </p>

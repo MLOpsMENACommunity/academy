@@ -35,7 +35,14 @@ export default async function CatalogPage({ params }: Props) {
   // good copy (or answers an uncached 500) instead of caching an empty catalog.
   const courses = (await serverGet<CourseSummaryDto[]>('/courses')) ?? [];
   // Only the filterable fields go to the browser; the cards stay server-rendered.
-  const facets = courses.map(({ id, level, type, language, availability }) => ({ id, level, type, language, availability }));
+  const facets = courses.map(({ id, level, type, price, language, availability }) => ({
+    id,
+    level,
+    type,
+    price,
+    language,
+    availability,
+  }));
 
   return (
     <CatalogProvider courses={facets}>

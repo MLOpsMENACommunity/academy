@@ -86,4 +86,19 @@ describe('public catalog (e2e)', () => {
     await http().get('/api/courses?level=NOPE').expect(400);
     await http().get('/api/courses?type=FREE&availability=OPEN').expect(200);
   });
+
+  // QA M1: every course is bilingual; English or Arabic must still find them.
+  it('finds bilingual courses under English and under Arabic', async () => {
+    const listed = async (q: string) => ((await http().get(`/api/courses?${q}`).expect(200)).body as { slug: string }[]).map((c) => c.slug);
+    for (const q of ['language=EN', 'language=AR', 'language=BILINGUAL']) expect(await listed(q)).toContain(slugs.OPEN);
+  });
+
+  // QA L17: a paid course with no price yet is "Price to be announced", not "Paid".
+  it('keeps courses with no price out of "Paid", under their own value', async () => {
+    const listed = async (q: string) => ((await http().get(`/api/courses?${q}`).expect(200)).body as { slug: string }[]).map((c) => c.slug);
+    expect(await listed('type=PAID')).not.toContain(slugs.COMING_SOON);
+    expect(await listed('type=TBA')).toContain(slugs.COMING_SOON);
+    const detail = (await http().get(`/api/courses/${slugs.COMING_SOON}`).expect(200)).body;
+    expect(detail).toMatchObject({ comingSoon: true, type: 'PAID', price: 0 });
+  });
 });

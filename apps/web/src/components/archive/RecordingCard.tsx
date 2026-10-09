@@ -14,8 +14,18 @@ export function RecordingCard({ item: r, locale }: { item: RecordingDto; locale:
   const title = pick(locale, r.titleEn, r.titleAr);
   const href = `/${locale}${r.path}${r.course ? `#lesson-${r.course.order}` : ''}`;
   return (
-    <article aria-labelledby={`rec-${r.id}`} className="flex w-full min-w-0 flex-col gap-4 rounded-card border border-line bg-card p-4 sm:p-5">
-      <RecordingPlayer url={r.recordingUrl} youtubeId={r.youtubeId} title={title} locale={locale} />
+    <article
+      aria-labelledby={`rec-${r.id}`}
+      className="flex w-full min-w-0 flex-col gap-4 rounded-card border border-line bg-card p-4 sm:p-5"
+    >
+      {/* The library grid: one column on phones, two from md, three from xl (inside the card's padding). */}
+      <RecordingPlayer
+        url={r.recordingUrl}
+        youtubeId={r.youtubeId}
+        title={title}
+        locale={locale}
+        sizes="(min-width: 1280px) 304px, (min-width: 768px) calc(50vw - 76px), calc(100vw - 72px)"
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <p className="text-sm font-medium text-primary">
           {r.course ? t('sessions.lesson', { course: pick(locale, r.course.titleEn, r.course.titleAr), n: r.course.order }) : t('sessions.liveSession')}

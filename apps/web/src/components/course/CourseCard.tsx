@@ -69,10 +69,13 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
           <dt className="sr-only">{t('course.facts.level')}</dt>
           <dd>{courseLevelLabels[c.level][locale]}</dd>
         </div>
-        <div>
-          <dt className="sr-only">{t('course.facts.language')}</dt>
-          <dd>{courseLanguageLabels[c.language][locale]}</dd>
-        </div>
+        {/* Not decided while the course is coming soon. */}
+        {!c.comingSoon && (
+          <div>
+            <dt className="sr-only">{t('course.facts.language')}</dt>
+            <dd>{courseLanguageLabels[c.language][locale]}</dd>
+          </div>
+        )}
         {c.seatsRemaining !== null && c.availability === 'OPEN' && (
           <div>
             <dt className="sr-only">{t('course.facts.seats')}</dt>
@@ -83,8 +86,14 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
         )}
       </dl>
       {/* Visual cue only: the title link above already covers the whole card. */}
-      <span aria-hidden className="mt-auto inline-flex items-center gap-1.5 pt-2 font-medium text-fg group-hover:text-primary">
-        {t('catalog.details')}
+      <span
+        aria-hidden
+        className="mt-auto inline-flex items-center gap-1.5 pt-2 font-medium text-fg group-hover:text-primary"
+      >
+        {/* "How to apply" only while applications are open. */}
+        {c.availability === 'OPEN' && !c.completed
+          ? t('catalog.details')
+          : t('catalog.detailsOnly')}
         <span className="inline-block rtl:rotate-180">→</span>
       </span>
     </article>
