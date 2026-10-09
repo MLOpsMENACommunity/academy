@@ -1299,7 +1299,8 @@
     },
     "apply": "Apply",
     "notify": "Notify me",
-    "otherPaths": "Other paths"
+    "otherPaths": "Other paths",
+    "stepsRegion": "Path steps (scroll sideways to see all)"
   },
   "roadmaps": {
     "title": "Open-source roadmaps",

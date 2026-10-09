@@ -21,7 +21,11 @@ export function Stepper({ steps, locale, size = 'md', linked = true }: { steps: 
   // Long paths keep a readable column per step and scroll sideways (md and up) instead of squeezing.
   const long = steps.length > 6;
   return (
-    <div className={long ? 'md:overflow-x-auto md:pb-2' : undefined}>
+    // A sideways-scrolling region must be reachable by keyboard so it can be scrolled (WCAG 2.1.1).
+    <div
+      className={long ? 'rounded-md md:overflow-x-auto md:pb-2 focus-visible:outline-2 focus-visible:outline-offset-2' : undefined}
+      {...(long ? { tabIndex: 0, role: 'region', 'aria-label': t('paths.stepsRegion') } : {})}
+    >
     <ol
       className="flex flex-col gap-0 md:grid md:gap-0"
       style={{ gridTemplateColumns: long ? `repeat(${steps.length}, 9.5rem)` : `repeat(${steps.length}, minmax(0, 1fr))` }}
