@@ -71,7 +71,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
 
   // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
-  // Hourly, like staging: reminder windows are wide enough (jobs/reminders.jobs.ts), and a
+  // Hourly (staging has none, see env.staging): reminder windows are wide enough (jobs/reminders.jobs.ts), and a
   // 15-minute tick would keep the API container from ever sleeping.
   "triggers": { "crons": ["0 * * * *"] },
 
@@ -90,7 +90,7 @@
         // EMAIL_ALLOWLIST is comma-separated addresses or "@domain" entries.
         "EMAIL_REDIRECT_TO": "admin@mlopsmena.com",
         "EMAIL_ALLOWLIST": "",
-        // Staging stays small and cheap: one basic container each, asleep between hourly crons.
+        // Staging stays small and cheap: one basic container each, asleep unless someone uses it.
         "WEB_INSTANCES": "1",
         "SLEEP_AFTER": "10m"
       },
@@ -121,8 +121,10 @@
         ]
       },
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
-      // Hourly rather than every 15 minutes, so the staging containers get to sleep.
-      "triggers": { "crons": ["0 * * * *"] }
+      // No Cron Trigger: staging's containers only wake when someone uses staging (an hourly
+      // tick woke both for nothing, 24 times a day). Must be an explicit [], or staging would
+      // inherit production's crons. Run the jobs on demand with POST /_jobs/tick (src/jobs.ts).
+      "triggers": { "crons": [] }
     }
   }
 }

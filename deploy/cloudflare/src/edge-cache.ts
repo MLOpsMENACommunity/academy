@@ -8,9 +8,16 @@
  *     no Set-Cookie, and not a stale ISR copy. Kept for at most PAGE_TTL seconds.
  *   - Build assets: /_next/static/* (content-hashed, `immutable`), for everyone.
  *
+ *   - Public API reads: anonymous GETs of the catalog endpoints in PUBLIC_API (courses, live
+ *     sessions, speakers, recordings, public settings) whose response the API marks
+ *     shared-cacheable (`public, s-maxage=…`): 200 JSON, no Set-Cookie, no `private`/`no-store`.
+ *     The API only does that for requests without a session cookie and for bodies with no
+ *     personal field (apps/api/src/common/public-cache.ts). Kept for at most API_TTL seconds.
+ *     Requests with an Origin header (cross-origin callers) are not cached (CORS headers vary).
+ *
  * Never cached, always sent to the container:
- *   - anything from a browser with a session (access_token / has_session cookie),
- *   - /api/* (the API's personal and public endpoints alike), non-GET requests,
+ *   - anything from a browser with a session (access_token / has_session / refresh_token cookie),
+ *   - every other /api/* endpoint (personal ones, writes, auth, uploads…), non-GET requests,
  *   - Next client-navigation requests (RSC payloads, prefetches, server actions),
  *   - signed-in areas (dashboard, profile, onboarding, admin, learn, apply) and token
  *     links (verify-email, reset-password, waitlist/leave),
@@ -25,8 +32,18 @@
 
 /** Edge lifetime of a cached page. Next revalidates every 60–300 s behind this. */
 export const PAGE_TTL = 60;
+/** Edge lifetime of a cached public API read (the API asks for s-maxage=60). */
+export const API_TTL = 60;
 
-const SESSION_COOKIES = ['access_token', 'has_session'];
+const SESSION_COOKIES = ['access_token', 'has_session', 'refresh_token'];
+
+/**
+ * The public, read-only API endpoints the edge may cache (anonymous GETs only). Mirrors
+ * PUBLIC_CACHE_ROUTES in apps/api/src/common/public-cache.ts; the API's Cache-Control has the
+ * last word (anything it doesn't mark public is never stored), so this list can only narrow.
+ */
+const PUBLIC_API =
+  /^\/api\/(courses|courses\/[a-z0-9-]{1,100}|events|events\/[a-z0-9-]{1,100}|speakers|speakers\/[a-z0-9-]{1,100}|recordings|recordings\/search|settings\/public)$/;
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
 const LOCALES = ['en', 'ar'] as const;
 
@@ -37,7 +54,7 @@ const NEXT_CLIENT_HEADERS = ['rsc', 'next-router-state-tree', 'next-router-prefe
 const PRIVATE_PAGE =
   /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn|verify-email|reset-password|waitlist)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
 
-export type CacheKind = 'page' | 'asset';
+export type CacheKind = 'page' | 'asset' | 'api';
 
 export function cookieValue(request: Request, name: string): string | undefined {
   const header = request.headers.get('cookie');
@@ -64,7 +81,10 @@ export function cacheKind(request: Request): CacheKind | null {
   if (request.method !== 'GET') return null;
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path === '/api' || path.startsWith('/api/')) return null;
+  if (path === '/api' || path.startsWith('/api/')) {
+    if (hasSession(request) || request.headers.has('origin') || request.headers.has('authorization')) return null;
+    return PUBLIC_API.test(path) ? 'api' : null;
+  }
   if (NEXT_CLIENT_HEADERS.some((h) => request.headers.has(h)) || url.searchParams.has('_rsc')) return null;
   if (path.startsWith('/_next/static/')) return 'asset';
   if (hasSession(request)) return null;
@@ -107,6 +127,13 @@ export function storableCacheControl(kind: CacheKind, response: Response): strin
   if (['private', 'no-store', 'no-cache'].some((d) => cc.directives.has(d))) return null;
   if (kind === 'asset') {
     return cc.directives.has('immutable') && (cc.maxAge ?? 0) > 0 ? response.headers.get('cache-control') : null;
+  }
+  if (kind === 'api') {
+    // Only what the API itself marked shared-cacheable, JSON, and never anything that sets a cookie.
+    if (response.headers.has('set-cookie')) return null;
+    if (!(response.headers.get('content-type') ?? '').startsWith('application/json')) return null;
+    if (!cc.directives.has('public') || !cc.sMaxAge || cc.sMaxAge <= 0) return null;
+    return `public, max-age=0, s-maxage=${Math.min(cc.sMaxAge, API_TTL)}`;
   }
   if (!(response.headers.get('content-type') ?? '').startsWith('text/html')) return null;
   // A stale ISR copy is being regenerated right now: don't pin it at the edge for another TTL.
