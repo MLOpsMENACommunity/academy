@@ -9,7 +9,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { isoDuration, youtubeThumbnail } from '@/lib/archive';
 import { jsonLd } from '@/lib/jsonld';
-import { alternates } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { pick } from '@/lib/sessions';
 import { absoluteUrl } from '@/lib/site';
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t('sessions.recordingsTitle'),
     description: t('sessions.recordingsMeta'),
     alternates: alternates(locale, '/sessions/recordings'),
-    openGraph: { title: t('sessions.recordingsTitle'), description: t('sessions.recordingsMeta') },
+    openGraph: { title: t('sessions.recordingsTitle'), description: t('sessions.recordingsMeta'), images: [DEFAULT_OG_IMAGE] },
     // Filtered and searched views (?topic=, ?q=) are the same page: the canonical above
     // points search engines at the unfiltered library.
   };

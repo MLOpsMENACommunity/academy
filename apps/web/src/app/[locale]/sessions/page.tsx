@@ -9,7 +9,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
-import { alternates } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { community } from '@/lib/site';
 import { excerpt, pick } from '@/lib/sessions';
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t('sessions.title'),
     description: t('sessions.metaDescription'),
     alternates: alternates(locale, '/sessions'),
-    openGraph: { title: t('sessions.title'), description: t('sessions.metaDescription') },
+    openGraph: { title: t('sessions.title'), description: t('sessions.metaDescription'), images: [DEFAULT_OG_IMAGE] },
   };
 }
 

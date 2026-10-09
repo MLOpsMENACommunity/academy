@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = { title: 'Page not found | MLOps MENA Academy' };
 
 /** Only reached for paths outside /en and /ar (middleware normally prefixes them). */
 export default function GlobalNotFound() {

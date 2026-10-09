@@ -9,7 +9,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 
-export default function ForgotPasswordPage() {
+export function ForgotForm() {
   const { locale, t } = useI18n();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);

@@ -17,7 +17,7 @@ import { createTranslator } from '@/i18n/translator';
 import { durationLabel, speakerPath } from '@/lib/archive';
 import { formatDate } from '@/lib/format';
 import { jsonLd } from '@/lib/jsonld';
-import { alternates } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
 import { serverGet, staticSlugs } from '@/lib/server-api';
 import { excerpt, pick } from '@/lib/sessions';
 import { absoluteUrl, community } from '@/lib/site';
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: name,
     description,
     alternates: alternates(locale, `/speakers/${slug}`),
-    openGraph: { title: name, description, type: 'profile', url: absoluteUrl(speakerPath(locale, slug)), ...(s.photoUrl ? { images: [absolutePhoto(s.photoUrl)] } : {}) },
+    openGraph: { title: name, description, type: 'profile', url: absoluteUrl(speakerPath(locale, slug)), images: s.photoUrl ? [absolutePhoto(s.photoUrl)] : [DEFAULT_OG_IMAGE] },
   };
 }
 

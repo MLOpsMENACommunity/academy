@@ -23,7 +23,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { jsonLd } from '@/lib/jsonld';
-import { alternates } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
 import { serverGet, staticSlugs } from '@/lib/server-api';
 import { excerpt, pick } from '@/lib/sessions';
 import { absoluteUrl, community } from '@/lib/site';
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: 'website',
       url: absoluteUrl(`/${locale}/sessions/${slug}`),
-      ...(e.coverImageUrl ? { images: [e.coverImageUrl] } : {}),
+      images: e.coverImageUrl ? [e.coverImageUrl] : [DEFAULT_OG_IMAGE],
     },
     twitter: { card: 'summary_large_image', title, description },
   };

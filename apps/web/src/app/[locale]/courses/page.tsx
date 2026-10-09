@@ -6,7 +6,7 @@ import { CourseCard } from '@/components/course/CourseCard';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
-import { alternates } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 
 type Props = { params: Promise<{ locale: string }> };
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t('catalog.title'),
     description: t('catalog.metaDescription'),
     alternates: alternates(locale, '/courses'),
-    openGraph: { title: t('catalog.title'), description: t('catalog.metaDescription') },
+    openGraph: { title: t('catalog.title'), description: t('catalog.metaDescription'), images: [DEFAULT_OG_IMAGE] },
   };
 }
 

@@ -16,7 +16,8 @@ import { Header } from '@/components/layout/Header';
 import { I18nProvider } from '@/i18n/client';
 import { dirOf, isLocale, locales } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
-import { community, siteUrl } from '@/lib/site';
+import { DEFAULT_OG_IMAGE } from '@/lib/seo';
+import { community, indexable, siteUrl } from '@/lib/site';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -41,12 +42,15 @@ export async function generateMetadata({
     title: { default: t('meta.homeTitle'), template: `%s | ${t('meta.siteName')}` },
     description: t('meta.tagline'),
     applicationName: t('meta.siteName'),
+    // Staging and local builds: noindex on every page (production pages set their own where needed).
+    ...(indexable ? {} : { robots: { index: false, follow: false } }),
     // Small icons: the 256px logo is for structured data only.
     icons: { icon: [{ url: '/favicon-32.png', sizes: '32x32', type: 'image/png' }], apple: '/apple-touch-icon.png' },
     openGraph: {
       siteName: t('meta.siteName'),
       locale: locale === 'ar' ? 'ar_EG' : 'en_US',
       type: 'website',
+      images: [DEFAULT_OG_IMAGE],
     },
     twitter: { card: 'summary_large_image', site: '@MLOpsMENA' },
   };

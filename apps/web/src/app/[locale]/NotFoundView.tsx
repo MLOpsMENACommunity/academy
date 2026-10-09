@@ -5,7 +5,8 @@ import { Container } from '@/components/ui/Container';
 import { useI18n } from '@/i18n/client';
 import Link from 'next/link';
 
-export default function NotFound() {
+/** The localized 404 body (client: it reads the locale from the i18n context). */
+export function NotFoundView() {
   const { locale, t } = useI18n();
   return (
     <Container className="py-24 text-center">
