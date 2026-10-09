@@ -140,8 +140,8 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await expect(page.getByText('Step 4 of 7')).toBeVisible();
   // LinkedIn, GitHub and the community questions are required as well.
   await expect(page.getByRole('button', { name: 'Skip for now' })).toHaveCount(0);
-  await page.getByLabel('LinkedIn', { exact: true }).fill('https://www.linkedin.com/in/e2e-student');
-  await page.getByLabel('GitHub', { exact: true }).fill('https://github.com/e2e-student');
+  await page.getByRole('textbox', { name: 'LinkedIn', exact: true }).fill('https://www.linkedin.com/in/e2e-student');
+  await page.getByRole('textbox', { name: 'GitHub', exact: true }).fill('https://github.com/e2e-student');
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 5 of 7')).toBeVisible();
   await page.getByLabel(/How did you hear about us/).selectOption('LINKEDIN');
