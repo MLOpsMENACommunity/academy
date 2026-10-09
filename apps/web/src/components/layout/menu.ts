@@ -14,14 +14,30 @@ export interface FeaturedCourse {
   tone: 'success' | 'accent' | 'muted';
 }
 
+/** An open-source roadmap in the Learn menu (static: read from the Markdown at build time). */
+export interface MenuRoadmap {
+  href: string;
+  title: string;
+  tagline: string;
+  /** "Beginner → Job-ready · 6–9 months" */
+  line: string;
+}
+
 export interface MenuData {
   /** "4 courses · 1 taking applications"; null when the list couldn't be loaded. */
   coursesLine: string | null;
   featured: FeaturedCourse[];
+  roadmaps: MenuRoadmap[];
 }
 
-export function buildMenuData(courses: CourseSummaryDto[] | null, locale: Locale): MenuData {
-  if (!courses?.length) return { coursesLine: null, featured: [] };
+/** `roadmaps`: already in the reader's language (lib/roadmaps localizeRoadmap). */
+export function buildMenuData(
+  courses: CourseSummaryDto[] | null,
+  locale: Locale,
+  roadmaps: { slug: string; title: string; tagline: string; level: string; duration: string }[] = [],
+): MenuData {
+  const menuRoadmaps = roadmaps.map((r) => ({ href: `/${locale}/roadmaps/${r.slug}`, title: r.title, tagline: r.tagline, line: `${r.level} · ${r.duration}` }));
+  if (!courses?.length) return { coursesLine: null, featured: [], roadmaps: menuRoadmaps };
   const t = createTranslator(locale);
   const open = courses.filter((c) => !c.completed && c.availability === 'OPEN');
   const coursesLine = open.length
@@ -44,5 +60,5 @@ export function buildMenuData(courses: CourseSummaryDto[] | null, locale: Locale
         tone: 'success',
       };
     });
-  return { coursesLine, featured };
+  return { coursesLine, featured, roadmaps: menuRoadmaps };
 }

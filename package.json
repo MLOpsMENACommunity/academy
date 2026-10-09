@@ -15,6 +15,7 @@
     "db:migrate": "pnpm --filter @academy/api db:migrate",
     "db:seed": "pnpm --filter @academy/api db:seed",
     "db:reset": "pnpm --filter @academy/api db:reset",
+    "roadmaps:sync": "node apps/web/scripts/sync-roadmaps.mjs",
     "infra:up": "docker compose up -d postgres minio mailpit",
     "infra:down": "docker compose down",
     "e2e": "playwright test"

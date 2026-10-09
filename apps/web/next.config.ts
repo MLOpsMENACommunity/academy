@@ -68,6 +68,9 @@ const nextConfig: NextConfig = {
   deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // Trace files from the monorepo root so the standalone build includes workspace packages.
   outputFileTracingRoot: path.resolve(process.cwd(), '../..'),
+  // The open-source roadmaps are read from Markdown when a page renders (the header's Learn
+  // menu lists them on every page, and ISR re-renders pages at run time): ship the files.
+  outputFileTracingIncludes: { '/**': ['./src/content/roadmaps/*.md'] },
   poweredByHeader: false,
   // Inline the (small) CSS into the HTML: no render-blocking stylesheet round trips on slow mobile networks.
   experimental: { inlineCss: true },

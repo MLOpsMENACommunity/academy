@@ -1209,13 +1209,15 @@
     "live": "Live",
     "community": "Community",
     "browse": "Browse",
-    "paths": "Learning paths",
-    "pathsDesc": "Step-by-step routes by topic",
+    "paths": "MLOps MENA learning paths",
+    "pathsDesc": "Academy courses and recordings, in order",
+    "roadmaps": "Open-source roadmaps",
+    "roadmapsDesc": "Free self-study reading lists",
     "recordings": "Recordings",
     "recordingsDesc": "Free talks and past cohorts",
     "coursesDesc": "Live cohorts with instructors",
-    "pathsByTopic": "Paths by topic",
-    "allPaths": "All learning paths",
+    "allPaths": "All MLOps MENA learning paths",
+    "allRoadmaps": "All open-source roadmaps",
     "featured": "Featured",
     "fullCatalog": "Browse the full catalog",
     "featuredOpen": "Applications open",
@@ -1246,7 +1248,7 @@
     "try": "Take a look"
   },
   "paths": {
-    "title": "Learning paths",
+    "title": "MLOps MENA learning paths",
     "intro": "Academy courses and free recordings in a sensible order, so you always know what to learn next.",
     "stepCount": "{count, plural, one {# step} other {# steps}}",
     "seePath": "See the path",
@@ -1271,8 +1273,36 @@
     "kindCourse": "Course",
     "kindRecording": "Recording",
     "watch": "Watch",
+    "watchYoutube": "Watch on YouTube",
+    "format": {
+      "live": "Live",
+      "video": "Video"
+    },
+    "links": {
+      "slides": "Slides",
+      "code": "Code"
+    },
     "apply": "Apply",
     "notify": "Notify me",
     "otherPaths": "Other paths"
+  },
+  "roadmaps": {
+    "title": "Open-source roadmaps",
+    "intro": "Free, open-source resources curated by the MLOps MENA Community: self-study reading lists that take you from your first steps in MLOps to senior level.",
+    "totalLinks": "{count, plural, one {# curated link} other {# curated links}} in total, all free.",
+    "resources": "{count, plural, one {# free resource} other {# free resources}}",
+    "phases": "{count, plural, one {# phase} other {# phases}}",
+    "open": "Open the roadmap",
+    "phaseN": "Phase {n}",
+    "specializationN": "Specialization {n}",
+    "timeline": "Roadmap timeline",
+    "onThisPage": "On this page",
+    "whoFor": "Who it is for",
+    "published": "First published by MLOps MENA on {date}",
+    "englishNotice": "The full roadmap below is published in English. The overview, phases, and every resource link work the same in both languages.",
+    "otherRoadmaps": "Other roadmaps",
+    "pathsTitle": "Prefer a guided route?",
+    "pathsBody": "The MLOps MENA learning paths put academy courses and free recordings in order, one step at a time.",
+    "pathsCta": "See the learning paths"
   }
 }

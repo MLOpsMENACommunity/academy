@@ -65,6 +65,7 @@ container runs migrations and the seed on start.
 | `pnpm e2e` | Browser tests (main flow, accessibility, security headers) against a running stack: `docker compose up -d --build --wait` first, or set `E2E_BASE_URL` |
 | `pnpm db:reset` | Drop, re-migrate and re-seed the local database |
 | `pnpm --filter @academy/api prisma studio` | Browse the database |
+| `pnpm roadmaps:sync ../website` | Copy the open-source roadmaps (`content/roadmaps/*.md`) from a checkout of the website repo into `apps/web/src/content/roadmaps/`, byte for byte. Add `--check` to only report differences. Edit roadmaps in the website, never here |
 
 ## Environment variables
 

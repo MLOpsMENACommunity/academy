@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useI18n } from '@/i18n/client';
-import { Arrow, IconArticle, IconCalendar, IconChat, IconChevron, IconCourses, IconExternal, IconPath, IconPlay, IconUsers } from '../ui/Icons';
+import { Arrow, IconArticle, IconCalendar, IconChat, IconChevron, IconCourses, IconExternal, IconMap, IconPath, IconPlay, IconUsers } from '../ui/Icons';
 import type { MenuData } from './menu';
 import { menuSections, type MenuColumn, type MenuIcon, type MenuLink, type MenuSection, type MenuTint } from './sections';
 import { WhatsNewLink } from './WhatsNew';
@@ -12,6 +12,7 @@ import { WhatsNewLink } from './WhatsNew';
 const icons: Record<MenuIcon, (p: { size?: number }) => ReactNode> = {
   courses: IconCourses,
   path: IconPath,
+  map: IconMap,
   play: IconPlay,
   calendar: IconCalendar,
   users: IconUsers,
@@ -44,6 +45,7 @@ export function MenuItem({ link, onNavigate, compact }: { link: MenuLink; onNavi
           {link.external && <IconExternal className="text-muted" />}
         </span>
         {link.desc && <span className={`block text-sm leading-snug ${descToneClass[link.descTone ?? 'muted']}`}>{link.desc}</span>}
+        {link.meta && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">{link.meta}</span>}
       </span>
     </>
   );
@@ -179,7 +181,13 @@ export function MegaNav({ data }: { data: MenuData }) {
         <div key={s.id} id={`${baseId}-${s.id}`} role="region" aria-label={s.label} className="absolute inset-x-0 top-full z-50 px-6 pt-2">
           <div
             className={`mx-auto grid max-w-[70rem] overflow-hidden rounded-card border border-line bg-card shadow-pop ${
-              s.columns.length >= 3 ? 'grid-cols-[1fr_1fr_1.1fr]' : s.columns.length === 2 ? 'grid-cols-[1.4fr_1fr]' : 'grid-cols-1'
+              s.columns.length >= 4
+                ? 'grid-cols-4'
+                : s.columns.length === 3
+                  ? 'grid-cols-[1fr_1fr_1.1fr]'
+                  : s.columns.length === 2
+                    ? 'grid-cols-[1.4fr_1fr]'
+                    : 'grid-cols-1'
             } [&>*+*]:border-s [&>*+*]:border-line-soft`}
           >
             {s.columns.map((col) => (

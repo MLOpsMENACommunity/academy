@@ -18,10 +18,13 @@ export const statusText: Record<StepStatus, string> = {
  */
 export function Stepper({ steps, locale, size = 'md', linked = true }: { steps: ResolvedStep[]; locale: Locale; size?: 'sm' | 'md'; linked?: boolean }) {
   const t = createTranslator(locale);
+  // Long paths keep a readable column per step and scroll sideways (md and up) instead of squeezing.
+  const long = steps.length > 6;
   return (
+    <div className={long ? 'md:overflow-x-auto md:pb-2' : undefined}>
     <ol
       className="flex flex-col gap-0 md:grid md:gap-0"
-      style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: long ? `repeat(${steps.length}, 9.5rem)` : `repeat(${steps.length}, minmax(0, 1fr))` }}
     >
       {steps.map((s, i) => {
         const last = i === steps.length - 1;
@@ -50,5 +53,6 @@ export function Stepper({ steps, locale, size = 'md', linked = true }: { steps: 
         );
       })}
     </ol>
+    </div>
   );
 }

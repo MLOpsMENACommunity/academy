@@ -20,6 +20,7 @@ export function Footer({ locale }: { locale: Locale }) {
       links: [
         { href: l('/courses'), label: t('nav.courses') },
         { href: l('/learning-paths'), label: t('menu.paths') },
+        { href: l('/roadmaps'), label: t('menu.roadmaps') },
         { href: l('/sessions/recordings'), label: t('menu.recordings') },
       ],
     },

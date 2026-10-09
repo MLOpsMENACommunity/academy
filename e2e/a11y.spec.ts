@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 /** WCAG 2.2 AA automated checks on the public pages, in both languages. */
-const PAGES = ['/en', '/ar', '/en/courses', '/ar/courses', '/en/sessions', '/ar/sessions', '/en/login', '/ar/register', '/en/privacy', '/ar/contact', '/en/learning-paths', '/ar/learning-paths/mlops-engineer', '/en/speakers', '/ar/whats-new'];
+const PAGES = ['/en', '/ar', '/en/courses', '/ar/courses', '/en/sessions', '/ar/sessions', '/en/login', '/ar/register', '/en/privacy', '/ar/contact', '/en/learning-paths', '/ar/learning-paths/mlops-engineer', '/en/roadmaps', '/ar/roadmaps', '/en/roadmaps/basic-mlops-engineer', '/ar/roadmaps/devops-to-mlops', '/en/speakers', '/ar/whats-new'];
 
 for (const path of PAGES) {
   test(`no axe violations on ${path}`, async ({ page }) => {
@@ -45,7 +45,9 @@ test('the header menus open with the keyboard, pass axe and close on Escape', as
   await page.keyboard.press('Enter');
   await expect(learn).toHaveAttribute('aria-expanded', 'true');
   const panel = page.getByRole('region', { name: 'Learn' });
-  await expect(panel.getByRole('link', { name: /Learning paths/ }).first()).toBeVisible();
+  await expect(panel.getByRole('link', { name: /MLOps MENA learning paths/ }).first()).toBeVisible();
+  await expect(panel.getByRole('link', { name: /Open-source roadmaps/ }).first()).toBeVisible();
+  await expect(panel.getByRole('link', { name: /Basic MLOps Engineer Roadmap/ })).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
   await page.keyboard.press('Escape');
@@ -65,6 +67,19 @@ test('the phone drawer is a dialog that traps focus, in Arabic too', async ({ pa
   await page.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
   await expect(open).toBeFocused();
+});
+
+test('an open-source roadmap: Arabic chrome, English body read left to right', async ({ page }) => {
+  await page.goto('/ar/roadmaps/basic-mlops-engineer');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.getByRole('heading', { level: 1, name: 'خريطة مهندس MLOps المبتدئ' })).toBeVisible();
+  const body = page.locator('article[dir="ltr"][lang="en"]');
+  await expect(body.getByRole('heading', { level: 2, name: /Phase 0/ })).toBeVisible();
+  const external = body.locator('a[href^="https://"]').first();
+  await expect(external).toHaveAttribute('target', '_blank');
+  await expect(external).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://mlopsmena.com/ar/roadmaps/basic-mlops-engineer/');
+  expect((await page.request.get('/en/roadmaps/not-a-roadmap')).status()).toBe(404);
 });
 
 test('security headers are set', async ({ request }) => {

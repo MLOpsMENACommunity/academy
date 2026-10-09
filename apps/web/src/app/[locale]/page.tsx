@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { EventCard, PathCard, RecordingTile, SpeakerTile } from '@/components/catalog/cards';
 import { SegmentedTabs } from '@/components/catalog/Segmented';
 import { CourseCard } from '@/components/course/CourseCard';
+import { RoadmapCard } from '@/components/roadmaps/RoadmapCard';
 import { DateTile } from '@/components/sessions/SessionDate';
 import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
@@ -13,6 +14,7 @@ import { Arrow, IconCheck } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { LEARNING_PATHS, resolveSteps } from '@/lib/paths';
+import { getRoadmaps, localizeRoadmap } from '@/lib/roadmaps';
 import { alternates } from '@/lib/seo';
 import { serverGet, serverGetOr } from '@/lib/server-api';
 import { pick } from '@/lib/sessions';
@@ -100,6 +102,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const rank = (c: CourseSummaryDto) => (c.completed ? 2 : c.availability === 'OPEN' ? 0 : c.availability === 'UPCOMING' ? 1 : 3);
   const courses = [...all].sort((a, b) => rank(a) - rank(b)).slice(0, 4);
   const paths = LEARNING_PATHS.map((p) => ({ path: p, steps: resolveSteps(p, all, recordings, locale) })).filter((p) => p.steps.length > 0);
+  const roadmaps = getRoadmaps().map((r) => localizeRoadmap(r, locale));
   const dates = upcomingDates(all, events, locale);
   const trust = ['home.trust1', 'home.trust2', 'home.trust3'] as const;
 
@@ -204,6 +207,28 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                           </ul>
                           <div className="mt-6">
                             <SeeAll href={`/${locale}/learning-paths`}>{t('menu.allPaths')}</SeeAll>
+                          </div>
+                        </>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(roadmaps.length
+                ? [
+                    {
+                      id: 'roadmaps',
+                      label: t('menu.roadmaps'),
+                      panel: (
+                        <>
+                          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                            {roadmaps.map((r) => (
+                              <li key={r.slug} className="flex">
+                                <RoadmapCard roadmap={r} locale={locale} />
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="mt-6">
+                            <SeeAll href={`/${locale}/roadmaps`}>{t('menu.allRoadmaps')}</SeeAll>
                           </div>
                         </>
                       ),
