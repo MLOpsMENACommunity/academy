@@ -2,7 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { randomToken, sha256 } from '../src/common/crypto';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { cookieHeader, createTestApp, uniqueEmail } from './helpers';
+import { cookieHeader, createTestApp, createUser, uniqueEmail } from './helpers';
 
 describe('auth & profile (e2e)', () => {
   let app: NestExpressApplication;
@@ -91,7 +91,8 @@ describe('auth & profile (e2e)', () => {
       .set('Cookie', cookies)
       .send({
         fullNameEn: 'Test Student',
-        phone: '+201001234567',
+        // A local Egyptian number is stored in international format (QA L11).
+        phone: '0100 123 4567',
         country: 'EG',
         city: 'Cairo',
         timezone: 'Africa/Cairo',
@@ -105,13 +106,22 @@ describe('auth & profile (e2e)', () => {
       })
       .expect(200);
     // The basics alone are no longer enough: professional background and education are required too.
-    expect(res.body).toMatchObject({ coreComplete: false });
+    expect(res.body).toMatchObject({ coreComplete: false, phone: '+201001234567' });
     await http().put('/api/me/profile/professional').set('Cookie', cookies).send({ company: 'X' }).expect(400);
-    await http()
+    // More ML/AI experience than total experience (3–5 years) is refused, on the ML field (QA L12).
+    const tooMuch = await http()
       .put('/api/me/profile/professional')
       .set('Cookie', cookies)
-      .send({ industry: 'TELECOM', mlExperienceYears: 'Y1_3', seniority: 'MID', secondaryAreas: [] })
+      .send({ industry: 'TELECOM', mlExperienceYears: 'Y10_PLUS', seniority: 'MID', secondaryAreas: [] })
+      .expect(400);
+    expect(tooMuch.body.errors).toEqual([{ path: 'mlExperienceYears', message: expect.stringContaining('total professional experience') }]);
+    // The primary area (MLOPS) is never also a secondary one.
+    const pro = await http()
+      .put('/api/me/profile/professional')
+      .set('Cookie', cookies)
+      .send({ industry: 'TELECOM', mlExperienceYears: 'Y1_3', seniority: 'MID', secondaryAreas: ['MLOPS', 'DATA_ENGINEERING'] })
       .expect(200);
+    expect(pro.body.secondaryAreas).toEqual(['DATA_ENGINEERING']);
     const edu = await http()
       .put('/api/me/profile/education')
       .set('Cookie', cookies)
@@ -130,14 +140,14 @@ describe('auth & profile (e2e)', () => {
       .send({ linkedinUrl: 'https://www.linkedin.com/in/student', githubUrl: 'https://github.com/student' })
       .expect(200);
     // Every community question needs an explicit answer; nothing defaults to "no".
-    // 63% = every required field (60%) plus the optional industry given above.
+    // 66% = every required field (60%) plus the optional industry and secondary area given above.
     await http().put('/api/me/profile/community').set('Cookie', cookies).send({ referralSource: 'LINKEDIN' }).expect(400);
     const community = await http()
       .put('/api/me/profile/community')
       .set('Cookie', cookies)
       .send({ referralSource: 'LINKEDIN', communityMember: true, openToOpportunities: false, shareWithPartners: false, marketingEmails: true })
       .expect(200);
-    expect(community.body).toMatchObject({ coreComplete: true, completeness: 63, marketingEmails: true, shareWithPartners: false });
+    expect(community.body).toMatchObject({ coreComplete: true, completeness: 66, marketingEmails: true, shareWithPartners: false });
     expect(community.body.communityAnsweredAt).toBeTruthy();
     const skills = await http()
       .put('/api/me/profile/skills')
@@ -155,6 +165,25 @@ describe('auth & profile (e2e)', () => {
       .attach('file', Buffer.from('<html>not a pdf</html>'), { filename: 'cv.pdf', contentType: 'application/pdf' })
       .expect(400);
     expect(res.body.code).toBe('FILE_TYPE');
+  });
+
+  it('lets the owner, and only the owner, open their CV, and points the export to it (QA L23)', async () => {
+    await http().get('/api/me/profile/cv').set('Cookie', cookies).expect(404);
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');
+    await http()
+      .post('/api/me/profile/cv')
+      .set('Cookie', cookies)
+      .attach('file', pdf, { filename: 'cv.pdf', contentType: 'application/pdf' })
+      .expect(201);
+    const res = await http().get('/api/me/profile/cv').set('Cookie', cookies).expect(200);
+    expect(res.headers['cache-control']).toMatch(/no-store/);
+    expect(res.body.url).toMatch(/^https?:\/\//);
+    expect(res.body.expiresIn).toBeLessThanOrEqual(300);
+    const other = await createUser(app, prisma);
+    await http().get('/api/me/profile/cv').set('Cookie', other.cookie).expect(404);
+    await http().get('/api/me/profile/cv').expect(401);
+    const exported = await http().get('/api/me/export').set('Cookie', cookies).expect(200);
+    expect(exported.body.cv).toMatchObject({ download: expect.stringMatching(/\/profile\?tab=links$/), uploadedAt: expect.any(String) });
   });
 
   it('exports the student data as JSON', async () => {

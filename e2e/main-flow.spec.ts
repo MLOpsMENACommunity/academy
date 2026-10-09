@@ -10,6 +10,7 @@ const stamp = Date.now();
 const slug = `e2e-paid-${stamp}`;
 const student = { email: `e2e-${stamp}@example.test`, password: 'e2e-student-password', name: `E2E Student ${stamp}` };
 const QUESTION = 'What do you want to get out of this course?';
+const DOMAIN = 'Which domain would you like to design your capstone for?';
 
 let admin: APIRequestContext;
 let courseId: string;
@@ -70,7 +71,21 @@ test.beforeAll(async () => {
 
   await admin.put(`/api/admin/courses/${courseId}/questions`, {
     headers: JSON_HEADERS,
-    data: { questions: [{ type: 'SHORT_TEXT', labelEn: QUESTION, labelAr: 'ماذا تريد أن تتعلم؟', required: true }] },
+    data: {
+      questions: [
+        { type: 'SHORT_TEXT', labelEn: QUESTION, labelAr: 'ماذا تريد أن تتعلم؟', required: true },
+        {
+          type: 'SINGLE_SELECT',
+          labelEn: DOMAIN,
+          labelAr: 'في أي مجال تود تصميم مشروعك الختامي؟',
+          required: true,
+          options: [
+            { value: 'telecom', labelEn: 'Telecom', labelAr: 'الاتصالات' },
+            { value: 'own', labelEn: 'My own domain (to be approved)', labelAr: 'مجال خاص بي (يتطلب الموافقة)', requiresDetail: true },
+          ],
+        },
+      ],
+    },
   });
   // Starts in 20 minutes: inside the live-link reveal window (60 by default).
   const session = await admin.post(`/api/admin/courses/${courseId}/sessions`, {
@@ -115,7 +130,8 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   // 2. Required profile step.
   await page.waitForURL(/\/en\/onboarding/);
   await page.getByLabel('Full name (English)').fill(student.name);
-  await page.getByLabel('Phone / WhatsApp').fill('+201001234567');
+  // A local Egyptian number is accepted and stored as +20… (QA L11).
+  await page.getByLabel('Phone / WhatsApp').fill('01001234567');
   await page.getByLabel('Google account email').fill(`e2e.${stamp}@gmail.com`);
   await page.getByLabel('Country of residence').selectOption('EG');
   await page.getByLabel('City').fill('Cairo');
@@ -123,7 +139,8 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await page.getByLabel('Current job title').fill('ML Engineer');
   await page.getByLabel('Total professional experience').selectOption('Y3_5');
   await page.getByLabel('Primary area').selectOption('MLOPS');
-  await page.getByLabel('English', { exact: true }).check();
+  // Preselected from the account's language (QA M3).
+  await expect(page.getByLabel('English', { exact: true })).toBeChecked();
   await page.getByRole('checkbox').last().check();
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 2 of 7')).toBeVisible();
@@ -146,7 +163,7 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await expect(page.getByText('Step 5 of 7')).toBeVisible();
   await page.getByLabel(/How did you hear about us/).selectOption('LINKEDIN');
   for (const q of [/member of the community/, /open to job opportunities/, /Share my profile/, /Email me about new courses/]) {
-    await page.getByRole('group', { name: q }).getByLabel('No').check();
+    await page.getByRole('radiogroup', { name: q }).getByLabel('No').check();
   }
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 6 of 7')).toBeVisible();
@@ -162,9 +179,25 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   // 4. Apply.
   await page.goto(`/en/courses/${slug}/apply`);
   await page.getByLabel(QUESTION).fill('Run models in production with confidence.');
+  // An unanswered radio question is flagged and gets focus (QA M3).
+  await page.getByRole('button', { name: 'Submit application' }).click();
+  const domain = page.getByRole('radiogroup', { name: DOMAIN });
+  await expect(domain).toHaveAttribute('aria-invalid', 'true');
+  await expect(domain.getByLabel('Telecom')).toBeFocused();
+  // "My own domain" asks for a description, which is required (QA L24).
+  await domain.getByLabel('My own domain (to be approved)').check();
+  await page.getByRole('button', { name: 'Submit application' }).click();
+  const describe = page.getByRole('textbox', { name: /Describe your choice/ });
+  await expect(describe).toBeFocused();
+  await expect(describe).toHaveAttribute('aria-invalid', 'true');
+  await describe.fill('Healthcare triage');
   await page.getByRole('button', { name: 'Submit application' }).click();
   await page.waitForURL(/\/en\/dashboard\/applications\//);
   const applicationId = page.url().split('/').pop()!.split('?')[0]!;
+  await expect(page.getByText('My own domain (to be approved): Healthcare triage')).toBeVisible();
+  // The cached course page swaps "Apply" for the student's application (QA V3).
+  await page.goto(`/en/courses/${slug}`);
+  await expect(page.getByRole('link', { name: 'View my application' }).first()).toBeVisible();
 
   // 5. Admin shortlists, then accepts (paid course → awaiting payment).
   for (const event of ['SHORTLIST', 'ACCEPT']) {
