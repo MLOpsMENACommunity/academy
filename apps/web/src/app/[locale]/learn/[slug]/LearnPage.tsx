@@ -115,7 +115,8 @@ function Inner() {
 
   const title = locale === 'ar' ? course.titleAr : course.titleEn;
   const sessions = [...course.sessions].sort((a, b) => a.order - b.order);
-  const current = sessions.find((s) => s.order === selected) ?? null;
+  // A stale or hand-edited #session-N that matches nothing falls back to the default session.
+  const current = sessions.find((s) => s.order === selected) ?? sessions.find((s) => s.order === defaultSession(sessions)) ?? null;
   const index = current ? sessions.indexOf(current) : -1;
   const prev = index > 0 ? sessions[index - 1] : null;
   const next = index >= 0 && index < sessions.length - 1 ? sessions[index + 1] : null;
@@ -168,7 +169,7 @@ function Inner() {
           </div>
           <ol className="overflow-hidden rounded-xl border border-line bg-card">
             {sessions.map((s) => {
-              const active = s.order === selected;
+              const active = s.order === current?.order;
               return (
                 <li key={s.id} className="border-b border-line-soft last:border-0">
                   <a
