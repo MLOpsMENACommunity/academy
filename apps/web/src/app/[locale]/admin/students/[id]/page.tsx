@@ -4,11 +4,11 @@ import type { ApplicationStatus, ProfileDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CvCard } from '@/components/admin/CvCard';
 import { Notes, type Note } from '@/components/admin/Notes';
 import { ProfileView } from '@/components/admin/ProfileView';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
@@ -32,7 +32,6 @@ export default function StudentDetail() {
   const { id } = useParams<{ id: string }>();
   const [s, setS] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cvBusy, setCvBusy] = useState(false);
   useEffect(() => {
     api<Student>(`/admin/students/${id}`).then(setS).catch((e: unknown) => setError(errorMessage(e, t)));
   }, [id, t]);
@@ -56,38 +55,7 @@ export default function StudentDetail() {
           <ProfileView profile={s.profile} />
         </Card>
         <div className="space-y-5">
-          <Card>
-            <h2 className="text-lg">{t('profile.fields.cv')}</h2>
-            {s.profile.hasCv ? (
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="secondary"
-                loading={cvBusy}
-                onClick={async () => {
-                  // Open the tab inside the click (popup blockers), then point it at the signed URL.
-                  const tab = window.open('', '_blank');
-                  if (tab) tab.opener = null;
-                  setCvBusy(true);
-                  try {
-                    const r = await api<{ url: string }>(`/admin/students/${s.id}/cv`);
-                    if (tab) tab.location.href = r.url;
-                    else window.location.href = r.url;
-                  } catch (err) {
-                    tab?.close();
-                    setError(errorMessage(err, t));
-                  } finally {
-                    setCvBusy(false);
-                  }
-                }}
-              >
-                {t('admin.students.viewCv')}
-              </Button>
-            ) : (
-              <p className="mt-2 text-sm text-muted">{t('admin.students.noCv')}</p>
-            )}
-            {s.profile.hasCv && <p className="mt-2 text-xs text-muted">{t('admin.payments.linkExpires')}</p>}
-          </Card>
+          <CvCard studentId={s.id} hasCv={s.profile.hasCv} />
           <Card>
             <h2 className="text-lg">{t('admin.students.applications')}</h2>
             <ul className="mt-2 space-y-2 text-sm">

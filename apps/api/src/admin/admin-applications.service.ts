@@ -91,8 +91,11 @@ export class AdminApplicationsService {
             country: a.user.profile?.country ?? null,
             jobTitle: a.user.profile?.jobTitle ?? null,
             experienceYears: a.user.profile?.experienceYears ?? null,
+            mlExperienceYears: a.user.profile?.mlExperienceYears ?? null,
             seniority: a.user.profile?.seniority ?? null,
             primaryArea: a.user.profile?.primaryArea ?? null,
+            // Whether a CV is on file; the file itself only through the audited admin CV link.
+            hasCv: Boolean(a.user.profile?.cvKey),
           },
           availableEvents: availableAdminEvents(a.status, { courseType: a.course.type, capacity: a.course.capacity, seatsTaken: taken }),
         };
@@ -145,6 +148,8 @@ export class AdminApplicationsService {
       /** Their profile today (filters use this one). */
       currentProfile: toProfileDto(a.user.profile),
       student: { id: a.user.id, email: a.user.email, emailVerified: Boolean(a.user.emailVerifiedAt), deleted: Boolean(a.user.deletedAt) },
+      /** A CV on file today (opened through GET /admin/students/:id/cv, which is audited). */
+      hasCv: Boolean(a.user.profile?.cvKey) && !a.user.deletedAt,
       history: a.history.map((h) => ({
         fromStatus: h.fromStatus,
         toStatus: h.toStatus,
@@ -209,7 +214,7 @@ export class AdminApplicationsService {
       'Application ID', 'Applied at', 'Status', 'Course', 'Ref', 'UTM source', 'Name (EN)', 'Name (AR)', 'Email', 'Phone',
       'Country', 'City', 'Employment', 'Job title', 'Company', 'Experience', 'ML experience', 'Seniority', 'Primary area',
       'Secondary areas', 'Education', 'Field of study', 'Institution', 'Skills (1-5)', 'Cloud', 'Weekly hours', 'Topics', 'Open to opportunities',
-      'Share with partners', 'Google email', 'LinkedIn', 'GitHub',
+      'Share with partners', 'Google email', 'LinkedIn', 'GitHub', 'Has CV',
       ...questions.map((q) => `Q: ${q.labelEn}`),
     ];
     const body = capRows(rows, (a) => {
@@ -222,6 +227,8 @@ export class AdminApplicationsService {
         p?.seniority, p?.primaryArea, p?.secondaryAreas, p?.educationLevel, p?.fieldOfStudy, p?.university,
         (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.weeklyHours, p?.interestedTopics,
         p?.openToOpportunities, p?.shareWithPartners, p?.googleEmail, p?.linkedinUrl, p?.githubUrl,
+        // Yes/no only: a CV link is a short-lived credential and never goes in a file.
+        p?.cvKey ? 'Yes' : 'No',
         ...questions.map((q) => {
           const detail = answerDetail(answers, { id: q.id, options: q.options as QuestionOption[] | null });
           return detail ? `${String(answers[q.id])}: ${detail}` : answers[q.id];

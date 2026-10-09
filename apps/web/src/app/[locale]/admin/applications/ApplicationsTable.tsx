@@ -11,6 +11,8 @@ import {
 } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { ApplicationBulkBar } from '@/components/admin/ApplicationBulkBar';
+import { CvMark } from '@/components/admin/CvCard';
 import { MultiSelect } from '@/components/admin/MultiSelect';
 import { Pager } from '@/components/admin/Pager';
 import { ProfileFilters } from '@/components/admin/ProfileFilters';
@@ -31,7 +33,7 @@ interface Row {
   createdAt: string;
   ref: string | null;
   course: { id: string; titleEn: string; titleAr: string };
-  student: { id: string; email: string; name: string | null; country: string | null; jobTitle: string | null; experienceYears: string | null; primaryArea: string | null };
+  student: { id: string; email: string; name: string | null; country: string | null; jobTitle: string | null; experienceYears: string | null; primaryArea: string | null; hasCv: boolean };
   availableEvents: AdminApplicationEvent[];
 }
 interface Page {
@@ -49,14 +51,9 @@ export function ApplicationsTable() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [courses, setCourses] = useState<{ id: string; titleEn: string; titleAr: string }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [event, setEvent] = useState<AdminApplicationEvent>('SHORTLIST');
-  const [reason, setReason] = useState('');
-  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [q, setQ] = useState(params.q ?? '');
   const [ref, setRef] = useState(params.ref ?? '');
-  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
   // Keep the text inputs in step with the URL (Reset, saved views, back button).
   useEffect(() => setQ(params.q ?? ''), [params.q]);
   useEffect(() => setRef(params.ref ?? ''), [params.ref]);
@@ -84,27 +81,9 @@ export function ApplicationsTable() {
     };
   }, [apiQuery]);
 
-  async function runBulk() {
-    setBusy(true);
-    setBulkMsg(null);
-    setBulkErrors([]);
-    try {
-      const r = await api<{ succeeded: number; results: { id: string; ok: boolean; error?: string }[] }>('/admin/applications/bulk', {
-        method: 'POST',
-        json: { ids: [...selected], event, reason: reason || undefined },
-      });
-      setBulkMsg(t('admin.apps.bulkDone', { ok: r.succeeded, total: r.results.length }));
-      const names = new Map(data?.items.map((i) => [i.id, i.student.name ?? i.student.email]));
-      setBulkErrors(r.results.filter((x) => !x.ok).map((x) => `${names.get(x.id) ?? x.id}: ${x.error ?? ''}`));
-      setReason('');
-      const d = await api<Page>(`/admin/applications?${apiQuery}`);
-      setData(d);
-      setSelected(new Set());
-    } catch (err) {
-      setBulkMsg(errorMessage(err, t));
-    } finally {
-      setBusy(false);
-    }
+  async function reload() {
+    setData(await api<Page>(`/admin/applications?${apiQuery}`));
+    setSelected(new Set());
   }
 
   const title = (c: { titleEn: string; titleAr: string }) => ((locale === 'ar' && c.titleAr) || c.titleEn);
@@ -191,48 +170,7 @@ export function ApplicationsTable() {
         </div>
       </div>
 
-      {selected.size > 0 && (
-        <div className="sticky top-2 z-20 mt-4 flex flex-wrap items-end gap-3 rounded-card border border-primary/40 bg-primary-soft p-3" role="region" aria-label={t('admin.apps.bulk')}>
-          <span className="text-sm font-semibold">{t('admin.common.selected', { count: selected.size })}</span>
-          <label className="block">
-            <span className="sr-only">{t('admin.apps.bulk')}</span>
-            <select value={event} onChange={(e) => setEvent(e.target.value as AdminApplicationEvent)} className="min-h-10 rounded-lg border border-line-strong bg-card px-2 text-base md:text-sm">
-              {(['SHORTLIST', 'ACCEPT', 'REJECT', 'WAITLIST'] as const).map((ev) => (
-                <option key={ev} value={ev}>
-                  {t(`admin.apps.events.${ev}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {event === 'REJECT' && (
-            <input
-              aria-label={t('admin.apps.reason')}
-              placeholder={t('admin.apps.reason')}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              maxLength={1000}
-              className="min-h-10 min-w-64 rounded-lg border border-line-strong bg-card px-3 text-base md:text-sm"
-            />
-          )}
-          <Button size="sm" loading={busy} onClick={runBulk}>
-            {t('admin.apps.run')}
-          </Button>
-        </div>
-      )}
-      {bulkMsg && (
-        <p role="status" className="mt-3 text-sm text-success">
-          {bulkMsg}
-        </p>
-      )}
-      {bulkErrors.length > 0 && (
-        <Alert tone="warning" className="mt-2">
-          <ul className="list-disc ps-5">
-            {bulkErrors.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
+      <ApplicationBulkBar selected={selected} names={new Map(data?.items.map((i) => [i.id, i.student.name ?? i.student.email]))} onDone={reload} />
       {error && <Alert tone="danger" className="mt-4">{t('errors.generic')}</Alert>}
 
       <div className="mt-4 overflow-x-auto rounded-card border border-line bg-card">
@@ -254,19 +192,20 @@ export function ApplicationsTable() {
               <th className="p-3 text-start">{t('admin.apps.status')}</th>
               <th className="p-3 text-start">{t('admin.apps.applied')}</th>
               <th className="p-3 text-start">{t('admin.apps.ref')}</th>
+              <th className="p-3 text-start">{t('admin.apps.cv')}</th>
             </tr>
           </thead>
           <tbody>
             {data === null && !error && (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-muted">
+                <td colSpan={8} className="p-6 text-center text-muted">
                   {t('admin.common.loading')}
                 </td>
               </tr>
             )}
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-muted">
+                <td colSpan={8} className="p-6 text-center text-muted">
                   {t('admin.common.none')}
                 </td>
               </tr>
@@ -304,6 +243,9 @@ export function ApplicationsTable() {
                 </td>
                 <td className="p-3 whitespace-nowrap">{formatDate(r.createdAt, locale)}</td>
                 <td className="p-3 text-xs">{r.ref ?? '—'}</td>
+                <td className="p-3">
+                  <CvMark hasCv={r.student.hasCv} />
+                </td>
               </tr>
             ))}
           </tbody>
