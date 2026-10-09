@@ -10,8 +10,10 @@ const PLACEHOLDER = '[PLACEHOLDER]';
  * Creates the seed catalog. Safe to run on every start:
  * - a course is created once; if an admin later renames or deletes it, it is not recreated;
  * - questions, sessions and instructors are only added to a course that has none;
- * - a course still holding the old placeholder content, never touched by an admin, is
- *   replaced in place by the real seed (see `isUntouchedPlaceholder`).
+ * - a course still holding the old placeholder content, or an earlier version of its seed
+ *   (`supersedes`), never touched by an admin, is replaced in place by the current seed
+ *   (see `isUntouchedPlaceholder`). Once replaced it holds the current content, so later
+ *   starts leave it alone.
  */
 export async function seedCatalog(prisma: PrismaClient, courses: SeedCourse[], env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const seeded = new Set(await readSeeded(prisma));
@@ -24,7 +26,7 @@ export async function seedCatalog(prisma: PrismaClient, courses: SeedCourse[], e
     const existing = await prisma.course.findUnique({ where: { slug: course.slug } });
     if (existing) {
       seeded.add(course.slug);
-      if (!seed.placeholder && (await isUntouchedPlaceholder(prisma, existing))) {
+      if (!seed.placeholder && (await isUntouchedPlaceholder(prisma, existing, seed.supersedes))) {
         await refreshPlaceholder(prisma, existing.id, seed, data);
       } else {
         console.log(`Course kept as is: ${course.slug}`);
@@ -94,13 +96,22 @@ function jsonFields(seed: SeedCourse) {
 }
 
 /**
- * True only for a course created by the old placeholder seed that no admin has touched:
- * placeholder text, every session still a placeholder, and no admin action on the course
- * or its sessions in the audit log (every admin edit is audited).
+ * True only for a course the seed created that no admin has touched since: placeholder text
+ * (or, word for word, an earlier version of its seed listed in `supersedes`), every session
+ * still a placeholder, and no admin action on the course or its sessions in the audit log
+ * (every admin edit is audited).
  */
-export async function isUntouchedPlaceholder(prisma: PrismaClient, c: { id: string; longDescriptionEn: string }): Promise<boolean> {
-  if (!c.longDescriptionEn.startsWith(PLACEHOLDER)) return false;
-  const sessions = await prisma.courseSession.findMany({ where: { courseId: c.id }, select: { id: true, titleEn: true } });
+export async function isUntouchedPlaceholder(
+  prisma: PrismaClient,
+  c: { id: string; longDescriptionEn: string },
+  supersedes: readonly string[] = [],
+): Promise<boolean> {
+  if (!c.longDescriptionEn.startsWith(PLACEHOLDER) && !supersedes.includes(c.longDescriptionEn))
+    return false;
+  const sessions = await prisma.courseSession.findMany({
+    where: { courseId: c.id },
+    select: { id: true, titleEn: true },
+  });
   if (sessions.some((s) => !s.titleEn.startsWith(PLACEHOLDER))) return false;
   const edits = await prisma.auditLog.count({
     where: {
@@ -115,8 +126,9 @@ export async function isUntouchedPlaceholder(prisma: PrismaClient, c: { id: stri
 }
 
 /**
- * Replaces an untouched placeholder course with the real seed. Questions are only replaced
- * while nobody has applied, and sessions only while nobody has progress or feedback.
+ * Replaces an untouched placeholder (or earlier seed version) with the current seed. Questions
+ * are only replaced while nobody has applied, and sessions only while nobody has progress or
+ * feedback. The waiting list (CourseInterest) belongs to the course and is kept.
  */
 async function refreshPlaceholder(prisma: PrismaClient, courseId: string, seed: SeedCourse, data: Prisma.CourseCreateInput): Promise<void> {
   const kept: string[] = [];
@@ -166,5 +178,5 @@ async function refreshPlaceholder(prisma: PrismaClient, courseId: string, seed: 
       data: { action: 'seed.course_replaced', entityType: 'Course', entityId: courseId, metadata: { slug: seed.course.slug, kept } },
     });
   });
-  console.log(`Course replaced (was an untouched placeholder): ${seed.course.slug}${kept.length ? `; kept ${kept.join(', ')}` : ''}`);
+  console.log(`Course replaced (untouched placeholder or earlier seed version): ${seed.course.slug}${kept.length ? `; kept ${kept.join(', ')}` : ''}`);
 }

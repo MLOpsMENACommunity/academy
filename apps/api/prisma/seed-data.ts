@@ -23,6 +23,12 @@ export interface SeedCourse {
    * unless SEED_PLACEHOLDER_STATUS says otherwise.
    */
   placeholder?: boolean;
+  /**
+   * `longDescriptionEn` of earlier versions of this seed. A course still holding one of them,
+   * never edited by an admin, is updated in place to this version on the next start
+   * (see seed-catalog.ts). Admin edits are never overwritten.
+   */
+  supersedes?: string[];
   instructor?: Prisma.InstructorCreateInput;
   questions: Omit<Prisma.ScreeningQuestionCreateWithoutCourseInput, 'order'>[];
   sessions: Omit<Prisma.CourseSessionCreateWithoutCourseInput, 'order'>[];
@@ -197,13 +203,13 @@ ai-architecture-portfolio/
     },
     prerequisites: {
       en: [
-        '2+ years building software or ML systems in a team',
+        '3+ years building software or ML systems in a team',
         'At least one service, API or model shipped to real users',
         'Comfortable with Python, REST APIs and basic cloud concepts (containers, managed databases)',
         'Hands-on exposure to LLMs (API calls, prompting, or a simple RAG)',
       ],
       ar: [
-        'خبرة سنتين أو أكثر في بناء برمجيات أو أنظمة تعلم آلة ضمن فريق',
+        'خبرة 3 سنوات أو أكثر في بناء برمجيات أو أنظمة تعلم آلة ضمن فريق',
         'إطلاق خدمة أو واجهة برمجية (API) أو نموذج واحد على الأقل لمستخدمين حقيقيين',
         'إلمام بـ Python وواجهات REST ومفاهيم السحابة الأساسية (الحاويات، قواعد البيانات المُدارة)',
         'تجربة عملية مع نماذج LLM (استدعاءات API، كتابة الأوامر، أو تطبيق RAG بسيط)',
@@ -569,31 +575,140 @@ Session quiz (required).`,
   ],
 };
 
-// ------------------------------------------------------------------ Kubernetes for AI (coming soon)
+// ------------------------------------------------------------------ Kubernetes Mastery (coming soon)
 
+/** Shown for every course detail that isn't decided yet. */
+const TBA_EN = 'Will be announced soon.';
+const TBA_AR = 'سيُعلَن عنه قريبًا.';
+
+/** Content from the owner (9 Oct 2026). Dates, format, language, price and certificate aren't decided yet. */
 const kubernetes: SeedCourse = {
   course: {
     slug: 'kubernetes',
-    titleEn: 'Kubernetes for AI',
-    titleAr: 'Kubernetes للذكاء الاصطناعي',
+    titleEn: 'Kubernetes Mastery: From Containers to Production & AI Infrastructure',
+    titleAr: 'احتراف Kubernetes: من الحاويات إلى بيئة الإنتاج والبنية التحتية للذكاء الاصطناعي',
     shortDescriptionEn:
-      'Run AI and ML workloads on Kubernetes, from containers to GPU-backed model serving. Details and dates coming soon.',
+      'A complete, hands-on path from container basics to production-grade Kubernetes, cluster security, Amazon EKS and GPU-powered AI infrastructure.',
     shortDescriptionAr:
-      'شغّل أحمال الذكاء الاصطناعي وتعلم الآلة على Kubernetes، من الحاويات إلى تقديم النماذج على وحدات GPU. التفاصيل والمواعيد قريبًا.',
-    longDescriptionEn: `This course is coming soon. We're finalising the curriculum, the instructor and the dates.
+      'مسار عملي متكامل من أساسيات الحاويات إلى Kubernetes بمستوى الإنتاج، وتأمين الـ clusters، وAmazon EKS، وبنية تحتية للذكاء الاصطناعي تعمل بوحدات GPU.',
+    longDescriptionEn: `This course covers Kubernetes end to end. You start with why containers need orchestration. You finish able to run secure, observable production clusters on AWS, including GPU nodes for training and serving AI models.
 
-Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applications open.`,
-    longDescriptionAr: `ستنطلق هذه الدورة قريبًا. نعمل حاليًا على وضع اللمسات الأخيرة على المحتوى والمحاضر والمواعيد.
+Every major concept follows the same pattern: **what it is → why it exists → how it works → a diagram → a real YAML/command example → how to troubleshoot it**.
 
-تابع MLOps MENA على LinkedIn أو Telegram أو Discord لتعرف أولًا عند فتح باب التقديم.`,
-    // Price not set yet: shown as "Price to be announced" until it is.
+The content is current throughout. Deprecated and retired pieces (PodSecurityPolicy, dockershim, in-tree EBS, Ingress-NGINX) are pointed out wherever they come up. You learn their modern replacements instead: Pod Security Standards, containerd/CRI, the EBS CSI driver, Gateway API and DRA.
+
+## Hands-on labs
+
+- **Application lifecycle:** deploy, expose, scale and roll back an application
+- **Networking, Ingress & Gateway API:** route blue/green apps, then lock them down with a NetworkPolicy
+- **Persistent storage on AWS EBS:** show that data survives deleting and recreating a Pod
+- **Scheduling control:** nodeSelector, taints/tolerations and pod anti-affinity
+- **RBAC least privilege:** create a user, grant exactly the access needed, check it with \`kubectl auth can-i\`
+- **Security hardening:** fix common CKS-style findings (non-root, dropped capabilities, restricted PSS, default-deny)
+- **Troubleshooting drill:** diagnose and fix three deliberately broken manifests
+- **Cluster maintenance:** back up etcd, break something, restore it, then upgrade the cluster
+- **GPU lab:** install the GPU Operator, run GPU Pods, enable time slicing and MIG, then a PyTorch training challenge
+
+## Capstone projects (on AWS)
+
+- **WordPress + MySQL:** MySQL as a StatefulSet on EBS, Secrets, a headless Service, WordPress exposed through a LoadBalancer or Ingress, and it survives Pod restarts
+- **Self-managed MongoDB + Mongo Express:** a StatefulSet with persistent storage, a web admin UI, and data that survives restarts
+
+## Learning outcomes
+
+By the end of the course you'll be able to:
+
+- **Explain the architecture:** every control-plane and worker-node component, and how a request flows through them
+- **Deploy real workloads:** Pods, Deployments, StatefulSets, Jobs and CronJobs with proper probes and resource limits
+- **Expose applications:** choose the right option among Services, Ingress, Gateway API and DNS-based discovery
+- **Manage storage:** PV/PVC/StorageClass with the CSI driver on AWS EBS and EFS
+- **Secure a cluster:** RBAC, ServiceAccounts, SecurityContext, Pod Security Standards, NetworkPolicies and supply-chain controls
+- **Run it on AWS:** stand up and operate Amazon EKS, with GitOps through Argo CD
+- **Operate clusters:** back up and restore etcd, drain nodes, upgrade clusters safely
+- **Run AI/GPU workloads:** share GPUs with time slicing or MIG, queue training jobs with Kueue, serve LLMs with vLLM, monitor GPUs with DCGM
+- **Troubleshoot under pressure:** work systematically through Pending, CrashLoopBackOff, ImagePullBackOff, stuck rollouts, DNS problems and GPU failures
+
+## What makes this course different
+
+- **Practical first:** every concept comes with a working YAML or command demo and a troubleshooting table
+- **Up to date:** no deprecated APIs taught as current; covers Gateway API, DRA (GA in 1.34), sidecar containers and EKS access entries
+- **Exam-aligned:** content maps directly to the CKA and CKS domains, with exam-day speed tips
+- **Interview-ready:** every section ends with real interview questions and model answers
+- **AI infrastructure built in:** a full section on GPUs, which most Kubernetes courses leave out
+
+## Tools & technologies
+
+Kubernetes · kubectl · kubeadm · Minikube/kind · containerd · Calico · Cilium · CoreDNS · Traefik · Envoy Gateway · Helm · Kustomize · Argo CD · Amazon EKS · eksctl · AWS EBS/EFS CSI · AWS KMS · Prometheus · Grafana · Trivy · Kyverno · Falco · kube-bench · Velero · NVIDIA GPU Operator · DCGM · Kueue · vLLM · KEDA
+
+## After the course
+
+- Sit the CKA once you can finish every lab under time pressure
+- Go on to the CKS, using Section 14 as your foundation
+- Go deeper on AI platforms: Kubeflow, KServe, KubeRay, Karpenter
+- Explore service meshes (Istio, Linkerd)`,
+    longDescriptionAr: `تغطي هذه الدورة Kubernetes من البداية إلى النهاية. تبدأ بسؤال: لماذا تحتاج الحاويات إلى orchestration؟ وتنتهي وأنت قادر على تشغيل clusters إنتاجية آمنة وقابلة للمراقبة على AWS، بما فيها nodes بوحدات GPU لتدريب نماذج الذكاء الاصطناعي وتقديمها.
+
+يسير كل مفهوم أساسي على النمط نفسه: **ما هو ← لماذا وُجد ← كيف يعمل ← مخطط توضيحي ← مثال حقيقي بـ YAML أو أمر ← كيف تحل مشكلاته**.
+
+المحتوى محدَّث بالكامل. ننبّه إلى المكونات المهجورة والمتوقفة (PodSecurityPolicy وdockershim وin-tree EBS وIngress-NGINX) أينما ظهرت، وتتعلم بدائلها الحديثة: Pod Security Standards وcontainerd/CRI وEBS CSI driver وGateway API وDRA.
+
+## المختبرات العملية
+
+- **دورة حياة التطبيق:** انشر تطبيقًا وأتِحه ووسّعه ثم تراجع عن إصداره
+- **الشبكات وIngress وGateway API:** وجّه الحركة بين تطبيقات blue/green، ثم أغلقها بـ NetworkPolicy
+- **التخزين الدائم على AWS EBS:** أثبت أن البيانات تبقى بعد حذف الـ Pod وإعادة إنشائه
+- **التحكم في الجدولة:** nodeSelector وtaints/tolerations وpod anti-affinity
+- **RBAC بأقل الصلاحيات:** أنشئ مستخدمًا وامنحه الصلاحيات اللازمة فقط، وتحقّق منها بـ \`kubectl auth can-i\`
+- **تقوية الأمان:** أصلح ملاحظات شائعة على طريقة CKS (التشغيل دون root، وإسقاط الـ capabilities، وrestricted PSS، والرفض الافتراضي)
+- **تمرين حل المشكلات:** شخّص ثلاثة manifests معطوبة عمدًا وأصلحها
+- **صيانة الـ cluster:** خذ نسخة احتياطية من etcd، وعطّل شيئًا ثم استعده، ثم رقِّ الـ cluster
+- **مختبر GPU:** ثبّت GPU Operator، وشغّل Pods على GPU، وفعّل time slicing وMIG، ثم تحدٍّ لتدريب نموذج بـ PyTorch
+
+## المشاريع الختامية (على AWS)
+
+- **WordPress + MySQL:** قاعدة MySQL كـ StatefulSet على EBS، وSecrets، وheadless Service، وWordPress متاح عبر LoadBalancer أو Ingress، ويصمد أمام إعادة تشغيل الـ Pods
+- **MongoDB مُدار ذاتيًا + Mongo Express:** StatefulSet بتخزين دائم، وواجهة ويب للإدارة، وبيانات تبقى بعد إعادة التشغيل
+
+## مخرجات التعلّم
+
+بنهاية الدورة ستكون قادرًا على:
+
+- **شرح المعمارية:** كل مكونات الـ control plane والـ worker nodes، وكيف يمر الطلب عبرها
+- **نشر أحمال عمل حقيقية:** Pods وDeployments وStatefulSets وJobs وCronJobs مع probes وحدود موارد مضبوطة
+- **إتاحة التطبيقات:** اختيار الخيار المناسب بين Services وIngress وGateway API والاكتشاف عبر DNS
+- **إدارة التخزين:** PV/PVC/StorageClass مع CSI driver على AWS EBS وEFS
+- **تأمين الـ cluster:** RBAC وServiceAccounts وSecurityContext وPod Security Standards وNetworkPolicies وضوابط سلسلة التوريد
+- **التشغيل على AWS:** إعداد Amazon EKS وتشغيله، مع GitOps عبر Argo CD
+- **تشغيل الـ clusters وصيانتها:** نسخ etcd احتياطيًا واستعادته، وتفريغ الـ nodes (drain)، وترقية الـ clusters بأمان
+- **تشغيل أحمال الذكاء الاصطناعي على GPU:** مشاركة وحدات GPU عبر time slicing أو MIG، وجدولة مهام التدريب في طوابير بـ Kueue، وتقديم نماذج LLM بـ vLLM، ومراقبة وحدات GPU بـ DCGM
+- **حل المشكلات تحت الضغط:** التعامل بمنهجية مع Pending وCrashLoopBackOff وImagePullBackOff والـ rollouts العالقة ومشكلات DNS وأعطال GPU
+
+## ما الذي يميّز هذه الدورة
+
+- **التطبيق أولًا:** كل مفهوم معه مثال عملي بـ YAML أو أمر يعمل، وجدول لحل المشكلات
+- **محدَّثة:** لا تُدرَّس واجهات API مهجورة على أنها حالية؛ وتغطي Gateway API وDRA (مستقرة GA منذ 1.34) والـ sidecar containers وEKS access entries
+- **متوافقة مع الاختبارات:** المحتوى مرتبط مباشرة بمجالات اختباري CKA وCKS، مع نصائح للسرعة يوم الاختبار
+- **جاهزة للمقابلات:** ينتهي كل قسم بأسئلة مقابلات حقيقية وإجابات نموذجية
+- **البنية التحتية للذكاء الاصطناعي جزء أساسي:** قسم كامل عن وحدات GPU، وهو ما تغفله معظم دورات Kubernetes
+
+## الأدوات والتقنيات
+
+Kubernetes · kubectl · kubeadm · Minikube/kind · containerd · Calico · Cilium · CoreDNS · Traefik · Envoy Gateway · Helm · Kustomize · Argo CD · Amazon EKS · eksctl · AWS EBS/EFS CSI · AWS KMS · Prometheus · Grafana · Trivy · Kyverno · Falco · kube-bench · Velero · NVIDIA GPU Operator · DCGM · Kueue · vLLM · KEDA
+
+## بعد الدورة
+
+- تقدّم لاختبار CKA حين تستطيع إنهاء كل المختبرات تحت ضغط الوقت
+- انتقل بعدها إلى CKS، مستندًا إلى القسم 14 كأساس
+- تعمّق في منصات الذكاء الاصطناعي: Kubeflow وKServe وKubeRay وKarpenter
+- استكشف الـ service meshes ‏(Istio وLinkerd)`,
+    // The price isn't decided: shown as "Price to be announced", never as free.
     type: 'PAID',
     price: 0,
     currency: 'EGP',
     requiresApproval: true,
     capacity: null,
     status: 'COMING_SOON',
-    // Explicit nulls: replacing the old placeholder must clear its dates, durations and Drive URL.
+    // Explicit nulls: dates, duration and schedule aren't decided ("Will be announced soon" on the page).
     startDate: null,
     applicationsOpenAt: null,
     applicationDeadline: null,
@@ -603,21 +718,245 @@ Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applicatio
     youtubePlaylistUrl: null,
     coverImageUrl: null,
     level: 'INTERMEDIATE',
+    // Not decided yet either: coming-soon pages show "Will be announced soon" for the language.
     language: 'BILINGUAL',
     deliveryPlatform: 'GOOGLE_MEET',
     recordingsPlatform: 'GOOGLE_DRIVE',
     targetAudience: {
-      en: 'ML, MLOps, backend and platform engineers who deploy (or want to deploy) AI workloads on Kubernetes.',
-      ar: 'مهندسو تعلم الآلة وMLOps والـ Backend والمنصات الذين ينشرون (أو يريدون نشر) أحمال الذكاء الاصطناعي على Kubernetes.',
+      en: `- Junior to intermediate DevOps engineers who want to deploy, secure and operate real Kubernetes clusters
+- Engineers preparing for the CKA or CKS exams, which are hands-on and terminal-based
+- MLOps and ML platform engineers who need to run GPU workloads (training, inference, notebooks) on Kubernetes
+- Cloud and backend engineers moving workloads to Amazon EKS
+- Anyone preparing for Kubernetes / DevOps interviews, since every section ends with interview questions`,
+      ar: `- مهندسو DevOps من المستوى المبتدئ إلى المتوسط الذين يريدون نشر clusters حقيقية لـ Kubernetes وتأمينها وتشغيلها
+- المهندسون الذين يستعدون لاختباري CKA أو CKS، وهما اختباران عمليان على الطرفية (Terminal)
+- مهندسو MLOps ومنصات تعلّم الآلة الذين يحتاجون إلى تشغيل أحمال GPU (التدريب والاستدلال والـ notebooks) على Kubernetes
+- مهندسو السحابة والـ Backend الذين ينقلون أحمال العمل إلى Amazon EKS
+- كل من يستعد لمقابلات Kubernetes وDevOps، إذ ينتهي كل قسم بأسئلة مقابلات`,
     },
     notFor: { en: '', ar: '' },
     preparation: { en: '', ar: '' },
-    learningOutcomes: { en: [], ar: [] },
-    prerequisites: { en: [], ar: [] },
-    outline: [],
+    learningOutcomes: {
+      en: [
+        'Architecture: the control plane, worker nodes, and how each component talks to the others',
+        'Workloads: Pods, Deployments, StatefulSets, DaemonSets, Jobs and CronJobs, plus rollout strategies',
+        'Networking: CNI, Services, Ingress, Gateway API, CoreDNS and NetworkPolicies',
+        'Storage: Volumes, PV/PVC, StorageClass and the CSI driver on AWS EBS and EFS',
+        'Security: AuthN/AuthZ, RBAC, ServiceAccounts, SecurityContext, Pod Security Standards and supply-chain security',
+        'Operations & AI infrastructure: scheduling, autoscaling, observability, maintenance, EKS, GitOps and GPU workloads',
+      ],
+      ar: [
+        'المعمارية: الـ control plane والـ worker nodes، وكيف يتواصل كل مكوّن مع الآخر',
+        'أحمال العمل: Pods وDeployments وStatefulSets وDaemonSets وJobs وCronJobs، واستراتيجيات الـ rollout',
+        'الشبكات: CNI وServices وIngress وGateway API وCoreDNS وNetworkPolicies',
+        'التخزين: Volumes وPV/PVC وStorageClass وCSI driver على AWS EBS وEFS',
+        'الأمان: المصادقة والتفويض (AuthN/AuthZ) وRBAC وServiceAccounts وSecurityContext وPod Security Standards وأمن سلسلة التوريد',
+        'التشغيل والبنية التحتية للذكاء الاصطناعي: الجدولة والتوسع التلقائي والمراقبة والصيانة وEKS وGitOps وأحمال GPU',
+      ],
+    },
+    prerequisites: {
+      en: [
+        'Comfortable with the Linux command line (shell, files, processes, SSH)',
+        'Docker basics: building and running containers, images, registries',
+        'Able to read and write YAML',
+        'Basic networking: IPs, ports, DNS, HTTP, load balancers',
+        'Basic AWS knowledge helps: EC2, VPC and IAM concepts',
+        'An AWS account for the EKS labs and capstones (cloud costs apply), plus a laptop that can run Minikube or kind',
+        'Optional: access to an NVIDIA GPU (e.g. a cloud GPU instance) for the GPU lab',
+      ],
+      ar: [
+        'التعامل بارتياح مع سطر أوامر Linux (الـ shell والملفات والعمليات وSSH)',
+        'أساسيات Docker: بناء الحاويات وتشغيلها، والصور (Images)، والـ registries',
+        'القدرة على قراءة YAML وكتابته',
+        'أساسيات الشبكات: عناوين IP والمنافذ وDNS وHTTP وموازنات الأحمال (Load Balancers)',
+        'معرفة أساسية بـ AWS تفيدك: مفاهيم EC2 وVPC وIAM',
+        'حساب AWS لمختبرات EKS والمشاريع الختامية (مع تكاليف سحابية)، وجهاز لابتوب يستطيع تشغيل Minikube أو kind',
+        'اختياري: وصول إلى وحدة NVIDIA GPU (مثل خادم GPU سحابي) لمختبر GPU',
+      ],
+    },
+    // The curriculum: 23 sections.
+    outline: [
+      {
+        titleEn: 'Kubernetes Fundamentals',
+        titleAr: 'أساسيات Kubernetes',
+        descriptionEn: 'Bare metal → VMs → containers → K8s, core features, the CNCF ecosystem',
+        descriptionAr:
+          'من الخوادم الفعلية إلى الأجهزة الافتراضية ثم الحاويات ثم K8s، والميزات الأساسية، ومنظومة CNCF',
+      },
+      {
+        titleEn: 'Architecture',
+        titleAr: 'المعمارية',
+        descriptionEn:
+          'API server request flow, etcd (Raft), scheduler, controller managers, kubelet ↔ CRI, the dockershim removal',
+        descriptionAr:
+          'مسار الطلب في الـ API server، وetcd ‏(Raft)، والـ scheduler، والـ controller managers، والعلاقة بين kubelet وCRI، وإزالة dockershim',
+      },
+      {
+        titleEn: 'Cluster Setup',
+        titleAr: 'إعداد الـ Cluster',
+        descriptionEn: 'Minikube/kind, a multi-node kubeadm cluster, managed options (EKS/GKE/AKS)',
+        descriptionAr:
+          'Minikube/kind، وcluster متعدد الـ nodes بـ kubeadm، والخيارات المُدارة (EKS/GKE/AKS)',
+      },
+      {
+        titleEn: 'kubectl & YAML',
+        titleAr: 'kubectl وYAML',
+        descriptionEn:
+          'Essential commands, manifest anatomy, imperative vs declarative, dry-runs and diffs',
+        descriptionAr:
+          'الأوامر الأساسية، وتشريح الـ manifest، والأسلوب الأمري مقابل التصريحي (Imperative vs Declarative)، والـ dry-runs والـ diffs',
+      },
+      {
+        titleEn: 'Pods & Workloads',
+        titleAr: 'الـ Pods وأحمال العمل',
+        descriptionEn:
+          'Init and sidecar containers, labels/selectors, namespaces, ReplicaSets, Deployments, rollout strategies, probes, graceful termination',
+        descriptionAr:
+          'حاويات init وsidecar، والـ labels/selectors، والـ namespaces، وReplicaSets، وDeployments، واستراتيجيات الـ rollout، والـ probes، والإيقاف السلس (Graceful Termination)',
+      },
+      {
+        titleEn: 'Networking',
+        titleAr: 'الشبكات',
+        descriptionEn:
+          'The K8s network model, CNI plugins (Calico, Cilium, Flannel, AWS VPC CNI), CoreDNS and service discovery',
+        descriptionAr:
+          'نموذج الشبكات في K8s، وإضافات CNI ‏(Calico وCilium وFlannel وAWS VPC CNI)، وCoreDNS واكتشاف الخدمات',
+      },
+      {
+        titleEn: 'Services, Ingress & Gateway API',
+        titleAr: 'Services وIngress وGateway API',
+        descriptionEn:
+          'ClusterIP / NodePort / LoadBalancer / headless, Ingress routing, a weighted canary with Gateway API',
+        descriptionAr:
+          'ClusterIP وNodePort وLoadBalancer وheadless، والتوجيه عبر Ingress، وإصدار canary موزون بـ Gateway API',
+      },
+      {
+        titleEn: 'Scheduling & Autoscaling',
+        titleAr: 'الجدولة والتوسع التلقائي',
+        descriptionEn:
+          'nodeSelector, affinity/anti-affinity, taints and tolerations, requests/limits, ResourceQuota, HPA, PodDisruptionBudgets',
+        descriptionAr:
+          'nodeSelector، وaffinity/anti-affinity، والـ taints والـ tolerations، والـ requests/limits، وResourceQuota، وHPA، وPodDisruptionBudgets',
+      },
+      {
+        titleEn: 'Jobs & CronJobs',
+        titleAr: 'Jobs وCronJobs',
+        descriptionEn: 'Batch and scheduled workloads',
+        descriptionAr: 'أحمال العمل الدفعية والمجدولة',
+      },
+      {
+        titleEn: 'Configuration',
+        titleAr: 'الإعدادات',
+        descriptionEn: 'ConfigMaps, Secrets, encrypting Secrets at rest (KMS on EKS)',
+        descriptionAr: 'ConfigMaps وSecrets، وتشفير الـ Secrets المخزّنة (KMS على EKS)',
+      },
+      {
+        titleEn: 'Storage',
+        titleAr: 'التخزين',
+        descriptionEn:
+          'PV/PVC, StorageClass, EBS vs EFS, dynamic provisioning with the EBS CSI driver',
+        descriptionAr:
+          'PV/PVC، وStorageClass، والمقارنة بين EBS وEFS، والتوفير الديناميكي بـ EBS CSI driver',
+      },
+      {
+        titleEn: 'Stateful Applications',
+        titleAr: 'التطبيقات ذات الحالة (Stateful)',
+        descriptionEn: 'StatefulSets, headless Services, per-replica storage',
+        descriptionAr: 'StatefulSets، والـ headless Services، وتخزين مستقل لكل نسخة (Replica)',
+      },
+      {
+        titleEn: 'Helm, Kustomize & CRDs',
+        titleAr: 'Helm وKustomize والـ CRDs',
+        descriptionEn: 'Charts vs overlays, CRDs and the Operator pattern',
+        descriptionAr: 'الـ charts مقابل الـ overlays، والـ CRDs ونمط الـ Operator',
+      },
+      {
+        titleEn: 'Security & RBAC',
+        titleAr: 'الأمان وRBAC',
+        descriptionEn:
+          'kubeconfig, certificate auth, Roles/ClusterRoles, least-privilege ServiceAccounts, Pod Security Standards, NetworkPolicies, Trivy + Kyverno, audit logging, Falco',
+        descriptionAr:
+          'kubeconfig، والمصادقة بالشهادات، وRoles/ClusterRoles، وServiceAccounts بأقل الصلاحيات، وPod Security Standards، وNetworkPolicies، وTrivy مع Kyverno، وسجلات التدقيق (Audit Logging)، وFalco',
+      },
+      {
+        titleEn: 'Amazon EKS',
+        titleAr: 'Amazon EKS',
+        descriptionEn:
+          'EKS architecture, eksctl, what the console creates, access entries, production best practices',
+        descriptionAr:
+          'معمارية EKS، وeksctl، وما تنشئه لوحة التحكم (Console)، وaccess entries، وأفضل الممارسات للإنتاج',
+      },
+      {
+        titleEn: 'Observability',
+        titleAr: 'المراقبة (Observability)',
+        descriptionEn: 'Metrics, logs and events, plus a structured troubleshooting method',
+        descriptionAr: 'المقاييس والسجلات والأحداث، مع منهجية منظّمة لحل المشكلات',
+      },
+      {
+        titleEn: 'Cluster Maintenance',
+        titleAr: 'صيانة الـ Cluster',
+        descriptionEn:
+          'etcd backup and restore, cordon/drain, upgrading one minor version at a time, Velero on EKS',
+        descriptionAr:
+          'النسخ الاحتياطي لـ etcd واستعادته، وcordon/drain، والترقية إصدارًا فرعيًا واحدًا في كل مرة، وVelero على EKS',
+      },
+      {
+        titleEn: 'Production & GitOps',
+        titleAr: 'الإنتاج وGitOps',
+        descriptionEn: 'Production-readiness checklist, HA, GitOps with Argo CD',
+        descriptionAr: 'قائمة الجاهزية للإنتاج، والإتاحة العالية (HA)، وGitOps باستخدام Argo CD',
+      },
+      {
+        titleEn: 'Hands-on Labs',
+        titleAr: 'المختبرات العملية',
+        descriptionEn: '8 progressive labs (see Hands-on labs above)',
+        descriptionAr: '8 مختبرات متدرّجة (انظر «المختبرات العملية» في الأعلى)',
+      },
+      {
+        titleEn: 'Capstone Projects',
+        titleAr: 'المشاريع الختامية',
+        descriptionEn: '2 full deployments on AWS',
+        descriptionAr: 'مشروعا نشر متكاملان على AWS',
+      },
+      {
+        titleEn: 'CKA / CKS Focus',
+        titleAr: 'التركيز على CKA وCKS',
+        descriptionEn: 'How the exam domains map to the course, exam-day tips',
+        descriptionAr: 'كيف ترتبط مجالات الاختبارين بمحتوى الدورة، ونصائح ليوم الاختبار',
+      },
+      {
+        titleEn: 'AI Infrastructure on Kubernetes',
+        titleAr: 'البنية التحتية للذكاء الاصطناعي على Kubernetes',
+        descriptionEn:
+          'NVIDIA GPU Operator, GPU scheduling, time slicing, MIG, DRA, Kueue and gang scheduling, serving LLMs with vLLM, DCGM monitoring',
+        descriptionAr:
+          'NVIDIA GPU Operator، وجدولة وحدات GPU، وtime slicing، وMIG، وDRA، وKueue والجدولة الجماعية (Gang Scheduling)، وتقديم نماذج LLM بـ vLLM، والمراقبة بـ DCGM',
+      },
+      {
+        titleEn: 'Final Recap',
+        titleAr: 'المراجعة الختامية',
+        descriptionEn: 'Review and next steps',
+        descriptionAr: 'مراجعة شاملة والخطوات التالية',
+      },
+    ],
     faq: [],
-    included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+    // Format and certificate aren't decided: nothing is listed as included yet.
+    included: {
+      liveSessions: false,
+      recordings: false,
+      assignments: false,
+      finalProject: false,
+      certificate: false,
+      notesEn: TBA_EN,
+      notesAr: TBA_AR,
+    },
   },
+  // Earlier seeded content: a row still holding it, never edited by an admin, is updated to this version.
+  supersedes: [
+    `This course is coming soon. We're finalising the curriculum, the instructor and the dates.
+
+Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applications open.`,
+  ],
   questions: [],
   sessions: [],
 };

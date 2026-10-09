@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { isUntouchedPlaceholder, seedCatalog } from '../prisma/seed-catalog';
-import type { SeedCourse } from '../prisma/seed-data';
+import { seedCourses, type SeedCourse } from '../prisma/seed-data';
 
 /** The catalog seed runs on every container start, so it must never clobber admin work. */
 describe('catalog seed (e2e)', () => {
@@ -87,5 +87,108 @@ describe('catalog seed (e2e)', () => {
     await prisma.course.update({ where: { id: created.id }, data: { slug: `${slug}-renamed` } });
     await seedCatalog(prisma, [seedFor(slug)]);
     expect(await prisma.course.findUnique({ where: { slug } })).toBeNull();
+  });
+
+  // The Kubernetes course was seeded as "coming soon" text; the owner's content replaces it on
+  // staging and production through `supersedes`, unless an admin has edited the course.
+  describe('a course still holding an earlier seed version', () => {
+    const k8s = seedCourses.find((x) => x.course.slug === 'kubernetes')!;
+    const earlier = k8s.supersedes![0]!;
+    const k8sAt = (slug: string): SeedCourse => ({ ...k8s, course: { ...k8s.course, slug } });
+    async function earlierCourse(slug: string) {
+      return prisma.course.create({
+        data: {
+          slug,
+          titleEn: 'Kubernetes for AI',
+          titleAr: 'Kubernetes للذكاء الاصطناعي',
+          shortDescriptionEn: 'Run AI on Kubernetes. Details soon.',
+          shortDescriptionAr: 'قريبًا',
+          longDescriptionEn: earlier,
+          longDescriptionAr: 'ستنطلق هذه الدورة قريبًا.',
+          type: 'PAID',
+          price: 0,
+          status: 'COMING_SOON',
+          targetAudience: { en: 'ML engineers', ar: 'مهندسو تعلم الآلة' },
+          notFor: empty,
+          learningOutcomes: { en: [], ar: [] },
+          prerequisites: { en: [], ar: [] },
+          outline: [],
+          faq: [],
+          included: {
+            liveSessions: true,
+            recordings: true,
+            assignments: false,
+            finalProject: false,
+            certificate: false,
+          },
+          interests: { create: { email: `${slug}@example.test` } },
+        },
+      });
+    }
+
+    it('is updated in place to the current seed, keeping its waiting list, once', async () => {
+      const slug = `seed-k8s-${Date.now()}`;
+      const old = await earlierCourse(slug);
+      await seedCatalog(prisma, [k8sAt(slug)]);
+      const c = await prisma.course.findUniqueOrThrow({
+        where: { id: old.id },
+        include: { _count: { select: { interests: true } } },
+      });
+      expect(c).toMatchObject({
+        titleEn: k8s.course.titleEn,
+        status: 'COMING_SOON',
+        type: 'PAID',
+        price: 0,
+        startDate: null,
+        durationWeeks: null,
+      });
+      expect((c.outline as unknown[]).length).toBe(23);
+      expect(c._count.interests).toBe(1);
+      expect(
+        await prisma.auditLog.count({
+          where: { entityId: old.id, action: 'seed.course_replaced' },
+        }),
+      ).toBe(1);
+
+      await seedCatalog(prisma, [k8sAt(slug)]);
+      expect(
+        await prisma.auditLog.count({
+          where: { entityId: old.id, action: 'seed.course_replaced' },
+        }),
+      ).toBe(1);
+    });
+
+    it('is left alone once an admin has edited it', async () => {
+      const slug = `seed-k8s-edited-${Date.now()}`;
+      const old = await earlierCourse(slug);
+      const admin = await prisma.user.create({
+        data: { email: `${slug}-admin@example.test`, role: 'ADMIN' },
+      });
+      await prisma.auditLog.create({
+        data: {
+          actorId: admin.id,
+          action: 'course.updated',
+          entityType: 'Course',
+          entityId: old.id,
+        },
+      });
+      await seedCatalog(prisma, [k8sAt(slug)]);
+      expect((await prisma.course.findUniqueOrThrow({ where: { id: old.id } })).titleEn).toBe(
+        'Kubernetes for AI',
+      );
+    });
+
+    it('is left alone when its text differs from every earlier version', async () => {
+      const slug = `seed-k8s-other-${Date.now()}`;
+      const old = await earlierCourse(slug);
+      await prisma.course.update({
+        where: { id: old.id },
+        data: { longDescriptionEn: `${earlier}\n\nEdited.` },
+      });
+      await seedCatalog(prisma, [k8sAt(slug)]);
+      expect((await prisma.course.findUniqueOrThrow({ where: { id: old.id } })).titleEn).toBe(
+        'Kubernetes for AI',
+      );
+    });
   });
 });
