@@ -10,7 +10,7 @@ import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
-import { serverGetOr } from '@/lib/server-api';
+import { serverGet } from '@/lib/server-api';
 import { community } from '@/lib/site';
 import { excerpt, pick } from '@/lib/sessions';
 
@@ -42,7 +42,8 @@ export default async function SessionsPage({ params }: Props) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
-  const { upcoming } = await serverGetOr<{ upcoming: PublicEventDto[] }>('/events', { upcoming: [] });
+  // serverGet: an API failure fails the render instead of caching "no upcoming sessions".
+  const { upcoming } = (await serverGet<{ upcoming: PublicEventDto[] }>('/events')) ?? { upcoming: [] };
   const [next, ...rest] = upcoming;
 
   return (

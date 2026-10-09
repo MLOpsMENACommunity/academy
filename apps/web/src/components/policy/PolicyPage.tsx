@@ -9,7 +9,7 @@ import { policies, type PolicySlug } from '@/content/policies';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
-import { serverGetOr } from '@/lib/server-api';
+import { serverGet } from '@/lib/server-api';
 import { community } from '@/lib/site';
 
 type Props = { params: Promise<{ locale: string }> };
@@ -70,7 +70,9 @@ export function policyPage(slug: PolicySlug) {
     if (!isLocale(locale)) notFound();
     const t = createTranslator(locale);
     const p = policies[slug][locale];
-    const contact = await serverGetOr<PublicContactDto>('/settings/public', NO_CONTACT);
+    // serverGet: an API failure fails the render (Next keeps the last good copy) instead of
+    // caching the page without its contact details. ISR through this fetch's 60 s revalidate.
+    const contact = (await serverGet<PublicContactDto>('/settings/public')) ?? NO_CONTACT;
     const isPlaceholder = JSON.stringify(p).includes('[PLACEHOLDER]');
     // The email section only exists once a real support inbox is set.
     const sections = p.sections.filter((s) => !s.needsEmail || contact.supportEmail);

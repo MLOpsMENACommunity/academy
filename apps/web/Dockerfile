@@ -15,7 +15,10 @@ ARG NEXT_PUBLIC_ANALYTICS_PROVIDER=
 ARG NEXT_PUBLIC_ANALYTICS_DOMAIN=
 ARG NEXT_PUBLIC_ANALYTICS_SRC=
 ARG NEXT_PUBLIC_ANALYTICS_WEBSITE_ID=
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+# Build identity (git SHA) for Next's deploymentId; empty for local builds.
+ARG NEXT_DEPLOYMENT_ID=
+ENV NEXT_DEPLOYMENT_ID=$NEXT_DEPLOYMENT_ID \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_PUBLIC_ANALYTICS_PROVIDER=$NEXT_PUBLIC_ANALYTICS_PROVIDER \
     NEXT_PUBLIC_ANALYTICS_DOMAIN=$NEXT_PUBLIC_ANALYTICS_DOMAIN \
     NEXT_PUBLIC_ANALYTICS_SRC=$NEXT_PUBLIC_ANALYTICS_SRC \
@@ -37,7 +40,8 @@ COPY --from=build --chown=node:node /repo/apps/web/.next/static ./apps/web/.next
 COPY --from=build --chown=node:node /repo/apps/web/public ./apps/web/public
 USER node
 EXPOSE 3000
+# A fully static route: pages render with API data, which isn't there before the API is up.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD wget -qO- http://127.0.0.1:3000/en >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/robots.txt >/dev/null || exit 1
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "apps/web/server.js"]

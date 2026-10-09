@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
     return [{ source: '/((?!api/).*)', headers: securityHeaders }];
   },
   output: 'standalone',
+  // Set per deploy (the git SHA, by deploy/cloudflare/configure-host.mjs through the image
+  // build): asset URLs carry it, and a client navigation from a page of another build turns
+  // into a full page load instead of asking this build for chunks it doesn't have.
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // Trace files from the monorepo root so the standalone build includes workspace packages.
   outputFileTracingRoot: path.resolve(process.cwd(), '../..'),
   poweredByHeader: false,

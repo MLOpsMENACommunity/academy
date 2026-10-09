@@ -189,4 +189,22 @@ describe('recordings library and speaker pages (e2e)', () => {
     expect(one.body).toMatchObject({ source: null, courses: 0, events: 0 });
     await http().post('/api/admin/instructors').set('Cookie', admin.cookie).send({ name: 'Bad Photo', titleEn: 'x x', photoUrl: 'javascript:alert(1)' }).expect(400);
   });
+
+  it('searches for the static recordings page with ids only', async () => {
+    const res = await http().get(`/api/recordings/search?topic=${tag}&q=guest%20person`).expect(200);
+    expect(res.body).toEqual({ ids: [`event:newer-${run}`] });
+    await http().get('/api/recordings/search?topic=Not%20A%20Tag!').expect(400);
+  });
+
+  it('throttles text searches from browsers, but not plain library reads', async () => {
+    // Plain reads come from the web server for every visitor: never throttled.
+    for (let i = 0; i < 70; i++) await http().get(`/api/recordings?topic=${tag}`).expect(200);
+    // Searches come from browsers: 60 a minute per IP.
+    let status = 200;
+    for (let i = 0; i < 70 && status === 200; i++) status = (await http().get(`/api/recordings/search?q=x${i}`)).status;
+    expect(status).toBe(429);
+    status = 200;
+    for (let i = 0; i < 70 && status === 200; i++) status = (await http().get(`/api/recordings?q=x${i}`)).status;
+    expect(status).toBe(429);
+  });
 });

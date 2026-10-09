@@ -1,14 +1,16 @@
 import { Suspense } from 'react';
 import { LoginForm } from './LoginForm';
 import { ReservedSpace } from '@/components/ui/Spinner';
-import { serverGetOr } from '@/lib/server-api';
+import { serverGet } from '@/lib/server-api';
 
-// Rendered per request so the form (which reads the query string) is in the
-// server HTML: no empty first paint, no layout shift when it appears.
-export const dynamic = 'force-dynamic';
+// Static (ISR, for the Google sign-in flag): the form reads the query string (returnTo,
+// error) on the client only, so it is still in the server HTML and the page can be
+// served from the cache.
+export const revalidate = 300;
 
 export default async function LoginPage() {
-  const google = await serverGetOr<{ enabled: boolean }>('/auth/google/enabled', { enabled: false }, 300);
+  // serverGet: an API failure fails the render instead of caching the page without Google sign-in.
+  const google = (await serverGet<{ enabled: boolean }>('/auth/google/enabled', 300)) ?? { enabled: false };
   return (
     <Suspense fallback={<ReservedSpace className="min-h-[32rem] sm:min-h-[36rem]" />}>
       <LoginForm googleEnabled={google.enabled} />

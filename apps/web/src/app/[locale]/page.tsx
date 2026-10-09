@@ -9,7 +9,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { formatDate } from '@/lib/format';
 import { alternates } from '@/lib/seo';
-import { serverGetOr } from '@/lib/server-api';
+import { serverGet } from '@/lib/server-api';
 
 export const revalidate = 300;
 
@@ -32,8 +32,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const t = createTranslator(locale);
   const steps = [1, 2, 3] as const;
   const [open, upcoming] = await Promise.all([
-    serverGetOr<CourseSummaryDto[]>('/courses?availability=OPEN', [], 300),
-    serverGetOr<CourseSummaryDto[]>('/courses?availability=UPCOMING', [], 300),
+    // serverGet: an API failure fails the render instead of caching a home page without courses.
+    serverGet<CourseSummaryDto[]>('/courses?availability=OPEN', 300).then((c) => c ?? []),
+    serverGet<CourseSummaryDto[]>('/courses?availability=UPCOMING', 300).then((c) => c ?? []),
   ]);
   const courses = [...open, ...upcoming].slice(0, 4);
   const featured = open[0];
