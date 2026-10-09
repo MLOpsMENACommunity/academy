@@ -1,4 +1,5 @@
 import { Container } from '@cloudflare/containers';
+import { cacheKind, localeCookie, storableCacheControl, type CacheKind } from './edge-cache';
 
 /**
  * Entry Worker for academy on Cloudflare.
@@ -8,9 +9,13 @@ import { Container } from '@cloudflare/containers';
  *   http://*, other hosts ->  301/308 to https://<host>
  *   Cron Trigger          ->  POST /api/internal/jobs/tick on the API (containers sleep when idle)
  *
- * One instance of each (max_instances: 1): rate limits and the login lockout
- * are in-memory in the API. Secrets come from `wrangler secret put` and are
- * handed to the containers as environment variables at start.
+ * One API instance (max_instances: 1): rate limits and the login lockout are in-memory
+ * in the API. The web app is stateless, so requests are spread over WEB_INSTANCES
+ * containers (each with its own ISR cache; they converge within the revalidate window).
+ * Anonymous page views of static/ISR pages are answered from Cloudflare's edge cache
+ * when possible: see edge-cache.ts for exactly what is and isn't cached.
+ * Secrets come from `wrangler secret put` and are handed to the containers as
+ * environment variables at start.
  */
 export interface Env {
   API: DurableObjectNamespace<ApiContainer>;
@@ -19,6 +24,10 @@ export interface Env {
   ACADEMY_HOSTNAME: string;
   EMAIL_FROM: string;
   S3_BUCKET: string;
+  /** How many web containers to spread requests over (<= the WebContainer max_instances). */
+  WEB_INSTANCES?: string;
+  /** Idle time before a container sleeps (default 2h; staging uses less so it sleeps between hourly crons). */
+  SLEEP_AFTER?: string;
   /** Staging only: see EMAIL_ALLOWLIST / EMAIL_REDIRECT_TO in apps/api/src/config/env.ts. */
   EMAIL_ALLOWLIST?: string;
   EMAIL_REDIRECT_TO?: string;
@@ -64,10 +73,10 @@ async function restartIfConfigChanged(container: Container<Env>, ctx: DurableObj
 
 export class ApiContainer extends Container<Env> {
   defaultPort = 4000;
-  sleepAfter = '30m';
-
   constructor(ctx: DurableObjectState<Env>, env: Env) {
     super(ctx, env);
+    // Long enough that a launch day (or a quiet evening) doesn't pay cold starts.
+    this.sleepAfter = env.SLEEP_AFTER || '2h';
     this.envVars = {
       NODE_ENV: 'production',
       PORT: '4000',
@@ -108,10 +117,10 @@ export class ApiContainer extends Container<Env> {
 
 export class WebContainer extends Container<Env> {
   defaultPort = 3000;
-  sleepAfter = '30m';
 
   constructor(ctx: DurableObjectState<Env>, env: Env) {
     super(ctx, env);
+    this.sleepAfter = env.SLEEP_AFTER || '2h';
     this.envVars = {
       NODE_ENV: 'production',
       // Server-side fetches go back through the public hostname (and this Worker) to the API.
@@ -122,6 +131,16 @@ export class WebContainer extends Container<Env> {
 }
 
 const INSTANCE = 'main';
+
+/**
+ * One of the web containers, at random. Instance 0 keeps the original name so the
+ * existing container is reused. Random is enough: every instance serves every page.
+ */
+function webInstance(env: Env): DurableObjectStub<WebContainer> {
+  const n = Math.max(1, Math.min(10, Number.parseInt(env.WEB_INSTANCES ?? '1', 10) || 1));
+  const i = Math.floor(Math.random() * n);
+  return env.WEB.getByName(i === 0 ? INSTANCE : `web-${i}`);
+}
 
 /** Forwarded headers are set here, never trusted from the client. */
 function forwardable(request: Request): Request {
@@ -134,8 +153,47 @@ function forwardable(request: Request): Request {
   return new Request(request, { headers });
 }
 
+/** A container that can't be reached (starting, overloaded, restarting) answers 503, not an opaque 500. */
+async function fromContainer(stub: { fetch(request: Request): Promise<Response> }, request: Request, name: string): Promise<Response> {
+  try {
+    return await stub.fetch(forwardable(request));
+  } catch (err) {
+    console.error(`${name} container fetch failed: ${(err as Error).message}`);
+    return new Response('The academy is busy, please try again in a moment.', {
+      status: 503,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '5', 'cache-control': 'no-store' },
+    });
+  }
+}
+
+function withHeaders(response: Response, set: Record<string, string>, append: Record<string, string | null> = {}): Response {
+  const out = new Response(response.body, response);
+  for (const [k, v] of Object.entries(set)) out.headers.set(k, v);
+  for (const [k, v] of Object.entries(append)) if (v) out.headers.append(k, v);
+  return out;
+}
+
+/** Web requests, through the edge cache where edge-cache.ts allows it. */
+async function web(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const kind: CacheKind | null = cacheKind(request);
+  if (!kind) return withHeaders(await fromContainer(webInstance(env), request, 'web'), { 'x-edge-cache': 'BYPASS' });
+
+  const cache = caches.default;
+  // Only the URL: never the visitor's cookies or other headers.
+  const key = new Request(request.url, { method: 'GET' });
+  const hit = await cache.match(key);
+  if (hit) return withHeaders(hit, { 'x-edge-cache': 'HIT' }, { 'set-cookie': kind === 'page' ? localeCookie(request) : null });
+
+  const response = await fromContainer(webInstance(env), request, 'web');
+  const cacheControl = storableCacheControl(kind, response);
+  if (!cacheControl) return withHeaders(response, { 'x-edge-cache': 'MISS' });
+  const stored = withHeaders(response.clone(), { 'cache-control': cacheControl });
+  ctx.waitUntil(cache.put(key, stored));
+  return withHeaders(response, { 'x-edge-cache': 'MISS' });
+}
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     // Old or alternative hostnames (e.g. staging after going live) redirect to the canonical one,
     // and plain http to https. Some calendar clients turn webcal:// into http://, and the private
@@ -153,8 +211,8 @@ export default {
       // Internal endpoints are only reachable from the cron handler below.
       return new Response('Not found', { status: 404 });
     }
-    const target = isApi ? env.API.getByName(INSTANCE) : env.WEB.getByName(INSTANCE);
-    return target.fetch(forwardable(request));
+    if (isApi) return fromContainer(env.API.getByName(INSTANCE), request, 'api');
+    return web(request, env, ctx);
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {

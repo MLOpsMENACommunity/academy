@@ -10,5 +10,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests run under Node (node --test, type stripping), not the Workers runtime.
+  "exclude": ["src/**/*.test.ts"]
 }

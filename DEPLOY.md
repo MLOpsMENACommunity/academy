@@ -14,9 +14,10 @@ academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
           Neon Postgres · private R2 bucket · Resend
 ```
 
-Each container runs as a single instance (`max_instances: 1`) and sleeps after
-30 idle minutes. The first request after a sleep takes a few seconds while it
-starts. Database migrations run when the API container starts. The seed is
+Production runs one API container and up to three web containers (`standard-1`), and
+staging one `basic` container of each; see [Capacity and caching](#capacity-and-caching).
+Containers sleep after 2 idle hours in production (30 minutes on staging). The first
+request after a sleep takes a few seconds while the container starts. Database migrations run when the API container starts. The seed is
 idempotent and also runs on start: it creates the admin, the settings and the
 placeholder courses.
 
@@ -138,6 +139,47 @@ Never rename or drop something in the same release that stops using it. See
 - Resend: free tier at first.
 
 See `docs/COST_ANALYSIS.md`, which is local only and not in git.
+
+Containers are billed while awake: memory and disk for the instance size, CPU only when
+busy. A `standard-1` (½ vCPU, 4 GiB, 8 GB) awake all month costs about $27 in memory and
+disk plus up to $26 in CPU at full load; a `basic` (¼ vCPU, 1 GiB) about $7 plus up to $13.
+Production at launch size (four `standard-1`) is roughly $110–140/month if nothing sleeps;
+staging stays at two `basic`, under $20 and usually much less because it sleeps.
+
+## Capacity and caching
+
+The load test before launch (Locust, anonymous visitors, staging on one `basic` web
+container) showed the web container as the bottleneck: course pages took 5 s at the median
+with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. So:
+
+- **Public pages are static (ISR).** Home, catalog, course, live sessions (list and
+  detail), recordings, speakers, policies, login and register render once per revalidate
+  window (60 s; home, login and register 300 s) and are served from Next's cache. Nothing
+  personal is in their HTML: the header, my application status and Notify me load in the
+  browser after the page. Catalog and recordings filters run in the browser too (the URL
+  keeps them). `next build` lists these routes as ● with a revalidate time.
+- **API-backed pages render on first request, not at build.** The API isn't reachable
+  while the image builds, so `scripts/drop-isr-prerenders.mjs` removes those build-time
+  renders; otherwise each fresh container (deploy, wake from sleep) would show its first
+  visitors an empty catalog.
+- **Cloudflare's edge caches anonymous page views** for up to 60 s (Workers Cache API in
+  `deploy/cloudflare/src/edge-cache.ts`, which lists exactly what is and isn't cached). Never
+  cached: requests with a session cookie (`access_token`, `has_session`), `/api/*`, non-GET,
+  Next's client-navigation (RSC) requests, signed-in areas, and any response that sets a
+  cookie, isn't a 200, is `private`/`no-store`, or is a stale ISR copy. Build assets
+  (`/_next/static`, immutable) are cached for everyone. Responses carry `x-edge-cache:
+  HIT|MISS|BYPASS`. Each data centre has its own cache.
+- **An admin edit shows publicly within about 2 minutes** (Next's 60 s window plus the
+  edge's 60 s; the home page up to ~6 minutes). There is no on-demand revalidation yet.
+- **Web containers:** `max_instances: 3`, and the Worker spreads requests at random over
+  `WEB_INSTANCES` of them (3 in production, 1 on staging). They are stateless; each has
+  its own ISR cache, so two visitors may briefly see versions up to one revalidate window
+  apart. Lower `WEB_INSTANCES` after launch to save cost; it never needs to exceed
+  `max_instances`.
+- **API container:** exactly one (`max_instances: 1`), now `standard-1`: rate limits and
+  the login lockout are in memory.
+- If a container can't be reached (starting, overloaded), the Worker answers 503 with
+  `Retry-After: 5` instead of an opaque 500.
 
 ## One-time setup
 
@@ -270,9 +312,13 @@ Add `--env staging` to any of these to act on staging instead of production.
   `academy-staging.mlopsmena.com` used to redirect to production; they now reach the
   staging site and its separate database.
 
-- **Single instance.** Rate limits and the login lockout are in memory, so
-  keep `max_instances: 1` until they move to a shared store.
-- **Cold starts.** After 30 idle minutes the next request waits a few seconds
-  for the containers to start.
+- **Single API instance.** Rate limits and the login lockout are in memory, so
+  keep the API at `max_instances: 1` until they move to a shared store. The web app
+  has no such state and runs several instances.
+- **Cold starts.** After 2 idle hours (staging: 30 minutes) the next request waits a
+  few seconds for a container to start. Anonymous visitors are often served from the
+  edge cache meanwhile.
+- **Deploys and the edge cache.** For up to 60 s after a deploy, a data centre can still
+  serve the previous HTML (its scripts are usually still in the same edge cache).
 - **No in-process cron.** `JOBS_ENABLED=false` in the container; the Worker's
   Cron Trigger runs the jobs instead.
