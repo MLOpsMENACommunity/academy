@@ -26,7 +26,7 @@ export function LanguageSwitcher({ className = '' }: { className?: string }) {
       hrefLang={target}
       lang={target}
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center rounded-full px-3 text-[0.9375rem] text-muted transition-colors hover:bg-muted-bg hover:text-fg md:min-h-10 ${className}`}
+      className={`inline-flex min-h-11 items-center rounded-lg px-3 text-[0.9375rem] text-body transition-colors hover:bg-hover-bg hover:text-fg lg:min-h-10 ${className}`}
       aria-label={`${t('common.language')}: ${t('common.switchTo')}`}
     >
       {t('common.switchTo')}

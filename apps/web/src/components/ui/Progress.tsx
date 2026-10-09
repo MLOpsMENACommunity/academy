@@ -11,9 +11,9 @@ export function Progress({ value, label }: { value: number; label: string }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={v}
-        className="h-2 overflow-hidden rounded-full bg-muted-bg"
+        className="h-2 overflow-hidden rounded-full bg-track"
       >
-        <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${v}%` }} />
+        <div className="h-full rounded-full bg-logo-cyan transition-[width]" style={{ width: `${v}%` }} />
       </div>
     </div>
   );

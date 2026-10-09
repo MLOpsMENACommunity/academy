@@ -24,7 +24,8 @@
     "required": "required",
     "free": "Free",
     "placeholderNotice": "This page contains placeholder text pending legal review.",
-    "or": "or"
+    "or": "or",
+    "newTab": "opens in a new tab"
   },
   "nav": {
     "courses": "Courses",
@@ -38,7 +39,9 @@
     "menu": "Menu",
     "notifications": "Notifications",
     "sessions": "Live sessions",
-    "primary": "Main"
+    "primary": "Main",
+    "account": "Account menu",
+    "closeMenu": "Close menu"
   },
   "footer": {
     "about": "The course platform of MLOps MENA Community, a bilingual community for ML, MLOps and AI engineers across the MENA region.",
@@ -49,23 +52,28 @@
     "conduct": "Code of Conduct",
     "contact": "Contact & support",
     "community": "Community",
-    "rights": "© {year} MLOps MENA Community"
+    "rights": "© {year} MLOps MENA Community",
+    "academy": "Academy"
   },
   "home": {
-    "eyebrow": "MLOps MENA Academy",
-    "title": "Learn to ship ML and AI systems to production, live, with engineers from the region",
-    "subtitle": "Cohort-based courses taught live by practitioners, in Arabic and English. Free community courses and paid deep-dives.",
-    "browse": "Browse courses",
-    "howTitle": "How it works",
-    "step1Title": "Create your profile",
-    "step1Body": "Tell us about your background and goals. It takes about five minutes.",
-    "step2Title": "Apply to a course",
-    "step2Body": "Answer a few short questions so instructors can shape each cohort.",
-    "step3Title": "Learn live",
-    "step3Body": "Join live sessions, catch up on recordings, and track your progress.",
-    "coursesTitle": "Courses",
+    "eyebrow": "MLOps MENA Community Academy",
+    "title": "Learn to ship ML and AI systems that hold up in production.",
+    "subtitle": "Live courses and free sessions with engineers from the region. Learn with the instructor, keep the recordings, leave with work you can show.",
+    "browse": "Explore courses",
     "allCourses": "All courses",
-    "viewCourse": "View course"
+    "joinLive": "Join a free live session",
+    "trust1": "Free community sessions",
+    "trust2": "Arabic & English",
+    "trust3": "Live with practitioners",
+    "comingUp": "Coming up at the academy",
+    "calendar": "See all live sessions",
+    "applicationsClose": "Applications close",
+    "courseStarts": "Course starts",
+    "exploreTitle": "Explore the academy",
+    "freeLive": "Free · live online",
+    "speakersTitle": "Learn from practitioners",
+    "speakersBody": "Instructors and speakers who run these systems at work.",
+    "allSpeakers": "All speakers"
   },
   "errors": {
     "notFoundTitle": "Page not found",
@@ -298,7 +306,19 @@
     "noCourses": "You haven't applied to any course yet.",
     "mySessions": "My live sessions",
     "noSessions": "You haven't registered for a live session yet. They're free and open to everyone.",
-    "browseSessions": "See live sessions"
+    "browseSessions": "See live sessions",
+    "nextLive": "Next live session",
+    "journey": "My learning journey",
+    "journeyEmpty": "Pick a learning path to see the steps from where you are to where you want to be.",
+    "continueCourse": "Pick up where you left off in {course}.",
+    "welcomeBody": "Your courses, live sessions and applications, in one place.",
+    "myApplications": "My applications",
+    "resumeSession": "Resume session {n}",
+    "tabAll": "All",
+    "tabInProgress": "In progress",
+    "tabCompleted": "Completed",
+    "noneInProgress": "No course in progress right now.",
+    "noneCompleted": "Courses you finish appear here."
   },
   "notifications": {
     "title": "Notifications",
@@ -332,7 +352,9 @@
     "full": "Full",
     "viewCourse": "View course",
     "details": "Details and how to apply",
-    "detailsOnly": "Details"
+    "detailsOnly": "Details",
+    "applyBy": "Apply by {date}",
+    "notifyCta": "Get notified when it opens"
   },
   "course": {
     "breadcrumb": "Courses",
@@ -1045,7 +1067,16 @@
     "nextNone": "No upcoming sessions.",
     "driveSetup": "We're giving your Google account ({email}) access to the recordings. This is done by hand and can take up to a day after enrolment.",
     "addGoogleEmail": "Add it in your profile",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "sessionOf": "Session {n} of {total}",
+    "about": "About this session",
+    "percentDone": "{percent}% complete",
+    "exit": "Exit to dashboard",
+    "content": "Course content",
+    "tools": "Course tools",
+    "noSessions": "The sessions of this course will appear here.",
+    "sessionNav": "Previous and next session",
+    "nextSession": "Next: {n}. {title}"
   },
   "sessions": {
     "title": "Live sessions",
@@ -1133,7 +1164,10 @@
     "upcoming": "Upcoming",
     "hasRecording": "Recording",
     "cancelled": "Cancelled",
-    "metaDescription": "{name}: talks, workshops and courses at MLOps MENA Academy."
+    "metaDescription": "{name}: talks, workshops and courses at MLOps MENA Academy.",
+    "title": "Speakers",
+    "intro": "Instructors and speakers from the region who run ML and AI systems at work and teach at the academy.",
+    "empty": "Speaker pages will appear here soon."
   },
   "policy": {
     "contactPage": "our contact page",
@@ -1163,5 +1197,76 @@
     "invalidLink": "This link isn't valid. Copy the whole link from the email and try again.",
     "backToCourse": "Back to the course",
     "browse": "Browse courses"
+  },
+  "menu": {
+    "learn": "Learn",
+    "live": "Live",
+    "community": "Community",
+    "browse": "Browse",
+    "paths": "Learning paths",
+    "pathsDesc": "Step-by-step routes by topic",
+    "recordings": "Recordings",
+    "recordingsDesc": "Free talks and past cohorts",
+    "coursesDesc": "Live cohorts with instructors",
+    "pathsByTopic": "Paths by topic",
+    "allPaths": "All learning paths",
+    "featured": "Featured",
+    "fullCatalog": "Browse the full catalog",
+    "featuredOpen": "Applications open",
+    "featuredOpenUntil": "Applications open · apply by {date}",
+    "featuredUpcoming": "Coming soon",
+    "featuredCompleted": "Past cohort · see what it covered",
+    "liveHeading": "Live and free",
+    "upcoming": "Upcoming sessions",
+    "upcomingDesc": "Free talks and workshops, open to everyone",
+    "liveRecordingsDesc": "Watch past sessions any time",
+    "speakers": "Speakers",
+    "speakersDesc": "The practitioners who teach here",
+    "communityHeading": "Join the community",
+    "discordDesc": "Questions, study groups and help",
+    "telegramDesc": "Announcements and new sessions",
+    "linkedinDesc": "News from the community",
+    "youtubeDesc": "Every recorded session",
+    "readHeading": "Read",
+    "blog": "Blog on mlopsmena.com",
+    "blogDesc": "Articles, guides and roadmaps",
+    "courseCount": "{count, plural, one {# course} other {# courses}}",
+    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}"
+  },
+  "whatsNew": {
+    "title": "What's new",
+    "unread": "new updates",
+    "intro": "Changes to the academy that you will notice, newest first.",
+    "try": "Take a look"
+  },
+  "paths": {
+    "title": "Learning paths",
+    "intro": "Academy courses and free recordings in a sensible order, so you always know what to learn next.",
+    "stepCount": "{count, plural, one {# step} other {# steps}}",
+    "seePath": "See the path",
+    "done": "Done",
+    "inProgress": "In progress",
+    "courseProgress": "Course progress",
+    "resume": "Resume session {n}: {title}",
+    "yourProgress": "Your progress",
+    "coursesDone": "{done} of {total} courses on this path completed",
+    "continue": "Continue {title}",
+    "stepN": "Step {n}",
+    "status": {
+      "open": "Applications open",
+      "upcoming": "Coming soon",
+      "completed": "Past cohort",
+      "closed": "Applications closed",
+      "recording": "Free recording"
+    },
+    "roadmap": "Path overview",
+    "stepsTitle": "Steps in this path",
+    "noSteps": "The steps of this path will be published soon.",
+    "kindCourse": "Course",
+    "kindRecording": "Recording",
+    "watch": "Watch",
+    "apply": "Apply",
+    "notify": "Notify me",
+    "otherPaths": "Other paths"
   }
 }

@@ -267,7 +267,7 @@ export default async function CoursePage({ params }: Props) {
       <CourseViewTracker slug={c.slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(structured)} />
 
-      <section className="border-b border-line bg-card">
+      <section className="border-b border-line bg-muted-bg">
         <Container className="flex flex-col gap-4 py-8 sm:gap-5 sm:py-14 lg:py-16">
           <nav aria-label={t('course.breadcrumbLabel')} className="-ms-1 text-[0.9375rem] text-muted">
             <Link href={`/${locale}/courses`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 hover:text-fg">

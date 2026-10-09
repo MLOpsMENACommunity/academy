@@ -52,7 +52,7 @@ export function YouTubeFacade({
             className="object-cover opacity-90 transition-opacity group-hover:opacity-100"
           />
           <span aria-hidden className="absolute inset-0 grid place-items-center">
-            <span className="grid size-16 place-items-center rounded-2xl bg-[#ff0000] text-white shadow-lg transition-transform group-hover:scale-105">
+            <span className="grid size-18 place-items-center rounded-full bg-cta text-cta-text shadow-lg transition-transform group-hover:scale-105">
               <svg viewBox="0 0 24 24" className="size-8 fill-current">
                 <path d="M8 5v14l11-7z" />
               </svg>

@@ -1,96 +1,159 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
 import { NotificationsBell } from './NotificationsBell';
 
+/** "Nour Adel" -> "NA"; falls back to the email's first letter. */
+export function initials(name: string | null | undefined, email: string): string {
+  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  const letters = words.length >= 2 ? `${words[0]![0]}${words[words.length - 1]![0]}` : (words[0]?.[0] ?? email.trim()[0] ?? '?');
+  return letters.toUpperCase();
+}
+
+/**
+ * Header account area (lg and up; phones use the drawer). Signed out: Log in and
+ * Sign up. Signed in: notifications and the avatar menu (name and email,
+ * Dashboard, Profile, Admin for admins, Log out). Loaded in the browser, so the
+ * cached page HTML is the same for everyone.
+ *
+ * The avatar menu is an ARIA menu: it opens with focus on the first item, Up/Down/
+ * Home/End move, Escape closes and returns focus to the avatar, Tab closes.
+ */
 export function UserNav() {
   const { locale, t } = useI18n();
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname() ?? '';
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menu.current?.contains(e.target as Node)) setOpen(false);
+    menu.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus();
+    const onPointer = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', close);
-    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
   }, [open]);
 
-  if (loading) return <span className="hidden h-10 w-24 md:inline-block" aria-hidden />;
+  if (loading) return <span className="hidden h-10 w-24 lg:inline-block" aria-hidden />;
 
   if (!user) {
     return (
-      <>
-        <Link
-          href={`/${locale}/login`}
-          className="hidden min-h-10 items-center rounded-full px-3 text-[0.9375rem] font-medium text-fg hover:bg-muted-bg md:inline-flex"
-        >
+      <div className="hidden items-center gap-2 lg:flex">
+        <Link href={`/${locale}/login`} className="inline-flex min-h-10 items-center rounded-lg px-3 text-[0.9375rem] text-body hover:bg-hover-bg hover:text-fg">
           {t('nav.login')}
         </Link>
-        {/* Wrapped: buttonClass sets its own display, so `hidden` can't sit on the link itself. */}
-        <span className="hidden md:inline-flex">
-          <Link href={`/${locale}/register`} className={buttonClass('primary', 'sm')}>
-            {t('nav.register')}
-          </Link>
-        </span>
-      </>
+        <Link href={`/${locale}/register`} className={buttonClass('secondary', 'sm')}>
+          {t('nav.register')}
+        </Link>
+      </div>
     );
   }
 
-  const initial = (user.name ?? user.email).trim().charAt(0).toUpperCase();
   const links: [string, string][] = [
     [`/${locale}/dashboard`, t('nav.dashboard')],
     [`/${locale}/profile`, t('nav.profile')],
     ...(user.role === 'ADMIN' ? ([[`/${locale}/admin`, t('nav.admin')]] as [string, string][]) : []),
   ];
 
+  function onMenuKey(e: KeyboardEvent<HTMLDivElement>) {
+    const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const go = (n: number) => {
+      e.preventDefault();
+      items[(n + items.length) % items.length]?.focus();
+    };
+    if (e.key === 'ArrowDown') go(i + 1);
+    else if (e.key === 'ArrowUp') go(i - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(items.length - 1);
+    else if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpen(false);
+      button.current?.focus();
+    } else if (e.key === 'Tab') setOpen(false);
+  }
+
+  const itemClass =
+    'block w-full rounded-lg px-3 py-2.5 text-start text-[0.9375rem] text-body hover:bg-hover-bg focus-visible:bg-hover-bg aria-[current=page]:font-medium aria-[current=page]:text-fg';
+
   return (
     <>
       <NotificationsBell />
-      {/* On phones the account links live in the menu button instead (MobileMenu). */}
-      <div className="relative hidden md:block" ref={menu}>
+      <div className="relative hidden lg:block" ref={root}>
         <button
+          ref={button}
           type="button"
           onClick={() => setOpen((o) => !o)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' && !open) {
+              e.preventDefault();
+              setOpen(true);
+            }
+          }}
           aria-expanded={open}
           aria-haspopup="menu"
-          aria-label={t('nav.menu')}
-          className="grid size-10 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary hover:bg-primary-soft-hover hover:text-primary-hover"
+          aria-controls={open ? menuId : undefined}
+          aria-label={t('nav.account')}
+          className={`grid size-10 place-items-center rounded-full bg-primary-soft text-[0.8125rem] font-semibold text-info hover:bg-primary-soft-hover ${
+            open ? 'ring-2 ring-logo-cyan ring-offset-2 ring-offset-card' : ''
+          }`}
         >
-          {initial}
+          {initials(user.name, user.email)}
         </button>
         {open && (
-          <div role="menu" className="absolute end-0 z-50 mt-2 w-60 rounded-card border border-line bg-card p-1.5 shadow-[0_12px_32px_-12px_rgba(19,35,63,0.2)]">
-            <p className="truncate px-3 py-2 text-sm text-muted ltr-embed">{user.email}</p>
+          <div
+            ref={menu}
+            id={menuId}
+            role="menu"
+            aria-label={t('nav.account')}
+            onKeyDown={onMenuKey}
+            className="absolute end-0 z-50 mt-2 w-64 rounded-xl border border-line bg-card p-2 shadow-pop"
+          >
+            <div className="mb-1.5 border-b border-line-soft px-3 pt-2 pb-3">
+              {user.name && <p className="truncate font-medium text-fg">{user.name}</p>}
+              <p className="truncate text-sm text-muted ltr-embed">{user.email}</p>
+            </div>
             {links.map(([href, label]) => (
-              <Link key={href} role="menuitem" href={href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 text-[0.9375rem] hover:bg-muted-bg">
+              <Link
+                key={href}
+                role="menuitem"
+                tabIndex={-1}
+                href={href}
+                aria-current={pathname === href ? 'page' : undefined}
+                onClick={() => setOpen(false)}
+                className={itemClass}
+              >
                 {label}
               </Link>
             ))}
-            <button
-              type="button"
-              role="menuitem"
-              className="block w-full rounded-xl px-3 py-2.5 text-start text-[0.9375rem] text-danger hover:bg-muted-bg"
-              onClick={async () => {
-                setOpen(false);
-                await logout();
-                router.replace(`/${locale}`);
-              }}
-            >
-              {t('nav.logout')}
-            </button>
+            <div className="mt-1.5 border-t border-line-soft pt-1.5">
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                className={itemClass}
+                onClick={async () => {
+                  setOpen(false);
+                  await logout();
+                  router.replace(`/${locale}`);
+                }}
+              >
+                {t('nav.logout')}
+              </button>
+            </div>
           </div>
         )}
       </div>
