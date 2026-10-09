@@ -10,6 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
+import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 
 function Block({ title, children, tone }: { title: string; children: ReactNode; tone?: 'danger' }) {
@@ -187,16 +188,8 @@ export function AccountPanel({ user }: { user: MeResponse }) {
           className="mt-3"
           loading={busy === 'export'}
           onClick={() =>
-            run('export', async () => {
-              // Through api() so an expired session refreshes instead of saving a 401 as the "export".
-              const blob = await api<Blob>('/me/export', { headers: { Accept: 'application/octet-stream' } });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'mlops-mena-academy-data.json';
-              a.click();
-              URL.revokeObjectURL(url);
-            })
+            // Through api() (downloadViaApi) so an expired session refreshes first instead of saving a 401 as the "export".
+            run('export', () => downloadViaApi('/me/export', 'mlops-mena-academy-data.json'))
           }
         >
           ⬇ {t('account.exportCta')}
