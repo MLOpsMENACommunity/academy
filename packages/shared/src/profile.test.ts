@@ -4,7 +4,6 @@ import {
   communitySectionSchema,
   coreSectionSchema,
   educationSectionSchema,
-  GRADUATION_YEAR_MAX,
   linksSectionSchema,
   ML_EXPERIENCE_MESSAGE,
   mlExperienceExceedsTotal,
@@ -121,20 +120,14 @@ describe('experience consistency (QA L12)', () => {
   });
 });
 
-describe('educationSectionSchema graduation year (QA L13)', () => {
-  const edu = { educationLevel: 'BACHELORS', fieldOfStudy: 'CS', university: 'Cairo University' };
-  it('explains the accepted range', () => {
-    for (const graduationYear of [1950, GRADUATION_YEAR_MAX + 1, 2020.5, 'soon']) {
-      const r = educationSectionSchema.safeParse({ ...edu, graduationYear });
-      expect(r.success).toBe(false);
-      expect(r.error!.issues[0]!.message).toBe(`Enter a year between 1960 and ${GRADUATION_YEAR_MAX}`);
-    }
+describe('educationSectionSchema', () => {
+  it('only asks for the highest degree', () => {
+    expect(educationSectionSchema.safeParse({ educationLevel: 'BACHELORS' }).success).toBe(true);
+    expect(educationSectionSchema.safeParse({}).success).toBe(false);
   });
-  it('treats blank as not given and accepts numeric strings', () => {
-    expect(educationSectionSchema.parse({ ...edu, graduationYear: '' }).graduationYear).toBeNull();
-    // Left out: not touched (undefined), so a partial save keeps the stored year.
-    expect(educationSectionSchema.parse({ ...edu }).graduationYear).toBeUndefined();
-    expect(educationSectionSchema.parse({ ...edu, graduationYear: '2015' }).graduationYear).toBe(2015);
+  it('drops fields no longer asked, so saving never overwrites their stored values', () => {
+    const r = educationSectionSchema.parse({ educationLevel: 'MASTERS', fieldOfStudy: '', university: '', graduationYear: 2020, currentlyStudying: true });
+    expect(r).toEqual({ educationLevel: 'MASTERS' });
   });
 });
 
@@ -148,9 +141,10 @@ describe('communitySectionSchema', () => {
 });
 
 describe('linksSectionSchema', () => {
-  it('requires LinkedIn and GitHub profile links and clears empty optional ones', () => {
-    const r = linksSectionSchema.parse({ linkedinUrl: 'https://www.linkedin.com/in/x', githubUrl: 'https://github.com/x', websiteUrl: '' });
-    expect(r).toMatchObject({ linkedinUrl: 'https://www.linkedin.com/in/x', githubUrl: 'https://github.com/x', websiteUrl: null });
+  it('requires LinkedIn and GitHub profile links and nothing else', () => {
+    const r = linksSectionSchema.parse({ linkedinUrl: 'https://www.linkedin.com/in/x', githubUrl: 'https://github.com/x', websiteUrl: '', kaggleUrl: '' });
+    // Website, Kaggle and Hugging Face are no longer asked: dropped, so stored values are left alone.
+    expect(r).toEqual({ linkedinUrl: 'https://www.linkedin.com/in/x', githubUrl: 'https://github.com/x' });
     expect(linksSectionSchema.safeParse({ linkedinUrl: 'https://www.linkedin.com/in/x', githubUrl: '' }).success).toBe(false);
     expect(linksSectionSchema.safeParse({ githubUrl: 'https://github.com/x' }).success).toBe(false);
   });
@@ -174,7 +168,7 @@ describe('computeCompleteness', () => {
     const c = computeCompleteness({});
     expect(c.percent).toBe(0);
     expect(c.coreComplete).toBe(false);
-    expect(c.missingCore).toHaveLength(21);
+    expect(c.missingCore).toHaveLength(19);
   });
   it('needs the professional, education, links and community steps too, not only the basics', () => {
     const basics: Partial<ProfileDto> = {
@@ -185,8 +179,8 @@ describe('computeCompleteness', () => {
     const c = computeCompleteness(basics);
     expect(c.coreComplete).toBe(false);
     expect(c.missingCore.sort()).toEqual([
-      'communityAnsweredAt', 'educationLevel', 'fieldOfStudy', 'githubUrl', 'linkedinUrl', 'mlExperienceYears',
-      'referralSource', 'seniority', 'university',
+      'communityAnsweredAt', 'educationLevel', 'githubUrl', 'linkedinUrl', 'mlExperienceYears',
+      'referralSource', 'seniority',
     ]);
   });
   it('gives 60% for all required steps and 100% when everything is filled', () => {
@@ -194,18 +188,36 @@ describe('computeCompleteness', () => {
       fullNameEn: 'A', phone: '+201001234567', country: 'EG', city: 'Cairo', timezone: 'Africa/Cairo',
       employmentStatus: 'STUDENT', jobTitle: 'Student', experienceYears: 'Y0_1', primaryArea: 'STUDENT',
       googleEmail: 'a@gmail.com', preferredLanguage: 'en', acceptedTermsAt: '2026-01-01T00:00:00Z',
-      mlExperienceYears: 'Y0_1', seniority: 'INTERN', educationLevel: 'BACHELORS', fieldOfStudy: 'CS', university: 'Cairo University',
+      mlExperienceYears: 'Y0_1', seniority: 'INTERN', educationLevel: 'BACHELORS',
       linkedinUrl: 'https://www.linkedin.com/in/a', githubUrl: 'https://github.com/a', referralSource: 'LINKEDIN',
       communityAnsweredAt: '2026-01-01T00:00:00Z',
     };
     expect(computeCompleteness(coreOnly)).toMatchObject({ percent: 60, coreComplete: true, missingCore: [] });
     const full: Partial<ProfileDto> = {
       ...coreOnly, company: 'X', industry: 'FINTECH', mlExperienceYears: 'Y1_3', seniority: 'MID',
-      secondaryAreas: ['MLOPS'], graduationYear: 2020, skills: { PYTHON: 4 },
+      secondaryAreas: ['MLOPS'], skills: { PYTHON: 4 },
       cloudPlatforms: ['AWS'], productionTools: ['MLflow'], learningGoals: ['MOVE_TO_MLOPS'],
       interestedTopics: ['RAG'], weeklyHours: 'H_2_5', preferredTimes: ['WEEKEND_EVENINGS'],
-      preferredFormat: 'LIVE', websiteUrl: 'https://a.dev',
+      preferredFormat: 'LIVE',
     };
     expect(computeCompleteness(full).percent).toBe(100);
+  });
+  it('ignores fields the form no longer asks for', () => {
+    const base = { fullNameEn: 'A', company: 'X' } as Partial<ProfileDto>;
+    const legacy = { ...base, fieldOfStudy: 'CS', university: 'Cairo University', graduationYear: 2020, websiteUrl: 'https://a.dev', kaggleUrl: 'https://kaggle.com/a', huggingfaceUrl: 'https://huggingface.co/a', hasCv: true };
+    expect(computeCompleteness(legacy)).toEqual(computeCompleteness(base));
+    expect(computeCompleteness({}).incompleteSections).not.toContain('links');
+    expect(computeCompleteness({}).incompleteSections).not.toContain('education');
+  });
+  it('keeps a profile complete without field of study or university', () => {
+    const p: Partial<ProfileDto> = {
+      fullNameEn: 'A', phone: '+201001234567', country: 'EG', city: 'Cairo', timezone: 'Africa/Cairo',
+      employmentStatus: 'STUDENT', jobTitle: 'Student', experienceYears: 'Y0_1', primaryArea: 'STUDENT',
+      googleEmail: 'a@gmail.com', preferredLanguage: 'en', acceptedTermsAt: '2026-01-01T00:00:00Z',
+      mlExperienceYears: 'Y0_1', seniority: 'INTERN', educationLevel: 'BACHELORS',
+      linkedinUrl: 'https://www.linkedin.com/in/a', githubUrl: 'https://github.com/a', referralSource: 'LINKEDIN',
+      communityAnsweredAt: '2026-01-01T00:00:00Z', fieldOfStudy: null, university: null,
+    };
+    expect(computeCompleteness(p).coreComplete).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { coreSectionSchema, educationSectionSchema, eventInputSchema, GRADUATION_YEAR_MAX, sectionSchemaFor } from '@academy/shared';
+import { coreSectionSchema, eventInputSchema, sectionSchemaFor } from '@academy/shared';
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '@/i18n/translator';
 import { issuesToErrors } from './zod-errors';
@@ -31,12 +31,6 @@ describe('issuesToErrors', () => {
     const errors = issuesToErrors(r.error!.issues, createTranslator('en'));
     expect(errors.liveUrl).toBe('Add the live link before publishing.');
     expect(errors.titleAr).toContain('goes public');
-  });
-
-  it('names the graduation-year range in both languages (QA L13)', () => {
-    const r = educationSectionSchema.safeParse({ educationLevel: 'BACHELORS', fieldOfStudy: 'CS', university: 'X', graduationYear: 2099 });
-    expect(issuesToErrors(r.error!.issues, createTranslator('en')).graduationYear).toBe(`Enter a year between 1960 and ${GRADUATION_YEAR_MAX}.`);
-    expect(issuesToErrors(r.error!.issues, createTranslator('ar')).graduationYear).toBe(`أدخل سنة بين 1960 و${GRADUATION_YEAR_MAX}.`);
   });
 
   it('explains the ML/AI experience check (QA L12)', () => {

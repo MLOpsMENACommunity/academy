@@ -74,8 +74,6 @@ export async function createUser(
                 mlExperienceYears: 'Y1_3',
                 seniority: 'MID',
                 educationLevel: 'BACHELORS',
-                fieldOfStudy: 'Computer Science',
-                university: 'Cairo University',
                 linkedinUrl: 'https://www.linkedin.com/in/test-person',
                 githubUrl: 'https://github.com/test-person',
                 referralSource: 'LINKEDIN',

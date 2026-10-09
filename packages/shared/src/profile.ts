@@ -32,17 +32,6 @@ const optionalText = (max = 200) =>
     .nullish()
     .transform((v) => (v ? v : null));
 
-/** Optional URL; empty string means "cleared". Only http(s) is accepted. */
-const optionalUrl = z
-  .string()
-  .trim()
-  .max(300)
-  .nullish()
-  .transform((v) => (v ? v : null))
-  .refine((v) => v === null || /^https?:\/\/[^\s]+\.[^\s]+/i.test(v), {
-    message: 'Enter a full URL starting with https://',
-  });
-
 /** Required profile link on one site, e.g. linkedin.com or github.com. */
 const requiredProfileUrl = (host: string) =>
   z
@@ -146,8 +135,6 @@ export const coreSectionSchema = z.preprocess(
 );
 export type CoreSection = z.infer<typeof coreSectionSchema>;
 
-const requiredText = (max: number) => z.string().trim().min(1).max(max);
-
 /** Required (no skip): admins screen and filter applicants on these. Industry is optional. */
 export const professionalSectionSchema = z.object({
   company: optionalText(120),
@@ -158,27 +145,13 @@ export const professionalSectionSchema = z.object({
 });
 export type ProfessionalSection = z.infer<typeof professionalSectionSchema>;
 
-export const GRADUATION_YEAR_MIN = 1960;
-export const GRADUATION_YEAR_MAX = new Date().getFullYear() + 8;
-const graduationYearMessage = `Enter a year between ${GRADUATION_YEAR_MIN} and ${GRADUATION_YEAR_MAX}`;
-
-/** Required (no skip). */
+/**
+ * Required (no skip): only the highest degree is asked. Field of study, university,
+ * graduation year and "currently studying" are no longer asked; their saved values
+ * stay in the database (and admin views) and saving this step leaves them as they are.
+ */
 export const educationSectionSchema = z.object({
   educationLevel: z.enum(EDUCATION_LEVELS),
-  fieldOfStudy: requiredText(120),
-  /** University, institution or learning platform (e.g. a bootcamp or Coursera). */
-  university: requiredText(160),
-  /** Optional; blank clears it, and leaving it out keeps the saved year. */
-  graduationYear: z.preprocess(
-    (v) => (v === '' || v === null ? null : typeof v === 'string' ? Number(v.trim()) : v),
-    z
-      .number({ invalid_type_error: graduationYearMessage })
-      .int(graduationYearMessage)
-      .min(GRADUATION_YEAR_MIN, graduationYearMessage)
-      .max(GRADUATION_YEAR_MAX, graduationYearMessage)
-      .nullish(),
-  ),
-  currentlyStudying: z.boolean().nullish(),
 });
 export type EducationSection = z.infer<typeof educationSectionSchema>;
 
@@ -203,12 +176,13 @@ export const goalsSectionSchema = z.object({
 });
 export type GoalsSection = z.infer<typeof goalsSectionSchema>;
 
+/**
+ * Required: LinkedIn and GitHub only. Website, Kaggle, Hugging Face and the CV upload are
+ * no longer asked; saved values are kept (admins still see them) and left untouched here.
+ */
 export const linksSectionSchema = z.object({
   linkedinUrl: requiredProfileUrl('linkedin.com'),
   githubUrl: requiredProfileUrl('github.com'),
-  websiteUrl: optionalUrl,
-  kaggleUrl: optionalUrl,
-  huggingfaceUrl: optionalUrl,
 });
 export type LinksSection = z.infer<typeof linksSectionSchema>;
 
@@ -358,8 +332,6 @@ export const CORE_FIELDS = [
   'seniority',
   // Education
   'educationLevel',
-  'fieldOfStudy',
-  'university',
   // Links
   'linkedinUrl',
   'githubUrl',
@@ -386,20 +358,20 @@ export const CORE_FIELD_SECTION: Record<CoreField, (typeof REQUIRED_SECTIONS)[nu
   mlExperienceYears: 'professional',
   seniority: 'professional',
   educationLevel: 'education',
-  fieldOfStudy: 'education',
-  university: 'education',
   linkedinUrl: 'links',
   githubUrl: 'links',
   referralSource: 'community',
   communityAnsweredAt: 'community',
 };
 
-/** Optional fields that count toward completeness, grouped by section. */
+/**
+ * Optional fields that count toward completeness, grouped by section. Only fields the
+ * student can still fill in: fields no longer asked (website, graduation year, …) don't count.
+ */
 const OPTIONAL_FIELDS: { field: keyof ProfileDto; section: ProfileSection }[] = [
   { field: 'company', section: 'professional' },
   { field: 'industry', section: 'professional' },
   { field: 'secondaryAreas', section: 'professional' },
-  { field: 'graduationYear', section: 'education' },
   { field: 'skills', section: 'skills' },
   { field: 'cloudPlatforms', section: 'skills' },
   { field: 'productionTools', section: 'skills' },
@@ -408,7 +380,6 @@ const OPTIONAL_FIELDS: { field: keyof ProfileDto; section: ProfileSection }[] = 
   { field: 'weeklyHours', section: 'goals' },
   { field: 'preferredTimes', section: 'goals' },
   { field: 'preferredFormat', section: 'goals' },
-  { field: 'websiteUrl', section: 'links' },
 ];
 
 function filled(v: unknown): boolean {
