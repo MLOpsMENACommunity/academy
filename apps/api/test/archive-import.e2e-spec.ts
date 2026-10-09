@@ -237,6 +237,7 @@ describe('archive import (e2e)', () => {
       for (const s of a.speakers) if (['mohamed-rashad', 'mahmoud-sharif', 'abdallah-almalawany'].includes(s.slug)) delete s.linkedinUrl;
       // Before the owner's photos and bios, and while Mariam Qotob was a guest speaker.
       for (const s of a.speakers) if (s.slug !== 'aya-nasser-salama') Object.assign(s, { photoUrl: undefined });
+      Object.assign(a.speakers.find((s) => s.slug === 'mohamed-samy')!, { titleEn: '', bioEn: '', titleAr: undefined, bioAr: undefined });
       a.speakers.find((s) => s.slug === 'abdallah-almalawany')!.name = 'Abdallah Almalawany';
       a.speakers.push({ slug: 'mariam-qotob', name: 'Mariam Qotob', titleEn: 'AI Engineer', bioEn: 'AI/ML engineer.', linkedinUrl: 'https://www.linkedin.com/in/mariamqotob/' });
       for (const slugOf of ['docker-deep-dive', 'hands-on-fastapi-backend-for-mlops']) a.sessions.find((s) => s.slug === slugOf)!.coSpeakers.push({ speaker: 'mariam-qotob', role: 'GUEST' });
@@ -245,7 +246,7 @@ describe('archive import (e2e)', () => {
     }
     /** The category backfill of the migration (prisma/migrations/*_course_levels_event_categories). */
     async function runCategoryBackfill() {
-      const sql = readFileSync(join(__dirname, '..', 'prisma', 'migrations', '20261016090000_course_levels_event_categories', 'migration.sql'), 'utf8');
+      const sql = readFileSync(join(__dirname, '..', 'prisma', 'migrations', '20261015090000_course_levels_event_categories', 'migration.sql'), 'utf8');
       const statements = sql.split(';').map((x) => x.replace(/^\s*--.*$/gm, '').trim()).filter((x) => x.startsWith('UPDATE "LiveEvent"'));
       expect(statements).toHaveLength(2);
       for (const st of statements) await prisma.$executeRawUnsafe(st);
@@ -277,6 +278,13 @@ describe('archive import (e2e)', () => {
       // Photos, bios and the corrected name.
       expect(await prisma.instructor.findUniqueOrThrow({ where: { slug: 'abdallah-almalawany' } })).toMatchObject({ name: 'Abdallah Elmalawany', photoUrl: '/speakers/abdallah-almalawany.webp', titleEn: 'DevOps Engineer · CKA' });
       expect(await prisma.instructor.findUniqueOrThrow({ where: { slug: 'omar-khalil' } })).toMatchObject({ photoUrl: '/speakers/omar-khalil.webp', titleEn: 'AI Engineer' });
+      // Mohamed Samy: photo, title, bio and LinkedIn.
+      expect(await prisma.instructor.findUniqueOrThrow({ where: { slug: 'mohamed-samy' } })).toMatchObject({
+        photoUrl: '/speakers/mohamed-samy.webp',
+        titleEn: 'AI Engineer & Data Scientist',
+        nameAr: 'محمد سامي',
+        linkedinUrl: 'https://www.linkedin.com/in/mohamed-samy-122137189',
+      });
       // Mariam: dropped from the FastAPI session the import owns, but still a guest on the Docker
       // session an admin edited, so her record stays (and the import says why).
       const mariam = await prisma.instructor.findUniqueOrThrow({ where: { slug: 'mariam-qotob' }, include: { coSpeaking: { include: { event: true } } } });

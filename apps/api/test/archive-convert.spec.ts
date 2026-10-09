@@ -146,8 +146,9 @@ describe('archive converter', () => {
     // Owner (10 Oct 2026): Mariam Qotob is not a speaker; the archive asks the import to remove her.
     expect(file.speakers.map((s) => s.slug)).not.toContain('mariam-qotob');
     expect(file.removed.speakers).toEqual(['mariam-qotob']);
-    // No role in the owner's list: no title rather than a placeholder.
-    expect(byslug('mohamed-samy')).toMatchObject({ titleEn: '', bioEn: '' });
+    // Owner (10 Oct 2026): his title and bio.
+    expect(byslug('mohamed-samy')).toMatchObject({ titleEn: 'AI Engineer & Data Scientist', nameAr: 'محمد سامي' });
+    expect(byslug('mohamed-samy').linkedinUrl).toBe('https://www.linkedin.com/in/mohamed-samy-122137189');
   });
 
   it('keeps a session that is a course lesson out of the live sessions', () => {
@@ -251,6 +252,7 @@ describe('archive converter', () => {
         'abdallah-almalawany': 'https://www.linkedin.com/in/abdallah-elmalawany-840595270',
         'omar-khalil': 'https://www.linkedin.com/in/omar-khalil-10om01',
         'aya-nasser-salama': 'https://www.linkedin.com/in/ayanasser/',
+        'mohamed-samy': 'https://www.linkedin.com/in/mohamed-samy-122137189',
       });
       for (const url of Object.values(linkedin).filter(Boolean)) expect(url).not.toMatch(/[?#]/);
     });
@@ -287,7 +289,7 @@ describe('archive converter', () => {
       );
     });
 
-    it('every speaker has a photo on this site, a bio in both languages, and a title (except Mohamed Samy, still to come)', () => {
+    it('every speaker has a photo on this site, a bio in both languages, and a title', () => {
       const names = Object.fromEntries(archive.speakers.map((s) => [s.slug, s.name]));
       expect(names).toEqual({
         'aya-nasser-salama': 'Aya Nasser Salama',
@@ -299,7 +301,7 @@ describe('archive converter', () => {
         'mohamed-samy': 'Mohamed Samy',
       });
       const publicDir = join(__dirname, '..', '..', 'web', 'public');
-      for (const s of archive.speakers.filter((x) => x.slug !== 'mohamed-samy')) {
+      for (const s of archive.speakers) {
         expect(s.photoUrl).toBe(`/speakers/${s.slug}.webp`);
         expect(existsSync(join(publicDir, s.photoUrl!))).toBe(true);
         expect(s.bioEn.length).toBeGreaterThan(40);

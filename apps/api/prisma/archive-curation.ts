@@ -160,8 +160,17 @@ export const speakerProfiles: Record<string, SpeakerProfile> = {
     bioAr:
       'يبني أنظمة الذكاء الاصطناعي والفرق التي تُبقيها تعمل في بيئة الإنتاج. خبرة تتجاوز 12 عامًا. قائد هندسي وشريك مؤسس في Hyperion وDevisionX.',
   },
-  // The owner's list gives no role for Mohamed Samy: the page shows his name only.
-  'Mohamed Samy': { nameAr: 'محمد سامي' },
+  // Title, bio, photo and LinkedIn from the owner (10 Oct 2026).
+  'Mohamed Samy': {
+    nameAr: 'محمد سامي',
+    linkedinUrl: 'https://www.linkedin.com/in/mohamed-samy-122137189',
+    titleEn: 'AI Engineer & Data Scientist',
+    titleAr: 'مهندس ذكاء اصطناعي وعالِم بيانات',
+    bioEn:
+      'AI Engineer and Data Scientist focused on building production-ready AI systems that transform data into intelligent applications. His work spans the full lifecycle of AI solutions — from data processing and model development to scalable deployment and monitoring. He has hands-on experience developing solutions in Generative AI, Large Language Models (LLMs), and Retrieval-Augmented Generation (RAG), as well as traditional machine learning and deep learning across NLP, Computer Vision, predictive modeling, and time-series forecasting.',
+    bioAr:
+      'مهندس ذكاء اصطناعي وعالِم بيانات يركّز على بناء أنظمة ذكاء اصطناعي جاهزة للإنتاج تحوّل البيانات إلى تطبيقات ذكية. يغطي عمله دورة حياة حلول الذكاء الاصطناعي كاملة، من معالجة البيانات وتطوير النماذج إلى النشر القابل للتوسّع والمراقبة (monitoring). لديه خبرة عملية في تطوير حلول Generative AI والنماذج اللغوية الكبيرة (LLMs) وRetrieval-Augmented Generation (RAG)، إلى جانب machine learning وdeep learning التقليديين في NLP وComputer Vision والنمذجة التنبؤية (predictive modeling) والتنبؤ بالسلاسل الزمنية (time-series forecasting).',
+  },
   // Speaker of "Redis for Semantic Caching".
   'Omar Khalil': {
     nameAr: 'عمر خليل',
