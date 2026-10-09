@@ -2,7 +2,7 @@
 
 import type { MeResponse } from '@academy/shared';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -14,6 +14,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
+import { useSearchParam } from '@/lib/use-search-param';
 
 /**
  * Where to go after sign-in. An incomplete profile goes to onboarding first, unless the
@@ -32,14 +33,16 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const { user, setUser } = useAuth();
   const router = useRouter();
   const returnTo = useReturnTo();
-  const params = useSearchParams();
+  const errorCode = useSearchParam('error');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(() => {
-    const code = params.get('error');
-    return code ? t(`auth.errors.${code}`) : null;
-  });
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // ?error=… (e.g. a failed Google sign-in), read after hydration: the page is static.
+  useEffect(() => {
+    if (errorCode) setError(t(`auth.errors.${errorCode}`));
+  }, [errorCode, t]);
 
   // Already signed in (e.g. a valid refresh cookie): continue straight away.
   useEffect(() => {

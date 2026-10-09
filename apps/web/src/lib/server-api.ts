@@ -36,3 +36,25 @@ export async function serverGetOr<T>(path: string, fallback: T, revalidate = 60)
     return fallback;
   }
 }
+
+/**
+ * Slugs to prerender at build time, for generateStaticParams. The API is usually not
+ * reachable while the image builds: then nothing is prerendered and every page renders
+ * on its first request instead (dynamicParams), then is cached like any ISR page.
+ * Never fails the build, and gives up after a few seconds.
+ */
+const MAX_PRERENDER = 100;
+
+export async function staticSlugs<T>(path: string, slugs: (data: T) => string[]): Promise<{ slug: string }[]> {
+  try {
+    const res = await fetch(`${base()}/api${path}`, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
+    if (!res.ok) return [];
+    return slugs((await res.json()) as T)
+      .filter((slug) => /^[a-z0-9-]{1,80}$/.test(slug))
+      // A bounded build: anything past this renders on first request instead.
+      .slice(0, MAX_PRERENDER)
+      .map((slug) => ({ slug }));
+  } catch {
+    return [];
+  }
+}

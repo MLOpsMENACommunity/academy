@@ -25,7 +25,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
-import { serverGet } from '@/lib/server-api';
+import { serverGet, staticSlugs } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -66,6 +66,18 @@ function Section({ id, title, children }: { id: string; title: string; children:
       <div className="mt-5">{children}</div>
     </section>
   );
+}
+
+/**
+ * Static (ISR) for every course: the public course page is the same for everyone, so it
+ * is rendered once per revalidate window and served from the cache (and Cloudflare's edge).
+ * Personal bits (application status, Notify me) are client components that load after.
+ * Known slugs are prerendered when the API is reachable at build time; others render on
+ * first request (dynamicParams) and are cached from then on.
+ */
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  return staticSlugs<{ slug: string }[]>('/courses/slugs', (list) => list.map((c) => c.slug));
 }
 
 /** Rows of a list separated by hairlines instead of boxes. */

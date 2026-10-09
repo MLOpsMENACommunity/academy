@@ -37,7 +37,8 @@ COPY --from=build --chown=node:node /repo/apps/web/.next/static ./apps/web/.next
 COPY --from=build --chown=node:node /repo/apps/web/public ./apps/web/public
 USER node
 EXPOSE 3000
+# A static page: probing /en would render (and cache) the home page before the API is up.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD wget -qO- http://127.0.0.1:3000/en >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/en/terms >/dev/null || exit 1
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "apps/web/server.js"]

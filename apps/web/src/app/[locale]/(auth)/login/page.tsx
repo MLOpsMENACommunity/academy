@@ -3,9 +3,10 @@ import { LoginForm } from './LoginForm';
 import { ReservedSpace } from '@/components/ui/Spinner';
 import { serverGetOr } from '@/lib/server-api';
 
-// Rendered per request so the form (which reads the query string) is in the
-// server HTML: no empty first paint, no layout shift when it appears.
-export const dynamic = 'force-dynamic';
+// Static (ISR, for the Google sign-in flag): the form reads the query string (returnTo,
+// error) on the client only, so it is still in the server HTML and the page can be
+// served from the cache.
+export const revalidate = 300;
 
 export default async function LoginPage() {
   const google = await serverGetOr<{ enabled: boolean }>('/auth/google/enabled', { enabled: false }, 300);

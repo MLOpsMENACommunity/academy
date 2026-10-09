@@ -16,13 +16,19 @@ import { createTranslator } from '@/i18n/translator';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
-import { serverGet } from '@/lib/server-api';
+import { serverGet, staticSlugs } from '@/lib/server-api';
 import { excerpt, pick } from '@/lib/sessions';
 import { absoluteUrl, community } from '@/lib/site';
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
 export const revalidate = 60;
+
+/** Static (ISR): see the course page. Known sessions are prerendered when the API is reachable at build time. */
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  return staticSlugs<{ upcoming: { slug: string }[]; past: { slug: string }[] }>('/events', (e) => [...e.upcoming, ...e.past].map((x) => x.slug));
+}
 
 async function load(slug: string): Promise<PublicEventDto | null> {
   if (!/^[a-z0-9-]{1,80}$/.test(slug)) return null;
