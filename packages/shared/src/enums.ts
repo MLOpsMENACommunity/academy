@@ -190,9 +190,18 @@ export type CourseStatus = (typeof COURSE_STATUSES)[number];
 /** Statuses visible on the public catalog and course pages. */
 export const PUBLIC_COURSE_STATUSES = ['COMING_SOON', 'OPEN', 'CLOSED', 'COMPLETED'] as const satisfies readonly CourseStatus[];
 
+/**
+ * The single level courses had before `levels` (kept for API compatibility; derived from
+ * `levels` on every save, see legacyCourseLevel).
+ */
 export const COURSE_LEVELS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ALL_LEVELS'] as const;
 export const CourseLevel = defineEnum(COURSE_LEVELS);
 export type CourseLevel = (typeof COURSE_LEVELS)[number];
+
+/** Who a course is for, by career level, in order. A course targets one or more; none means all levels. */
+export const AUDIENCE_LEVELS = ['JUNIOR', 'MID', 'SENIOR', 'LEAD'] as const;
+export const AudienceLevel = defineEnum(AUDIENCE_LEVELS);
+export type AudienceLevel = (typeof AUDIENCE_LEVELS)[number];
 
 export const COURSE_LANGUAGES = ['EN', 'AR', 'BILINGUAL'] as const;
 export const CourseLanguage = defineEnum(COURSE_LANGUAGES);
@@ -291,3 +300,11 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export const EVENT_SPEAKER_ROLES = ['SPEAKER', 'HOST', 'GUEST'] as const;
 export const EventSpeakerRole = defineEnum(EVENT_SPEAKER_ROLES);
 export type EventSpeakerRole = (typeof EVENT_SPEAKER_ROLES)[number];
+
+/**
+ * The kind of a recording in the library. Course lessons are always COURSE_RECORDING;
+ * a live session's category is set on the session (none: shown under "All" only).
+ */
+export const EVENT_CATEGORIES = ['HANDS_ON', 'INDUSTRY', 'COURSE_RECORDING', 'TALK'] as const;
+export const EventCategory = defineEnum(EVENT_CATEGORIES);
+export type EventCategory = (typeof EVENT_CATEGORIES)[number];

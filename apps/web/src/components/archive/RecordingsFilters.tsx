@@ -1,6 +1,13 @@
 'use client';
 
-import { recordingsQuerySchema, type RecordingSearchDto, type RecordingsDto } from '@academy/shared';
+import {
+  eventCategoryLabels,
+  matchesRecording,
+  recordingsQuerySchema,
+  type EventCategory,
+  type RecordingSearchDto,
+  type RecordingsDto,
+} from '@academy/shared';
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { buttonClass } from '@/components/ui/Button';
 import { inputClass } from '@/components/ui/input';
@@ -15,20 +22,42 @@ import { topicText } from '@/lib/archive';
  * only hide cards. A topic is a field of each item, so it filters here. The text search
  * also matches descriptions, which the page does not carry, so it asks the API which
  * items match (GET /recordings/search: ids only, from the API's in-memory copy of the
- * library, throttled per IP). The filters
+ * library, throttled per IP). The category (hands-on, from industry, course recordings, …)
+ * filters here too, like the topic. The filters
  * live in the URL but are read after hydration: the server HTML never depends on them.
  */
 export interface RecordingFacets {
   id: string;
   topics: string[];
+  category: EventCategory | null;
 }
 
-type Query = { topic?: string; q?: string };
+type Query = { topic?: string; category?: EventCategory; q?: string };
 
 function readUrl(): Query {
   const p = new URLSearchParams(window.location.search);
-  const parsed = recordingsQuerySchema.safeParse({ topic: p.get('topic') ?? undefined, q: p.get('q') ?? undefined });
-  return parsed.success ? { topic: parsed.data.topic, q: parsed.data.q || undefined } : {};
+  const parsed = recordingsQuerySchema.safeParse({
+    topic: p.get('topic') ?? undefined,
+    category: p.get('category') ?? undefined,
+    q: p.get('q') ?? undefined,
+  });
+  // An invalid value in one filter drops only that filter.
+  if (parsed.success) return { topic: parsed.data.topic, category: parsed.data.category, q: parsed.data.q || undefined };
+  const one = (k: 'topic' | 'category' | 'q') => {
+    const r = recordingsQuerySchema.shape[k].safeParse(p.get(k) ?? undefined);
+    return r.success ? r.data || undefined : undefined;
+  };
+  return { topic: one('topic') as string | undefined, category: one('category') as EventCategory | undefined, q: one('q') as string | undefined };
+}
+
+/** The page's address for these filters. */
+export function recordingsHref(base: string, q: Query): string {
+  const p = new URLSearchParams();
+  if (q.category) p.set('category', q.category);
+  if (q.topic) p.set('topic', q.topic);
+  if (q.q) p.set('q', q.q);
+  const qs = p.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 interface State {
@@ -50,30 +79,28 @@ export function RecordingsProvider({ items, children }: { items: RecordingFacets
   /** Text-search result from the API, for `searched`. */
   const [found, setFound] = useState<{ key: string; ids: Set<string> } | null>(null);
 
-  // Tags in the library. A topic that isn't one of them (a typo, an old link) is ignored
+  // Tags and categories in the library. One that isn't (a typo, an old link) is ignored
   // rather than showing "No recordings", and dropped from the address bar.
   const known = useMemo(() => new Set(items.flatMap((i) => i.topics)), [items]);
+  const knownCategories = useMemo(() => new Set(items.map((i) => i.category)), [items]);
   useEffect(() => {
     const sync = () => {
-      const q = readUrl();
-      if (q.topic && !known.has(q.topic)) {
-        const p = new URLSearchParams(window.location.search);
-        p.delete('topic');
-        const qs = p.toString();
-        window.history.replaceState(
-          window.history.state,
-          '',
-          `${window.location.pathname}${qs ? `?${qs}` : ''}`,
-        );
-        setQuery({ q: q.q });
-      } else {
-        setQuery(q);
+      const raw = readUrl();
+      const q: Query = {
+        topic: raw.topic && known.has(raw.topic) ? raw.topic : undefined,
+        category: raw.category && knownCategories.has(raw.category) ? raw.category : undefined,
+        q: raw.q,
+      };
+      const href = recordingsHref(window.location.pathname, q);
+      if (href !== `${window.location.pathname}${window.location.search}`) {
+        window.history.replaceState(window.history.state, '', href);
       }
+      setQuery(q);
     };
     sync();
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
-  }, [known]);
+  }, [known, knownCategories]);
 
   const searchKey = query.q ? new URLSearchParams({ q: query.q }).toString() : '';
   useEffect(() => {
@@ -93,18 +120,14 @@ export function RecordingsProvider({ items, children }: { items: RecordingFacets
     const visible =
       textIds === null
         ? null
-        : new Set(items.filter((i) => (!query.topic || i.topics.includes(query.topic)) && (!textIds || textIds.has(i.id))).map((i) => i.id));
+        : new Set(items.filter((i) => matchesRecording(i, query) && (!textIds || textIds.has(i.id))).map((i) => i.id));
     return {
       query,
       visible,
       count: visible ? visible.size : items.length,
       apply: (next) => {
         setQuery(next);
-        const p = new URLSearchParams();
-        if (next.topic) p.set('topic', next.topic);
-        if (next.q) p.set('q', next.q);
-        const qs = p.toString();
-        window.history.pushState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+        window.history.pushState(null, '', recordingsHref(window.location.pathname, next));
       },
     };
   }, [items, query, searchKey, found]);
@@ -121,11 +144,12 @@ export function RecordingsSearch() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const parsed = recordingsQuerySchema.shape.q.safeParse(text);
-    apply({ topic: query.topic, q: (parsed.success && parsed.data) || undefined });
+    apply({ ...query, q: (parsed.success && parsed.data) || undefined });
   }
 
   return (
     <form method="get" onSubmit={onSubmit} role="search" aria-label={t('sessions.search')} className="flex max-w-xl gap-2">
+      {query.category && <input type="hidden" name="category" value={query.category} />}
       {query.topic && <input type="hidden" name="topic" value={query.topic} />}
       <label className="min-w-0 flex-1">
         <span className="sr-only">{t('sessions.search')}</span>
@@ -154,17 +178,14 @@ export function TopicChips({ topics }: { topics: RecordingsDto['topics'] }) {
   const { query, apply } = useRecordings();
   const base = `/${locale}/sessions/recordings`;
   const chip = (topic: string | undefined, label: ReactNode) => {
-    const p = new URLSearchParams();
-    if (topic) p.set('topic', topic);
-    if (query.q) p.set('q', query.q);
-    const qs = p.toString();
+    const next = { ...query, topic };
     const onClick = (e: MouseEvent) => {
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
-      apply({ topic, q: query.q });
+      apply(next);
     };
     return (
-      <a href={qs ? `${base}?${qs}` : base} onClick={onClick} aria-current={query.topic === topic ? 'true' : undefined} className={chipClass}>
+      <a href={recordingsHref(base, next)} onClick={onClick} aria-current={query.topic === topic ? 'true' : undefined} className={chipClass}>
         {label}
       </a>
     );
@@ -190,12 +211,53 @@ export function TopicChips({ topics }: { topics: RecordingsDto['topics'] }) {
   );
 }
 
+/**
+ * Hands-on sessions, talks from industry, course recordings, …: the library's shelves, as
+ * links (they work before hydration and can be shared), the current one marked for screen readers.
+ */
+export function CategoryChips({ categories }: { categories: RecordingsDto['categories'] }) {
+  const { locale, t } = useI18n();
+  const { query, apply } = useRecordings();
+  const base = `/${locale}/sessions/recordings`;
+  const chip = (category: EventCategory | undefined, label: ReactNode) => {
+    const next = { ...query, category };
+    const onClick = (e: MouseEvent) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      apply(next);
+    };
+    return (
+      <a href={recordingsHref(base, next)} onClick={onClick} aria-current={query.category === category ? 'true' : undefined} className={chipClass}>
+        {label}
+      </a>
+    );
+  };
+  return (
+    <nav aria-label={t('sessions.categories')} className="mt-6">
+      <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
+        <li>{chip(undefined, t('sessions.allCategories'))}</li>
+        {categories.map(({ category, count }) => (
+          <li key={category}>
+            {chip(
+              category,
+              <>
+                {eventCategoryLabels[category][locale]}
+                <span className="ms-1.5 text-sm text-muted">{count}</span>
+              </>,
+            )}
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 /** The count, the empty state, and the list (dimmed while a search is loading). */
 export function RecordingsResults({ total, children }: { total: number; children: ReactNode }) {
   const { t, locale } = useI18n();
   const { query, visible, count, apply } = useRecordings();
   const loading = visible === null;
-  const filtered = Boolean(query.topic || query.q);
+  const filtered = Boolean(query.topic || query.category || query.q);
   return (
     <>
       <p className="mt-8 text-[0.9375rem] text-muted" aria-live="polite">

@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import {
   APPLICATION_STATUSES,
+  AUDIENCE_LEVELS,
   COURSE_LANGUAGES,
-  COURSE_LEVELS,
   COURSE_TYPES,
   type ApplicationStatus,
+  type AudienceLevel,
   type CourseAvailability,
   type CourseLanguage,
   type CourseLevel,
@@ -15,6 +16,61 @@ import {
   type RecordingsPlatform,
 } from './enums';
 import type { FaqItem, Included, LocalizedList, LocalizedText, OutlineModule, QuestionOption } from './course-content';
+import { audienceLevelLabels } from './labels';
+
+// ------------------------------------------------------------------ levels
+
+/** Distinct levels in their natural order (Junior → Lead). */
+export function sortLevels(levels: readonly AudienceLevel[]): AudienceLevel[] {
+  return AUDIENCE_LEVELS.filter((l) => levels.includes(l));
+}
+
+/** A course's levels: any of Junior, Mid, Senior, Lead (none means all levels). Stored in order. */
+export const audienceLevelsSchema = z.array(z.enum(AUDIENCE_LEVELS)).max(AUDIENCE_LEVELS.length).transform(sortLevels);
+
+/** What the single level a course had before `levels` means in levels (ALL_LEVELS: none, i.e. everyone). */
+export function levelsFromLegacy(level: CourseLevel): AudienceLevel[] {
+  return { BEGINNER: ['JUNIOR'], INTERMEDIATE: ['MID'], ADVANCED: ['SENIOR'], ALL_LEVELS: [] }[level] as AudienceLevel[];
+}
+
+/**
+ * The old single `level`, for API clients that still read it: kept in step with `levels`
+ * on every save. Mirrors levelsFromLegacy, so old values survive a round trip.
+ */
+export function legacyCourseLevel(levels: readonly AudienceLevel[]): CourseLevel {
+  const ls = sortLevels(levels);
+  if (ls.length === 0 || ls.length === AUDIENCE_LEVELS.length) return 'ALL_LEVELS';
+  if (ls.every((l) => l === 'JUNIOR')) return 'BEGINNER';
+  if (ls.every((l) => l === 'SENIOR' || l === 'LEAD')) return 'ADVANCED';
+  return 'INTERMEDIATE';
+}
+
+/** A course's levels as any API version sent them (`levels`, or only the old `level`). */
+export type CourseLevelsOf = { levels?: readonly AudienceLevel[] | null; level?: CourseLevel; levelProgression?: boolean };
+
+export function levelsOf(c: CourseLevelsOf): AudienceLevel[] {
+  if (c.levels) return sortLevels(c.levels);
+  return c.level ? levelsFromLegacy(c.level) : [];
+}
+
+const ALL_LEVELS_LABEL = { en: 'All levels', ar: 'جميع المستويات' } as const;
+
+/**
+ * "Junior · Mid", or, for a course that moves people up a level (`levelProgression`),
+ * "Mid to Senior · Senior to Lead". No levels: "All levels".
+ */
+export function courseLevelsText(c: CourseLevelsOf, locale: 'en' | 'ar'): string {
+  const ls = levelsOf(c);
+  if (ls.length === 0) return ALL_LEVELS_LABEL[locale];
+  const label = (l: AudienceLevel) => audienceLevelLabels[l][locale];
+  return ls
+    .map((l) => {
+      const next = AUDIENCE_LEVELS[AUDIENCE_LEVELS.indexOf(l) + 1];
+      if (!c.levelProgression || !next) return label(l);
+      return locale === 'ar' ? `من ${label(l)} إلى ${label(next)}` : `${label(l)} to ${label(next)}`;
+    })
+    .join(' · ');
+}
 
 /** Catalog filter: open (accepting applications), upcoming (opens later), closed. */
 export function courseAvailability(
@@ -40,8 +96,18 @@ export function catalogPrice(c: { type: CourseType; price: number }): CatalogPri
   return c.price > 0 ? 'PAID' : 'TBA';
 }
 
+/** Links from before course levels were Junior/Mid/Senior/Lead (?level=INTERMEDIATE) still filter sensibly. */
+const LEGACY_LEVEL_QUERY: Record<string, AudienceLevel | undefined> = {
+  BEGINNER: 'JUNIOR',
+  INTERMEDIATE: 'MID',
+  ADVANCED: 'SENIOR',
+  ALL_LEVELS: undefined,
+};
+
 export const catalogQuerySchema = z.object({
-  level: z.enum(COURSE_LEVELS).optional(),
+  /** Matches a course when it is one of the course's levels (or the course is for all levels). */
+  level: z
+    .preprocess((v) => (typeof v === 'string' && v in LEGACY_LEVEL_QUERY ? LEGACY_LEVEL_QUERY[v] : v), z.enum(AUDIENCE_LEVELS).optional()),
   type: z.enum(CATALOG_PRICES).optional(),
   language: z.enum(COURSE_LANGUAGES).optional(),
   availability: z.enum(['OPEN', 'UPCOMING', 'CLOSED']).optional(),
@@ -50,7 +116,7 @@ export type CatalogQuery = z.infer<typeof catalogQuerySchema>;
 
 /** The fields of a course the catalog filters on. */
 export interface CatalogFacets {
-  level: CourseLevel;
+  levels: AudienceLevel[];
   type: CourseType;
   price: number;
   language: CourseLanguage;
@@ -63,7 +129,8 @@ export interface CatalogFacets {
  * matches bilingual courses only.
  */
 export function matchesCatalog(c: CatalogFacets, q: CatalogQuery): boolean {
-  if (q.level && c.level !== q.level) return false;
+  // Any of the course's levels; a course for all levels (none set) matches every level.
+  if (q.level && c.levels.length > 0 && !c.levels.includes(q.level)) return false;
   if (q.type && catalogPrice(c) !== q.type) return false;
   if (
     q.language &&
@@ -100,7 +167,12 @@ export interface CourseSummaryDto {
   type: CourseType;
   price: number;
   currency: string;
+  /** Deprecated: the old single level, derived from `levels` (kept for older clients). */
   level: CourseLevel;
+  /** Who the course is for, Junior → Lead; empty means all levels. */
+  levels: AudienceLevel[];
+  /** Shown as steps up ("Mid to Senior · Senior to Lead") rather than a list (see courseLevelsText). */
+  levelProgression: boolean;
   language: CourseLanguage;
   startDate: string | null;
   applicationDeadline: string | null;

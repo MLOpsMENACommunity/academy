@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eventEnded, type EventSpeakerRole } from '@academy/shared';
+import { eventEnded, legacyCourseLevel, levelsFromLegacy, sortLevels, type EventSpeakerRole } from '@academy/shared';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { ARCHIVE_FORMAT_VERSION, parseArchive, type Archive, type ArchiveCourse, type ArchiveSession, type ArchiveSpeaker } from './archive-schema';
 
@@ -113,6 +113,7 @@ function sessionData(s: ArchiveSession, speakerId: string | null) {
     language: s.language,
     platform: s.platform,
     topics: s.topics,
+    category: s.category ?? null,
     recordingUrl: s.recordingUrl ?? null,
     liveUrl: s.liveUrl ?? null,
     capacity: s.capacity ?? null,
@@ -129,6 +130,7 @@ function sessionStatus(s: ArchiveSession, now: Date): 'PUBLISHED' | 'DRAFT' {
 }
 
 function courseData(c: ArchiveCourse) {
+  const levels = c.levels ? sortLevels(c.levels) : levelsFromLegacy(c.level);
   return {
     titleEn: c.titleEn,
     titleAr: c.titleAr,
@@ -142,7 +144,10 @@ function courseData(c: ArchiveCourse) {
     // Nobody applies to an archived cohort; an admin opening a new cohort sets this.
     requiresApproval: c.status !== 'COMPLETED',
     status: c.status,
-    level: c.level,
+    // The old single level is derived, as on every admin save.
+    level: legacyCourseLevel(levels),
+    levels,
+    levelProgression: c.levelProgression ?? false,
     language: c.language,
     cohortNumber: c.cohortNumber ?? null,
     startDate: dayStart(c.startDate),

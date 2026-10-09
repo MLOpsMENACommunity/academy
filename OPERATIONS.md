@@ -171,6 +171,29 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 
 To sign a compromised account out everywhere, have that user change their password: it revokes all of their sessions.
 
+## Instructor and speaker photos, bios and LinkedIn
+
+Every instructor and speaker is one record (Admin → Speakers), shown on `/speakers/{slug}`, on
+their courses and on their sessions. LinkedIn is required in the admin form (a
+`https://www.linkedin.com/in/…` profile; `?utm_…` tracking parameters are removed on save).
+Title and bio are optional: an empty bio is simply not shown.
+
+**Photos.** Square, 400×400 px or smaller, WebP (the archive converter only looks for `.webp`), named after the slug:
+`apps/web/public/speakers/{slug}.webp` (e.g. `mohamed-rashad.webp`, `omar-khalil.webp`,
+`sameh-amin.webp`). Commit the file; once it is deployed, either
+
+- set **Photo** to `/speakers/{slug}.webp` in Admin → Speakers (works for everyone, at once), or
+- for a speaker who comes from the archive (badge "Imported") and that no admin has saved, run
+  `pnpm --filter @academy/api archive:convert --website /path/to/website` again: it picks up every
+  photo in that folder and the next deploy's import sets it. An admin save takes the speaker over
+  from the import, so after one, use the admin form.
+
+**Bios and titles.** Type them in Admin → Speakers (English and Arabic). For archive speakers
+not yet edited by an admin, they can instead go in `apps/api/prisma/archive-curation.ts`
+(`speakerProfiles`: `titleEn`, `titleAr`, `bioEn`, `bioAr`, `linkedinUrl`), followed by
+`archive:convert` as above. Eng. Sameh Amin (AI Architecture Design) comes from the seed, so edit
+him in the admin.
+
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included), then `wrangler tail` and `wrangler containers list`.

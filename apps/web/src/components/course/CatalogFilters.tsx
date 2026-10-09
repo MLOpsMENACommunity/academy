@@ -4,11 +4,11 @@ import {
   CATALOG_PRICES,
   catalogPriceLabels,
   catalogQuerySchema,
+  AUDIENCE_LEVELS,
+  audienceLevelLabels,
   COURSE_LANGUAGES,
-  COURSE_LEVELS,
   courseAvailabilityLabels,
   courseLanguageLabels,
-  courseLevelLabels,
   matchesCatalog,
   type CatalogQuery,
   type CourseSummaryDto,
@@ -31,7 +31,7 @@ import { useI18n } from '@/i18n/client';
  */
 export type CourseFacets = Pick<
   CourseSummaryDto,
-  'id' | 'level' | 'type' | 'price' | 'language' | 'availability'
+  'id' | 'levels' | 'type' | 'price' | 'language' | 'availability'
 >;
 
 const KEYS = ['availability', 'type', 'level', 'language'] as const;
@@ -118,7 +118,8 @@ export function CatalogForm() {
           courseAvailabilityLabels,
         )}
         {select('type', t('catalog.price'), CATALOG_PRICES, catalogPriceLabels)}
-        {select('level', t('catalog.level'), COURSE_LEVELS, courseLevelLabels)}
+        {/* A course matches when the level is one of its levels (or it is for all levels). */}
+        {select('level', t('catalog.level'), AUDIENCE_LEVELS, audienceLevelLabels)}
         {select('language', t('catalog.language'), COURSE_LANGUAGES, courseLanguageLabels)}
         <div className="col-span-2 flex flex-wrap gap-2 lg:col-span-1">
           <button type="submit" className={buttonClass('primary', 'md')}>

@@ -54,6 +54,8 @@ export function toCourseSummary(c: CourseWithRelations, seatsTaken: number): Cou
     price: c.price,
     currency: c.currency,
     level: c.level,
+    levels: c.levels,
+    levelProgression: c.levelProgression,
     language: c.language,
     startDate: iso(c.startDate),
     applicationDeadline: iso(c.applicationDeadline),

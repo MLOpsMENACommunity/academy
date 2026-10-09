@@ -94,7 +94,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     serverGet<CourseSummaryDto[]>('/courses', 300).then((c) => c ?? []),
     // The rest is optional: a section is left out rather than failing the page.
     serverGetOr<{ upcoming: PublicEventDto[] }>('/events', { upcoming: [] }, 300).then((e) => e.upcoming),
-    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [] }, 300).then((r) => r.items),
+    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [], categories: [] }, 300).then((r) => r.items),
     loadSpeakers(6),
   ]);
   const rank = (c: CourseSummaryDto) => (c.completed ? 2 : c.availability === 'OPEN' ? 0 : c.availability === 'UPCOMING' ? 1 : 3);

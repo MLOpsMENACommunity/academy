@@ -23,6 +23,7 @@ const pairs: Record<string, readonly string[]> = {
   CourseType: shared.COURSE_TYPES,
   CourseStatus: shared.COURSE_STATUSES,
   CourseLevel: shared.COURSE_LEVELS,
+  AudienceLevel: shared.AUDIENCE_LEVELS,
   CourseLanguage: shared.COURSE_LANGUAGES,
   DeliveryPlatform: shared.DELIVERY_PLATFORMS,
   RecordingsPlatform: shared.RECORDINGS_PLATFORMS,
@@ -36,6 +37,7 @@ const pairs: Record<string, readonly string[]> = {
   DeliveryStatus: shared.DELIVERY_STATUSES,
   EventStatus: shared.EVENT_STATUSES,
   EventSpeakerRole: shared.EVENT_SPEAKER_ROLES,
+  EventCategory: shared.EVENT_CATEGORIES,
 };
 
 describe('Prisma enums match @academy/shared', () => {

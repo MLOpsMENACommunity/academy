@@ -106,6 +106,7 @@ export class EventsService {
       speaker: sp ? toSpeakerRef(sp) : null,
       coSpeakers: toCoSpeakers(e),
       topics: e.topics,
+      category: e.category,
       startsAt: e.startsAt.toISOString(),
       durationMin: e.durationMin,
       language: e.language,
@@ -438,8 +439,8 @@ export class EventsService {
   }
 }
 
-export function toSpeakerRef(s: Pick<SpeakerRef, 'slug' | 'name' | 'nameAr' | 'titleEn' | 'titleAr' | 'photoUrl'>): SpeakerRefDto {
-  return { slug: s.slug, name: s.name, nameAr: s.nameAr, titleEn: s.titleEn, titleAr: s.titleAr, photoUrl: s.photoUrl };
+export function toSpeakerRef(s: Pick<SpeakerRef, 'slug' | 'name' | 'nameAr' | 'titleEn' | 'titleAr' | 'photoUrl'> & { linkedinUrl?: string | null }): SpeakerRefDto {
+  return { slug: s.slug, name: s.name, nameAr: s.nameAr, titleEn: s.titleEn, titleAr: s.titleAr, photoUrl: s.photoUrl, linkedinUrl: s.linkedinUrl ?? null };
 }
 
 /** "Sunday 18 October, 19:00 EEST" in the reader's language and time zone. */

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import type { Prisma, PrismaClient } from '@prisma/client';
-import type { SeedCourse } from './seed-data';
+import type { SeedCourse, SeedInstructorRevision, SeedRevision } from './seed-data';
 
 /** Setting row listing every slug the seed has ever created (not a user-facing setting). */
 const SEEDED_KEY = '__seededCourses';
@@ -13,7 +13,9 @@ const PLACEHOLDER = '[PLACEHOLDER]';
  * - a course still holding the old placeholder content, or an earlier version of its seed
  *   (`supersedes`), never touched by an admin, is replaced in place by the current seed
  *   (see `isUntouchedPlaceholder`). Once replaced it holds the current content, so later
- *   starts leave it alone.
+ *   starts leave it alone;
+ * - a single field changed in a later version of the seed (`revisions`) reaches a course that
+ *   still holds exactly the earlier values and that no admin has saved (see applyRevisions).
  */
 export async function seedCatalog(prisma: PrismaClient, courses: SeedCourse[], env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const seeded = new Set(await readSeeded(prisma));
@@ -31,6 +33,8 @@ export async function seedCatalog(prisma: PrismaClient, courses: SeedCourse[], e
       } else {
         console.log(`Course kept as is: ${course.slug}`);
       }
+      await applyRevisions(prisma, existing.id, course.slug, seed.revisions ?? []);
+      if (seed.instructor) await applyInstructorRevisions(prisma, existing.id, seed.instructor.name, seed.instructorRevisions ?? []);
       continue;
     }
     if (seeded.has(course.slug)) {
@@ -179,4 +183,72 @@ async function refreshPlaceholder(prisma: PrismaClient, courseId: string, seed: 
     });
   });
   console.log(`Course replaced (untouched placeholder or earlier seed version): ${seed.course.slug}${kept.length ? `; kept ${kept.join(', ')}` : ''}`);
+}
+
+/** Same value, for the scalar and enum-list fields revisions compare. */
+const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** True when an admin has saved this record (every admin save is audited with the admin as actor). */
+async function adminSaved(prisma: Prisma.TransactionClient, entityType: 'Course' | 'Instructor', id: string, actions: string[]): Promise<boolean> {
+  return (await prisma.auditLog.count({ where: { actorId: { not: null }, entityType, entityId: id, action: { in: actions } } })) > 0;
+}
+
+/**
+ * Brings a seeded course up to later versions of its seed, field by field. A revision is
+ * applied only when the course still holds every one of its `from` values and no admin has
+ * ever saved the course; otherwise it is left alone and logged (the owner makes that change in
+ * the admin). Applied revisions are audited (actor: none). Idempotent: once applied, `from`
+ * no longer matches.
+ */
+export async function applyRevisions(prisma: PrismaClient, courseId: string, slug: string, revisions: SeedRevision[]): Promise<string[]> {
+  const applied: string[] = [];
+  for (const r of revisions) {
+    const result = await prisma.$transaction(async (tx) => {
+      // Serialise concurrent container starts on this course.
+      await tx.$queryRaw`SELECT id FROM "Course" WHERE id = ${courseId} FOR UPDATE`;
+      const c = await tx.course.findUnique({ where: { id: courseId } });
+      if (!c || c.source !== null) return 'not seeded';
+      const current = c as unknown as Record<string, unknown>;
+      if (Object.entries(r.to).every(([k, v]) => same(current[k], v))) return 'already applied';
+      if (!Object.entries(r.from).every(([k, v]) => same(current[k], v))) return 'changed since it was seeded';
+      if (await adminSaved(tx, 'Course', courseId, ['course.created', 'course.updated'])) return 'edited by an admin';
+      await tx.course.update({ where: { id: courseId }, data: r.to as Prisma.CourseUpdateInput });
+      await tx.auditLog.create({ data: { action: 'seed.course_revised', entityType: 'Course', entityId: courseId, metadata: { slug, revision: r.name } } });
+      return 'applied';
+    });
+    if (result === 'applied') {
+      applied.push(r.name);
+      console.log(`Course updated (${r.name}): ${slug}`);
+    } else if (result !== 'already applied') {
+      console.log(`Course update "${r.name}" not applied to ${slug}: ${result}. Make it in the admin if it still applies.`);
+    }
+  }
+  return applied;
+}
+
+/** The same for the course's seeded instructor, found by its seeded name among the course's instructors. */
+export async function applyInstructorRevisions(prisma: PrismaClient, courseId: string, name: string, revisions: SeedInstructorRevision[]): Promise<string[]> {
+  const applied: string[] = [];
+  for (const r of revisions) {
+    const result = await prisma.$transaction(async (tx) => {
+      const link = await tx.courseInstructor.findFirst({ where: { courseId, instructor: { name } }, include: { instructor: true } });
+      const i = link?.instructor;
+      if (!i || i.source !== null) return 'not found';
+      const current = i as unknown as Record<string, unknown>;
+      if (Object.entries(r.to).every(([k, v]) => same(current[k], v))) return 'already applied';
+      if (!Object.entries(r.from).every(([k, v]) => same(current[k], v))) return 'changed since it was seeded';
+      if (await adminSaved(tx, 'Instructor', i.id, ['instructor.created', 'instructor.updated'])) return 'edited by an admin';
+      if (r.to.slug && (await tx.instructor.count({ where: { slug: r.to.slug, id: { not: i.id } } }))) return `the slug ${r.to.slug} is taken`;
+      await tx.instructor.update({ where: { id: i.id }, data: r.to });
+      await tx.auditLog.create({ data: { action: 'seed.instructor_revised', entityType: 'Instructor', entityId: i.id, metadata: { name, revision: r.name } } });
+      return 'applied';
+    });
+    if (result === 'applied') {
+      applied.push(r.name);
+      console.log(`Instructor updated (${r.name}): ${name}`);
+    } else if (result !== 'already applied') {
+      console.log(`Instructor update "${r.name}" not applied to ${name}: ${result}. Make it in the admin if it still applies.`);
+    }
+  }
+  return applied;
 }

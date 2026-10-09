@@ -1,4 +1,5 @@
-import type { Prisma } from '@prisma/client';
+import type { Course, Instructor, Prisma } from '@prisma/client';
+import { legacyCourseLevel } from '@academy/shared';
 import type { FaqItem, Included, LocalizedList, LocalizedText, OutlineModule } from '@academy/shared';
 
 /**
@@ -29,9 +30,30 @@ export interface SeedCourse {
    * (see seed-catalog.ts). Admin edits are never overwritten.
    */
   supersedes?: string[];
+  /**
+   * Field-level changes to an already seeded course (see seed-catalog.ts, applyRevisions):
+   * applied only while the course still holds every `from` value and no admin has edited it.
+   */
+  revisions?: SeedRevision[];
   instructor?: Prisma.InstructorCreateInput;
+  /** The same, for the course's seeded instructor (matched by name). */
+  instructorRevisions?: SeedInstructorRevision[];
   questions: Omit<Prisma.ScreeningQuestionCreateWithoutCourseInput, 'order'>[];
   sessions: Omit<Prisma.CourseSessionCreateWithoutCourseInput, 'order'>[];
+}
+
+export interface SeedRevision {
+  /** Shown in the log and the audit entry, e.g. "2026-10 levels and language". */
+  name: string;
+  /** Course fields exactly as an earlier version of this seed (or the levels migration) left them. */
+  from: Partial<Pick<Course, 'level' | 'levels' | 'levelProgression' | 'language' | 'durationWeeks'>>;
+  to: Partial<Pick<Course, 'level' | 'levels' | 'levelProgression' | 'language' | 'durationWeeks'>>;
+}
+
+export interface SeedInstructorRevision {
+  name: string;
+  from: Partial<Pick<Instructor, 'slug' | 'linkedinUrl'>>;
+  to: Partial<Pick<Instructor, 'slug' | 'linkedinUrl'>>;
 }
 
 const PLAYLIST = 'https://www.youtube.com/playlist?list=PLfBN40jBVI-U';
@@ -118,8 +140,12 @@ Quiz links, the Assignments & Capstone Handbook and the submission forms are sha
     // "Seats are limited": set a number in the admin panel once you know it.
     capacity: null,
     status: 'OPEN',
-    level: 'ADVANCED',
-    language: 'BILINGUAL',
+    // Owner (10 Oct 2026): for mid-level engineers growing into senior roles and seniors growing
+    // into team leads, taught in Arabic.
+    levels: ['MID', 'SENIOR'],
+    levelProgression: true,
+    level: legacyCourseLevel(['MID', 'SENIOR']),
+    language: 'AR',
     startDate: new Date('2026-10-18T16:00:00Z'),
     applicationsOpenAt: null,
     // Saturday 17 Oct 2026, 23:59 Cairo (UTC+3).
@@ -334,7 +360,26 @@ ai-architecture-portfolio/
         'اختبارات الجلسات واختبار منتصف الدورة والمشروع الختامي (70/100 أو أعلى) مطلوبة للحصول على الشهادة. الواجبات اختيارية وتبني مشروعك الختامي تدريجيًا.',
     },
   },
+  // What the first version of this seed stored (level ADVANCED became levels [SENIOR] in the
+  // levels migration). A course still exactly so, never saved by an admin, is updated.
+  revisions: [
+    {
+      name: '2026-10 levels and language',
+      from: { level: 'ADVANCED', levels: ['SENIOR'], levelProgression: false, language: 'BILINGUAL' },
+      to: { levels: ['MID', 'SENIOR'], levelProgression: true, level: legacyCourseLevel(['MID', 'SENIOR']), language: 'AR' },
+    },
+  ],
+  instructorRevisions: [
+    {
+      name: '2026-10 LinkedIn and speaker page',
+      from: { slug: null, linkedinUrl: null },
+      to: { slug: 'sameh-amin', linkedinUrl: 'https://www.linkedin.com/in/sameh-amin' },
+    },
+  ],
   instructor: {
+    // His page: /speakers/sameh-amin. Photo and bio: see OPERATIONS.md (instructor and speaker photos).
+    slug: 'sameh-amin',
+    linkedinUrl: 'https://www.linkedin.com/in/sameh-amin',
     name: 'Eng. Sameh Amin',
     nameAr: 'م. سامح أمين',
     titleEn: 'Head of Artificial Intelligence, Unifonic',
@@ -717,7 +762,9 @@ Kubernetes · kubectl · kubeadm · Minikube/kind · containerd · Calico · Cil
     driveFolderUrl: null,
     youtubePlaylistUrl: null,
     coverImageUrl: null,
-    level: 'INTERMEDIATE',
+    // Owner (10 Oct 2026): for junior and mid-level engineers.
+    levels: ['JUNIOR', 'MID'],
+    level: legacyCourseLevel(['JUNIOR', 'MID']),
     // Not decided yet either: coming-soon pages show "Will be announced soon" for the language.
     language: 'BILINGUAL',
     deliveryPlatform: 'GOOGLE_MEET',
@@ -956,6 +1003,14 @@ Kubernetes · kubectl · kubeadm · Minikube/kind · containerd · Calico · Cil
     `This course is coming soon. We're finalising the curriculum, the instructor and the dates.
 
 Follow MLOps MENA on LinkedIn, Telegram or Discord to hear first when applications open.`,
+  ],
+  // The first version's level (INTERMEDIATE, i.e. levels [MID] after the levels migration).
+  revisions: [
+    {
+      name: '2026-10 levels',
+      from: { level: 'INTERMEDIATE', levels: ['MID'] },
+      to: { levels: ['JUNIOR', 'MID'], level: legacyCourseLevel(['JUNIOR', 'MID']) },
+    },
   ],
   questions: [],
   sessions: [],

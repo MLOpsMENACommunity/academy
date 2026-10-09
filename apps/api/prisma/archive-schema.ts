@@ -1,12 +1,15 @@
 import {
+  AUDIENCE_LEVELS,
   COURSE_LANGUAGES,
   COURSE_LEVELS,
   DELIVERY_PLATFORMS,
+  EVENT_CATEGORIES,
   EVENT_SPEAKER_ROLES,
   faqItemSchema,
   includedSchema,
   localizedListSchema,
   localizedTextSchema,
+  normalizeLinkedinUrl,
   outlineModuleSchema,
   RECORDINGS_PLATFORMS,
   RESERVED_EVENT_SLUGS,
@@ -38,6 +41,11 @@ const instant = z
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD').refine(realDate, 'Not a real date');
 /** A photo: http(s), or a file under apps/web/public (e.g. "/speakers/aya-nasser-salama.webp"). */
 const image = z.string().regex(/^(https?:\/\/\S+|\/(?!\/)[\w./-]+)$/, 'http(s) URL or /path');
+/** A linkedin.com profile, as the admin form requires it; stored without ?utm_… parameters. */
+const linkedin = z
+  .string()
+  .refine((v) => normalizeLinkedinUrl(v) !== null, 'A https://www.linkedin.com/in/… profile link')
+  .transform((v) => normalizeLinkedinUrl(v)!);
 
 export const archiveSpeakerSchema = z.object({
   slug,
@@ -49,7 +57,7 @@ export const archiveSpeakerSchema = z.object({
   bioEn: z.string().max(4000).default(''),
   bioAr: z.string().max(4000).optional(),
   photoUrl: image.optional(),
-  linkedinUrl: url.optional(),
+  linkedinUrl: linkedin.optional(),
   githubUrl: url.optional(),
 });
 
@@ -78,6 +86,8 @@ export const archiveSessionSchema = z.object({
   language: z.enum(COURSE_LANGUAGES).default('BILINGUAL'),
   platform: z.enum(DELIVERY_PLATFORMS).default('YOUTUBE_LIVE'),
   topics: topicsSchema.default([]),
+  /** Its shelf in the recordings library: HANDS_ON, INDUSTRY, COURSE_RECORDING or TALK. */
+  category: z.enum(EVENT_CATEGORIES).optional(),
   recordingUrl: url.optional(),
   /** Upcoming sessions only. Without one, an upcoming session is imported as a draft for an admin to finish. */
   liveUrl: url.optional(),
@@ -110,6 +120,11 @@ export const archiveCourseSchema = z.object({
   type: z.enum(['FREE', 'PAID']).default('FREE'),
   price: z.number().int().min(0).default(0),
   currency: z.string().length(3).default('EGP'),
+  /** Who it is for: any of JUNIOR, MID, SENIOR, LEAD (none: all levels). */
+  levels: z.array(z.enum(AUDIENCE_LEVELS)).max(AUDIENCE_LEVELS.length).optional(),
+  /** Show the levels as steps up ("Mid to Senior · Senior to Lead"). */
+  levelProgression: z.boolean().optional(),
+  /** The old single level, read only when `levels` is left out. */
   level: z.enum(COURSE_LEVELS).default('ALL_LEVELS'),
   language: z.enum(COURSE_LANGUAGES).default('BILINGUAL'),
   cohortNumber: z.number().int().min(1).optional(),

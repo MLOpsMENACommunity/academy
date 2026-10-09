@@ -1,7 +1,7 @@
 import {
   courseAvailabilityLabels,
   courseLanguageLabels,
-  courseLevelLabels,
+  courseLevelsText,
   type CourseSummaryDto,
   type Locale,
 } from '@academy/shared';
@@ -58,7 +58,7 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
         : t('catalog.seatsLeft', { count: c.seatsRemaining })
       : null;
   const meta = [
-    [courseLevelLabels[c.level][locale], c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
+    [courseLevelsText(c, locale), c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
     // The language isn't decided while the course is coming soon.
     [c.comingSoon ? null : courseLanguageLabels[c.language][locale], priceLabel(c, locale)].filter(Boolean).join(' · '),
     [when, seats].filter(Boolean).join(' · '),

@@ -1,12 +1,13 @@
 'use client';
 
 import {
+  AUDIENCE_LEVELS,
+  audienceLevelLabels,
   COURSE_LANGUAGES,
-  COURSE_LEVELS,
   COURSE_STATUSES,
   courseInputSchema,
   courseLanguageLabels,
-  courseLevelLabels,
+  courseLevelsText,
   courseStatusLabels,
   courseTypeLabels,
   DELIVERY_PLATFORMS,
@@ -20,7 +21,7 @@ import {
   type OutlineModule,
 } from '@academy/shared';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { CheckboxField, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
+import { CheckboxField, ChipGroup, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
 import { InstructorPicker } from './InstructorEditor';
 import { MarkdownField } from './MarkdownField';
 import { TopicsField } from './TopicsField';
@@ -32,7 +33,8 @@ import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 
-export type CourseFormValue = Omit<CourseInput, 'startDate' | 'applicationsOpenAt' | 'applicationDeadline' | 'endDate'> & {
+/** The old single `level` isn't edited: the API derives it from `levels`. */
+export type CourseFormValue = Omit<CourseInput, 'startDate' | 'applicationsOpenAt' | 'applicationDeadline' | 'endDate' | 'level'> & {
   startDate: string;
   applicationsOpenAt: string;
   applicationDeadline: string;
@@ -63,7 +65,8 @@ export const EMPTY_COURSE: CourseFormValue = {
   requiresApproval: true,
   capacity: null,
   status: 'DRAFT',
-  level: 'ALL_LEVELS',
+  levels: [],
+  levelProgression: false,
   language: 'BILINGUAL',
   startDate: '',
   applicationsOpenAt: '',
@@ -178,10 +181,23 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
             <TextField label={f('price')} required type="number" inputMode="numeric" min={0} value={String(v.price)} onChange={(x) => set('price')(Number(x || 0))} error={errors.price} />
             <TextField label={f('currency')} required value={v.currency} onChange={set('currency')} maxLength={3} dir="ltr" />
           </div>
-          <SelectField label={f('level')} required value={v.level} onChange={(x) => set('level')((x ?? 'ALL_LEVELS') as CourseFormValue['level'])} options={opts(COURSE_LEVELS, courseLevelLabels)} />
           <SelectField label={f('language')} required value={v.language} onChange={(x) => set('language')((x ?? 'BILINGUAL') as CourseFormValue['language'])} options={opts(COURSE_LANGUAGES, courseLanguageLabels)} />
           <TextField label={f('cover')} type="url" dir="ltr" value={v.coverImageUrl ?? ''} onChange={(x) => set('coverImageUrl')(x || null)} error={errors.coverImageUrl} />
           <CheckboxField label={f('requiresApproval')} checked={v.requiresApproval} onChange={set('requiresApproval')} />
+          <div className="space-y-3 sm:col-span-2">
+            <ChipGroup
+              legend={f('levels')}
+              hint={f('levelsHint')}
+              options={opts(AUDIENCE_LEVELS, audienceLevelLabels)}
+              value={v.levels}
+              onChange={(x) => set('levels')(AUDIENCE_LEVELS.filter((l) => x.includes(l)))}
+              error={errors.levels}
+            />
+            <CheckboxField label={f('levelProgression')} hint={f('levelProgressionHint')} checked={v.levelProgression} onChange={set('levelProgression')} />
+            <p className="text-sm text-muted">
+              {f('levelsPreview')}: <span className="font-medium text-fg">{courseLevelsText(v, locale)}</span>
+            </p>
+          </div>
         </div>
       </Fieldset>
 
