@@ -3,7 +3,12 @@ import type { Env } from '../config/env';
 
 export const ACCESS_COOKIE = 'access_token';
 export const REFRESH_COOKIE = 'refresh_token';
-/** Non-secret flag readable by the Next middleware: "a refresh is possible". */
+/**
+ * Non-secret flag readable by the Next middleware and the browser: "a refresh is possible".
+ * Its value is when the current access token expires (Unix seconds), so the browser can
+ * refresh before a request instead of after a 401 (apps/web/src/lib/api.ts). Only its
+ * presence matters anywhere else.
+ */
 export const SESSION_COOKIE = 'has_session';
 export const OAUTH_STATE_COOKIE = 'oauth_state';
 
@@ -21,10 +26,13 @@ function base(env: Env): CookieOptions {
 
 export function setAuthCookies(res: Response, env: Env, access: string, refresh: string): void {
   const refreshMaxAge = env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
-  res.cookie(ACCESS_COOKIE, access, { ...base(env), path: '/', maxAge: env.ACCESS_TOKEN_TTL_MIN * 60 * 1000 });
+  const accessMaxAge = env.ACCESS_TOKEN_TTL_MIN * 60 * 1000;
+  res.cookie(ACCESS_COOKIE, access, { ...base(env), path: '/', maxAge: accessMaxAge });
   res.cookie(REFRESH_COOKIE, refresh, { ...base(env), path: REFRESH_PATH, maxAge: refreshMaxAge });
-  // Readable by JS on purpose: it holds no secret and lets the UI skip /me calls for visitors.
-  res.cookie(SESSION_COOKIE, '1', { ...base(env), httpOnly: false, path: '/', maxAge: refreshMaxAge });
+  // Readable by JS on purpose: it holds no secret, lets the UI skip /me calls for visitors,
+  // and tells it when to refresh (the access token's expiry, in Unix seconds).
+  const accessExpires = Math.floor((Date.now() + accessMaxAge) / 1000);
+  res.cookie(SESSION_COOKIE, String(accessExpires), { ...base(env), httpOnly: false, path: '/', maxAge: refreshMaxAge });
 }
 
 export function clearAuthCookies(res: Response, env: Env): void {

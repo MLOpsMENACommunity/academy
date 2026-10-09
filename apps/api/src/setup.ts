@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import type { NextFunction, Request, Response } from 'express';
 import { ENV } from './config/config.module';
 import type { Env } from './config/env';
+import { bodyParserErrors } from './common/exception.filter';
 import { requestLog } from './common/request-log';
 
 /** Shared by main.ts and the e2e tests so both run the same pipeline. */
@@ -21,13 +22,18 @@ export function configureApp(app: NestExpressApplication): void {
   app.use(requestLog);
   // The API only returns JSON (and CSV/ICS downloads): nothing may run or be framed.
   // The Swagger UI (dev only, see setupSwagger) gets helmet's default policy instead.
+  // HSTS matches the web pages (apps/web/next.config.ts): two years, subdomains, no preload.
+  const hsts = { maxAge: 63_072_000, includeSubDomains: true, preload: false };
   const strict = helmet({
     contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
     crossOriginResourcePolicy: { policy: 'same-origin' },
+    strictTransportSecurity: hsts,
   });
-  const docs = helmet();
+  const docs = helmet({ strictTransportSecurity: hsts });
   app.use((req: Request, res: Response, next: NextFunction) => (req.path.startsWith('/api/docs') ? docs : strict)(req, res, next));
   app.useBodyParser('json', { limit: '256kb' });
+  // Malformed or oversized bodies get a generic message, not the parser's (exception.filter.ts).
+  app.use(bodyParserErrors);
   app.use(cookieParser());
 
   const allowed = new Set(
