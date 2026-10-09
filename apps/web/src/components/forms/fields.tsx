@@ -473,13 +473,14 @@ export function TagInput({
     if (!r.tag) return;
     if (r.rejected === 'duplicate') setNotice(t('forms.alreadyAdded', { tag: r.tag }));
     else if (r.rejected === 'tooLong') setNotice(t('forms.errors.tooLong', { max: maxLength }));
-    else if (r.rejected) setNotice(t('forms.errors.invalid'));
+    else if (r.rejected === 'full') setNotice(t('forms.tagLimit', { max }));
     else {
       setNotice('');
       onChange(r.next);
     }
-    // Never leave a rejected tag in the box: the next word would be typed onto it.
-    setDraft('');
+    // Never leave a duplicate in the box (the next word would be typed onto it); keep the
+    // text when the list is full so nothing typed is lost.
+    if (r.rejected !== 'full') setDraft('');
   };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {

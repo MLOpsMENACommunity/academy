@@ -100,6 +100,12 @@ describe('experience consistency (QA L12)', () => {
     expect(sectionSchemaFor('professional', { experienceYears: 'Y10_PLUS' }).safeParse(professional).success).toBe(true);
   });
 
+  it('reports the experience error together with the other errors, on the first submit', () => {
+    const r = sectionSchemaFor('professional', { experienceYears: 'Y1_3' }).safeParse({ mlExperienceYears: 'Y5_10' });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => i.path.join('.')).sort()).toEqual(['mlExperienceYears', 'seniority']);
+  });
+
   it('rejects lowering total experience below the saved ML/AI experience', () => {
     const r = sectionSchemaFor('core', { mlExperienceYears: 'Y5_10' }).safeParse({ ...core, experienceYears: 'Y1_3' });
     expect(r.success).toBe(false);
@@ -126,7 +132,8 @@ describe('educationSectionSchema graduation year (QA L13)', () => {
   });
   it('treats blank as not given and accepts numeric strings', () => {
     expect(educationSectionSchema.parse({ ...edu, graduationYear: '' }).graduationYear).toBeNull();
-    expect(educationSectionSchema.parse({ ...edu }).graduationYear).toBeNull();
+    // Left out: not touched (undefined), so a partial save keeps the stored year.
+    expect(educationSectionSchema.parse({ ...edu }).graduationYear).toBeUndefined();
     expect(educationSectionSchema.parse({ ...edu, graduationYear: '2015' }).graduationYear).toBe(2015);
   });
 });

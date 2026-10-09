@@ -172,7 +172,7 @@ export class ApplicationWorkflow {
       return { app: updated, from: fresh.status };
     });
 
-    // Bulk actions don't wait for each email; afterChange never throws (allSettled + logging).
+    // Bulk actions don't wait for the in-app notifications either (emails are always queued); afterChange never throws.
     if (opts.awaitSideEffects === false) void this.afterChange(app, from, opts.reason).catch(() => undefined);
     else await this.afterChange(app, from, opts.reason);
     return app;
@@ -236,39 +236,32 @@ export class ApplicationWorkflow {
     const rejected = app.status === 'REJECTED';
     // Feedback first: the notification bell shows only the first lines.
     const withReason = (text: string, prefix: string) => (reason ? `${prefix}${reason}\n\n${text}` : text);
-    const [notified, emailed] = await Promise.allSettled([
-      this.notifications.create(user.id, {
-      type: `application.${app.status.toLowerCase()}`,
-      titleEn: `${course.titleEn}: ${label.en}`,
-      titleAr: `${course.titleAr}: ${label.ar}`,
-      bodyEn: withReason(msg.en, rejected ? 'Feedback from the course team: ' : 'Reason: '),
-      bodyAr: withReason(msg.ar, rejected ? 'ملاحظات من فريق الدورة: ' : 'السبب: '),
-      link,
-    }),
-      // Queued, not awaited: the email queue is paced for the provider's rate limit, so
-      // waiting for delivery held the student's request for seconds (QA M5).
-      this.queueEmail(user.email, user.locale, {
-        name: 'applicationStatus',
-        courseTitle: user.locale === 'ar' ? course.titleAr || course.titleEn : course.titleEn,
-        status: app.status,
-        reason,
-        url: this.email.url(user.locale, link),
-        courseUrl: this.email.url(user.locale, app.status === 'ENROLLED' ? `/learn/${course.slug}` : `/courses/${course.slug}`),
-        browseUrl: this.email.url(user.locale, '/courses'),
-        startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
-        recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
-        hasPreparation: hasText(course.preparation),
-      }),
-    ]);
-    if (notified.status === 'rejected' || emailed.status === 'rejected') {
+    // Queued, not awaited: the queue is paced for the provider's rate limit, and waiting for
+    // delivery held the request for seconds (QA M5). send() never throws; failures are logged there.
+    void this.email.send(user.email, user.locale, {
+      name: 'applicationStatus',
+      courseTitle: user.locale === 'ar' ? course.titleAr || course.titleEn : course.titleEn,
+      status: app.status,
+      reason,
+      url: this.email.url(user.locale, link),
+      courseUrl: this.email.url(user.locale, app.status === 'ENROLLED' ? `/learn/${course.slug}` : `/courses/${course.slug}`),
+      browseUrl: this.email.url(user.locale, '/courses'),
+      startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
+      recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
+      hasPreparation: hasText(course.preparation),
+    });
+    try {
+      await this.notifications.create(user.id, {
+        type: `application.${app.status.toLowerCase()}`,
+        titleEn: `${course.titleEn}: ${label.en}`,
+        titleAr: `${course.titleAr}: ${label.ar}`,
+        bodyEn: withReason(msg.en, rejected ? 'Feedback from the course team: ' : 'Reason: '),
+        bodyAr: withReason(msg.ar, rejected ? 'ملاحظات من فريق الدورة: ' : 'السبب: '),
+        link,
+      });
+    } catch {
       this.logger.error(`Notifying the student failed for application ${app.id}`);
     }
-  }
-
-  /** Hands an email to the paced queue without waiting for delivery; failures are logged there. */
-  private queueEmail(...args: Parameters<EmailService['send']>): Promise<void> {
-    void this.email.send(...args);
-    return Promise.resolve();
   }
 }
 

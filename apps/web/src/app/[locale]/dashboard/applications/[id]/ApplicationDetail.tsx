@@ -44,14 +44,20 @@ function Inner() {
   if (!app) return <PageSpinner />;
 
   const title = locale === 'ar' ? app.course.titleAr : app.course.titleEn;
-  const answerText = (v: AnswerValue | undefined, options: { value: string; labelEn: string; labelAr: string }[] | null) => {
+  const answerText = (
+    v: AnswerValue | undefined,
+    options: { value: string; labelEn: string; labelAr: string }[] | null,
+    /** The description given with an option that asks for one. */
+    detail: string | null = null,
+  ) => {
     if (v === undefined || v === '') return '—';
     if (typeof v === 'boolean') return v ? t('apply.yes') : t('apply.no');
     const lbl = (x: string) => {
       const o = options?.find((o) => o.value === x);
       return o ? (locale === 'ar' ? o.labelAr : o.labelEn) : x;
     };
-    return Array.isArray(v) ? v.map(lbl).join(locale === 'ar' ? '، ' : ', ') : lbl(String(v));
+    if (Array.isArray(v)) return v.map(lbl).join(locale === 'ar' ? '، ' : ', ');
+    return detail ? `${lbl(String(v))}: ${detail}` : lbl(String(v));
   };
 
   return (
@@ -112,9 +118,7 @@ function Inner() {
             {app.questions.map((q) => (
               <div key={q.id} className="p-4">
                 <dt className="text-sm font-semibold text-fg">{locale === 'ar' ? q.labelAr : q.labelEn}</dt>
-                <dd className="mt-1 text-sm whitespace-pre-line">{answerText(app.answers[q.id], q.options)}
-                  {answerDetail(app.answers, q) && `: ${answerDetail(app.answers, q)}`}
-                </dd>
+                <dd className="mt-1 text-sm whitespace-pre-line">{answerText(app.answers[q.id], q.options, answerDetail(app.answers, q))}</dd>
               </div>
             ))}
           </dl>

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { Prisma, Profile, SkillRating } from '@prisma/client';
+import { Prisma, type Profile, type SkillRating } from '@prisma/client';
 import {
   computeCompleteness,
   profileSectionSchemas,
@@ -108,9 +108,24 @@ export class ProfileService {
    * Saves one section. The profile is read once; the new completeness is
    * computed in memory from that read plus the change, and written in the same
    * UPDATE (QA M5: this used to re-read the profile and write a second time,
-   * 21 database round trips per save, now 4; 7 for skills).
+   * 21 database round trips per save, now 4; 8 for skills).
+   *
+   * The UPDATE only applies if the profile hasn't changed since it was read
+   * (same updatedAt). If another save got in between, the whole save is redone
+   * from a fresh read, so completeness never comes from a stale copy.
    */
   async updateSection(userId: string, section: ProfileSection, raw: unknown): Promise<ProfileDto> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.saveSection(userId, section, raw);
+      } catch (err) {
+        const raced = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025';
+        if (!raced || attempt >= 3) throw err;
+      }
+    }
+  }
+
+  private async saveSection(userId: string, section: ProfileSection, raw: unknown): Promise<ProfileDto> {
     const before = await this.load(userId);
     // Cross-section checks (ML/AI vs total experience, primary vs secondary area) need the saved profile.
     const parsed = sectionSchemaFor(section, toProfileDto(before)).safeParse(raw);
@@ -145,7 +160,8 @@ export class ProfileService {
 
     const c = computeCompleteness(toProfileDto({ ...before, ...changes, skills } as ProfileWithSkills));
     const update = this.prisma.profile.update({
-      where: { id: before.id },
+      // Optimistic check: P2025 if another save changed the profile meanwhile (retried above).
+      where: { id: before.id, updatedAt: before.updatedAt },
       data: {
         ...(changes as Prisma.ProfileUpdateInput),
         completeness: c.percent,

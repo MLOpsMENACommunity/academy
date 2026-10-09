@@ -64,6 +64,13 @@ describe('options that ask for details (QA L24)', () => {
     }
   });
 
+  it('flags a missing description together with other missing answers', () => {
+    const both = buildAnswersSchema([domain, { id: 'q_yes', type: 'YES_NO', required: true, options: null }]);
+    const r = both.safeParse({ q_domain: 'own' });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => i.path.join('.')).sort()).toEqual([key, 'q_yes'].sort());
+  });
+
   it('stores the description with the answer', () => {
     const r = schema.parse({ q_domain: 'own', [key]: '  Healthcare triage  ' });
     expect(r).toEqual({ q_domain: 'own', [key]: 'Healthcare triage' });

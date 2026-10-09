@@ -18,6 +18,7 @@ import {
   type Skill,
 } from './enums';
 import { ALL_COUNTRIES } from './countries';
+import { withCrossChecks } from './cross-checks';
 import { isValidTimezone } from './time';
 
 // ------------------------------------------------------------------ helpers
@@ -167,15 +168,15 @@ export const educationSectionSchema = z.object({
   fieldOfStudy: requiredText(120),
   /** University, institution or learning platform (e.g. a bootcamp or Coursera). */
   university: requiredText(160),
-  /** Optional; blank means not given. */
+  /** Optional; blank clears it, and leaving it out keeps the saved year. */
   graduationYear: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? null : typeof v === 'string' ? Number(v.trim()) : v),
+    (v) => (v === '' || v === null ? null : typeof v === 'string' ? Number(v.trim()) : v),
     z
       .number({ invalid_type_error: graduationYearMessage })
       .int(graduationYearMessage)
       .min(GRADUATION_YEAR_MIN, graduationYearMessage)
       .max(GRADUATION_YEAR_MAX, graduationYearMessage)
-      .nullable(),
+      .nullish(),
   ),
   currentlyStudying: z.boolean().nullish(),
 });
@@ -269,18 +270,16 @@ export type SavedProfileFacts = Partial<Pick<ProfileDto, 'experienceYears' | 'ml
  */
 export function sectionSchemaFor(section: ProfileSection, saved: SavedProfileFacts): z.ZodTypeAny {
   if (section === 'professional') {
-    return professionalSectionSchema
-      .superRefine((d, ctx) => {
-        if (mlExperienceExceedsTotal(saved?.experienceYears, d.mlExperienceYears)) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['mlExperienceYears'], message: ML_EXPERIENCE_MESSAGE });
-        }
-      })
-      .transform((d) => ({ ...d, secondaryAreas: d.secondaryAreas.filter((a) => a !== saved?.primaryArea) }));
+    return withCrossChecks(professionalSectionSchema, (raw, addIssue) => {
+      if (mlExperienceExceedsTotal(saved?.experienceYears, raw.mlExperienceYears as string)) {
+        addIssue(['mlExperienceYears'], ML_EXPERIENCE_MESSAGE);
+      }
+    }).transform((d) => ({ ...d, secondaryAreas: d.secondaryAreas.filter((a) => a !== saved?.primaryArea) }));
   }
   if (section === 'core') {
-    return coreSectionSchema.superRefine((d, ctx) => {
-      if (mlExperienceExceedsTotal(d.experienceYears, saved?.mlExperienceYears)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['experienceYears'], message: ML_EXPERIENCE_MESSAGE });
+    return withCrossChecks(coreSectionSchema, (raw, addIssue) => {
+      if (mlExperienceExceedsTotal(raw.experienceYears as string, saved?.mlExperienceYears)) {
+        addIssue(['experienceYears'], ML_EXPERIENCE_MESSAGE);
       }
     });
   }

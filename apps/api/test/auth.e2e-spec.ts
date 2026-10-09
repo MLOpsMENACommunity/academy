@@ -1,4 +1,5 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { computeCompleteness } from '@academy/shared';
 import request from 'supertest';
 import { randomToken, sha256 } from '../src/common/crypto';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -156,6 +157,21 @@ describe('auth & profile (e2e)', () => {
       .expect(200);
     expect(skills.body.skills).toEqual({ KUBERNETES: 3, PYTHON: 5 });
     expect(skills.body.completeness).toBeGreaterThan(60);
+  });
+
+  it('keeps completeness right when two sections are saved at the same time (QA M5)', async () => {
+    const u = await createUser(app, prisma);
+    const put = (section: string, body: object) => http().put(`/api/me/profile/${section}`).set('Cookie', u.cookie).send(body);
+    for (let i = 0; i < 3; i++) {
+      const [a, b] = await Promise.all([
+        put('goals', { learningGoals: [], interestedTopics: ['LLMOPS'], weeklyHours: 'H_2_5', preferredTimes: [], preferredFormat: 'LIVE' }),
+        put('skills', { skills: { PYTHON: 4 }, cloudPlatforms: ['AWS'], productionTools: [`Tool ${i}`] }),
+      ]);
+      expect([a.status, b.status]).toEqual([200, 200]);
+    }
+    const p = await http().get('/api/me/profile').set('Cookie', u.cookie).expect(200);
+    expect(p.body).toMatchObject({ weeklyHours: 'H_2_5', productionTools: ['Tool 2'], coreComplete: true });
+    expect(p.body.completeness).toBe(computeCompleteness(p.body).percent);
   });
 
   it('rejects a CV that is not really a PDF', async () => {

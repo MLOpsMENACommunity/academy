@@ -17,7 +17,7 @@ import {
   type QuestionOption,
   type SourceParams,
 } from '@academy/shared';
-import { Prisma, type Application, type ApplicationStatusHistory, type Course, type Enrollment } from '@prisma/client';
+import { Prisma, type Application, type ApplicationStatusHistory, type Course, type Enrollment, type ScreeningQuestion } from '@prisma/client';
 import { FunnelService } from '../funnel/funnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toProfileDto } from '../users/profile.service';
@@ -28,6 +28,8 @@ type AppWithCourse = Application & {
   history: ApplicationStatusHistory[];
   enrollment: Pick<Enrollment, 'id'> | null;
 };
+
+type QuestionRow = Pick<ScreeningQuestion, 'id' | 'labelEn' | 'labelAr' | 'type' | 'options'>;
 
 const COURSE_SELECT = {
   slug: true,
@@ -51,6 +53,22 @@ function toMyApplication(a: AppWithCourse): MyApplicationDto {
     history: [...a.history]
       .sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime())
       .map((h) => ({ fromStatus: h.fromStatus, toStatus: h.toStatus, reason: h.reason, createdAt: h.createdAt.toISOString() })),
+  };
+}
+
+/** The student's view of one application: shared by GET and by the apply response. */
+function toMyApplicationDetail(a: AppWithCourse, questions: QuestionRow[]): MyApplicationDetailDto {
+  return {
+    ...toMyApplication(a),
+    answers: a.answers as Answers,
+    source: a.source as SourceParams,
+    questions: questions.map((q) => ({
+      id: q.id,
+      labelEn: q.labelEn,
+      labelAr: q.labelAr,
+      type: q.type,
+      options: q.options as QuestionOption[] | null,
+    })),
   };
 }
 
@@ -141,14 +159,18 @@ export class ApplicationsService {
       this.workflow.afterChange(app, null, null, { user, course }),
     ]);
 
-    const { screeningQuestions: _q, sessions: _s, ...courseRow } = course;
-    const courseFields = Object.fromEntries(Object.keys(COURSE_SELECT).map((k) => [k, courseRow[k as keyof typeof COURSE_SELECT]])) as AppWithCourse['course'];
-    return {
-      ...toMyApplication({ ...app, course: courseFields, history: [history], enrollment: app.status === 'ENROLLED' ? { id: '' } : null }),
-      answers: app.answers as Answers,
-      source: app.source as SourceParams,
-      questions: questions.map((q) => ({ id: q.id, labelEn: q.labelEn, labelAr: q.labelAr, type: q.type, options: q.options })),
-    };
+    // Built from the rows in hand (same mapping as GET), rather than reading the application back.
+    const { slug, titleEn, titleAr, type, price, currency, startDate } = course;
+    return toMyApplicationDetail(
+      {
+        ...app,
+        course: { slug, titleEn, titleAr, type, price, currency, startDate },
+        history: [history],
+        // recordChange creates the enrolment in the same transaction when the status is ENROLLED.
+        enrollment: app.status === 'ENROLLED' ? { id: app.id } : null,
+      },
+      course.screeningQuestions,
+    );
   }
 
   async listMine(userId: string): Promise<MyApplicationDto[]> {
@@ -171,17 +193,6 @@ export class ApplicationsService {
     });
     if (!a) throw new NotFoundException('Application not found');
     const { screeningQuestions, ...course } = a.course;
-    return {
-      ...toMyApplication({ ...a, course }),
-      answers: a.answers as Answers,
-      source: a.source as SourceParams,
-      questions: screeningQuestions.map((q) => ({
-        id: q.id,
-        labelEn: q.labelEn,
-        labelAr: q.labelAr,
-        type: q.type,
-        options: q.options as QuestionOption[] | null,
-      })),
-    };
+    return toMyApplicationDetail({ ...a, course }, screeningQuestions);
   }
 }

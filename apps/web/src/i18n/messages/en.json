@@ -80,6 +80,7 @@
     "selected": "Selected",
     "remove": "Remove",
     "alreadyAdded": "“{tag}” is already in the list.",
+    "tagLimit": "You can add up to {max}. Remove one to add another.",
     "fixErrors": "Please fix the highlighted fields.",
     "savedAt": "Saved",
     "errors": {

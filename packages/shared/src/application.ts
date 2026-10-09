@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { withCrossChecks } from './cross-checks';
 import { ADMIN_APPLICATION_EVENTS } from './state-machine';
 import type { ApplicationStatus, CourseType, QuestionType } from './enums';
 import type { QuestionOption } from './course-content';
@@ -98,26 +99,23 @@ export function buildAnswersSchema(questions: QuestionLike[]) {
     shape[q.id] = s;
   }
   // Unknown keys are dropped: only answers to this course's questions are stored.
-  return z
-    .object(shape)
-    .strip()
-    .superRefine((a, ctx) => {
-      for (const q of withDetail) {
-        const key = answerDetailKey(q.id);
-        if (q.values.includes(a[q.id] as string) && !a[key]) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: ANSWER_DETAIL_MESSAGE });
-        }
+  // The description check runs alongside the per-question ones, so all errors show on the first submit.
+  return withCrossChecks(z.object(shape).strip(), (raw, addIssue) => {
+    for (const q of withDetail) {
+      const detail = raw[answerDetailKey(q.id)];
+      if (q.values.includes(raw[q.id] as string) && !(typeof detail === 'string' && detail.trim())) {
+        addIssue([answerDetailKey(q.id)], ANSWER_DETAIL_MESSAGE);
       }
-    })
-    .transform((a) => {
-      // A description is only kept with the option that asked for it.
-      const out: Record<string, unknown> = { ...a };
-      for (const q of withDetail) {
-        const key = answerDetailKey(q.id);
-        if (!q.values.includes(a[q.id] as string) || !out[key]) delete out[key];
-      }
-      return out;
-    });
+    }
+  }).transform((a) => {
+    // A description is only kept with the option that asked for it.
+    const out: Record<string, unknown> = { ...a };
+    for (const q of withDetail) {
+      const key = answerDetailKey(q.id);
+      if (!q.values.includes(a[q.id] as string) || !out[key]) delete out[key];
+    }
+    return out;
+  });
 }
 
 export const applySchema = z.object({
