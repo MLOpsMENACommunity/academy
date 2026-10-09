@@ -25,7 +25,11 @@
     "S3_BUCKET": "academy-private",
     "SENTRY_ENVIRONMENT": "production",
     // Web containers the Worker spreads requests over; at most WebContainer.max_instances.
-    "WEB_INSTANCES": "3"
+    "WEB_INSTANCES": "1",
+    // Smallest setup, to keep the bill close to the $5 Workers plan: one basic web and API
+    // container that sleep after 15 idle minutes. Raise WEB_INSTANCES / instance_type only
+    // for an expected spike (see DEPLOY.md, "Capacity and caching").
+    "SLEEP_AFTER": "15m"
   },
 
   "routes": [{ "pattern": "academy.mlopsmena.com", "custom_domain": true }],
@@ -36,7 +40,7 @@
       "class_name": "ApiContainer",
       "image": "../../apps/api/Dockerfile",
       "image_build_context": "../..",
-      "instance_type": "standard-1",
+      "instance_type": "basic",
       // Exactly one: rate limits and the login lockout are in memory.
       "max_instances": 1
     },
@@ -45,7 +49,7 @@
       "image": "../../apps/web/Dockerfile",
       "image_build_context": "../..",
       "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy.mlopsmena.com" },
-      "instance_type": "standard-1",
+      "instance_type": "basic",
       // Stateless: the Worker spreads requests over WEB_INSTANCES of these
       // (MAX_WEB_INSTANCES in src/instances.ts must match; a test checks).
       "max_instances": 3,
@@ -65,7 +69,9 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
 
   // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
-  "triggers": { "crons": ["*/15 * * * *"] },
+  // Hourly, like staging: reminder windows are wide enough (jobs/reminders.jobs.ts), and a
+  // 15-minute tick would keep the API container from ever sleeping.
+  "triggers": { "crons": ["0 * * * *"] },
 
   "env": {
     "staging": {
@@ -82,7 +88,7 @@
         "EMAIL_ALLOWLIST": "",
         // Staging stays small and cheap: one basic container each, asleep between hourly crons.
         "WEB_INSTANCES": "1",
-        "SLEEP_AFTER": "30m"
+        "SLEEP_AFTER": "10m"
       },
       "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
       "containers": [
