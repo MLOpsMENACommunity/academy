@@ -180,6 +180,10 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   `max_instances`.
 - **API container:** exactly one (`max_instances: 1`), now `standard-1`: rate limits and
   the login lockout are in memory.
+- **Database pool:** the API holds up to `DATABASE_POOL_SIZE` (default 10) connections to
+  Neon's pooler and a query waits up to `DATABASE_POOL_TIMEOUT` (20 s) for one. Prisma's
+  own default is 3 on a small container, which failed under load with `P2024` ("Timed out
+  fetching a new connection"). A `connection_limit` in `DATABASE_URL` overrides it.
 - If a container can't be reached (starting, overloaded), the Worker answers 503 with
   `Retry-After: 5` instead of an opaque 500.
 - **API down while a page renders:** ISR pages load their main data with `serverGet`,

@@ -9,6 +9,15 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().default(4000),
   DATABASE_URL: z.string().min(1),
+  /**
+   * Prisma's connection pool. Its default is 2 x CPUs + 1, which is 3 on a small container,
+   * so a burst of requests queues for a connection and fails after 10 s (P2024). Neon's
+   * pooler takes thousands of client connections, so a bigger pool is safe. A
+   * connection_limit / pool_timeout already in DATABASE_URL wins.
+   */
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+  /** Seconds a query waits for a free connection before failing with P2024. */
+  DATABASE_POOL_TIMEOUT: z.coerce.number().int().min(0).max(120).default(20),
 
   /** Public origin of the academy (Next.js). Used in emails, redirects and CORS. */
   WEB_URL: z.string().url().default('http://localhost:3000'),
