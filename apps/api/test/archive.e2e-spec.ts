@@ -1,5 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { ArchiveService } from '../src/archive/archive.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp, createUser } from './helpers';
 
@@ -90,6 +91,34 @@ describe('recordings library and speaker pages (e2e)', () => {
     expect(lesson).toMatchObject({ path: `/courses/public-${run}`, course: { slug: `public-${run}`, order: 1 }, speakers: [{ slug: `speaker-${run}` }] });
     expect(res.body.items.find((i: { id: string }) => i.id === `event:newer-${run}`).speakers).toEqual([expect.objectContaining({ slug: null, name: 'Guest Person' })]);
     expect(res.body.topics).toEqual(expect.arrayContaining([{ tag, count: 3 }]));
+  });
+
+  it('filters by category: course lessons are course recordings, sessions their own category', async () => {
+    await prisma.liveEvent.update({ where: { slug: `older-${run}` }, data: { category: 'INDUSTRY' } });
+    await prisma.liveEvent.update({ where: { slug: `newer-${run}` }, data: { category: 'HANDS_ON' } });
+    // The library is cached for a minute: read it through a fresh service.
+    const fresh = new ArchiveService(prisma);
+    const ids = async (category?: string) => (await fresh.recordings({ topic: tag, ...(category ? { category: category as never } : {}) })).items.map((i) => i.id);
+    expect(await ids('INDUSTRY')).toEqual([`event:older-${run}`]);
+    expect(await ids('HANDS_ON')).toEqual([`event:newer-${run}`]);
+    expect(await ids('COURSE_RECORDING')).toEqual([`course:public-${run}:1`]);
+    expect(await ids('TALK')).toEqual([]);
+    expect((await fresh.recordings({ topic: tag })).categories).toEqual(
+      expect.arrayContaining([expect.objectContaining({ category: 'INDUSTRY' }), expect.objectContaining({ category: 'COURSE_RECORDING' })]),
+    );
+    await http().get('/api/recordings?category=COOKING').expect(400);
+    expect((await http().get(`/api/recordings?topic=${tag}&category=`).expect(200)).body.items.length).toBeGreaterThan(0);
+
+    // Admins set it in the session form; a save that leaves it out keeps it.
+    const ev = await prisma.liveEvent.findUniqueOrThrow({ where: { slug: `newer-${run}` } });
+    const body = { slug: ev.slug, status: 'PUBLISHED', titleEn: ev.titleEn, titleAr: ev.titleAr, startsAt: ev.startsAt.toISOString(), durationMin: 60, language: 'AR', platform: 'YOUTUBE_LIVE', recordingUrl: ev.recordingUrl, topics: ev.topics, speakerName: 'Guest Person' };
+    await http().put(`/api/admin/events/${ev.id}`).set('Cookie', admin.cookie).send({ ...body, category: 'TALK' }).expect(200);
+    expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: ev.id } })).category).toBe('TALK');
+    await http().put(`/api/admin/events/${ev.id}`).set('Cookie', admin.cookie).send(body).expect(200);
+    expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: ev.id } })).category).toBe('TALK');
+    const pub = await http().get(`/api/events/${ev.slug}`).expect(200);
+    expect(pub.body.category).toBe('TALK');
+    await http().put(`/api/admin/events/${ev.id}`).set('Cookie', admin.cookie).send({ ...body, category: 'HANDS_ON' }).expect(200);
   });
 
   it('filters by topic and by text', async () => {
@@ -219,7 +248,7 @@ describe('recordings library and speaker pages (e2e)', () => {
     expect((await prisma.course.findUniqueOrThrow({ where: { id: course.id } })).importHash).toBeNull();
 
     const sp = await prisma.instructor.update({ where: { slug: `speaker-${run}` }, data: { source: 'import', importHash: 'h' } });
-    await http().put(`/api/admin/instructors/${sp.id}`).set('Cookie', admin.cookie).send({ name: sp.name, titleEn: sp.titleEn, slug: sp.slug }).expect(200);
+    await http().put(`/api/admin/instructors/${sp.id}`).set('Cookie', admin.cookie).send({ name: sp.name, titleEn: sp.titleEn, slug: sp.slug, linkedinUrl: 'https://www.linkedin.com/in/x' }).expect(200);
     expect((await prisma.instructor.findUniqueOrThrow({ where: { id: sp.id } })).importHash).toBeNull();
   });
 
@@ -227,15 +256,28 @@ describe('recordings library and speaker pages (e2e)', () => {
     const created = await http()
       .post('/api/admin/instructors')
       .set('Cookie', admin.cookie)
-      .send({ name: `New Speaker ${run}`, titleEn: 'Engineer', photoUrl: '/speakers/new.webp', githubUrl: 'https://github.com/new' })
+      .send({ name: `New Speaker ${run}`, titleEn: 'Engineer', photoUrl: '/speakers/new.webp', githubUrl: 'https://github.com/new', linkedinUrl: 'https://www.linkedin.com/in/x' })
       .expect(201);
     expect(created.body).toMatchObject({ slug: `new-speaker-${run}`, bioEn: '', photoUrl: '/speakers/new.webp' });
-    const again = await http().post('/api/admin/instructors').set('Cookie', admin.cookie).send({ name: `New Speaker ${run}`, titleEn: 'Engineer' }).expect(201);
+    const again = await http().post('/api/admin/instructors').set('Cookie', admin.cookie).send({ name: `New Speaker ${run}`, titleEn: 'Engineer', linkedinUrl: 'https://www.linkedin.com/in/x' }).expect(201);
     expect(again.body.slug).toBe(`new-speaker-${run}-2`);
-    await http().put(`/api/admin/instructors/${again.body.id}`).set('Cookie', admin.cookie).send({ name: 'x y', titleEn: 'Engineer', slug: `new-speaker-${run}` }).expect(409);
+    await http().put(`/api/admin/instructors/${again.body.id}`).set('Cookie', admin.cookie).send({ name: 'x y', titleEn: 'Engineer', slug: `new-speaker-${run}`, linkedinUrl: 'https://www.linkedin.com/in/x' }).expect(409);
     const one = await http().get(`/api/admin/instructors/${created.body.id}`).set('Cookie', admin.cookie).expect(200);
     expect(one.body).toMatchObject({ source: null, courses: 0, events: 0 });
-    await http().post('/api/admin/instructors').set('Cookie', admin.cookie).send({ name: 'Bad Photo', titleEn: 'x x', photoUrl: 'javascript:alert(1)' }).expect(400);
+    await http().post('/api/admin/instructors').set('Cookie', admin.cookie).send({ name: 'Bad Photo', titleEn: 'x x', photoUrl: 'javascript:alert(1)', linkedinUrl: 'https://www.linkedin.com/in/x' }).expect(400);
+  });
+
+  // Owner (10 Oct 2026): LinkedIn is required for every instructor and speaker, stored without ?utm_….
+  it('requires a linkedin.com profile for a speaker and stores it without tracking parameters', async () => {
+    const post = (body: Record<string, unknown>) => http().post('/api/admin/instructors').set('Cookie', admin.cookie).send({ name: `Linked ${run}`, ...body });
+    await post({}).expect(400);
+    await post({ linkedinUrl: '' }).expect(400);
+    await post({ linkedinUrl: 'https://example.com/in/someone' }).expect(400);
+    await post({ linkedinUrl: 'http://www.linkedin.com/in/someone' }).expect(400);
+    const ok = await post({ linkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01?utm_source=share&utm_medium=member_desktop' }).expect(201);
+    // No title or bio yet: name and LinkedIn are enough.
+    expect(ok.body).toMatchObject({ linkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01', titleEn: '', bioEn: '' });
+    await http().put(`/api/admin/instructors/${ok.body.id}`).set('Cookie', admin.cookie).send({ name: `Linked ${run}`, linkedinUrl: null }).expect(400);
   });
 
   it('searches for the static recordings page with ids only', async () => {

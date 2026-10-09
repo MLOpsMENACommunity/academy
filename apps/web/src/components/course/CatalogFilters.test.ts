@@ -3,7 +3,7 @@ import { matches, type CourseFacets } from './CatalogFilters';
 
 const course: CourseFacets = {
   id: 'c1',
-  level: 'BEGINNER',
+  levels: ['JUNIOR'],
   type: 'FREE',
   price: 0,
   language: 'AR',
@@ -14,7 +14,7 @@ describe('catalog filters (in the browser, as the API filters)', () => {
   it('matches with no filters', () => expect(matches(course, {})).toBe(true));
   it('needs every given facet to match', () => {
     expect(matches(course, { type: 'FREE', availability: 'OPEN' })).toBe(true);
-    expect(matches(course, { type: 'FREE', level: 'ADVANCED' })).toBe(false);
+    expect(matches(course, { type: 'FREE', level: 'SENIOR' })).toBe(false);
     expect(matches(course, { language: 'EN' })).toBe(false);
     expect(matches(course, { availability: 'CLOSED' })).toBe(false);
   });
@@ -39,5 +39,17 @@ describe('catalog filters (in the browser, as the API filters)', () => {
     expect(matches(paid, { type: 'PAID' })).toBe(true);
     expect(matches(paid, { type: 'TBA' })).toBe(false);
     expect(matches(course, { type: 'TBA' })).toBe(false);
+  });
+
+  // Owner (10 Oct 2026): a course targets one or more levels; it matches if any of them does.
+  it('a level matches a course when it is one of its levels; a course for all levels matches every level', () => {
+    const juniorMid: CourseFacets = { ...course, levels: ['JUNIOR', 'MID'] };
+    expect(matches(juniorMid, { level: 'JUNIOR' })).toBe(true);
+    expect(matches(juniorMid, { level: 'MID' })).toBe(true);
+    expect(matches(juniorMid, { level: 'SENIOR' })).toBe(false);
+    expect(matches(juniorMid, { level: 'LEAD' })).toBe(false);
+    const everyone: CourseFacets = { ...course, levels: [] };
+    for (const level of ['JUNIOR', 'MID', 'SENIOR', 'LEAD'] as const) expect(matches(everyone, { level })).toBe(true);
+    expect(matches(juniorMid, { level: 'MID', language: 'AR', type: 'FREE' })).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CourseAvailability, EventSpeakerRole, EventStatus } from './enums';
+import { EVENT_CATEGORIES, type CourseAvailability, type EventCategory, type EventSpeakerRole, type EventStatus } from './enums';
 import type { Localized } from './labels';
 
 // ------------------------------------------------------------------ topics
@@ -142,6 +142,8 @@ export interface SpeakerRefDto {
   titleEn: string | null;
   titleAr: string | null;
   photoUrl: string | null;
+  /** Their LinkedIn profile, when the person has a speaker profile with one. */
+  linkedinUrl?: string | null;
 }
 
 /** One session on a speaker's page. */
@@ -192,6 +194,10 @@ export interface PublicSpeakerDto {
 
 export const recordingsQuerySchema = z.object({
   topic: topicSchema.optional().or(z.literal('').transform(() => undefined)),
+  category: z
+    .enum(EVENT_CATEGORIES)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
   q: z.string().trim().max(100).optional(),
 });
 export type RecordingsQuery = z.infer<typeof recordingsQuerySchema>;
@@ -210,6 +216,8 @@ export interface RecordingDto {
   startsAt: string;
   durationMin: number;
   topics: string[];
+  /** Course lessons: COURSE_RECORDING. Live sessions: their category, or null when none is set. */
+  category: EventCategory | null;
   recordingUrl: string;
   /** Set for YouTube recordings (played in place); other links open in a new tab. */
   youtubeId: string | null;
@@ -226,4 +234,21 @@ export interface RecordingsDto {
   items: RecordingDto[];
   /** Every tag in the library with its count (ignores the current filter, so the chips stay put). */
   topics: { tag: string; count: number }[];
+  /** Every category in the library with its count, in the order of EVENT_CATEGORIES. */
+  categories: { category: EventCategory; count: number }[];
+}
+
+/** One recording against the library filters: the same matcher in the API and the browser. */
+export function matchesRecording(
+  item: { topics: string[]; category: EventCategory | null },
+  q: { topic?: string; category?: EventCategory },
+): boolean {
+  if (q.topic && !item.topics.includes(q.topic)) return false;
+  if (q.category && item.category !== q.category) return false;
+  return true;
+}
+
+/** Category counts for the chips, in the order of EVENT_CATEGORIES (empty categories left out). */
+export function categoryCounts(items: { category: EventCategory | null }[]): { category: EventCategory; count: number }[] {
+  return EVENT_CATEGORIES.map((category) => ({ category, count: items.filter((i) => i.category === category).length })).filter((c) => c.count > 0);
 }

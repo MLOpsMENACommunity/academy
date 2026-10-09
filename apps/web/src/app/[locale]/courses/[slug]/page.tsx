@@ -1,7 +1,7 @@
 import {
   courseAvailabilityLabels,
   courseLanguageLabels,
-  courseLevelLabels,
+  courseLevelsText,
   deliveryPlatformLabels,
   recordingsPlatformLabels,
   type CourseDetailDto,
@@ -144,7 +144,7 @@ export default async function CoursePage({ params }: Props) {
     ...(c.startDate && !completed ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
     ...(c.durationWeeks ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
     ...(c.hoursPerWeek ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
-    [t('course.facts.level'), courseLevelLabels[c.level][locale]],
+    [t('course.facts.level'), courseLevelsText(c, locale)],
     ...(comingSoon
       ? []
       : ([[t('course.facts.language'), courseLanguageLabels[c.language][locale]]] as [
@@ -186,7 +186,7 @@ export default async function CoursePage({ params }: Props) {
       ...(comingSoon
         ? {}
         : { inLanguage: c.language === 'AR' ? 'ar' : c.language === 'EN' ? 'en' : ['ar', 'en'] }),
-      educationalLevel: courseLevelLabels[c.level].en,
+      educationalLevel: courseLevelsText(c, 'en'),
       teaches: outcomes,
       coursePrerequisites: prereqs,
       provider: { '@type': 'Organization', name: 'MLOps MENA Community', sameAs: community.mainSite },

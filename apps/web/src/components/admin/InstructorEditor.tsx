@@ -102,13 +102,23 @@ export function InstructorForm({
       <div className={`grid sm:grid-cols-2 ${standalone ? 'gap-4' : 'gap-3'}`}>
         <TextField label={c('instructorName')} required value={v.name} onChange={set('name')} error={errors.name} />
         <TextField label={c('instructorNameAr')} dir="rtl" value={v.nameAr ?? ''} onChange={set('nameAr')} />
-        <TextField label={c('instructorTitle')} required value={v.titleEn} onChange={set('titleEn')} error={errors.titleEn} />
+        <TextField label={c('instructorTitle')} hint={sp('titleHint')} value={v.titleEn} onChange={set('titleEn')} error={errors.titleEn} />
         <TextField label={c('instructorTitleAr')} dir="rtl" value={v.titleAr ?? ''} onChange={set('titleAr')} />
         <TextAreaField label={c('instructorBio')} hint={sp('bioHint')} value={v.bioEn} onChange={set('bioEn')} error={errors.bioEn} rows={6} />
         <TextAreaField label={c('instructorBioAr')} dir="rtl" value={v.bioAr ?? ''} onChange={set('bioAr')} rows={6} />
         <TextField label={c('instructorPhoto')} hint={sp('photoHint')} dir="ltr" value={v.photoUrl ?? ''} onChange={set('photoUrl')} error={errors.photoUrl} />
         <TextField label={sp('slug')} hint={`${sp('slugHint')} /speakers/${v.slug || '…'}`} dir="ltr" value={v.slug ?? ''} onChange={set('slug')} error={errors.slug} />
-        <TextField label="LinkedIn" type="url" dir="ltr" value={v.linkedinUrl ?? ''} onChange={set('linkedinUrl')} error={errors.linkedinUrl} />
+        <TextField
+          label="LinkedIn"
+          required
+          type="url"
+          dir="ltr"
+          placeholder="https://www.linkedin.com/in/…"
+          hint={sp('linkedinHint')}
+          value={v.linkedinUrl ?? ''}
+          onChange={set('linkedinUrl')}
+          error={errors.linkedinUrl}
+        />
         <TextField label={sp('github')} type="url" dir="ltr" value={v.githubUrl ?? ''} onChange={set('githubUrl')} error={errors.githubUrl} />
       </div>
       <div className="flex gap-2">
@@ -157,7 +167,7 @@ export function InstructorPicker({
             ) : (
               <div className="flex items-start justify-between gap-3">
                 <CheckboxField
-                  label={`${i.name} · ${i.titleEn}`}
+                  label={[i.name, i.titleEn].filter(Boolean).join(' · ')}
                   checked={selected.includes(i.id)}
                   onChange={(on) => onSelect(on ? [...selected, i.id] : selected.filter((x) => x !== i.id))}
                 />

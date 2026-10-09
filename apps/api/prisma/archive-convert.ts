@@ -156,7 +156,7 @@ export function convertWebsite(
       bioEn,
       ...(cur.bioAr && bioEn ? { bioAr: cur.bioAr } : {}),
       ...(input.publicFiles?.includes(photo) ? { photoUrl: photo } : {}),
-      ...(member?.linkedin ? { linkedinUrl: member.linkedin } : {}),
+      ...(cur.linkedinUrl || member?.linkedin ? { linkedinUrl: cur.linkedinUrl || member?.linkedin } : {}),
     });
     speakerSlugs.set(name, slug);
     return slug;
@@ -224,7 +224,8 @@ export function convertWebsite(
     status: 'COMPLETED',
     type: 'FREE',
     price: 0,
-    level: 'INTERMEDIATE',
+    levels: [...curation.practitionerAudience.levels],
+    language: curation.practitionerAudience.language,
     cohortNumber: 1,
     // The website's dates and its 7-week outline describe the plan; these are when the lessons ran.
     startDate: curation.practitionerDates.start,
@@ -385,6 +386,11 @@ export function convertWebsite(
   }
 
   out.sessions.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  // Each session's shelf in the recordings library.
+  for (const s of out.sessions) {
+    const category = curation.sessionCategories[s.slug];
+    if (category) s.category = category;
+  }
   const file: ArchiveFileInput = {
     version: ARCHIVE_FORMAT_VERSION,
     source:

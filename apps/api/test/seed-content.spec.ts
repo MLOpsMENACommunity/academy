@@ -1,4 +1,4 @@
-import { courseInputSchema } from '@academy/shared';
+import { courseInputSchema, courseLevelsText, instructorInputSchema } from '@academy/shared';
 import { seedCourses } from '../prisma/seed-data';
 
 /** The seed's course content: valid for the admin form, complete in both languages, nothing left to fill in. */
@@ -14,6 +14,27 @@ describe('seed course content', () => {
           ? []
           : r.error.issues.map((i) => `${s.course.slug}: ${i.path.join('.')}: ${i.message}`),
       ).toEqual([]);
+    }
+  });
+
+  it('every seed instructor passes the admin form (LinkedIn required)', () => {
+    for (const s of seedCourses.filter((x) => x.instructor)) {
+      const r = instructorInputSchema.safeParse({ ...s.instructor });
+      expect(r.success ? [] : r.error.issues.map((i) => `${s.course.slug}: ${i.path.join('.')}: ${i.message}`)).toEqual([]);
+    }
+  });
+
+  it("levels and language from the owner (10 Oct 2026)", () => {
+    const ai = seedCourses.find((s) => s.course.slug === 'ai-architecture-design')!;
+    expect(ai.course).toMatchObject({ language: 'AR', levels: ['MID', 'SENIOR'], levelProgression: true });
+    expect(courseLevelsText(ai.course as never, 'en')).toBe('Mid to Senior · Senior to Lead');
+    expect(ai.instructor).toMatchObject({ slug: 'sameh-amin', linkedinUrl: 'https://www.linkedin.com/in/sameh-amin' });
+    expect(c).toMatchObject({ levels: ['JUNIOR', 'MID'] });
+    expect(courseLevelsText(c as never, 'en')).toBe('Junior · Mid');
+    // Each revision ends where the current seed starts, so a revised course matches a fresh one.
+    for (const s of seedCourses) {
+      for (const r of s.revisions ?? []) expect(s.course).toMatchObject(r.to);
+      for (const r of s.instructorRevisions ?? []) expect(s.instructor).toMatchObject(r.to);
     }
   });
 

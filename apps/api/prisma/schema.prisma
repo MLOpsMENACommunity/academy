@@ -194,11 +194,20 @@ enum CourseStatus {
   COMPLETED
 }
 
+/// Deprecated single level: derived from Course.levels on every save, kept for older API clients.
 enum CourseLevel {
   BEGINNER
   INTERMEDIATE
   ADVANCED
   ALL_LEVELS
+}
+
+/// Who a course is for, by career level. A course targets one or more; none means all levels.
+enum AudienceLevel {
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
 }
 
 enum CourseLanguage {
@@ -518,6 +527,10 @@ model Course {
   capacity            Int?
   status              CourseStatus       @default(DRAFT)
   level               CourseLevel        @default(ALL_LEVELS)
+  /// In order, Junior → Lead; empty means all levels.
+  levels              AudienceLevel[]    @default([])
+  /// Show the levels as steps up: "Mid to Senior · Senior to Lead".
+  levelProgression    Boolean            @default(false)
   language            CourseLanguage     @default(BILINGUAL)
   startDate           DateTime?
   /// When the catalog switches from "Opening soon" to "Applications open".
@@ -969,6 +982,14 @@ enum EventStatus {
   CANCELLED
 }
 
+/// A recording's shelf in the library. Course lessons are COURSE_RECORDING without being set.
+enum EventCategory {
+  HANDS_ON
+  INDUSTRY
+  COURSE_RECORDING
+  TALK
+}
+
 enum EventSpeakerRole {
   SPEAKER
   HOST
@@ -996,6 +1017,7 @@ model LiveEvent {
   speaker           Instructor?         @relation(fields: [speakerId], references: [id], onDelete: SetNull)
   /// Short filter tags, e.g. ["docker", "ci-cd"].
   topics            String[]            @default([])
+  category          EventCategory?
   startsAt          DateTime
   durationMin       Int                 @default(60)
   language          CourseLanguage      @default(BILINGUAL)

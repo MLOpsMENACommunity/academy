@@ -121,6 +121,60 @@ describe('admin panel API (e2e)', () => {
     expect(csv.text.startsWith('﻿"Student ID"')).toBe(true);
   });
 
+  // Owner (10 Oct 2026): a course targets one or more levels; old clients sending one level still work.
+  it('saves course levels as a multi-select, keeps the old level in step, and filters the catalog by any of them', async () => {
+    const slug = `lvl-${Date.now()}`;
+    const base = {
+      slug, titleEn: 'Levels course', titleAr: 'دورة المستويات', shortDescriptionEn: 'Short description here', shortDescriptionAr: 'وصف قصير للدورة هنا',
+      longDescriptionEn: '', longDescriptionAr: '', type: 'FREE', price: 0, currency: 'EGP', requiresApproval: true,
+      status: 'OPEN', language: 'AR', targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' },
+      learningOutcomes: { en: [], ar: [] }, prerequisites: { en: [], ar: [] }, outline: [], faq: [],
+      included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+      deliveryPlatform: 'GOOGLE_MEET', recordingsPlatform: 'YOUTUBE', instructorIds: [],
+    };
+    const created = await as(admin.cookie).post('/api/admin/courses').send({ ...base, levels: ['MID', 'SENIOR'], levelProgression: true }).expect(201);
+    expect(created.body).toMatchObject({ levels: ['MID', 'SENIOR'], levelProgression: true, level: 'INTERMEDIATE' });
+    const pub = await http().get(`/api/courses/${slug}`).expect(200);
+    expect(pub.body).toMatchObject({ levels: ['MID', 'SENIOR'], levelProgression: true, level: 'INTERMEDIATE' });
+    const listed = async (q: string) => ((await http().get(`/api/courses?${q}`).expect(200)).body as { slug: string }[]).some((c) => c.slug === slug);
+    expect(await listed('level=MID')).toBe(true);
+    expect(await listed('level=SENIOR')).toBe(true);
+    expect(await listed('level=JUNIOR')).toBe(false);
+    // An old link (?level=ADVANCED) means Senior.
+    expect(await listed('level=ADVANCED')).toBe(true);
+    // An older client sends only `level`.
+    const old = await as(admin.cookie).put(`/api/admin/courses/${created.body.id}`).send({ ...base, level: 'BEGINNER' }).expect(200);
+    expect(old.body).toMatchObject({ levels: ['JUNIOR'], level: 'BEGINNER', levelProgression: false });
+    await as(admin.cookie).put(`/api/admin/courses/${created.body.id}`).send({ ...base, levels: ['EXPERT'] }).expect(400);
+  });
+
+  // Owner (10 Oct 2026): LLMOps stays "Price to be announced" until decided; an admin can then
+  // make it free or give it a price, and the public course says so.
+  it('a coming-soon course without a price can be made free or priced by an admin', async () => {
+    const slug = `tba-${Date.now()}`;
+    const base = {
+      slug, titleEn: 'LLMOps', titleAr: 'LLMOps', shortDescriptionEn: 'Serving and operating LLMs.', shortDescriptionAr: 'تشغيل النماذج اللغوية الكبيرة.',
+      longDescriptionEn: '', longDescriptionAr: '', type: 'PAID', price: 0, currency: 'EGP', requiresApproval: true,
+      status: 'COMING_SOON', language: 'BILINGUAL', targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' },
+      learningOutcomes: { en: [], ar: [] }, prerequisites: { en: [], ar: [] }, outline: [], faq: [],
+      included: { liveSessions: false, recordings: false, assignments: false, finalProject: false, certificate: false },
+      deliveryPlatform: 'GOOGLE_MEET', recordingsPlatform: 'YOUTUBE', instructorIds: [],
+    };
+    const c = await as(admin.cookie).post('/api/admin/courses').send(base).expect(201);
+    const price = async (q: string) => ((await http().get(`/api/courses?${q}`).expect(200)).body as { slug: string }[]).some((x) => x.slug === slug);
+    expect(await price('type=TBA')).toBe(true);
+    // A symbolic fee.
+    await as(admin.cookie).put(`/api/admin/courses/${c.body.id}`).send({ ...base, price: 100 }).expect(200);
+    expect((await http().get(`/api/courses/${slug}`).expect(200)).body).toMatchObject({ type: 'PAID', price: 100, currency: 'EGP' });
+    expect(await price('type=PAID')).toBe(true);
+    // Free.
+    await as(admin.cookie).put(`/api/admin/courses/${c.body.id}`).send({ ...base, type: 'FREE', price: 0 }).expect(200);
+    expect((await http().get(`/api/courses/${slug}`).expect(200)).body).toMatchObject({ type: 'FREE', price: 0 });
+    expect(await price('type=FREE')).toBe(true);
+    // A free course can't carry a price.
+    await as(admin.cookie).put(`/api/admin/courses/${c.body.id}`).send({ ...base, type: 'FREE', price: 100 }).expect(400);
+  });
+
   it('creates and edits courses, questions and sessions', async () => {
     const slug = `adm-${Date.now()}`;
     const base = {

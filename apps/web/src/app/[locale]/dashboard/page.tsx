@@ -18,10 +18,10 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   if (!isLocale(locale)) notFound();
   const [courses, recordings] = await Promise.all([
     serverGetOr<CourseSummaryDto[]>('/courses', [], 300),
-    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [] }, 300).then((r) => r.items),
+    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [], categories: [] }, 300).then((r) => r.items),
   ]);
   const meta: Record<string, CourseMeta> = Object.fromEntries(
-    courses.map((c) => [c.slug, { level: c.level, language: c.language, durationWeeks: c.durationWeeks, startDate: c.startDate, completed: c.completed }]),
+    courses.map((c) => [c.slug, { level: c.level, levels: c.levels, levelProgression: c.levelProgression, language: c.language, durationWeeks: c.durationWeeks, startDate: c.startDate, completed: c.completed }]),
   );
   const paths: DashboardPath[] = LEARNING_PATHS.map((p) => ({ slug: p.slug, title: p.title[locale], steps: resolveSteps(p, courses, recordings, locale) })).filter(
     (p) => p.steps.length > 0,

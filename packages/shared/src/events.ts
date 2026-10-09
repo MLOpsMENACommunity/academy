@@ -3,10 +3,12 @@ import { topicsSchema, type SpeakerRefDto } from './archive';
 import {
   COURSE_LANGUAGES,
   DELIVERY_PLATFORMS,
+  EVENT_CATEGORIES,
   EVENT_SPEAKER_ROLES,
   EVENT_STATUSES,
   type CourseLanguage,
   type DeliveryPlatform,
+  type EventCategory,
   type EventSpeakerRole,
   type EventStatus,
 } from './enums';
@@ -70,6 +72,15 @@ export const eventInputSchema = z
       )
       .optional(),
     topics: topicsSchema.default([]),
+    /**
+     * Its shelf in the recordings library (hands-on, from industry, …); null: none.
+     * Left out: kept as it is (so a client that doesn't know about it never clears it).
+     */
+    category: z
+      .enum(EVENT_CATEGORIES)
+      .nullable()
+      .optional()
+      .or(z.literal('').transform(() => null)),
     startsAt: z.coerce.date(),
     durationMin: z.coerce.number().int().min(15).max(600),
     language: z.enum(COURSE_LANGUAGES),
@@ -116,6 +127,7 @@ export interface PublicEventDto {
   /** Hosts and guests besides the main speaker, in order. */
   coSpeakers: CoSpeakerDto[];
   topics: string[];
+  category: EventCategory | null;
   startsAt: string;
   durationMin: number;
   language: CourseLanguage;

@@ -231,4 +231,58 @@ describe('archive converter', () => {
       /Duplicate speaker slug/,
     );
   });
+
+  // The owner's changes of 10 Oct 2026, in the committed archive the import reads.
+  describe("the owner's course, speaker and category changes", () => {
+    const archive = readArchive();
+
+    it('The MLOps Practitioner: 5 weeks, Arabic only, for junior and mid-level engineers', () => {
+      expect(archive.courses.find((c) => c.slug === 'mlops-practitioner')).toMatchObject({ durationWeeks: 5, language: 'AR', levels: ['JUNIOR', 'MID'] });
+    });
+
+    it('speakers have their LinkedIn, without tracking parameters; Aya keeps hers', () => {
+      const linkedin = Object.fromEntries(archive.speakers.map((s) => [s.slug, s.linkedinUrl]));
+      expect(linkedin).toMatchObject({
+        'mohamed-rashad': 'https://www.linkedin.com/in/rashaddism',
+        'mahmoud-sharif': 'https://www.linkedin.com/in/mahmoud-sharif-mossad',
+        'abdallah-almalawany': 'https://www.linkedin.com/in/abdallah-elmalawany-840595270',
+        'omar-khalil': 'https://www.linkedin.com/in/omar-khalil-10om01',
+        'aya-nasser-salama': 'https://www.linkedin.com/in/ayanasser/',
+      });
+      for (const url of Object.values(linkedin).filter(Boolean)) expect(url).not.toMatch(/[?#]/);
+    });
+
+    it('Omar Khalil is a speaker (name and LinkedIn, no bio yet) and his session links to him', () => {
+      expect(archive.speakers.find((s) => s.slug === 'omar-khalil')).toMatchObject({ name: 'Omar Khalil', titleEn: '', bioEn: '' });
+      const redis = archive.sessions.find((s) => s.slug === 'redis-for-semantic-caching')!;
+      expect(redis.speaker).toBe('omar-khalil');
+      expect(redis.speakerName).toBeUndefined();
+    });
+
+    it('every past session is on a shelf of the recordings library', () => {
+      const category = Object.fromEntries(archive.sessions.map((s) => [s.slug, s.category]));
+      expect(category).toEqual({
+        'docker-deep-dive': 'HANDS_ON',
+        'hands-on-cicd-github-actions': 'HANDS_ON',
+        'hands-on-fastapi-backend-for-mlops': 'HANDS_ON',
+        'uv-for-legacy-python-projects': 'HANDS_ON',
+        'ruff-python-linting-formatting-ci': 'HANDS_ON',
+        'prometheus-grafana-monitoring-stack-part-1': 'HANDS_ON',
+        'kubernetes-deployment-strategies-part-1': 'HANDS_ON',
+        'kubernetes-deployment-strategies-part-2': 'HANDS_ON',
+        'redis-for-semantic-caching': 'HANDS_ON',
+        'on-prem-mlops-playbook': 'INDUSTRY',
+        'introduction-to-llm-inference-engines': 'INDUSTRY',
+      });
+    });
+
+    it('rejects a speaker LinkedIn that is not a linkedin.com profile', () => {
+      const speaker = { slug: 'x-y', name: 'X Y', linkedinUrl: 'https://example.com/in/x' };
+      expect(archiveFileSchema.safeParse({ version: 1, speakers: [speaker] }).success).toBe(false);
+      expect(archiveFileSchema.parse({ version: 1, speakers: [{ ...speaker, linkedinUrl: 'https://www.linkedin.com/in/x?utm_source=share' }] }).speakers[0]!.linkedinUrl).toBe(
+        'https://www.linkedin.com/in/x',
+      );
+    });
+  });
 });
+

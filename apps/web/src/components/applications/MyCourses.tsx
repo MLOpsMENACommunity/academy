@@ -1,6 +1,6 @@
 'use client';
 
-import { courseLanguageLabels, courseLevelLabels, type CourseLanguage, type CourseLevel } from '@academy/shared';
+import { courseLanguageLabels, courseLevelsText, type CourseLanguage, type CourseLevelsOf } from '@academy/shared';
 import Link from 'next/link';
 import { SegmentedTabs } from '@/components/catalog/Segmented';
 import { useI18n } from '@/i18n/client';
@@ -12,8 +12,7 @@ import { Arrow } from '../ui/Icons';
 import { StatusBadge } from './StatusBadge';
 
 /** Public facts about a course, for the card's metadata line. */
-export interface CourseMeta {
-  level: CourseLevel;
+export interface CourseMeta extends CourseLevelsOf {
   language: CourseLanguage;
   durationWeeks: number | null;
   startDate: string | null;
@@ -27,7 +26,7 @@ function CourseRow({ item: p, meta }: { item: CourseProgress; meta?: CourseMeta 
   const needsPayment = p.status === 'AWAITING_PAYMENT' || p.status === 'PAYMENT_REJECTED';
   const bar = done ? 'bg-logo-green' : p.enrolled ? 'bg-logo-cyan' : 'bg-transparent';
   const facts = [
-    meta && courseLevelLabels[meta.level][locale],
+    meta && courseLevelsText(meta, locale),
     meta?.durationWeeks ? t('catalog.weeks', { count: meta.durationWeeks }) : null,
     meta && courseLanguageLabels[meta.language][locale],
     p.course.startDate && !meta?.completed ? t('catalog.starts', { date: formatDate(p.course.startDate, locale) }) : null,

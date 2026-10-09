@@ -9,6 +9,8 @@
  * (src/lib/content-i18n.ts).
  */
 
+import type { EventCategory } from '@academy/shared';
+
 /** A person's part in a session besides its main speaker (from the owner's list of past sessions). */
 export interface CuratedCoSpeaker {
   name: string;
@@ -110,6 +112,8 @@ export interface SpeakerProfile {
   /** For people without a bio on the website's team page. */
   bioEn?: string;
   bioAr?: string;
+  /** Their LinkedIn profile (from the owner, 10 Oct 2026); wins over the team page's. */
+  linkedinUrl?: string;
 }
 
 export const speakerProfiles: Record<string, SpeakerProfile> = {
@@ -122,6 +126,7 @@ export const speakerProfiles: Record<string, SpeakerProfile> = {
   // The website said "Instructor · 3+ years experience"; the owner's list says with whom.
   'Mahmoud Sharif': {
     nameAr: 'محمود شريف',
+    linkedinUrl: 'https://www.linkedin.com/in/mahmoud-sharif-mossad',
     titleEn: 'Instructor with eYouth and Mindset',
     titleAr: 'مدرّب مع eYouth وMindset',
     bioEn: '3+ years instructing with eYouth and Mindset.',
@@ -129,11 +134,13 @@ export const speakerProfiles: Record<string, SpeakerProfile> = {
   },
   'Abdallah Almalawany': {
     nameAr: 'عبدالله الملواني',
+    linkedinUrl: 'https://www.linkedin.com/in/abdallah-elmalawany-840595270',
     titleEn: 'DevOps Engineer',
     titleAr: 'مهندس DevOps',
   },
   'Mohamed Rashad': {
     nameAr: 'محمد رشاد',
+    linkedinUrl: 'https://www.linkedin.com/in/rashaddism',
     titleEn: 'Co-Founder and CTO, DevisionX',
     titleAr: 'شريك مؤسس ومدير تقني، DevisionX',
     bioEn:
@@ -143,6 +150,12 @@ export const speakerProfiles: Record<string, SpeakerProfile> = {
   },
   // The owner's list gives no role for Mohamed Samy: the page shows his name only.
   'Mohamed Samy': { nameAr: 'محمد سامي' },
+  // Speaker of "Redis for Semantic Caching". Name and LinkedIn from the owner (10 Oct 2026);
+  // title, bio and photo come later, so the page shows his name and LinkedIn only.
+  'Omar Khalil': {
+    nameAr: 'عمر خليل', // REVIEW
+    linkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01',
+  },
   // Bio and LinkedIn from the website's team page; the role from the owner's list.
   'Mariam Qotob': {
     nameAr: 'مريم قطب',
@@ -411,10 +424,9 @@ export const videos: Record<string, CuratedVideo> = {
     descriptionAr:
       'تخزين ردود النماذج اللغوية مؤقتًا حسب المعنى لا النص الحرفي باستخدام Redis، لتعيد الأسئلة المتشابهة استخدام إجابة سابقة بدل دفع تكلفة توليد جديد.\n\n- [الشرائح](https://drive.google.com/drive/folders/1SAqjHhoeetTCvhcHFRSVvXdYDPNzDYcE)\n- [الكود](https://github.com/MLOpsMENACommunity/Redis_Semantic_Caching_MLOpsMENA)', // REVIEW
     tags: ['llmops'],
-    // From the video description ("Eng Omar Linkedin"); the full name follows the LinkedIn address. CONFIRM.
-    speakerName: 'Omar Khalil',
-    speakerNameAr: 'عمر خليل', // REVIEW
-    speakerLinkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01/',
+    // From the video description ("Eng Omar Linkedin"), confirmed by the owner (10 Oct 2026):
+    // a speaker profile now, so the session links to his page.
+    speaker: 'Omar Khalil',
   },
   PXR2zcjaqWQ: {
     slug: 'ruff-python-linting-formatting-ci',
@@ -596,7 +608,34 @@ export const practitionerLessons: CuratedLesson[] = [
  * When the cohort ran: its live lessons, 16 Aug to 20 Sep 2026 (the website said 15 Aug to
  * 2 Oct). Six calendar weeks of lessons; the final project followed.
  */
-export const practitionerDates = { start: '2026-08-16', end: '2026-09-20', weeks: 6 };
+/** Weeks: the owner's figure (10 Oct 2026), five lessons over five weeks. */
+export const practitionerDates = { start: '2026-08-16', end: '2026-09-20', weeks: 5 };
+
+/**
+ * The Practitioner as the owner describes it (10 Oct 2026): taught in Arabic only, for junior
+ * and mid-level engineers.
+ */
+export const practitionerAudience = { language: 'AR', levels: ['JUNIOR', 'MID'] } as const;
+
+/**
+ * Each live session's shelf in the recordings library (owner, 10 Oct 2026): tool walkthroughs
+ * are hands-on; practitioners' talks and case studies are "from industry". Course lessons
+ * are always course recordings and aren't listed here.
+ */
+export const sessionCategories: Record<string, EventCategory> = {
+  'docker-deep-dive': 'HANDS_ON',
+  'hands-on-cicd-github-actions': 'HANDS_ON',
+  'hands-on-fastapi-backend-for-mlops': 'HANDS_ON',
+  'uv-for-legacy-python-projects': 'HANDS_ON',
+  'ruff-python-linting-formatting-ci': 'HANDS_ON',
+  'prometheus-grafana-monitoring-stack-part-1': 'HANDS_ON',
+  'kubernetes-deployment-strategies-part-1': 'HANDS_ON',
+  'kubernetes-deployment-strategies-part-2': 'HANDS_ON',
+  // A walkthrough with its code repository.
+  'redis-for-semantic-caching': 'HANDS_ON',
+  'on-prem-mlops-playbook': 'INDUSTRY',
+  'introduction-to-llm-inference-engines': 'INDUSTRY',
+};
 
 /** The syllabus weeks in the order they were taught: Observability (week 6) came before Optimization (week 5). */
 export const practitionerWeekOrder = [1, 2, 3, 4, 6, 5, 7];

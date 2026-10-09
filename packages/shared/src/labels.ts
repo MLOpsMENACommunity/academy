@@ -1,5 +1,6 @@
 import type {
   ApplicationStatus,
+  AudienceLevel,
   Area,
   CloudPlatform,
   CompanySize,
@@ -11,6 +12,7 @@ import type {
   DeliveryPlatform,
   EducationLevel,
   EmploymentStatus,
+  EventCategory,
   EventSpeakerRole,
   EventStatus,
   ExperienceRange,
@@ -245,6 +247,20 @@ export const courseLevelLabels: LabelMap<CourseLevel> = {
   INTERMEDIATE: { en: 'Intermediate', ar: 'متوسط' },
   ADVANCED: { en: 'Advanced', ar: 'متقدم' },
   ALL_LEVELS: { en: 'All levels', ar: 'جميع المستويات' },
+};
+
+export const audienceLevelLabels: LabelMap<AudienceLevel> = {
+  JUNIOR: { en: 'Junior', ar: 'مبتدئ' },
+  MID: { en: 'Mid', ar: 'متوسط الخبرة' },
+  SENIOR: { en: 'Senior', ar: 'خبير' },
+  LEAD: { en: 'Lead', ar: 'قائد فريق' },
+};
+
+export const eventCategoryLabels: LabelMap<EventCategory> = {
+  HANDS_ON: { en: 'Hands-on sessions', ar: 'جلسات عملية' },
+  INDUSTRY: { en: 'From industry', ar: 'من واقع الصناعة' },
+  COURSE_RECORDING: { en: 'Course recordings', ar: 'تسجيلات الدورات' },
+  TALK: { en: 'Talks & Q&A', ar: 'محاضرات وأسئلة وأجوبة' },
 };
 
 export const courseLanguageLabels: LabelMap<CourseLanguage> = {
