@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { readArchive } from '../prisma/import-archive';
 import { convertWebsite, type WebsiteInput } from '../prisma/archive-convert';
 import { archiveFileSchema, parseArchive } from '../prisma/archive-schema';
@@ -106,7 +108,6 @@ describe('archive converter', () => {
     // Hosts and guests become speakers too.
     expect(docker.coSpeakers).toEqual([
       { speaker: 'aya-nasser-salama', role: 'HOST' },
-      { speaker: 'mariam-qotob', role: 'GUEST' },
     ]);
     // No links to the platform it was first hosted on, and no registration counts.
     expect(docker.descriptionEn).not.toContain('zomra');
@@ -136,14 +137,18 @@ describe('archive converter', () => {
     expect(part1.descriptionAr.split('Canary')[0]).not.toMatch(/A\/B/);
   });
 
-  it('gives speakers short factual roles and Arabic names, and nothing made up', () => {
+  it("gives speakers the owner's titles, bios and Arabic names, and nothing made up", () => {
     const byslug = (slug: string) => file.speakers.find((s) => s.slug === slug)!;
-    expect(byslug('mahmoud-sharif')).toMatchObject({ nameAr: 'محمود شريف', titleEn: 'Instructor with eYouth and Mindset', bioEn: '3+ years instructing with eYouth and Mindset.' });
-    expect(byslug('mohamed-rashad')).toMatchObject({ nameAr: 'محمد رشاد', titleEn: 'Co-Founder and CTO, DevisionX' });
-    expect(byslug('mohamed-rashad').bioEn).toContain("Meta's Engineering Blog");
-    expect(byslug('mariam-qotob')).toMatchObject({ titleEn: 'AI Engineer', nameAr: 'مريم قطب' });
-    // No role in the owner's list: no title rather than a placeholder.
-    expect(byslug('mohamed-samy')).toMatchObject({ titleEn: '', bioEn: '' });
+    expect(byslug('mahmoud-sharif')).toMatchObject({ nameAr: 'محمود شريف', titleEn: 'DevOps Engineer' });
+    expect(byslug('mahmoud-sharif').bioEn).toMatch(/^DevOps Engineer with hands-on experience/);
+    expect(byslug('mohamed-rashad')).toMatchObject({ nameAr: 'محمد رشاد', titleEn: 'Engineering Lead & Co-founder, Hyperion & DevisionX' });
+    expect(byslug('mohamed-rashad').bioEn).toContain('the teams that keep them running in production');
+    // Owner (10 Oct 2026): Mariam Qotob is not a speaker; the archive asks the import to remove her.
+    expect(file.speakers.map((s) => s.slug)).not.toContain('mariam-qotob');
+    expect(file.removed.speakers).toEqual(['mariam-qotob']);
+    // Owner (10 Oct 2026): his title and bio.
+    expect(byslug('mohamed-samy')).toMatchObject({ titleEn: 'AI Engineer & Data Scientist', nameAr: 'محمد سامي' });
+    expect(byslug('mohamed-samy').linkedinUrl).toBe('https://www.linkedin.com/in/mohamed-samy-122137189');
   });
 
   it('keeps a session that is a course lesson out of the live sessions', () => {
@@ -192,7 +197,6 @@ describe('archive converter', () => {
     expect(file.speakers.map((s) => s.slug).sort()).toEqual([
       'aya-nasser-salama',
       'mahmoud-sharif',
-      'mariam-qotob',
       'mohamed-rashad',
       'mohamed-samy',
       'new-person',
@@ -248,12 +252,13 @@ describe('archive converter', () => {
         'abdallah-almalawany': 'https://www.linkedin.com/in/abdallah-elmalawany-840595270',
         'omar-khalil': 'https://www.linkedin.com/in/omar-khalil-10om01',
         'aya-nasser-salama': 'https://www.linkedin.com/in/ayanasser/',
+        'mohamed-samy': 'https://www.linkedin.com/in/mohamed-samy-122137189',
       });
       for (const url of Object.values(linkedin).filter(Boolean)) expect(url).not.toMatch(/[?#]/);
     });
 
-    it('Omar Khalil is a speaker (name and LinkedIn, no bio yet) and his session links to him', () => {
-      expect(archive.speakers.find((s) => s.slug === 'omar-khalil')).toMatchObject({ name: 'Omar Khalil', titleEn: '', bioEn: '' });
+    it('Omar Khalil is a speaker and his session links to him', () => {
+      expect(archive.speakers.find((s) => s.slug === 'omar-khalil')).toMatchObject({ name: 'Omar Khalil', nameAr: 'عمر خليل', titleEn: 'AI Engineer' });
       const redis = archive.sessions.find((s) => s.slug === 'redis-for-semantic-caching')!;
       expect(redis.speaker).toBe('omar-khalil');
       expect(redis.speakerName).toBeUndefined();
@@ -283,6 +288,28 @@ describe('archive converter', () => {
         'https://www.linkedin.com/in/x',
       );
     });
+
+    it('every speaker has a photo on this site, a bio in both languages, and a title', () => {
+      const names = Object.fromEntries(archive.speakers.map((s) => [s.slug, s.name]));
+      expect(names).toEqual({
+        'aya-nasser-salama': 'Aya Nasser Salama',
+        'mahmoud-sharif': 'Mahmoud Sharif',
+        // The slug stays, so his page address doesn't change.
+        'abdallah-almalawany': 'Abdallah Elmalawany',
+        'mohamed-rashad': 'Mohamed Rashad',
+        'omar-khalil': 'Omar Khalil',
+        'mohamed-samy': 'Mohamed Samy',
+      });
+      const publicDir = join(__dirname, '..', '..', 'web', 'public');
+      for (const s of archive.speakers) {
+        expect(s.photoUrl).toBe(`/speakers/${s.slug}.webp`);
+        expect(existsSync(join(publicDir, s.photoUrl!))).toBe(true);
+        expect(s.bioEn.length).toBeGreaterThan(40);
+        expect(s.bioAr?.length ?? 0).toBeGreaterThan(40);
+        expect(s.titleEn.length).toBeGreaterThan(2);
+      }
+      expect(archive.removedSpeakers).toEqual(['mariam-qotob']);
+      expect(JSON.stringify(archive.sessions)).not.toContain('mariam-qotob');
+    });
   });
 });
-

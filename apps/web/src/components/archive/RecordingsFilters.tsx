@@ -8,7 +8,7 @@ import {
   type RecordingSearchDto,
   type RecordingsDto,
 } from '@academy/shared';
-import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { buttonClass } from '@/components/ui/Button';
 import { inputClass } from '@/components/ui/input';
 import { useI18n } from '@/i18n/client';
@@ -170,12 +170,32 @@ export function RecordingsSearch() {
   );
 }
 
+/**
+ * On phones a chip row scrolls sideways: keep the selected chip in view (e.g. "From industry",
+ * last in the Arabic row), without moving the page when the row is already on screen.
+ */
+function useSelectedChipInView(selected: string | undefined) {
+  const ref = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const list = ref.current;
+    const chip = list?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!list || !chip || list.scrollWidth <= list.clientWidth) return;
+    const l = list.getBoundingClientRect();
+    const c = chip.getBoundingClientRect();
+    // Scrolling by the difference works the same in LTR and RTL.
+    if (c.left < l.left) list.scrollBy({ left: c.left - l.left - 20 });
+    else if (c.right > l.right) list.scrollBy({ left: c.right - l.right + 20 });
+  }, [selected]);
+  return ref;
+}
+
 const chipClass =
   'inline-flex min-h-11 items-center whitespace-nowrap rounded-full border px-4 text-[0.9375rem] transition-colors aria-[current=true]:border-primary aria-[current=true]:bg-primary-soft aria-[current=true]:font-medium aria-[current=true]:text-primary border-line bg-card text-body hover:border-line-strong/60';
 
 export function TopicChips({ topics }: { topics: RecordingsDto['topics'] }) {
   const { locale, t } = useI18n();
   const { query, apply } = useRecordings();
+  const listRef = useSelectedChipInView(query.topic);
   const base = `/${locale}/sessions/recordings`;
   const chip = (topic: string | undefined, label: ReactNode) => {
     const next = { ...query, topic };
@@ -193,7 +213,7 @@ export function TopicChips({ topics }: { topics: RecordingsDto['topics'] }) {
   return (
     <nav aria-label={t('sessions.topics')} className="mt-6">
       {/* Phones: one row that scrolls sideways (inside its own box, never the page). Wider screens wrap. */}
-      <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
+      <ul ref={listRef} className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
         <li>{chip(undefined, t('sessions.allTopics'))}</li>
         {topics.map(({ tag, count }) => (
           <li key={tag}>
@@ -218,6 +238,7 @@ export function TopicChips({ topics }: { topics: RecordingsDto['topics'] }) {
 export function CategoryChips({ categories }: { categories: RecordingsDto['categories'] }) {
   const { locale, t } = useI18n();
   const { query, apply } = useRecordings();
+  const listRef = useSelectedChipInView(query.category);
   const base = `/${locale}/sessions/recordings`;
   const chip = (category: EventCategory | undefined, label: ReactNode) => {
     const next = { ...query, category };
@@ -234,7 +255,7 @@ export function CategoryChips({ categories }: { categories: RecordingsDto['categ
   };
   return (
     <nav aria-label={t('sessions.categories')} className="mt-6">
-      <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
+      <ul ref={listRef} className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
         <li>{chip(undefined, t('sessions.allCategories'))}</li>
         {categories.map(({ category, count }) => (
           <li key={category}>
