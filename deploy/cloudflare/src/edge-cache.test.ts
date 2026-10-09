@@ -29,7 +29,7 @@ test('API, non-GET, RSC/prefetch and private areas are never cached', () => {
   assert.equal(cacheKind(req('/en/courses', { headers: { rsc: '1' } })), null);
   assert.equal(cacheKind(req('/en/courses', { headers: { 'next-router-prefetch': '1' } })), null);
   assert.equal(cacheKind(req('/en/courses?_rsc=abc')), null);
-  for (const p of ['/en/dashboard', '/ar/admin/courses', '/en/profile', '/en/onboarding', '/en/learn/x', '/en/courses/x/apply', '/en/verify-email', '/en/reset-password']) {
+  for (const p of ['/en/dashboard', '/ar/admin/courses', '/en/profile', '/en/onboarding', '/en/learn/x', '/en/courses/x/apply', '/en/verify-email', '/en/reset-password', '/en/waitlist/leave']) {
     assert.equal(cacheKind(req(p)), null, p);
   }
   // No locale prefix: the middleware redirects by cookie.

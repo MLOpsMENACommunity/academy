@@ -15,6 +15,7 @@ const pages: [string, () => Promise<{ default: (p: { params: Promise<{ locale: s
   ['recordings', () => import('./[locale]/sessions/recordings/page')],
   ['login', () => import('./[locale]/(auth)/login/page')],
   ['register', () => import('./[locale]/(auth)/register/page')],
+  ['contact (policy pages)', () => import('./[locale]/contact/page')],
 ];
 
 describe('ISR pages when the API is unreachable', () => {

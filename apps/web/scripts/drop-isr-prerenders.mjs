@@ -7,7 +7,7 @@
 // after every deploy and every wake from sleep, so its first visitor to each page would
 // get that empty page (Next serves the stale copy while it regenerates). Without the
 // file, Next renders the page with live data on the first request (x-nextjs-cache: MISS).
-// Pages without a revalidate time (policies, auth shells) are fully static and kept.
+// Pages without a revalidate time (e.g. the forgot-password shell) are fully static and kept.
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 

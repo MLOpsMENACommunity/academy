@@ -12,7 +12,8 @@
  *   - anything from a browser with a session (access_token / has_session cookie),
  *   - /api/* (the API's personal and public endpoints alike), non-GET requests,
  *   - Next client-navigation requests (RSC payloads, prefetches, server actions),
- *   - signed-in areas (dashboard, profile, onboarding, admin, learn, apply),
+ *   - signed-in areas (dashboard, profile, onboarding, admin, learn, apply) and token
+ *     links (verify-email, reset-password, waitlist/leave),
  *   - any response that sets a cookie, is not 200, or is private / no-store.
  *
  * The page HTML is the same for every visitor: personal state (who is signed in, my
@@ -33,7 +34,7 @@ const NEXT_CLIENT_HEADERS = ['rsc', 'next-router-state-tree', 'next-router-prefe
 
 /** Same list as the web middleware's PROTECTED, plus the per-request auth pages. */
 const PRIVATE_PAGE =
-  /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn|verify-email|reset-password)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
+  /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn|verify-email|reset-password|waitlist)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
 
 export type CacheKind = 'page' | 'asset';
 

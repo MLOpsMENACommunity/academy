@@ -81,3 +81,44 @@ test('recordings search asks the API from the static page', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'No recordings match' })).toBeVisible();
   await expect(page.getByRole('searchbox')).toHaveValue('zz-no-such-recording-zz');
 });
+
+test("the waiting list's joined state loads after the page and is never in its HTML", async ({ browser }) => {
+  const email = `cache.wl.${Date.now()}@example.com`;
+  const student = await browser.newContext();
+  const courses = (await (await student.request.get('/api/courses')).json()) as { slug: string; availability: string }[];
+  const course = courses.find((c) => c.availability !== 'OPEN');
+  test.skip(!course, 'no public course that is closed or coming soon');
+  const path = `/en/courses/${course!.slug}`;
+  const reg = await student.request.post('/api/auth/register', {
+    headers: JSON_HEADERS,
+    data: { email, password: 'Cache-Test-2026!', locale: 'en' },
+  });
+  expect(reg.status(), 'register').toBeLessThan(300);
+
+  // Signed in: one click joins, and the joined state comes back on the next visit (from my-status).
+  const page = await student.newPage();
+  await page.goto(path);
+  const side = page.locator('aside');
+  await side.getByRole('button', { name: 'Notify me when it opens' }).click();
+  await expect(side.getByText("You're on the waiting list")).toBeVisible();
+  await page.reload();
+  await expect(side.getByText("You're on the waiting list")).toBeVisible();
+
+  // The HTML (the student's own request, and an anonymous one) carries neither.
+  const own = await (await student.request.get(path)).text();
+  expect(own).not.toContain("You're on the waiting list");
+  expect(own).not.toContain(email);
+  const anon = await browser.newContext();
+  const res = await anon.request.get(path);
+  expect(res.headers()['cache-control'] ?? '').toContain('s-maxage');
+  const html = await res.text();
+  expect(html).not.toContain("You're on the waiting list");
+  expect(html).not.toContain(email);
+  const visitor = await anon.newPage();
+  await visitor.goto(path);
+  await expect(visitor.locator('aside').getByRole('button', { name: 'Notify me when it opens' }).or(visitor.locator('aside').getByRole('textbox')).first()).toBeVisible();
+  await expect(visitor.getByText("You're on the waiting list")).toHaveCount(0);
+
+  await student.close();
+  await anon.close();
+});
