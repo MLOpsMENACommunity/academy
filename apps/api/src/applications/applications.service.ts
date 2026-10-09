@@ -62,11 +62,26 @@ export class ApplicationsService {
     private readonly funnel: FunnelService,
   ) {}
 
+  /**
+   * QA M5: the user and the course are read in parallel, the student's email is
+   * queued rather than awaited, and the response is built from rows already in
+   * hand instead of being read back (24 sequential database round trips before; about half now).
+   */
   async apply(userId: string, input: ApplyInput): Promise<MyApplicationDetailDto> {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      include: { profile: { include: { skills: true } } },
-    });
+    const [user, course] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        include: { profile: { include: { skills: true } } },
+      }),
+      this.prisma.course.findUnique({
+        where: { slug: input.courseSlug },
+        include: {
+          screeningQuestions: { orderBy: { order: 'asc' } },
+          // For the confirmation email's start date.
+          sessions: { orderBy: { startsAt: 'asc' }, take: 1, select: { startsAt: true } },
+        },
+      }),
+    ]);
     if (!user.emailVerifiedAt) {
       throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED', message: 'Confirm your email address before applying' });
     }
@@ -74,10 +89,6 @@ export class ApplicationsService {
       throw new ForbiddenException({ code: 'PROFILE_INCOMPLETE', message: 'Complete your profile before applying' });
     }
 
-    const course = await this.prisma.course.findUnique({
-      where: { slug: input.courseSlug },
-      include: { screeningQuestions: { orderBy: { order: 'asc' } } },
-    });
     if (!course || course.status === 'DRAFT' || course.status === 'ARCHIVED') throw new NotFoundException('Course not found');
     if (courseAvailability(course) !== 'OPEN') {
       throw new ConflictException({ code: 'COURSE_CLOSED', message: 'Applications for this course are closed' });
@@ -95,8 +106,9 @@ export class ApplicationsService {
     const source = pickSourceParams(input.source ?? {});
 
     let app: Application;
+    let history: ApplicationStatusHistory;
     try {
-      app = await this.prisma.$transaction(async (tx) => {
+      ({ app, history } = await this.prisma.$transaction(async (tx) => {
         // Seat fields as of the lock, not as read before it.
         const locked = await this.workflow.lockCourse(tx, course.id);
         const ctx = await this.workflow.context(tx, locked);
@@ -113,9 +125,9 @@ export class ApplicationsService {
             ref: source.ref ?? null,
           },
         });
-        await this.workflow.recordChange(tx, created, null, status, { id: userId, role: user.role });
-        return created;
-      });
+        const h = await this.workflow.recordChange(tx, created, null, status, { id: userId, role: user.role });
+        return { app: created, history: h };
+      }));
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({ code: 'ALREADY_APPLIED', message: 'You have already applied to this course' });
@@ -123,9 +135,20 @@ export class ApplicationsService {
       throw err;
     }
 
-    await this.funnel.record({ id: course.id }, 'APPLICATION_SUBMITTED', { userId });
-    await this.workflow.afterChange(app, null);
-    return this.getMine(userId, app.id);
+    // Independent side effects, side by side; neither throws, and the email is only queued.
+    await Promise.all([
+      this.funnel.record({ id: course.id }, 'APPLICATION_SUBMITTED', { userId }),
+      this.workflow.afterChange(app, null, null, { user, course }),
+    ]);
+
+    const { screeningQuestions: _q, sessions: _s, ...courseRow } = course;
+    const courseFields = Object.fromEntries(Object.keys(COURSE_SELECT).map((k) => [k, courseRow[k as keyof typeof COURSE_SELECT]])) as AppWithCourse['course'];
+    return {
+      ...toMyApplication({ ...app, course: courseFields, history: [history], enrollment: app.status === 'ENROLLED' ? { id: '' } : null }),
+      answers: app.answers as Answers,
+      source: app.source as SourceParams,
+      questions: questions.map((q) => ({ id: q.id, labelEn: q.labelEn, labelAr: q.labelAr, type: q.type, options: q.options })),
+    };
   }
 
   async listMine(userId: string): Promise<MyApplicationDto[]> {

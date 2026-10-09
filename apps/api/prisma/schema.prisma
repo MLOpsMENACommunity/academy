@@ -594,7 +594,7 @@ model ScreeningQuestion {
   labelAr  String
   helpEn   String?
   helpAr   String?
-  /// For select types: [{ value, labelEn, labelAr }]
+  /// For select types: [{ value, labelEn, labelAr, requiresDetail? }]
   options  Json?
   required Boolean      @default(true)
   order    Int          @default(0)

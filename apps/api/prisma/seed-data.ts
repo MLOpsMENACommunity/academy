@@ -377,7 +377,7 @@ He holds an MSc in Artificial Intelligence from the University of Colorado Bould
         { value: 'telecom', labelEn: 'Telecom', labelAr: 'الاتصالات' },
         { value: 'ecommerce', labelEn: 'E-commerce', labelAr: 'التجارة الإلكترونية' },
         { value: 'government', labelEn: 'Government', labelAr: 'القطاع الحكومي' },
-        { value: 'own', labelEn: 'My own domain (to be approved)', labelAr: 'مجال خاص بي (يتطلب الموافقة)' },
+        { value: 'own', labelEn: 'My own domain (to be approved)', labelAr: 'مجال خاص بي (يتطلب الموافقة)', requiresDetail: true },
       ],
       required: true,
     },

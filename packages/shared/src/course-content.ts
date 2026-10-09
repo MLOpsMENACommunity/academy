@@ -39,6 +39,8 @@ export const questionOptionSchema = z.object({
   value: z.string().min(1).max(64),
   labelEn: z.string().min(1),
   labelAr: z.string().min(1),
+  /** Picking this option asks for a required short description (e.g. "My own domain"). */
+  requiresDetail: z.boolean().optional(),
 });
 export type QuestionOption = z.infer<typeof questionOptionSchema>;
 

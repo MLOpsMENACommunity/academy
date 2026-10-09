@@ -12,7 +12,7 @@ import {
   type Role,
   type TransitionContext,
 } from '@academy/shared';
-import type { Application, Course, Prisma, User } from '@prisma/client';
+import type { Application, ApplicationStatusHistory, Course, Prisma, User } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { FunnelService } from '../funnel/funnel.service';
@@ -25,6 +25,22 @@ export interface Actor {
 }
 
 type Tx = Prisma.TransactionClient;
+
+/** What the status notification needs about the student. */
+export type NotifyUser = User & { profile: { timezone: string | null } | null };
+
+/** What the status notification needs about the course (first session = its start). */
+export interface NotifyCourse {
+  slug: string;
+  type: Course['type'];
+  recordingsPlatform: Course['recordingsPlatform'];
+  youtubePlaylistUrl: string | null;
+  titleEn: string;
+  titleAr: string;
+  startDate: Date | null;
+  preparation: Prisma.JsonValue;
+  sessions: { startsAt: Date }[];
+}
 
 export interface LockedCourse {
   id: string;
@@ -83,7 +99,7 @@ export class ApplicationWorkflow {
     return { courseType: course.type, capacity: course.capacity, seatsTaken };
   }
 
-  /** Writes history and side tables for a status that has just been set inside `tx`. */
+  /** Writes history and side tables for a status that has just been set inside `tx`; returns the history row. */
   async recordChange(
     tx: Tx,
     app: Pick<Application, 'id' | 'userId' | 'courseId'>,
@@ -91,8 +107,8 @@ export class ApplicationWorkflow {
     to: ApplicationStatus,
     actor: Actor | null,
     reason?: string | null,
-  ): Promise<void> {
-    await tx.applicationStatusHistory.create({
+  ): Promise<ApplicationStatusHistory> {
+    const history = await tx.applicationStatusHistory.create({
       data: { applicationId: app.id, fromStatus: from, toStatus: to, actorId: actor?.id ?? null, reason: reason ?? null },
     });
     if (to === 'ENROLLED') {
@@ -115,6 +131,7 @@ export class ApplicationWorkflow {
         tx,
       );
     }
+    return history;
   }
 
   /**
@@ -162,11 +179,19 @@ export class ApplicationWorkflow {
   }
 
   /** Email + in-app notification + funnel. Each runs independently; failures never undo the change. */
-  async afterChange(app: Application, from: ApplicationStatus | null, reason?: string | null): Promise<void> {
+  async afterChange(
+    app: Application,
+    from: ApplicationStatus | null,
+    reason?: string | null,
+    /** The student and course, when the caller already has them (saves a read). */
+    loaded?: { user: NotifyUser; course: NotifyCourse },
+  ): Promise<void> {
     if (from === app.status) return;
     const funnelEvent = FUNNEL_FOR[app.status];
     const results = await Promise.allSettled([
-      this.prisma.application
+      loaded
+        ? this.notifyStudent(loaded.user, loaded.course, app, reason ?? null)
+        : this.prisma.application
         .findUniqueOrThrow({
           where: { id: app.id },
           include: {
@@ -198,18 +223,8 @@ export class ApplicationWorkflow {
   }
 
   private async notifyStudent(
-    user: User & { profile: { timezone: string | null } | null },
-    course: {
-      slug: string;
-      type: Course['type'];
-      recordingsPlatform: Course['recordingsPlatform'];
-      youtubePlaylistUrl: string | null;
-      titleEn: string;
-      titleAr: string;
-      startDate: Date | null;
-      preparation: Prisma.JsonValue;
-      sessions: { startsAt: Date }[];
-    },
+    user: NotifyUser,
+    course: NotifyCourse,
     app: Application,
     reason: string | null,
   ): Promise<void> {
@@ -230,7 +245,9 @@ export class ApplicationWorkflow {
       bodyAr: withReason(msg.ar, rejected ? 'ملاحظات من فريق الدورة: ' : 'السبب: '),
       link,
     }),
-      this.email.send(user.email, user.locale, {
+      // Queued, not awaited: the email queue is paced for the provider's rate limit, so
+      // waiting for delivery held the student's request for seconds (QA M5).
+      this.queueEmail(user.email, user.locale, {
         name: 'applicationStatus',
         courseTitle: user.locale === 'ar' ? course.titleAr || course.titleEn : course.titleEn,
         status: app.status,
@@ -246,6 +263,12 @@ export class ApplicationWorkflow {
     if (notified.status === 'rejected' || emailed.status === 'rejected') {
       this.logger.error(`Notifying the student failed for application ${app.id}`);
     }
+  }
+
+  /** Hands an email to the paced queue without waiting for delivery; failures are logged there. */
+  private queueEmail(...args: Parameters<EmailService['send']>): Promise<void> {
+    void this.email.send(...args);
+    return Promise.resolve();
   }
 }
 

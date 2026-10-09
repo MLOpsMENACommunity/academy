@@ -72,6 +72,14 @@ export class MeController {
     return this.profiles.uploadCv(user.id, file);
   }
 
+  /** A short-lived link to the student's own CV (owners can always see what they uploaded). */
+  @Get('profile/cv')
+  @Header('Cache-Control', 'private, no-store')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  cv(@CurrentUser() user: AuthUser): Promise<{ url: string; expiresIn: number }> {
+    return this.profiles.cvUrl(user.id);
+  }
+
   @Delete('profile/cv')
   deleteCv(@CurrentUser() user: AuthUser): Promise<ProfileDto> {
     return this.profiles.deleteCv(user.id);

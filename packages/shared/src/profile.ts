@@ -65,11 +65,45 @@ const requiredProfileUrl = (host: string) =>
     }, { message: `Enter your ${host} profile link` })
     .transform((v) => new URL(v).href);
 
+/** Arabic-Indic and Persian digits, as typed on Arabic keyboards, to ASCII. */
+function asciiDigits(v: string): string {
+  return v.replace(/[\u0660-\u0669\u06f0-\u06f9]/g, (d) => String((d.charCodeAt(0) & 0xf) % 10));
+}
+
+/**
+ * Local mobile formats we accept when the student's country is known, and the
+ * country code that replaces the leading trunk 0 (01001234567 → +201001234567).
+ */
+const LOCAL_MOBILE: Record<string, { local: RegExp; code: string }> = {
+  EG: { local: /^01[0125]\d{8}$/, code: '20' },
+  SA: { local: /^05\d{8}$/, code: '966' },
+  AE: { local: /^05\d{8}$/, code: '971' },
+};
+
+/**
+ * Normalises a phone number towards E.164: strips spaces, dashes, dots and
+ * brackets, turns a 00 prefix into +, and, for Egypt, Saudi Arabia and the UAE,
+ * turns a local mobile number (or one with the trunk 0 kept after the country
+ * code, e.g. +2001001234567) into international format. Anything else is
+ * returned cleaned but otherwise unchanged, for the schema to judge.
+ */
+export function normalizePhone(raw: string, country?: string | null): string {
+  let v = asciiDigits(raw.trim()).replace(/[\s\-().]/g, '');
+  if (v.startsWith('00')) v = `+${v.slice(2)}`;
+  const rule = country ? LOCAL_MOBILE[country] : undefined;
+  if (rule) {
+    if (rule.local.test(v)) return `+${rule.code}${v.slice(1)}`;
+    const trunk = `+${rule.code}0`;
+    if (v.startsWith(trunk) && rule.local.test(v.slice(trunk.length - 1))) return `+${rule.code}${v.slice(trunk.length)}`;
+  }
+  return v;
+}
+
 /** E.164-ish: + then 8–15 digits. Spaces and dashes are stripped first. */
 export const phoneSchema = z
   .string()
   .trim()
-  .transform((v) => v.replace(/[\s\-()]/g, ''))
+  .transform((v) => normalizePhone(v))
   .refine((v) => /^\+[1-9]\d{7,14}$/.test(v), {
     message: 'Use international format with country code, e.g. +201001234567',
   });
@@ -84,7 +118,14 @@ const unique = <T extends z.ZodTypeAny>(item: T, max: number) =>
 // ------------------------------------------------------------------ sections
 
 /** Required before applying to any course. */
-export const coreSectionSchema = z.object({
+export const coreSectionSchema = z.preprocess(
+  // A local number (e.g. 01001234567 in Egypt) is accepted and stored in international format.
+  (raw) => {
+    if (!raw || typeof raw !== 'object') return raw;
+    const o = raw as Record<string, unknown>;
+    return typeof o.phone === 'string' ? { ...o, phone: normalizePhone(o.phone, typeof o.country === 'string' ? o.country : null) } : o;
+  },
+  z.object({
   fullNameEn: text(120).min(2, 'Enter your full name'),
   fullNameAr: optionalText(120),
   phone: phoneSchema,
@@ -100,7 +141,8 @@ export const coreSectionSchema = z.object({
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: 'You must accept the Terms and Privacy Policy' }),
   }),
-});
+  }),
+);
 export type CoreSection = z.infer<typeof coreSectionSchema>;
 
 const requiredText = (max: number) => z.string().trim().min(1).max(max);
@@ -115,30 +157,39 @@ export const professionalSectionSchema = z.object({
 });
 export type ProfessionalSection = z.infer<typeof professionalSectionSchema>;
 
-const currentYear = new Date().getFullYear();
+export const GRADUATION_YEAR_MIN = 1960;
+export const GRADUATION_YEAR_MAX = new Date().getFullYear() + 8;
+const graduationYearMessage = `Enter a year between ${GRADUATION_YEAR_MIN} and ${GRADUATION_YEAR_MAX}`;
+
 /** Required (no skip). */
 export const educationSectionSchema = z.object({
   educationLevel: z.enum(EDUCATION_LEVELS),
   fieldOfStudy: requiredText(120),
   /** University, institution or learning platform (e.g. a bootcamp or Coursera). */
   university: requiredText(160),
-  graduationYear: z.coerce
-    .number()
-    .int()
-    .min(1960)
-    .max(currentYear + 8)
-    .nullish()
-    .or(z.literal('').transform(() => null)),
+  /** Optional; blank means not given. */
+  graduationYear: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : typeof v === 'string' ? Number(v.trim()) : v),
+    z
+      .number({ invalid_type_error: graduationYearMessage })
+      .int(graduationYearMessage)
+      .min(GRADUATION_YEAR_MIN, graduationYearMessage)
+      .max(GRADUATION_YEAR_MAX, graduationYearMessage)
+      .nullable(),
+  ),
   currentlyStudying: z.boolean().nullish(),
 });
 export type EducationSection = z.infer<typeof educationSectionSchema>;
+
+/** Longest tool name the tag input accepts (shown to the student, never cut silently). */
+export const PRODUCTION_TOOL_MAX_LENGTH = 40;
 
 export const skillLevelSchema = z.number().int().min(1).max(5);
 export const skillsSectionSchema = z.object({
   /** Missing skill = not rated. */
   skills: z.record(z.enum(SKILLS), skillLevelSchema).default({}),
   cloudPlatforms: unique(z.enum(CLOUD_PLATFORMS), CLOUD_PLATFORMS.length),
-  productionTools: unique(text(40).min(1), 30),
+  productionTools: unique(text(PRODUCTION_TOOL_MAX_LENGTH).min(1), 30),
 });
 export type SkillsSection = z.infer<typeof skillsSectionSchema>;
 
@@ -195,6 +246,46 @@ export const profileSectionSchemas = {
   links: linksSectionSchema,
   community: communitySectionSchema,
 } as const satisfies Record<ProfileSection, z.ZodTypeAny>;
+
+// ------------------------------------------------------------------ cross-section checks
+
+export const ML_EXPERIENCE_MESSAGE = "ML/AI experience can't be more than your total professional experience";
+
+/** True when both are known and the ML/AI range is above the total range (e.g. 5–10 years of ML in 1–3 years overall). */
+export function mlExperienceExceedsTotal(total: string | null | undefined, ml: string | null | undefined): boolean {
+  const t = EXPERIENCE_RANGES.indexOf(total as (typeof EXPERIENCE_RANGES)[number]);
+  const m = EXPERIENCE_RANGES.indexOf(ml as (typeof EXPERIENCE_RANGES)[number]);
+  return t >= 0 && m >= 0 && m > t;
+}
+
+/** The profile fields the cross-section checks read. */
+export type SavedProfileFacts = Partial<Pick<ProfileDto, 'experienceYears' | 'mlExperienceYears' | 'primaryArea'>> | null | undefined;
+
+/**
+ * A section's schema plus the checks that need another section's saved answer:
+ * ML/AI experience can't exceed total experience (whichever side is being
+ * saved), and the primary area is never also a secondary area. Used by the
+ * form and by the API, so both reject the same input.
+ */
+export function sectionSchemaFor(section: ProfileSection, saved: SavedProfileFacts): z.ZodTypeAny {
+  if (section === 'professional') {
+    return professionalSectionSchema
+      .superRefine((d, ctx) => {
+        if (mlExperienceExceedsTotal(saved?.experienceYears, d.mlExperienceYears)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['mlExperienceYears'], message: ML_EXPERIENCE_MESSAGE });
+        }
+      })
+      .transform((d) => ({ ...d, secondaryAreas: d.secondaryAreas.filter((a) => a !== saved?.primaryArea) }));
+  }
+  if (section === 'core') {
+    return coreSectionSchema.superRefine((d, ctx) => {
+      if (mlExperienceExceedsTotal(d.experienceYears, saved?.mlExperienceYears)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['experienceYears'], message: ML_EXPERIENCE_MESSAGE });
+      }
+    });
+  }
+  return profileSectionSchemas[section];
+}
 
 // ------------------------------------------------------------------ DTO + completeness
 

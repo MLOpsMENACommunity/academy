@@ -3,6 +3,7 @@ import type { Prisma, Profile, SkillRating } from '@prisma/client';
 import {
   computeCompleteness,
   profileSectionSchemas,
+  sectionSchemaFor,
   type ProfileDto,
   type ProfileSection,
   type Skill,
@@ -14,7 +15,7 @@ import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { detectFileType, MAX_UPLOAD_BYTES } from '../storage/file-type';
-import { StorageService } from '../storage/storage.service';
+import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
 
 type ProfileWithSkills = Profile & { skills: SkillRating[] };
 
@@ -86,7 +87,11 @@ export class ProfileService {
     private readonly audit: AuditService,
   ) {}
 
+  /** The student's profile, created empty on first use. One read in the common case. */
   private async load(userId: string): Promise<ProfileWithSkills> {
+    const existing = await this.prisma.profile.findUnique({ where: { userId }, include: { skills: true } });
+    if (existing) return existing;
+    // Upsert, not create: two first requests in parallel must not collide.
     return this.prisma.profile.upsert({
       where: { userId },
       update: {},
@@ -99,9 +104,16 @@ export class ProfileService {
     return toProfileDto(await this.load(userId));
   }
 
+  /**
+   * Saves one section. The profile is read once; the new completeness is
+   * computed in memory from that read plus the change, and written in the same
+   * UPDATE (QA M5: this used to re-read the profile and write a second time,
+   * 21 database round trips per save, now 4; 7 for skills).
+   */
   async updateSection(userId: string, section: ProfileSection, raw: unknown): Promise<ProfileDto> {
-    const schema = profileSectionSchemas[section];
-    const parsed = schema.safeParse(raw);
+    const before = await this.load(userId);
+    // Cross-section checks (ML/AI vs total experience, primary vs secondary area) need the saved profile.
+    const parsed = sectionSchemaFor(section, toProfileDto(before)).safeParse(raw);
     if (!parsed.success) {
       throw new BadRequestException({
         statusCode: 400,
@@ -109,37 +121,50 @@ export class ProfileService {
         errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
     }
-    const before = await this.load(userId);
     const data = parsed.data as Record<string, unknown>;
+    const now = new Date();
 
-    await this.prisma.$transaction(async (tx) => {
-      if (section === 'skills') {
-        const { skills, ...rest } = data as z.infer<(typeof profileSectionSchemas)['skills']>;
-        await tx.skillRating.deleteMany({ where: { profileId: before.id } });
-        const entries = Object.entries(skills) as [Skill, number][];
-        if (entries.length) {
-          await tx.skillRating.createMany({
-            data: entries.map(([skill, level]) => ({ profileId: before.id, skill, level })),
-          });
-        }
-        await tx.profile.update({ where: { id: before.id }, data: rest });
-      } else if (section === 'core') {
-        const { acceptTerms: _accept, ...rest } = data as z.infer<(typeof profileSectionSchemas)['core']>;
-        await tx.profile.update({
-          where: { id: before.id },
-          data: { ...rest, acceptedTermsAt: before.acceptedTermsAt ?? new Date() },
-        });
-      } else if (section === 'community') {
-        await tx.profile.update({
-          where: { id: before.id },
-          data: { ...(data as Prisma.ProfileUpdateInput), communityAnsweredAt: new Date() },
-        });
-      } else {
-        await tx.profile.update({ where: { id: before.id }, data: data as Prisma.ProfileUpdateInput });
+    let changes: Record<string, unknown>;
+    let skills = before.skills;
+    if (section === 'skills') {
+      const { skills: ratings, ...rest } = data as z.infer<(typeof profileSectionSchemas)['skills']>;
+      changes = rest;
+      skills = (Object.entries(ratings) as [Skill, number][]).map(([skill, level]) => ({ profileId: before.id, skill, level }) as SkillRating);
+    } else if (section === 'core') {
+      const { acceptTerms: _accept, ...rest } = data as z.infer<(typeof profileSectionSchemas)['core']>;
+      changes = { ...rest, acceptedTermsAt: before.acceptedTermsAt ?? now };
+      // A new primary area is no longer also a secondary one.
+      if (before.secondaryAreas.includes(rest.primaryArea)) {
+        changes.secondaryAreas = before.secondaryAreas.filter((a) => a !== rest.primaryArea);
       }
+    } else if (section === 'community') {
+      changes = { ...data, communityAnsweredAt: now };
+    } else {
+      changes = data;
+    }
+
+    const c = computeCompleteness(toProfileDto({ ...before, ...changes, skills } as ProfileWithSkills));
+    const update = this.prisma.profile.update({
+      where: { id: before.id },
+      data: {
+        ...(changes as Prisma.ProfileUpdateInput),
+        completeness: c.percent,
+        coreCompletedAt: c.coreComplete ? (before.coreCompletedAt ?? now) : null,
+      },
     });
 
-    const after = await this.recompute(userId);
+    let after: ProfileWithSkills;
+    if (section === 'skills') {
+      const [, , updated] = await this.prisma.$transaction([
+        this.prisma.skillRating.deleteMany({ where: { profileId: before.id } }),
+        this.prisma.skillRating.createMany({ data: skills.map(({ skill, level }) => ({ profileId: before.id, skill, level })) }),
+        update,
+      ]);
+      after = { ...updated, skills };
+    } else {
+      // Skills are untouched, so the ones already read are current: a single UPDATE … RETURNING.
+      after = { ...(await update), skills: before.skills };
+    }
 
     if (section === 'core' && before.googleEmail && after.googleEmail !== before.googleEmail) {
       await this.alertDriveAccess(userId, 'changed', before.googleEmail);
@@ -203,8 +228,9 @@ export class ProfileService {
               bodyAr: `حذف طالب مسجل في "${e.course.titleAr}" حسابه. أزل حساب Google الخاص به من مجلد Drive (راجع صفحة الطلاب المسجلين).`,
             };
       const admins = await this.notifications.notifyAdmins({ type: `admin.drive_access_${reason}`, ...copy, link });
+      // Queued, not awaited: delivery is paced and must not hold up the student's save.
       for (const a of admins) {
-        await this.email.send(a.email, a.locale, {
+        void this.email.send(a.email, a.locale, {
           name: 'adminAlert',
           message: a.locale === 'ar' ? copy.bodyAr : copy.bodyEn,
           url: this.email.url(a.locale, link),
@@ -232,6 +258,13 @@ export class ProfileService {
     }
     this.logger.log(`CV uploaded (sha256 prefix ${sha256(file.buffer).slice(0, 8)})`);
     return toProfileDto(await this.recompute(userId));
+  }
+
+  /** The owner's own CV: a 5-minute link, like the admin view (QA L23). */
+  async cvUrl(userId: string): Promise<{ url: string; expiresIn: number }> {
+    const p = await this.prisma.profile.findUnique({ where: { userId }, select: { cvKey: true } });
+    if (!p?.cvKey) throw new NotFoundException('No CV');
+    return { url: await this.storage.signedUrl(p.cvKey), expiresIn: SIGNED_URL_TTL_SECONDS };
   }
 
   async deleteCv(userId: string): Promise<ProfileDto> {
