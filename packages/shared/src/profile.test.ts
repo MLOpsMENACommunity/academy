@@ -57,6 +57,10 @@ describe('linksSectionSchema', () => {
     expect(linksSectionSchema.safeParse({ linkedinUrl: 'https://github.com/x', githubUrl: 'https://github.com/x' }).success).toBe(false);
     expect(linksSectionSchema.safeParse({ linkedinUrl: 'https://linkedin.com.evil.io/x', githubUrl: 'https://github.com/x' }).success).toBe(false);
     expect(linksSectionSchema.safeParse({ linkedinUrl: 'https://eg.linkedin.com/in/x', githubUrl: 'https://github.com/x' }).success).toBe(true);
+    const gh = 'https://github.com/x';
+    for (const bad of ['http://www.linkedin.com/in/x', 'https://u:p@www.linkedin.com/in/x', 'https://www.linkedin.com', 'https://www.linkedin.com/']) {
+      expect(linksSectionSchema.safeParse({ linkedinUrl: bad, githubUrl: gh }).success, bad).toBe(false);
+    }
   });
   it('rejects javascript: and bare words', () => {
     expect(linksSectionSchema.safeParse({ linkedinUrl: 'javascript:alert(1)' }).success).toBe(false);

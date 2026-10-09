@@ -49,15 +49,21 @@ const requiredProfileUrl = (host: string) =>
     .trim()
     .min(1, 'Required')
     .max(300)
-    .refine((v) => /^https?:\/\/[^\s]+\.[^\s]+/i.test(v), { message: 'Enter a full URL starting with https://' })
+    .refine((v) => /^https:\/\/[^\s]+\.[^\s]+/i.test(v), { message: 'Enter a full URL starting with https://' })
     .refine((v) => {
+      // https, no credentials, the right site, and a profile path (not just the home page).
       try {
-        const h = new URL(v).hostname.toLowerCase();
-        return h === host || h.endsWith(`.${host}`);
+        const u = new URL(v);
+        const h = u.hostname.toLowerCase();
+        return (
+          u.protocol === 'https:' && !u.username && !u.password && !v.includes('\\') &&
+          (h === host || h.endsWith(`.${host}`)) && u.pathname.replace(/\/+$/, '').length > 1
+        );
       } catch {
         return false;
       }
-    }, { message: `Enter your ${host} profile link` });
+    }, { message: `Enter your ${host} profile link` })
+    .transform((v) => new URL(v).href);
 
 /** E.164-ish: + then 8–15 digits. Spaces and dashes are stripped first. */
 export const phoneSchema = z

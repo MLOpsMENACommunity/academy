@@ -190,7 +190,8 @@
     "doneTitle": "You're all set",
     "doneBody": "Your profile is ready. Next, browse courses and apply.",
     "toCourses": "Browse courses",
-    "backToCourse": "Continue to the course"
+    "backToCourse": "Continue to the course",
+    "continue": "Continue"
   },
   "profile": {
     "title": "My profile",
@@ -215,8 +216,8 @@
       "education": "Required. Your highest degree or main way of learning.",
       "skills": "Rate yourself honestly; this is only used to plan courses and cohorts.",
       "goals": "Tells us which courses to build next.",
-      "links": "Optional. Your CV is private and only visible to academy admins.",
-      "community": "You choose what we can do with your profile. Everything here is off unless you turn it on."
+      "links": "Required: your LinkedIn and GitHub profiles. Your CV is optional, private and only visible to academy admins.",
+      "community": "Required: answer each question with Yes or No. Nothing is chosen for you, and you can change your answers any time."
     },
     "fields": {
       "fullNameEn": "Full name (English)",

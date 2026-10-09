@@ -29,7 +29,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (user) router.replace(postLoginPath(user, locale, returnTo));
+    if (user) router.replace(postLoginPath(user, locale, returnTo, true));
   }, [user, router, locale, returnTo]);
 
   async function onSubmit(e: FormEvent) {

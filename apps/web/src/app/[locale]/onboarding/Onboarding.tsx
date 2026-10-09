@@ -73,6 +73,10 @@ function Stepper() {
             <Link href={returnTo} className={buttonClass('accent', 'lg')}>
               {t('onboarding.backToCourse')}
             </Link>
+          ) : returnTo !== `/${locale}/dashboard` ? (
+            <Link href={returnTo} className={buttonClass('accent', 'lg')}>
+              {t('onboarding.continue')}
+            </Link>
           ) : (
             <Link href={`/${locale}/courses`} className={buttonClass('accent', 'lg')}>
               {t('onboarding.toCourses')}
