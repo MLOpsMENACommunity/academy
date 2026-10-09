@@ -3,6 +3,7 @@
 import {
   applicationStatusLabels,
   paymentStatusLabels,
+  answerDetail,
   type AdminApplicationEvent,
   type AdminPaymentDto,
   type AnswerValue,
@@ -78,7 +79,8 @@ export default function ApplicationDetailAdmin() {
       const o = q.options?.find((o) => o.value === x);
       return o ? (locale === 'ar' ? o.labelAr : o.labelEn) : x;
     };
-    return Array.isArray(v) ? v.map(lbl).join(', ') : lbl(String(v));
+    const detail = answerDetail(a.answers, q);
+    return Array.isArray(v) ? v.map(lbl).join(', ') : detail ? `${lbl(String(v))}: ${detail}` : lbl(String(v));
   };
 
   return (

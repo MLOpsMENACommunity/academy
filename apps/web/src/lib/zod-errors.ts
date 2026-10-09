@@ -1,3 +1,4 @@
+import { GRADUATION_YEAR_MAX, GRADUATION_YEAR_MIN, ML_EXPERIENCE_MESSAGE } from '@academy/shared';
 import type { ZodIssue } from 'zod';
 import type { Translate } from '@/i18n/translator';
 
@@ -17,6 +18,11 @@ export function issuesToErrors(issues: ZodIssue[], t: Translate): Record<string,
 }
 
 function translateIssue(i: ZodIssue, t: Translate): string {
+  // Schema-specific messages first: they apply whatever the issue code.
+  if (i.message.startsWith('Enter a year between')) {
+    return t('forms.errors.yearRange', { min: GRADUATION_YEAR_MIN, max: GRADUATION_YEAR_MAX });
+  }
+  if (i.message === ML_EXPERIENCE_MESSAGE) return t('forms.errors.mlExperience');
   switch (i.code) {
     case 'invalid_type':
       return i.received === 'undefined' || i.received === 'null' ? t('forms.errors.required') : t('forms.errors.invalid');

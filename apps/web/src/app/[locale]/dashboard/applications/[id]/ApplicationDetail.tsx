@@ -1,6 +1,6 @@
 'use client';
 
-import { applicationStatusLabels, type AnswerValue, type MyApplicationDetailDto } from '@academy/shared';
+import { answerDetail, applicationStatusLabels, type AnswerValue, type MyApplicationDetailDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -112,7 +112,9 @@ function Inner() {
             {app.questions.map((q) => (
               <div key={q.id} className="p-4">
                 <dt className="text-sm font-semibold text-fg">{locale === 'ar' ? q.labelAr : q.labelEn}</dt>
-                <dd className="mt-1 text-sm whitespace-pre-line">{answerText(app.answers[q.id], q.options)}</dd>
+                <dd className="mt-1 text-sm whitespace-pre-line">{answerText(app.answers[q.id], q.options)}
+                  {answerDetail(app.answers, q) && `: ${answerDetail(app.answers, q)}`}
+                </dd>
               </div>
             ))}
           </dl>

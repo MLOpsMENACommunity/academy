@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  ANSWER_DETAIL_MAX,
+  answerDetailKey,
   buildAnswersSchema,
   pickSourceParams,
   type CourseDetailDto,
@@ -12,9 +14,10 @@ import {
 } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
-import { ChipGroup, RadioGroup, TextAreaField, TextField } from '@/components/forms/fields';
+import { invalidateCourseStatus } from '@/components/course/ApplyCta';
+import { ChipGroup, focusFirstInvalid, RadioGroup, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
@@ -23,14 +26,6 @@ import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
-
-/** Moves keyboard and screen-reader focus to the first field marked invalid. */
-export function focusFirstInvalid(): void {
-  requestAnimationFrame(() => {
-    const el = document.querySelector<HTMLElement>('[aria-invalid="true"], fieldset[data-invalid="true"] input');
-    el?.focus();
-  });
-}
 
 export function ApplyForm() {
   return <RequireAuth>{(user) => <Inner user={user} />}</RequireAuth>;
@@ -53,6 +48,7 @@ function Inner({ user }: { user: MeResponse }) {
   const [loadError, setLoadError] = useState(false);
   /** Changes on every failed submit so the error banner is announced again. */
   const [attempt, setAttempt] = useState(0);
+  const form = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -123,7 +119,7 @@ function Inner({ user }: { user: MeResponse }) {
       setErrors(issuesToErrors(parsed.error.issues, t));
       setFormError(t('forms.fixErrors'));
       setAttempt((n) => n + 1);
-      focusFirstInvalid();
+      focusFirstInvalid(form.current);
       return;
     }
     setErrors({});
@@ -134,11 +130,14 @@ function Inner({ user }: { user: MeResponse }) {
         method: 'POST',
         json: { courseSlug: slug, answers: parsed.data, source },
       });
+      // The course page's button reads my-status client-side; drop the cached "not applied".
+      invalidateCourseStatus(slug);
       router.replace(`/${locale}/dashboard/applications/${app.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.errors.length) {
           setErrors(Object.fromEntries(err.errors.map((x) => [x.path.replace(/^answers\./, ''), x.message])));
+          focusFirstInvalid(form.current);
         }
         const known = err.code ? t(`apply.errors.${err.code}`) : '';
         setFormError(known && known !== `apply.errors.${err.code}` ? known : errorMessage(err, t));
@@ -159,7 +158,7 @@ function Inner({ user }: { user: MeResponse }) {
           <p className="mt-1">{t('apply.googleNote', { email: profile.googleEmail })}</p>
         )}
       </Alert>
-      <form onSubmit={onSubmit} noValidate className="mt-6 space-y-6 rounded-card border border-line bg-card p-5 sm:p-8">
+      <form ref={form} onSubmit={onSubmit} noValidate aria-busy={busy || undefined} className="mt-6 space-y-6 rounded-card border border-line bg-card p-5 sm:p-8">
         {formError && (
           <Alert key={attempt} tone="danger">
             {formError}
@@ -194,10 +193,26 @@ function Inner({ user }: { user: MeResponse }) {
                   ]}
                 />
               );
-            case 'SINGLE_SELECT':
+            case 'SINGLE_SELECT': {
+              // An option such as "My own domain (to be approved)" asks for a short description.
+              const chosen = (q.options ?? []).find((o) => o.value === v);
+              const detailKey = answerDetailKey(q.id);
               return (
-                <RadioGroup key={q.id} legend={common.label} hint={common.hint} error={common.error} required={q.required} value={(v as string) ?? null} onChange={set(q.id)} options={options} />
+                <div key={q.id} className="space-y-3">
+                  <RadioGroup legend={common.label} hint={common.hint} error={common.error} required={q.required} value={(v as string) ?? null} onChange={set(q.id)} options={options} />
+                  {chosen?.requiresDetail && (
+                    <TextField
+                      label={t('apply.detail', { option: locale === 'ar' ? chosen.labelAr : chosen.labelEn })}
+                      required
+                      maxLength={ANSWER_DETAIL_MAX}
+                      value={(answers[detailKey] as string) ?? ''}
+                      onChange={set(detailKey)}
+                      error={errors[detailKey]}
+                    />
+                  )}
+                </div>
               );
+            }
             case 'MULTI_SELECT':
               return (
                 <ChipGroup key={q.id} legend={common.label} hint={common.hint} error={common.error} required={q.required} value={(v as string[]) ?? []} onChange={set(q.id)} options={options} />

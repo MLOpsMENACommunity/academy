@@ -3,6 +3,21 @@
 import { useId, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
 import { useI18n } from '@/i18n/client';
 import { inputClass } from '../ui/input';
+import { addTag } from './tags';
+
+/** Controls that can be focused and carry aria-invalid (radios and checkboxes included). */
+const INVALID_CONTROL = 'input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]';
+
+/**
+ * Moves keyboard and screen-reader focus to the first invalid control inside
+ * `root` (the form), in document order. For a radio or chip group that is its
+ * first option. Runs after React has rendered the new errors.
+ */
+export function focusFirstInvalid(root?: HTMLElement | null): void {
+  requestAnimationFrame(() => {
+    (root ?? document).querySelector<HTMLElement>(INVALID_CONTROL)?.focus();
+  });
+}
 
 export interface Option {
   value: string;
@@ -227,7 +242,13 @@ export function ChipGroup({
                 checked ? 'border-primary bg-primary-soft font-semibold text-primary' : 'border-line-strong bg-card text-body hover:bg-muted-bg'
               }`}
             >
-              <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggle(o.value)} />
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={() => toggle(o.value)}
+                aria-invalid={error ? true : undefined}
+              />
               <span aria-hidden>{checked ? '✓' : '+'}</span>
               {o.label}
             </label>
@@ -267,7 +288,10 @@ export function RadioGroup({
   const id = useId();
   return (
     <fieldset
+      role="radiogroup"
       aria-describedby={[hint ? `${id}-hint` : '', error ? `${id}-err` : ''].filter(Boolean).join(' ') || undefined}
+      aria-required={required || undefined}
+      aria-invalid={error ? true : undefined}
       data-invalid={error ? 'true' : undefined}
     >
       <legend className="mb-1.5 text-sm font-semibold text-fg">
@@ -302,6 +326,7 @@ export function RadioGroup({
               onChange={() => onChange(o.value)}
               className="size-4 accent-[var(--brand-primary)]"
               required={required}
+              aria-invalid={error ? true : undefined}
             />
             {o.label}
           </label>
@@ -323,6 +348,7 @@ export function CheckboxField({
   onChange,
   error,
 }: {
+  /** Plain text: it is the checkbox's accessible name. Put links in `hint`. */
   label: ReactNode;
   hint?: ReactNode;
   checked: boolean;
@@ -330,6 +356,7 @@ export function CheckboxField({
   error?: string;
 }) {
   const id = useId();
+  const describedBy = [hint ? `${id}-h` : '', error ? `${id}-e` : ''].filter(Boolean).join(' ') || undefined;
   return (
     <div>
       <div className="flex items-start gap-3">
@@ -339,16 +366,21 @@ export function CheckboxField({
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
           className="mt-1 size-5 shrink-0 accent-[var(--brand-primary)]"
-          aria-describedby={hint || error ? `${id}-d` : undefined}
+          aria-describedby={describedBy}
           aria-invalid={error ? true : undefined}
         />
         <label htmlFor={id} className="text-sm text-fg">
           {label}
         </label>
       </div>
-      {(hint || error) && (
-        <p id={`${id}-d`} className={`ms-8 mt-1 text-xs ${error ? 'font-medium text-danger' : 'text-muted'}`}>
-          {error ?? hint}
+      {hint && (
+        <p id={`${id}-h`} className="ms-8 mt-1 text-xs text-muted">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-e`} className="ms-8 mt-1 text-xs font-medium text-danger">
+          {error}
         </p>
       )}
     </div>
@@ -409,7 +441,12 @@ export function SkillScale({
   );
 }
 
-/** Free-form tags (e.g. production tools). Enter or comma adds a tag. */
+/**
+ * Free-form tags (e.g. production tools). Enter or comma adds a tag. The input
+ * is cleared after every attempt; a duplicate is announced ("already added")
+ * rather than left in the box, and the length limit is shown, never applied
+ * silently.
+ */
 export function TagInput({
   label,
   hint,
@@ -417,6 +454,7 @@ export function TagInput({
   onChange,
   suggestions = [],
   max = 30,
+  maxLength = 40,
 }: {
   label: ReactNode;
   hint?: ReactNode;
@@ -424,13 +462,23 @@ export function TagInput({
   onChange: (v: string[]) => void;
   suggestions?: string[];
   max?: number;
+  /** Longest tag accepted; the input stops there and shows a counter. */
+  maxLength?: number;
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState('');
+  const [notice, setNotice] = useState('');
   const add = (raw: string) => {
-    const tag = raw.trim().slice(0, 40);
-    if (!tag || value.length >= max || value.some((v) => v.toLowerCase() === tag.toLowerCase())) return;
-    onChange([...value, tag]);
+    const r = addTag(value, raw, { max, maxLength });
+    if (!r.tag) return;
+    if (r.rejected === 'duplicate') setNotice(t('forms.alreadyAdded', { tag: r.tag }));
+    else if (r.rejected === 'tooLong') setNotice(t('forms.errors.tooLong', { max: maxLength }));
+    else if (r.rejected) setNotice(t('forms.errors.invalid'));
+    else {
+      setNotice('');
+      onChange(r.next);
+    }
+    // Never leave a rejected tag in the box: the next word would be typed onto it.
     setDraft('');
   };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -463,17 +511,34 @@ export function TagInput({
               ))}
             </ul>
           )}
-          <input
-            id={id}
-            className={inputClass}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKey}
-            onBlur={() => add(draft)}
-            aria-describedby={describedBy}
-            list={`${id}-list`}
-            dir="ltr"
-          />
+          <div className="relative">
+            <input
+              id={id}
+              className={`${inputClass} pe-16`}
+              value={draft}
+              maxLength={maxLength}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                if (notice) setNotice('');
+              }}
+              onKeyDown={onKey}
+              onBlur={() => add(draft)}
+              aria-describedby={describedBy}
+              list={`${id}-list`}
+              dir="ltr"
+            />
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute inset-y-0 end-3 grid place-items-center text-xs tabular-nums ${
+                draft.length >= maxLength ? 'font-semibold text-danger' : 'text-muted'
+              }`}
+            >
+              {draft.length}/{maxLength}
+            </span>
+          </div>
+          <p role="status" className="mt-1 text-xs font-medium text-danger">
+            {notice}
+          </p>
           <datalist id={`${id}-list`}>
             {unused.map((s) => (
               <option key={s} value={s} />

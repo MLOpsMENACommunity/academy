@@ -13,6 +13,15 @@ import { NotifyMe } from './NotifyMe';
 /** Shared across the two CTA instances on a page so my-status is fetched once. */
 const statusCache = new Map<string, Promise<MyCourseStatusDto>>();
 
+/**
+ * Forgets the cached status for a course, e.g. right after applying, so the
+ * (ISR-cached) course page swaps "Apply now" for "View my application" at once
+ * instead of after the 30-second cache expires.
+ */
+export function invalidateCourseStatus(slug: string): void {
+  for (const key of statusCache.keys()) if (key.endsWith(`:${slug}`)) statusCache.delete(key);
+}
+
 interface Props {
   slug: string;
   availability: CourseAvailability;

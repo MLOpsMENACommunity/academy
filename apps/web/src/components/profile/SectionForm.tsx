@@ -12,6 +12,8 @@ import {
   EMPLOYMENT_STATUSES,
   employmentStatusLabels,
   EXPERIENCE_RANGES,
+  GRADUATION_YEAR_MAX,
+  GRADUATION_YEAR_MIN,
   experienceRangeLabels,
   INDUSTRIES,
   industryLabels,
@@ -20,7 +22,8 @@ import {
   LEARNING_GOALS,
   learningGoalLabels,
   MENA_COUNTRIES,
-  profileSectionSchemas,
+  PRODUCTION_TOOL_MAX_LENGTH,
+  sectionSchemaFor,
   REFERRAL_SOURCES,
   referralSourceLabels,
   SENIORITIES,
@@ -39,10 +42,11 @@ import {
   type ProfileSection,
 } from '@academy/shared';
 import Link from 'next/link';
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   CheckboxField,
   ChipGroup,
+  focusFirstInvalid,
   RadioGroup,
   SelectField,
   SkillScale,
@@ -51,6 +55,7 @@ import {
   type Option,
 } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
@@ -70,8 +75,12 @@ const TOOL_SUGGESTIONS = [
   'vLLM', 'Ray', 'FastAPI', 'Weights & Biases', 'DVC', 'Feast', 'BentoML', 'Triton',
 ];
 
-/** Initial form values for a section, taken from the saved profile. */
-function initialValues(section: ProfileSection, p: ProfileDto): Values {
+/**
+ * Initial form values for a section, taken from the saved profile.
+ * `language` preselects the preferred language when none is saved yet
+ * (the account's language, else the UI's).
+ */
+function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 'ar'): Values {
   switch (section) {
     case 'core': {
       const detectedTz =
@@ -88,7 +97,7 @@ function initialValues(section: ProfileSection, p: ProfileDto): Values {
         experienceYears: p.experienceYears,
         primaryArea: p.primaryArea,
         googleEmail: p.googleEmail ?? '',
-        preferredLanguage: p.preferredLanguage,
+        preferredLanguage: p.preferredLanguage ?? language,
         acceptTerms: Boolean(p.acceptedTermsAt),
       };
     }
@@ -159,7 +168,9 @@ export function SectionForm({
   secondary?: ReactNode;
 }) {
   const { locale, t } = useI18n();
-  const [values, setValues] = useState<Values>(() => initialValues(section, profile));
+  const { user } = useAuth();
+  const form = useRef<HTMLFormElement>(null);
+  const [values, setValues] = useState<Values>(() => initialValues(section, profile, user?.locale ?? locale));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -171,7 +182,7 @@ export function SectionForm({
   };
   const str = (key: string) => (values[key] as string | null | undefined) ?? '';
   const arr = (key: string) => (values[key] as string[] | undefined) ?? [];
-  const f = (key: string) => t(`profile.fields.${key}`);
+  const f = (key: string, vars?: Record<string, string | number>) => t(`profile.fields.${key}`, vars);
   /** A required Yes/No question with nothing preselected. */
   // A render helper, not a component: a component defined here would remount on every keystroke.
   const yesNo = (name: string, label: string, hint?: string) => {
@@ -213,13 +224,12 @@ export function SectionForm({
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
-    const parsed = profileSectionSchemas[section].safeParse(values);
+    // Cross-section checks (ML/AI vs total experience) use the saved profile, as the API does.
+    const parsed = sectionSchemaFor(section, profile).safeParse(values);
     if (!parsed.success) {
       setErrors(issuesToErrors(parsed.error.issues, t));
       setFormError(t('forms.fixErrors'));
-      requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>('[aria-invalid="true"], fieldset[data-invalid="true"] input')?.focus(),
-      );
+      focusFirstInvalid(form.current);
       return;
     }
     setErrors({});
@@ -229,7 +239,10 @@ export function SectionForm({
       setSaved(true);
       onSaved(updated);
     } catch (err) {
-      if (err instanceof ApiError && err.errors.length) setErrors(err.fieldErrors());
+      if (err instanceof ApiError && err.errors.length) {
+        setErrors(err.fieldErrors());
+        focusFirstInvalid(form.current);
+      }
       setFormError(errorMessage(err, t));
     } finally {
       setBusy(false);
@@ -245,7 +258,9 @@ export function SectionForm({
   let body: ReactNode;
   switch (section) {
     case 'core': {
-      const [b, m, a] = f('acceptTerms').split(/\{terms\}|\{privacy\}/);
+      // The checkbox's name is plain text; the links sit in its description, so a
+      // screen reader reads the whole sentence and then the two links (QA L14).
+      const consent = f('acceptTerms', { terms: t('footer.terms'), privacy: t('footer.privacy') });
       body = (
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label={f('fullNameEn')} required autoComplete="name" value={str('fullNameEn')} onChange={set('fullNameEn')} error={errors.fullNameEn} />
@@ -292,13 +307,12 @@ export function SectionForm({
               checked={Boolean(values.acceptTerms)}
               onChange={set('acceptTerms')}
               error={errors.acceptTerms}
-              label={
+              label={consent}
+              hint={
                 <>
-                  {b}
                   {link(`/${locale}/terms`, t('footer.terms'))}
-                  {m}
+                  <span aria-hidden> · </span>
                   {link(`/${locale}/privacy`, t('footer.privacy'))}
-                  {a}
                 </>
               }
             />
@@ -315,7 +329,13 @@ export function SectionForm({
           <SelectField label={f('mlExperienceYears')} required value={str('mlExperienceYears')} onChange={set('mlExperienceYears')} error={errors.mlExperienceYears} options={options(EXPERIENCE_RANGES, experienceRangeLabels, locale)} />
           <SelectField label={f('seniority')} required value={str('seniority')} onChange={set('seniority')} error={errors.seniority} options={options(SENIORITIES, seniorityLabels, locale)} />
           <div className="sm:col-span-2">
-            <ChipGroup legend={f('secondaryAreas')} options={options(AREAS, areaLabels, locale)} value={arr('secondaryAreas')} onChange={set('secondaryAreas')} />
+            {/* The primary area (from the basics step) is not offered again here. */}
+            <ChipGroup
+              legend={f('secondaryAreas')}
+              options={options(AREAS.filter((a) => a !== profile.primaryArea), areaLabels, locale)}
+              value={arr('secondaryAreas').filter((a) => a !== profile.primaryArea)}
+              onChange={set('secondaryAreas')}
+            />
           </div>
         </div>
       );
@@ -330,8 +350,8 @@ export function SectionForm({
             label={f('graduationYear')}
             type="number"
             inputMode="numeric"
-            min={1960}
-            max={new Date().getFullYear() + 8}
+            min={GRADUATION_YEAR_MIN}
+            max={GRADUATION_YEAR_MAX}
             value={String(values.graduationYear ?? '')}
             onChange={(v) => set('graduationYear')(v === '' ? '' : Number(v))}
             error={errors.graduationYear}
@@ -376,7 +396,14 @@ export function SectionForm({
             ))}
           </div>
           <ChipGroup legend={f('cloudPlatforms')} options={options(CLOUD_PLATFORMS, cloudPlatformLabels, locale)} value={arr('cloudPlatforms')} onChange={set('cloudPlatforms')} />
-          <TagInput label={f('productionTools')} hint={f('productionToolsHint')} value={arr('productionTools')} onChange={set('productionTools')} suggestions={TOOL_SUGGESTIONS} />
+          <TagInput
+            label={f('productionTools')}
+            hint={f('productionToolsHint', { max: PRODUCTION_TOOL_MAX_LENGTH })}
+            value={arr('productionTools')}
+            onChange={set('productionTools')}
+            suggestions={TOOL_SUGGESTIONS}
+            maxLength={PRODUCTION_TOOL_MAX_LENGTH}
+          />
         </div>
       );
       break;
@@ -421,7 +448,7 @@ export function SectionForm({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-6">
+    <form ref={form} onSubmit={onSubmit} noValidate aria-busy={busy || undefined} className="space-y-6">
       {formError && <Alert tone="danger">{formError}</Alert>}
       {body}
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
