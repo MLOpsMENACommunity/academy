@@ -207,38 +207,6 @@ export default async function SpeakerPage({ params }: Props) {
             </Section>
           )}
 
-        {s.events.length > 0 && (
-          <Section id="sessions" title={t('speakers.sessions')}>
-            <ul>
-              {s.events.map((e) => (
-                <li key={e.slug} className="relative flex items-start gap-5 border-t border-line py-5 last:border-b">
-                  <DateTile iso={e.startsAt} />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-medium sm:text-lg">
-                      <Link href={`/${locale}/sessions/${e.slug}`} className="after:absolute after:inset-0 hover:text-primary">
-                        {pick(locale, e.titleEn, e.titleAr)}
-                      </Link>
-                    </h3>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted">
-                      <time dateTime={e.startsAt}>{formatDate(e.startsAt, locale)}</time>
-                      <span aria-hidden>·</span>
-                      {durationLabel(e.durationMin, locale)}
-                      {e.status === 'CANCELLED' ? (
-                        <span className="font-medium text-warning">· {t('speakers.cancelled')}</span>
-                      ) : !e.past ? (
-                        <span className="font-medium text-primary">· {t('speakers.upcoming')}</span>
-                      ) : e.recordingUrl ? (
-                        <span className="font-medium text-success">· {t('speakers.hasRecording')}</span>
-                      ) : null}
-                    </p>
-                    <TopicList topics={e.topics} locale={locale} label={t('sessions.topics')} className="mt-2" />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
         {s.courses.length > 0 && (
           <Section id="courses" title={t('speakers.courses')}>
             <ul>

@@ -5,12 +5,15 @@ import {
   courseLanguageLabels,
   DELIVERY_PLATFORMS,
   deliveryPlatformLabels,
+  EVENT_CATEGORIES,
   EVENT_SPEAKER_ROLES,
   EVENT_STATUSES,
   eventSpeakerRoleLabels,
+  eventCategoryLabels,
   eventEnded,
   eventInputSchema,
   eventStatusLabels,
+  type EventCategory,
   type EventInput,
   type EventSpeakerRole,
   type EventStatus,
@@ -64,6 +67,7 @@ export const EMPTY_EVENT: EventFormValue = {
   speakerId: null,
   coSpeakers: [],
   topics: [],
+  category: null,
   startsAt: '',
   durationMin: 60,
   language: 'BILINGUAL',
@@ -91,6 +95,7 @@ export function toEventForm(e: AdminEvent): EventFormValue {
     speakerId: e.speakerId ?? null,
     coSpeakers: (e.coSpeakers ?? []).map((c) => ({ instructorId: c.instructorId, role: c.role })),
     topics: e.topics ?? [],
+    category: e.category ?? null,
     startsAt: toLocalInput(e.startsAt),
     durationMin: e.durationMin,
     language: e.language,
@@ -198,6 +203,14 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
         <div className="sm:col-span-2">
           <TopicsField label={f('topics')} hint={f('topicsHint')} value={v.topics} onChange={set('topics')} error={errors.topics} />
         </div>
+        <SelectField
+          label={f('category')}
+          hint={f('categoryHint')}
+          placeholder={f('categoryNone')}
+          value={v.category ?? null}
+          onChange={(x) => set('category')((x || null) as EventCategory | null)}
+          options={opts(EVENT_CATEGORIES, eventCategoryLabels)}
+        />
       </Fieldset>
 
       <Fieldset title={t('admin.sessions.schedule')}>

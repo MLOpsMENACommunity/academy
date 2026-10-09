@@ -191,4 +191,79 @@ describe('catalog seed (e2e)', () => {
       );
     });
   });
+
+  // Owner (10 Oct 2026): AI Architecture Design is for Mid → Senior and Senior → Lead, in Arabic,
+  // and Eng. Sameh gets his LinkedIn. Field-level revisions reach a course seeded before that.
+  describe('a seeded course still holding the values of an earlier seed version', () => {
+    const ai = seedCourses.find((x) => x.course.slug === 'ai-architecture-design')!;
+    const at = (slug: string): SeedCourse => ({
+      ...ai,
+      course: { ...ai.course, slug },
+      instructor: { ...ai.instructor!, slug: `${slug}-sameh` },
+      instructorRevisions: ai.instructorRevisions!.map((r) => ({ ...r, to: { ...r.to, slug: `${slug}-sameh` } })),
+    });
+    /** The course as the first AI Architecture seed left it (after the levels migration). */
+    async function seededBefore(slug: string) {
+      return prisma.course.create({
+        data: {
+          slug, titleEn: ai.course.titleEn, titleAr: ai.course.titleAr, shortDescriptionEn: 'x', shortDescriptionAr: 'x',
+          longDescriptionEn: ai.course.longDescriptionEn, longDescriptionAr: 'x', type: 'FREE', price: 0, status: 'OPEN',
+          level: 'ADVANCED', levels: ['SENIOR'], language: 'BILINGUAL',
+          targetAudience: empty, notFor: empty, learningOutcomes: { en: [], ar: [] }, prerequisites: { en: [], ar: [] }, outline: [], faq: [], included: {},
+          instructors: { create: { order: 0, instructor: { create: { name: ai.instructor!.name, titleEn: 'Head of AI', bioEn: 'Bio' } } } },
+          sessions: { create: { order: 1, titleEn: 'Session 1: Real', titleAr: 'x', startsAt: new Date('2026-10-18T16:00:00Z') } },
+        },
+        include: { instructors: true },
+      });
+    }
+
+    it('gets the new levels, language and LinkedIn once, and nothing else changes', async () => {
+      const slug = `seed-revise-${Date.now()}`;
+      const old = await seededBefore(slug);
+      await seedCatalog(prisma, [at(slug)]);
+      const c = await prisma.course.findUniqueOrThrow({ where: { id: old.id }, include: { instructors: { include: { instructor: true } }, sessions: true } });
+      expect(c).toMatchObject({ levels: ['MID', 'SENIOR'], levelProgression: true, level: 'INTERMEDIATE', language: 'AR', shortDescriptionEn: 'x' });
+      expect(c.sessions.map((x) => x.titleEn)).toEqual(['Session 1: Real']);
+      expect(c.instructors[0]!.instructor).toMatchObject({ slug: `${slug}-sameh`, linkedinUrl: 'https://www.linkedin.com/in/sameh-amin', titleEn: 'Head of AI' });
+      const audits = () => prisma.auditLog.count({ where: { action: { in: ['seed.course_revised', 'seed.instructor_revised'] }, entityId: { in: [old.id, c.instructors[0]!.instructorId] } } });
+      expect(await audits()).toBe(2);
+
+      await seedCatalog(prisma, [at(slug)]);
+      expect(await audits()).toBe(2);
+    });
+
+    it('is left alone once an admin has saved the course or the instructor', async () => {
+      const slug = `seed-revise-admin-${Date.now()}`;
+      const old = await seededBefore(slug);
+      const admin = await prisma.user.create({ data: { email: `${slug}-admin@example.test`, role: 'ADMIN' } });
+      await prisma.auditLog.createMany({
+        data: [
+          { actorId: admin.id, action: 'course.updated', entityType: 'Course', entityId: old.id },
+          { actorId: admin.id, action: 'instructor.updated', entityType: 'Instructor', entityId: old.instructors[0]!.instructorId },
+        ],
+      });
+      await seedCatalog(prisma, [at(slug)]);
+      const c = await prisma.course.findUniqueOrThrow({ where: { id: old.id }, include: { instructors: { include: { instructor: true } } } });
+      expect(c).toMatchObject({ levels: ['SENIOR'], level: 'ADVANCED', language: 'BILINGUAL' });
+      expect(c.instructors[0]!.instructor).toMatchObject({ slug: null, linkedinUrl: null });
+    });
+
+    it('is left alone when a field no longer holds the earlier value', async () => {
+      const slug = `seed-revise-changed-${Date.now()}`;
+      const old = await seededBefore(slug);
+      await prisma.course.update({ where: { id: old.id }, data: { language: 'EN' } });
+      await seedCatalog(prisma, [at(slug)]);
+      expect(await prisma.course.findUniqueOrThrow({ where: { id: old.id } })).toMatchObject({ levels: ['SENIOR'], language: 'EN' });
+    });
+
+    it('a fresh database gets the current values straight away', async () => {
+      const slug = `seed-fresh-${Date.now()}`;
+      await seedCatalog(prisma, [at(slug)]);
+      const c = await prisma.course.findUniqueOrThrow({ where: { slug }, include: { instructors: { include: { instructor: true } } } });
+      expect(c).toMatchObject({ levels: ['MID', 'SENIOR'], levelProgression: true, language: 'AR' });
+      expect(c.instructors[0]!.instructor.linkedinUrl).toBe('https://www.linkedin.com/in/sameh-amin');
+      expect(await prisma.auditLog.count({ where: { action: 'seed.course_revised', entityId: c.id } })).toBe(0);
+    });
+  });
 });
+

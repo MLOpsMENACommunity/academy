@@ -23,6 +23,8 @@ import {
 import { ALL_COUNTRIES } from './countries';
 import { faqItemSchema, includedSchema, localizedListSchema, localizedTextSchema, materialSchema, outlineModuleSchema, questionOptionSchema } from './course-content';
 import { ADMIN_APPLICATION_EVENTS } from './state-machine';
+import { audienceLevelsSchema, legacyCourseLevel, levelsFromLegacy } from './course';
+import { linkedinProfileUrlSchema } from './links';
 
 // ------------------------------------------------------------------ filters
 
@@ -159,7 +161,15 @@ export const courseInputSchema = z
     requiresApproval: z.boolean(),
     capacity: z.coerce.number().int().min(1).max(100_000).nullish().or(z.literal('').transform(() => null)),
     status: z.enum(COURSE_STATUSES),
-    level: z.enum(COURSE_LEVELS),
+    /** Who the course is for (Junior, Mid, Senior, Lead); none means all levels. */
+    levels: audienceLevelsSchema.optional(),
+    /** Show the levels as steps up: "Mid to Senior · Senior to Lead". */
+    levelProgression: z.boolean().default(false),
+    /**
+     * Deprecated single level, still accepted from older clients: used only when `levels` is
+     * left out. The stored value is always derived from `levels`.
+     */
+    level: z.enum(COURSE_LEVELS).optional(),
     language: z.enum(COURSE_LANGUAGES),
     startDate: optionalDate,
     applicationsOpenAt: optionalDate,
@@ -204,8 +214,14 @@ export const courseInputSchema = z
     if (c.driveFolderUrl && !/^https:\/\/drive\.google\.com\//.test(c.driveFolderUrl)) {
       ctx.addIssue({ code: 'custom', path: ['driveFolderUrl'], message: 'Must be a drive.google.com link' });
     }
+  })
+  .transform(({ levels, level, ...c }) => {
+    const ls = levels ?? (level ? levelsFromLegacy(level) : []);
+    return { ...c, levels: ls, level: legacyCourseLevel(ls) };
   });
 export type CourseInput = z.infer<typeof courseInputSchema>;
+/** What a client sends (levels or, from older clients, level). */
+export type CourseInputRaw = z.input<typeof courseInputSchema>;
 
 export const questionInputSchema = z
   .object({
@@ -266,13 +282,15 @@ export const instructorInputSchema = z.object({
   slug: slug.nullish().or(z.literal('').transform(() => null)),
   name: z.string().trim().min(2).max(120),
   nameAr: z.string().trim().max(120).nullish(),
-  titleEn: z.string().trim().min(2).max(160),
+  // Empty when unknown: pages then show the name only (never a made-up title).
+  titleEn: z.string().trim().max(160).default('').refine((v) => v.length !== 1, 'Too short'),
   titleAr: z.string().trim().max(160).nullish(),
   // Speakers of a single talk often have no bio yet: the page then shows name, title and sessions.
   bioEn: z.string().trim().max(4000).default(''),
   bioAr: z.string().trim().max(4000).nullish(),
   photoUrl: optionalImage,
-  linkedinUrl: optionalUrl,
+  /** Required: every instructor and speaker page links to their LinkedIn profile. Stored without ?utm_… */
+  linkedinUrl: linkedinProfileUrlSchema,
   githubUrl: optionalUrl,
 });
 export type InstructorInput = z.infer<typeof instructorInputSchema>;

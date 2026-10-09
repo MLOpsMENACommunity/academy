@@ -32,7 +32,7 @@ describe('speakers', () => {
   });
 
   it('allows a site photo path but not other schemes', () => {
-    const base = { name: 'Aya Nasser', titleEn: 'Engineer' };
+    const base = { name: 'Aya Nasser', titleEn: 'Engineer', linkedinUrl: 'https://www.linkedin.com/in/ayanasser' };
     expect(instructorInputSchema.parse({ ...base, photoUrl: '/speakers/aya.webp' }).photoUrl).toBe('/speakers/aya.webp');
     expect(instructorInputSchema.safeParse({ ...base, photoUrl: 'javascript:alert(1)' }).success).toBe(false);
     expect(instructorInputSchema.safeParse({ ...base, photoUrl: '//evil.example/x.png' }).success).toBe(false);

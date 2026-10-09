@@ -1,4 +1,4 @@
-import type { CourseSummaryDto } from '@academy/shared';
+import { levelsOf, type CourseSummaryDto } from '@academy/shared';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CatalogCount, CatalogForm, CatalogItem, CatalogProvider } from '@/components/course/CatalogFilters';
@@ -35,9 +35,10 @@ export default async function CatalogPage({ params }: Props) {
   // good copy (or answers an uncached 500) instead of caching an empty catalog.
   const courses = (await serverGet<CourseSummaryDto[]>('/courses')) ?? [];
   // Only the filterable fields go to the browser; the cards stay server-rendered.
-  const facets = courses.map(({ id, level, type, price, language, availability }) => ({
+  const facets = courses.map(({ id, level, levels, type, price, language, availability }) => ({
     id,
-    level,
+    // Older APIs send only the single level.
+    levels: levelsOf({ levels, level }),
     type,
     price,
     language,

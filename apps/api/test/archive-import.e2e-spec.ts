@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { parseArchive, type Archive } from '../prisma/archive-schema';
 import { importArchive, readArchive } from '../prisma/import-archive';
@@ -217,4 +219,63 @@ describe('archive import (e2e)', () => {
     expect(report.skipped).toContain(`session:${slug('hosted')}: edited by an admin since it was imported`);
     expect(await prisma.liveEventSpeaker.count({ where: { eventId: event.id } })).toBe(0);
   });
+
+  // Owner (10 Oct 2026): the Practitioner's weeks, language and levels, speakers' LinkedIn, Omar
+  // Khalil, and recording categories reach a database imported from the previous archive.
+  describe('upgrading from the previous archive version', () => {
+    /** The committed archive as it was before these changes. */
+    function previousArchive(): Archive {
+      const a = structuredClone(readArchive());
+      const course = a.courses.find((c) => c.slug === 'mlops-practitioner')!;
+      Object.assign(course, { durationWeeks: 6, language: 'BILINGUAL', level: 'INTERMEDIATE' });
+      delete course.levels;
+      for (const s of a.sessions) delete s.category;
+      const redis = a.sessions.find((s) => s.slug === 'redis-for-semantic-caching')!;
+      delete redis.speaker;
+      Object.assign(redis, { speakerName: 'Omar Khalil', speakerNameAr: 'عمر خليل', speakerLinkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01/' });
+      a.speakers = a.speakers.filter((s) => s.slug !== 'omar-khalil');
+      for (const s of a.speakers) if (['mohamed-rashad', 'mahmoud-sharif', 'abdallah-almalawany'].includes(s.slug)) delete s.linkedinUrl;
+      return a;
+    }
+    /** The category backfill of the migration (prisma/migrations/*_course_levels_event_categories). */
+    async function runCategoryBackfill() {
+      const sql = readFileSync(join(__dirname, '..', 'prisma', 'migrations', '20261015090000_course_levels_event_categories', 'migration.sql'), 'utf8');
+      const statements = sql.split(';').map((x) => x.replace(/^\s*--.*$/gm, '').trim()).filter((x) => x.startsWith('UPDATE "LiveEvent"'));
+      expect(statements).toHaveLength(2);
+      for (const st of statements) await prisma.$executeRawUnsafe(st);
+    }
+
+    it('updates what the import still owns, and the migration categorises what an admin edited', async () => {
+      // Production before this change: the previous archive, one session edited by an admin.
+      await importArchive(prisma, previousArchive(), { force: true });
+      await prisma.liveEvent.updateMany({ where: { source: 'import' }, data: { category: null } });
+      const docker = await prisma.liveEvent.findUniqueOrThrow({ where: { slug: 'docker-deep-dive' } });
+      await prisma.liveEvent.update({ where: { id: docker.id }, data: { titleEn: 'Docker (edited)', importHash: null } });
+
+      await runCategoryBackfill();
+      await importArchive(prisma, readArchive());
+
+      const practitioner = await prisma.course.findUniqueOrThrow({ where: { slug: 'mlops-practitioner' } });
+      if (practitioner.importHash) {
+        expect(practitioner).toMatchObject({ durationWeeks: 5, language: 'AR', levels: ['JUNIOR', 'MID'], level: 'INTERMEDIATE' });
+      }
+      const redis = await prisma.liveEvent.findUniqueOrThrow({ where: { slug: 'redis-for-semantic-caching' }, include: { speaker: true } });
+      expect(redis).toMatchObject({ category: 'HANDS_ON', speakerName: '', speakerLinkedinUrl: null });
+      expect(redis.speaker).toMatchObject({ slug: 'omar-khalil', linkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01', bioEn: '' });
+      expect(await prisma.instructor.findUniqueOrThrow({ where: { slug: 'mohamed-rashad' } })).toMatchObject({ linkedinUrl: 'https://www.linkedin.com/in/rashaddism' });
+      expect(await prisma.instructor.findUniqueOrThrow({ where: { slug: 'aya-nasser-salama' } })).toMatchObject({ linkedinUrl: 'https://www.linkedin.com/in/ayanasser/' });
+      expect(await prisma.liveEvent.findUniqueOrThrow({ where: { slug: 'on-prem-mlops-playbook' } })).toMatchObject({ category: 'INDUSTRY' });
+      // The admin's session: its edits kept, its category from the migration.
+      expect(await prisma.liveEvent.findUniqueOrThrow({ where: { id: docker.id } })).toMatchObject({ titleEn: 'Docker (edited)', category: 'HANDS_ON', importHash: null });
+
+      // Idempotent: a second import and a second backfill change nothing.
+      const again = await importArchive(prisma, readArchive(), { force: true });
+      expect(again.created).toEqual([]);
+      expect(again.updated).toEqual([]);
+      await prisma.liveEvent.update({ where: { id: docker.id }, data: { category: 'TALK' } });
+      await runCategoryBackfill();
+      expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: docker.id } })).category).toBe('TALK');
+    });
+  });
 });
+

@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+  categoryCounts,
   courseAvailability,
   eventEnded,
   foldSearch,
+  matchesRecording,
   PUBLIC_COURSE_STATUSES,
   searchTerms,
   TOPIC_LABELS,
@@ -66,7 +68,7 @@ export class ArchiveService {
     const items = ended
       .filter(
         (x) =>
-          (!topic || x.item.topics.includes(topic)) &&
+          matchesRecording(x.item, { topic, category: q.category }) &&
           (!terms || terms.some((t) => x.text.includes(t))),
       )
       .map((x) => x.item);
@@ -74,7 +76,8 @@ export class ArchiveService {
     const topics = [...counts]
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-    return { items, topics };
+    // Like the topics: the whole library, so the chips stay put while filtering.
+    return { items, topics, categories: categoryCounts(ended.map((x) => x.item)) };
   }
 
   private async libraryItems(): Promise<LibraryItem[]> {
@@ -147,6 +150,7 @@ export class ArchiveService {
             startsAt: e.startsAt.toISOString(),
             durationMin: e.durationMin,
             topics: e.topics,
+            category: e.category,
             recordingUrl: e.recordingUrl!,
             youtubeId: youtubeId(e.recordingUrl!),
             speakers,
@@ -174,6 +178,7 @@ export class ArchiveService {
             startsAt: s.startsAt.toISOString(),
             durationMin: s.durationMin,
             topics: s.topics,
+            category: 'COURSE_RECORDING',
             recordingUrl: s.recordingUrl!,
             youtubeId: youtubeId(s.recordingUrl!),
             speakers,

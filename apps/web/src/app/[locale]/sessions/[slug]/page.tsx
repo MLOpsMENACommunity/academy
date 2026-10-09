@@ -112,7 +112,7 @@ export default async function SessionPage({ params }: Props) {
       title: pick(locale, c.titleEn ?? '', c.titleAr),
       photoUrl: c.photoUrl,
       slug: c.slug,
-      linkedinUrl: null,
+      linkedinUrl: c.linkedinUrl ?? null,
       role: c.role,
     })),
   ];

@@ -1,6 +1,6 @@
 'use client';
 
-import { courseStatusLabels, PUBLIC_COURSE_STATUSES, type CourseStatus, type WaitlistDto, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
+import { courseStatusLabels, levelsOf, PUBLIC_COURSE_STATUSES, type CourseLevel, type CourseStatus, type WaitlistDto, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
@@ -21,6 +21,8 @@ type Tab = (typeof TABS)[number];
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
   id: string;
   status: CourseStatus;
+  /** The old single level (derived); `levels` is what the form edits. */
+  level: CourseLevel;
   endDate: string | null;
   /** "import" when the archive import created it. */
   source: string | null;
@@ -51,7 +53,9 @@ function toForm(c: AdminCourse): CourseFormValue {
     requiresApproval: c.requiresApproval,
     capacity: c.capacity,
     status: c.status,
-    level: c.level,
+    // An API from before levels sends only the single level.
+    levels: levelsOf(c),
+    levelProgression: c.levelProgression ?? false,
     language: c.language,
     startDate: toLocalInput(c.startDate),
     applicationsOpenAt: toLocalInput(c.applicationsOpenAt),
