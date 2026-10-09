@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
 import { Announcements } from '@/components/admin/Announcements';
+import { CourseApplications } from '@/components/admin/CourseApplications';
 import { Waitlist } from '@/components/admin/Waitlist';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
@@ -15,7 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'sessions', 'enrolled', 'announcements', 'waitlist', 'feedback'] as const;
+const TABS = ['details', 'questions', 'applications', 'sessions', 'enrolled', 'announcements', 'waitlist', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
@@ -96,6 +97,7 @@ function CourseEditor() {
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
   const [version, setVersion] = useState(0);
   const [waiting, setWaiting] = useState<{ count: number; waiting: number } | null>(null);
+  const [applications, setApplications] = useState<number | null>(null);
 
   useEffect(() => {
     api<AdminCourse>(`/admin/courses/${id}`)
@@ -109,6 +111,13 @@ function CourseEditor() {
       .then((w) => setWaiting({ count: w.count, waiting: w.waiting }))
       .catch(() => setWaiting(null));
   }, [id, version, tab]);
+
+  // For the Applications tab count: every application to this course, whatever its status.
+  useEffect(() => {
+    api<{ total: number }>(`/admin/applications?courseId=${encodeURIComponent(id)}&pageSize=10`)
+      .then((r) => setApplications(r.total))
+      .catch(() => setApplications(null));
+  }, [id, version]);
 
   const refresh = () => setVersion((v) => v + 1);
   const go = (next: Tab) => router.replace(`/${locale}/admin/courses/${id}${next === 'details' ? '' : `?tab=${next}`}`, { scroll: false });
@@ -182,6 +191,7 @@ function CourseEditor() {
             {k === 'sessions' && ` (${course.sessions.length})`}
             {k === 'questions' && ` (${course.questions.length})`}
             {k === 'waitlist' && waiting && ` (${waiting.count})`}
+            {k === 'applications' && applications !== null && ` (${applications})`}
           </button>
         ))}
       </div>
@@ -189,6 +199,7 @@ function CourseEditor() {
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
         {tab === 'details' && <CourseForm initial={toForm(course)} courseId={course.id} onSaved={refresh} />}
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
+        {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
         {tab === 'announcements' && <Announcements courseId={course.id} />}

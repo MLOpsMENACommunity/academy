@@ -165,13 +165,6 @@
   "account": {
     "title": "Account",
     "language": "Email language",
-    "loginEmail": "Login email",
-    "changeEmail": "Change login email",
-    "newEmail": "New email",
-    "changeEmailHint": "We'll send a confirmation link to the new address. Your login email changes only after you confirm it.",
-    "pendingEmail": "Waiting for confirmation of {email}.",
-    "cancelChange": "Cancel change",
-    "emailChangeSent": "Confirmation link sent to the new address.",
     "changePassword": "Change password",
     "setPassword": "Set a password",
     "passwordChanged": "Password changed. Please log in again.",
@@ -649,7 +642,11 @@
       "source": "Source",
       "reasonPlaceholder": "e.g. We were looking for more hands-on production experience. Consider the recordings and apply to the next cohort.",
       "ownApplication": "This is your own application. Another admin decides on it, so you can’t change its status.",
-      "noProfile": "No profile data: it was removed when the account was anonymised."
+      "noProfile": "No profile data: it was removed when the account was anonymised.",
+      "cv": "CV",
+      "hasCv": "Has CV",
+      "cvNone": "No CV",
+      "cvHint": "CV uploads were removed from the profile, so only students who uploaded one before have a CV."
     },
     "filters": {
       "country": "Country",
@@ -892,6 +889,21 @@
         "waitingOne": "Waiting",
         "openPrompt": "The course is open and {count, plural, one {# person on its waiting list hasn’t} other {# people on its waiting list haven’t}} been told yet.",
         "openPromptAction": "Notify the waiting list"
+      },
+      "applications": "Applications",
+      "apps": {
+        "all": "All",
+        "searchLabel": "Search applicants",
+        "searchPlaceholder": "Name, email, job title or company",
+        "search": "Search",
+        "applicant": "Applicant",
+        "seniority": "Seniority",
+        "mlExperience": "ML experience",
+        "country": "Country",
+        "openInMain": "Open in Applications",
+        "openInMainHint": "More filters and saved views",
+        "statusFilter": "Filter by status",
+        "count": "{count, plural, one {# application} other {# applications}}"
       }
     },
     "settings": {
