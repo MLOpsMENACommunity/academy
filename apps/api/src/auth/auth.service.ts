@@ -152,20 +152,19 @@ export class AuthService {
         expiresAt: new Date(Date.now() + VERIFY_TTL_MS),
       },
     });
-    const isChange = address !== user.email;
     const url = this.email.url(user.locale, `/verify-email?token=${token}`);
-    await this.email.send(address, user.locale, { name: isChange ? 'confirmNewEmail' : 'verifyEmail', url });
+    await this.email.send(address, user.locale, { name: 'verifyEmail', url });
   }
 
   async resendVerification(userId: string): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.emailVerifiedAt && !user.pendingEmail) return;
+    if (user.emailVerifiedAt) return;
     // Rate-limit per user: at most one email per minute.
     const recent = await this.prisma.emailVerificationToken.findFirst({
       where: { userId, createdAt: { gt: new Date(Date.now() - 60_000) } },
     });
     if (recent) return;
-    await this.sendVerification(user, user.pendingEmail ?? user.email, null);
+    await this.sendVerification(user, user.email, null);
   }
 
   async verifyEmail(token: string, sessionUserId: string): Promise<{ returnTo: string | null; user: User }> {
@@ -180,33 +179,16 @@ export class AuthService {
       throw new ForbiddenException({ code: 'WRONG_ACCOUNT', message: 'Sign in to the account this link was sent for' });
     }
     const { user } = record;
-    let updated: User;
-    if (record.email === user.pendingEmail) {
-      const taken = await this.prisma.user.findUnique({ where: { email: record.email } });
-      if (taken && taken.id !== user.id) {
-        throw new ConflictException({ code: 'EMAIL_TAKEN', message: 'This email is already in use' });
-      }
-      updated = await this.prisma.user.update({
-        where: { id: user.id },
-        data: { email: record.email, pendingEmail: null, emailVerifiedAt: new Date() },
-      });
-      // Old reset links went to the old inbox; old sessions belong to the old identity.
-      await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
-      await this.tokens.revokeAllForUser(user.id);
-      await this.email.send(user.email, user.locale, {
-        name: 'securityNotice',
-        kind: 'emailChanged',
-        url: this.email.url(user.locale, '/contact'),
-      });
-      await this.audit.log({ actorId: user.id, action: 'account.email_changed', entityType: 'User', entityId: user.id });
-    } else if (record.email === user.email) {
-      updated = await this.prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
-      });
-    } else {
+    // Only a link sent to the current login email verifies anything. Students can no
+    // longer change their login email, so a link sent for a pending change before
+    // that was removed must not change it now.
+    if (record.email !== user.email) {
       throw new BadRequestException({ code: 'TOKEN_INVALID', message: 'This link is no longer valid' });
     }
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+    });
     await this.prisma.emailVerificationToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
     return { returnTo: record.returnTo, user: updated };
   }
@@ -257,7 +239,6 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
-      pendingEmail: user.pendingEmail,
       role: user.role,
       locale: user.locale,
       emailVerified: Boolean(user.emailVerifiedAt),

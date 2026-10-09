@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { CvCard } from '@/components/admin/CvCard';
 import { Notes, type Note } from '@/components/admin/Notes';
 import { ProfileView } from '@/components/admin/ProfileView';
 import { StatusBadge } from '@/components/applications/StatusBadge';
@@ -37,6 +38,8 @@ interface Detail {
   profileSnapshot: ProfileDto;
   currentProfile: ProfileDto;
   student: { id: string; email: string; emailVerified: boolean; deleted: boolean };
+  /** A CV is on file today (opened through the audited admin CV link). */
+  hasCv: boolean;
   history: { fromStatus: ApplicationStatus | null; toStatus: ApplicationStatus; reason: string | null; actor: string | null; createdAt: string }[];
   notes: Note[];
   payments: AdminPaymentDto[];
@@ -177,6 +180,7 @@ export default function ApplicationDetailAdmin() {
           </Card>
         </div>
         <div className="space-y-5">
+          <CvCard studentId={a.student.id} hasCv={a.hasCv} hint={a.hasCv ? undefined : t('admin.apps.cvHint')} />
           <Card>
             <h2 className="text-lg">{t('admin.apps.history')}</h2>
             <ol className="mt-3 space-y-2 text-sm">

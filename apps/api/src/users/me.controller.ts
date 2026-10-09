@@ -18,7 +18,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
-  changeEmailSchema,
   changePasswordSchema,
   deleteAccountSchema,
   PROFILE_SECTIONS,
@@ -105,23 +104,6 @@ export class MeController {
     await this.account.changePassword(user, body.currentPassword, body.newPassword);
     // All sessions were revoked; the user signs in again with the new password.
     clearAuthCookies(res, this.env);
-    return { ok: true };
-  }
-
-  @Post('email')
-  @HttpCode(200)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async changeEmail(
-    @CurrentUser() user: AuthUser,
-    @Body(new ZodPipe(changeEmailSchema)) body: z.infer<typeof changeEmailSchema>,
-  ): Promise<{ ok: true }> {
-    await this.account.requestEmailChange(user, body.newEmail, body.password);
-    return { ok: true };
-  }
-
-  @Delete('email')
-  async cancelEmailChange(@CurrentUser() user: AuthUser): Promise<{ ok: true }> {
-    await this.account.cancelEmailChange(user.id);
     return { ok: true };
   }
 

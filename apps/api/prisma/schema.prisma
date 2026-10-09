@@ -284,7 +284,7 @@ enum ReminderKind {
 model User {
   id              String    @id @default(cuid())
   email           String    @unique
-  /// Set while a login-email change waits for verification.
+  /// Retired: students can no longer change their login email. Always null; kept so the column stays.
   pendingEmail    String?
   passwordHash    String?
   googleId        String?   @unique
@@ -356,7 +356,7 @@ model EmailVerificationToken {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tokenHash String    @unique
-  /// The address being verified (login email, or the pending new email).
+  /// The address being verified (the login email; a link for any other address is refused).
   email     String
   returnTo  String?
   expiresAt DateTime

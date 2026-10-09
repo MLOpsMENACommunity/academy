@@ -28,8 +28,6 @@ export function AccountPanel({ user }: { user: MeResponse }) {
   const router = useRouter();
   const [msg, setMsg] = useState<Record<string, { tone: 'success' | 'danger'; text: string } | undefined>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const [newEmail, setNewEmail] = useState('');
-  const [emailPw, setEmailPw] = useState('');
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -89,53 +87,6 @@ export function AccountPanel({ user }: { user: MeResponse }) {
           }
         />
         {note('locale')}
-      </Block>
-
-      <Block title={t('account.changeEmail')}>
-        <p className="text-sm">
-          {t('account.loginEmail')}: <strong className="ltr-embed">{user.email}</strong>
-        </p>
-        {user.pendingEmail && (
-          <Alert tone="info" className="mt-3">
-            {t('account.pendingEmail', { email: user.pendingEmail })}{' '}
-            <button
-              type="button"
-              className="font-semibold underline"
-              onClick={() =>
-                run('email', async () => {
-                  await api('/me/email', { method: 'DELETE' });
-                  await reload();
-                })
-              }
-            >
-              {t('account.cancelChange')}
-            </button>
-          </Alert>
-        )}
-        <form
-          className="mt-4 grid gap-4 sm:grid-cols-2"
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            void run('email', async () => {
-              await api('/me/email', { method: 'POST', json: { newEmail, password: emailPw || undefined } });
-              setNewEmail('');
-              setEmailPw('');
-              await reload();
-              return t('account.emailChangeSent');
-            });
-          }}
-        >
-          <TextField label={t('account.newEmail')} type="email" required value={newEmail} onChange={setNewEmail} hint={t('account.changeEmailHint')} />
-          {user.hasPassword && (
-            <TextField label={t('auth.currentPassword')} type="password" autoComplete="current-password" required value={emailPw} onChange={setEmailPw} />
-          )}
-          <div className="sm:col-span-2">
-            <Button type="submit" variant="secondary" loading={busy === 'email'}>
-              {t('account.changeEmail')}
-            </Button>
-          </div>
-        </form>
-        {note('email')}
       </Block>
 
       <Block title={user.hasPassword ? t('account.changePassword') : t('account.setPassword')}>

@@ -70,6 +70,42 @@ describe('admin panel API (e2e)', () => {
     expect(await prisma.auditLog.count({ where: { actorId: admin.id, action: 'applications.exported' } })).toBeGreaterThan(0);
   });
 
+  // Owner (Oct 2026): admins reviewing applications see whether there is a CV and can open it.
+  it('shows whether an applicant has a CV in the list, detail and CSV, without putting a link in the CSV', async () => {
+    const course = await createCourse(prisma);
+    const withCv = await createUser(app, prisma, { prefix: 'with-cv' });
+    const withoutCv = await createUser(app, prisma, { prefix: 'without-cv' });
+    await prisma.profile.update({ where: { userId: withCv.id }, data: { cvKey: 'cvs/e2e-test.pdf', cvUploadedAt: new Date() } });
+    const ids: Record<string, string> = {};
+    for (const u of [withCv, withoutCv]) {
+      ids[u.id] = (await http().post('/api/applications').set('Cookie', u.cookie).send({ courseSlug: course.slug, answers: { [course.questionId]: true } }).expect(201)).body.id;
+    }
+    const list = await as(admin.cookie).get(`/api/admin/applications?courseId=${course.id}`).expect(200);
+    const byStudent = new Map(list.body.items.map((i: { student: { id: string; hasCv: boolean; mlExperienceYears: string | null } }) => [i.student.id, i.student]));
+    expect(byStudent.get(withCv.id)).toMatchObject({ hasCv: true, mlExperienceYears: 'Y1_3' });
+    expect(byStudent.get(withoutCv.id)).toMatchObject({ hasCv: false });
+
+    expect((await as(admin.cookie).get(`/api/admin/applications/${ids[withCv.id]}`).expect(200)).body.hasCv).toBe(true);
+    expect((await as(admin.cookie).get(`/api/admin/applications/${ids[withoutCv.id]}`).expect(200)).body.hasCv).toBe(false);
+
+    const csv = (await as(admin.cookie).get(`/api/admin/applications.csv?courseId=${course.id}`).expect(200)).text;
+    expect(csv).toContain('"Has CV"');
+    const line = (email: string) => csv.split('\n').find((l) => l.includes(email))!;
+    expect(line(withCv.email)).toContain('"Yes"');
+    expect(line(withoutCv.email)).toContain('"No"');
+    expect(csv).not.toContain('e2e-test.pdf');
+    expect(csv).not.toMatch(/X-Amz-|https?:\/\/[^"]*cvs/);
+
+    // Opening it is admin-only and audited.
+    const student = await createUser(app, prisma);
+    await as(student.cookie).get(`/api/admin/students/${withCv.id}/cv`).expect(403);
+    const cv = await as(admin.cookie).get(`/api/admin/students/${withCv.id}/cv`).expect(200);
+    expect(cv.body.expiresIn).toBeLessThanOrEqual(600);
+    expect(cv.headers['cache-control']).toMatch(/no-store/);
+    expect(await prisma.auditLog.count({ where: { actorId: admin.id, action: 'profile.cv_viewed', entityId: withCv.id } })).toBe(1);
+    await as(admin.cookie).get(`/api/admin/students/${withoutCv.id}/cv`).expect(404);
+  });
+
   it('runs bulk actions and reports per-item results', async () => {
     const course = await createCourse(prisma);
     const users = await Promise.all([createUser(app, prisma), createUser(app, prisma)]);
