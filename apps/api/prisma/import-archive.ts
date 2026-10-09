@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eventEnded } from '@academy/shared';
+import { eventEnded, type EventSpeakerRole } from '@academy/shared';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { ARCHIVE_FORMAT_VERSION, parseArchive, type Archive, type ArchiveCourse, type ArchiveSession, type ArchiveSpeaker } from './archive-schema';
 
@@ -240,16 +240,53 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
       // ---- live sessions
       for (const s of archive.sessions) {
         const data = sessionData(s, await speakerId(s.speaker));
+        const coSpeakers: { instructorId: string; role: EventSpeakerRole }[] = [];
+        for (const c of s.coSpeakers) {
+          const id = await speakerId(c.speaker);
+          if (id && id !== data.speakerId && !coSpeakers.some((x) => x.instructorId === id))
+            coSpeakers.push({ instructorId: id, role: c.role });
+        }
         // An explicit status in the entry is content; the computed default is not (see sessionStatus).
-        const hash = importHash({ data, status: s.status ?? null });
-        const existing = await tx.liveEvent.findUnique({ where: { slug: s.slug }, select: { id: true, source: true, importHash: true } });
+        // Co-speakers join the hash only when there are some, so entries without them keep their hash.
+        const hash = importHash({
+          data,
+          status: s.status ?? null,
+          ...(coSpeakers.length ? { coSpeakers } : {}),
+        });
+        const existing = await tx.liveEvent.findUnique({
+          where: { slug: s.slug },
+          select: { id: true, source: true, importHash: true },
+        });
         const p = plan(existing, hash, registry.sessions.includes(s.slug));
         note('session', s.slug, p);
+        let eventId: string | null = null;
         if (p.action === 'create') {
-          await tx.liveEvent.create({ data: { ...data, status: sessionStatus(s, now), slug: s.slug, source: SOURCE, importHash: hash } });
+          eventId = (
+            await tx.liveEvent.create({
+              data: {
+                ...data,
+                status: sessionStatus(s, now),
+                slug: s.slug,
+                source: SOURCE,
+                importHash: hash,
+              },
+            })
+          ).id;
           registry.sessions.push(s.slug);
         } else if (p.action === 'update') {
-          await tx.liveEvent.update({ where: { id: p.id }, data: { ...data, ...(s.status ? { status: s.status } : {}), importHash: hash } });
+          eventId = (
+            await tx.liveEvent.update({
+              where: { id: p.id },
+              data: { ...data, ...(s.status ? { status: s.status } : {}), importHash: hash },
+            })
+          ).id;
+        }
+        if (eventId) {
+          await tx.liveEventSpeaker.deleteMany({ where: { eventId } });
+          if (coSpeakers.length)
+            await tx.liveEventSpeaker.createMany({
+              data: coSpeakers.map((c, order) => ({ ...c, eventId: eventId!, order })),
+            });
         }
       }
 

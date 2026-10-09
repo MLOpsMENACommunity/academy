@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { topicsSchema, type SpeakerRefDto } from './archive';
-import { COURSE_LANGUAGES, DELIVERY_PLATFORMS, EVENT_STATUSES, type CourseLanguage, type DeliveryPlatform, type EventStatus } from './enums';
+import {
+  COURSE_LANGUAGES,
+  DELIVERY_PLATFORMS,
+  EVENT_SPEAKER_ROLES,
+  EVENT_STATUSES,
+  type CourseLanguage,
+  type DeliveryPlatform,
+  type EventSpeakerRole,
+  type EventStatus,
+} from './enums';
 
 /** Links people click: http(s) only. */
 const optionalUrl = z
@@ -37,7 +46,29 @@ export const eventInputSchema = z
     speakerPhotoUrl: optionalUrl,
     speakerLinkedinUrl: optionalUrl,
     /** The speaker's profile (an instructor), for the link to /speakers/{slug}. */
-    speakerId: z.string().trim().max(40).nullish().or(z.literal('').transform(() => null)),
+    speakerId: z
+      .string()
+      .trim()
+      .max(40)
+      .nullish()
+      .or(z.literal('').transform(() => null)),
+    /**
+     * Hosts and guests besides the main speaker, in order. Left out: kept as they are
+     * (so a client that doesn't know about them never clears them).
+     */
+    coSpeakers: z
+      .array(
+        z.object({
+          instructorId: z.string().trim().min(1).max(40),
+          role: z.enum(EVENT_SPEAKER_ROLES),
+        }),
+      )
+      .max(10)
+      .refine(
+        (list) => new Set(list.map((x) => x.instructorId)).size === list.length,
+        'Each person can be listed once',
+      )
+      .optional(),
     topics: topicsSchema.default([]),
     startsAt: z.coerce.date(),
     durationMin: z.coerce.number().int().min(15).max(600),
@@ -61,6 +92,11 @@ export const eventInputSchema = z
   });
 export type EventInput = z.infer<typeof eventInputSchema>;
 
+/** A host or guest of a session, besides its main speaker. */
+export interface CoSpeakerDto extends SpeakerRefDto {
+  role: EventSpeakerRole;
+}
+
 /** A live session as the public sees it. The live link is only included for registered people near the start. */
 export interface PublicEventDto {
   slug: string;
@@ -77,6 +113,8 @@ export interface PublicEventDto {
   speakerLinkedinUrl: string | null;
   /** The speaker's profile, when the session is linked to one (name and title above win when set). */
   speaker: SpeakerRefDto | null;
+  /** Hosts and guests besides the main speaker, in order. */
+  coSpeakers: CoSpeakerDto[];
   topics: string[];
   startsAt: string;
   durationMin: number;

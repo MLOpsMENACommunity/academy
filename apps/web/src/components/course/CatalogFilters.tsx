@@ -1,13 +1,15 @@
 'use client';
 
 import {
+  CATALOG_PRICES,
+  catalogPriceLabels,
   catalogQuerySchema,
   COURSE_LANGUAGES,
   COURSE_LEVELS,
   courseAvailabilityLabels,
   courseLanguageLabels,
   courseLevelLabels,
-  courseTypeLabels,
+  matchesCatalog,
   type CatalogQuery,
   type CourseSummaryDto,
   type Localized,
@@ -27,7 +29,10 @@ import { useI18n } from '@/i18n/client';
  * (shareable, back button) but are read after hydration, so the server HTML never
  * depends on the query string.
  */
-export type CourseFacets = Pick<CourseSummaryDto, 'id' | 'level' | 'type' | 'language' | 'availability'>;
+export type CourseFacets = Pick<
+  CourseSummaryDto,
+  'id' | 'level' | 'type' | 'price' | 'language' | 'availability'
+>;
 
 const KEYS = ['availability', 'type', 'level', 'language'] as const;
 
@@ -37,9 +42,8 @@ function readUrl(): CatalogQuery {
   return parsed.success ? parsed.data : {};
 }
 
-export function matches(c: CourseFacets, q: CatalogQuery): boolean {
-  return KEYS.every((k) => !q[k] || c[k] === q[k]);
-}
+/** The API's matcher: English/Arabic include bilingual courses, and "Paid" means a price is set. */
+export const matches = (c: CourseFacets, q: CatalogQuery): boolean => matchesCatalog(c, q);
 
 const Ctx = createContext<{ q: CatalogQuery; apply: (q: CatalogQuery) => void; courses: CourseFacets[] } | null>(null);
 function useCatalog() {
@@ -107,8 +111,13 @@ export function CatalogForm() {
     // method="get" still works before hydration: the filters land in the URL and apply on load.
     <form method="get" onSubmit={onSubmit} className="mt-8" aria-label={t('catalog.filters')}>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end">
-        {select('availability', t('catalog.status'), ['OPEN', 'UPCOMING', 'CLOSED'], courseAvailabilityLabels)}
-        {select('type', t('catalog.price'), ['FREE', 'PAID'], courseTypeLabels)}
+        {select(
+          'availability',
+          t('catalog.status'),
+          ['OPEN', 'UPCOMING', 'CLOSED'],
+          courseAvailabilityLabels,
+        )}
+        {select('type', t('catalog.price'), CATALOG_PRICES, catalogPriceLabels)}
         {select('level', t('catalog.level'), COURSE_LEVELS, courseLevelLabels)}
         {select('language', t('catalog.language'), COURSE_LANGUAGES, courseLanguageLabels)}
         <div className="col-span-2 flex flex-wrap gap-2 lg:col-span-1">

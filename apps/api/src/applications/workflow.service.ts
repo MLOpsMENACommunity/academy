@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   DEFAULT_TIMEZONE,
   isValidTimezone,
@@ -145,8 +151,18 @@ export class ApplicationWorkflow {
     opts: { reason?: string | null; within?: (tx: Tx, app: Application) => Promise<void>; awaitSideEffects?: boolean } = {},
   ): Promise<Application> {
     const { app, from } = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.application.findUnique({ where: { id: applicationId }, select: { courseId: true } });
+      const current = await tx.application.findUnique({
+        where: { id: applicationId },
+        select: { courseId: true, userId: true },
+      });
       if (!current) throw new NotFoundException('Application not found');
+      // An admin who applied to a course is a student there: someone else decides on their application.
+      if (actor?.role === 'ADMIN' && actor.id === current.userId && event !== 'SUBMIT_PAYMENT') {
+        throw new ForbiddenException({
+          code: 'OWN_APPLICATION',
+          message: 'You can’t change the status of your own application. Ask another admin.',
+        });
+      }
       const course = await this.lockCourse(tx, current.courseId);
       // Re-read after taking the lock: another request may have changed it meanwhile.
       const fresh = await tx.application.findUniqueOrThrow({

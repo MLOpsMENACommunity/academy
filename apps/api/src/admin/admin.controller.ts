@@ -86,8 +86,8 @@ export class AdminController {
   }
 
   @Get('applications/:id')
-  application(@Param('id') id: string) {
-    return this.applications.detail(id);
+  application(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.applications.detail(id, user.id);
   }
 
   @Post('applications/bulk')

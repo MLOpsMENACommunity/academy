@@ -1,4 +1,8 @@
-import { courseAvailabilityLabels, type PublicSpeakerDto } from '@academy/shared';
+import {
+  courseAvailabilityLabels,
+  eventSpeakerRoleLabels,
+  type PublicSpeakerDto,
+} from '@academy/shared';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -85,7 +89,7 @@ export default async function SpeakerPage({ params }: Props) {
       '@type': 'Person',
       name: s.name,
       ...(s.nameAr ? { alternateName: s.nameAr } : {}),
-      jobTitle: s.titleEn,
+      ...(s.titleEn ? { jobTitle: s.titleEn } : {}),
       ...(s.bioEn ? { description: excerpt(s.bioEn, 300) } : {}),
       ...(s.photoUrl ? { image: absolutePhoto(s.photoUrl) } : {}),
       url,
@@ -127,7 +131,7 @@ export default async function SpeakerPage({ params }: Props) {
             )}
             <div className="flex min-w-0 flex-col gap-2">
               <h1 className="text-[2rem] leading-tight sm:text-[2.5rem]">{name}</h1>
-              <p className="text-lg text-muted">{title}</p>
+              {title && <p className="text-lg text-muted">{title}</p>}
               {links.length > 0 && (
                 <ul className="mt-1 flex flex-wrap gap-2">
                   {links.map((l) => (
@@ -146,7 +150,62 @@ export default async function SpeakerPage({ params }: Props) {
 
       <Container className="py-12 sm:py-16">
         <div className="max-w-3xl space-y-14 sm:space-y-16">
-        {bio && <p className="text-lg leading-relaxed whitespace-pre-line text-body">{bio}</p>}
+          {bio && <p className="text-lg leading-relaxed whitespace-pre-line text-body">{bio}</p>}
+
+          {s.events.length > 0 && (
+            <Section id="sessions" title={t('speakers.sessions')}>
+              <ul>
+                {s.events.map((e) => (
+                  <li
+                    key={e.slug}
+                    className="relative flex items-start gap-5 border-t border-line py-5 last:border-b"
+                  >
+                    <DateTile iso={e.startsAt} />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-medium sm:text-lg">
+                        <Link
+                          href={`/${locale}/sessions/${e.slug}`}
+                          className="after:absolute after:inset-0 hover:text-primary"
+                        >
+                          {pick(locale, e.titleEn, e.titleAr)}
+                        </Link>
+                      </h3>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                        <time dateTime={e.startsAt}>{formatDate(e.startsAt, locale)}</time>
+                        <span aria-hidden>·</span>
+                        {durationLabel(e.durationMin, locale)}
+                        {e.role && (
+                          <>
+                            <span aria-hidden>·</span>
+                            {eventSpeakerRoleLabels[e.role][locale]}
+                          </>
+                        )}
+                        {e.status === 'CANCELLED' ? (
+                          <span className="font-medium text-warning">
+                            · {t('speakers.cancelled')}
+                          </span>
+                        ) : !e.past ? (
+                          <span className="font-medium text-primary">
+                            · {t('speakers.upcoming')}
+                          </span>
+                        ) : e.recordingUrl ? (
+                          <span className="font-medium text-success">
+                            · {t('speakers.hasRecording')}
+                          </span>
+                        ) : null}
+                      </p>
+                      <TopicList
+                        topics={e.topics}
+                        locale={locale}
+                        label={t('sessions.topics')}
+                        className="mt-2"
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
         {s.events.length > 0 && (
           <Section id="sessions" title={t('speakers.sessions')}>

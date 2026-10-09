@@ -2,6 +2,7 @@ import {
   COURSE_LANGUAGES,
   COURSE_LEVELS,
   DELIVERY_PLATFORMS,
+  EVENT_SPEAKER_ROLES,
   faqItemSchema,
   includedSchema,
   localizedListSchema,
@@ -42,7 +43,8 @@ export const archiveSpeakerSchema = z.object({
   slug,
   name: z.string().min(2).max(120),
   nameAr: z.string().max(120).optional(),
-  titleEn: z.string().min(2).max(160),
+  /** Empty when unknown: pages then show the name only (never a made-up title). */
+  titleEn: z.string().max(160).default(''),
   titleAr: z.string().max(160).optional(),
   bioEn: z.string().max(4000).default(''),
   bioAr: z.string().max(4000).optional(),
@@ -60,6 +62,11 @@ export const archiveSessionSchema = z.object({
   descriptionAr: z.string().max(20_000).default(''),
   /** A speaker slug from any archive file (or one an admin created): links the session to their page. */
   speaker: slug.optional(),
+  /** Hosts and guests besides the main speaker (speaker slugs), in display order. */
+  coSpeakers: z
+    .array(z.object({ speaker: slug, role: z.enum(EVENT_SPEAKER_ROLES) }))
+    .max(10)
+    .default([]),
   /** A one-off speaker without a page. Ignored when `speaker` is set. */
   speakerName: z.string().max(120).optional(),
   speakerNameAr: z.string().max(120).optional(),

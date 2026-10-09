@@ -65,7 +65,10 @@ export class MyEventsController {
   }
 }
 
-const toData = (e: EventInput) => ({ ...e, capacity: e.capacity ?? null });
+const toData = ({ coSpeakers: _coSpeakers, ...e }: EventInput) => ({
+  ...e,
+  capacity: e.capacity ?? null,
+});
 
 @ApiTags('admin')
 @Roles('ADMIN')
@@ -89,12 +92,16 @@ export class AdminEventsController {
   /** Audited in the service, with what changed. */
   @Post()
   create(@CurrentUser() user: AuthUser, @Body(new ZodPipe(eventInputSchema)) body: EventInput) {
-    return this.events.save(toData(body), user.id);
+    return this.events.save(toData(body), user.id, undefined, body.coSpeakers);
   }
 
   @Put(':id')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(eventInputSchema)) body: EventInput) {
-    return this.events.save(toData(body), user.id, id);
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodPipe(eventInputSchema)) body: EventInput,
+  ) {
+    return this.events.save(toData(body), user.id, id, body.coSpeakers);
   }
 
   @Delete(':id')

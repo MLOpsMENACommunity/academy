@@ -286,3 +286,8 @@ export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 export const EVENT_STATUSES = ['DRAFT', 'PUBLISHED', 'CANCELLED'] as const;
 export const EventStatus = defineEnum(EVENT_STATUSES);
 export type EventStatus = (typeof EVENT_STATUSES)[number];
+
+/** What a person did at a session besides its main speaker. */
+export const EVENT_SPEAKER_ROLES = ['SPEAKER', 'HOST', 'GUEST'] as const;
+export const EventSpeakerRole = defineEnum(EVENT_SPEAKER_ROLES);
+export type EventSpeakerRole = (typeof EVENT_SPEAKER_ROLES)[number];

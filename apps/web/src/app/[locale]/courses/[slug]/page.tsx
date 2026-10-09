@@ -119,13 +119,38 @@ export default async function CoursePage({ params }: Props) {
         ? t('course.range', { start: formatDate(c.startDate, locale), end: formatDate(c.endDate, locale) })
         : formatDate(c.startDate, locale)
       : null;
+  // Coming soon: dates, format, language and certificate aren't decided. They're listed under
+  // "Course details" as "Will be announced soon" instead of being guessed in the facts row.
+  const comingSoon = c.comingSoon;
+  const tba = t('course.tba');
+  const details: [string, ReactNode][] = comingSoon
+    ? [
+        [
+          t('course.facts.duration'),
+          c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : tba,
+        ],
+        [t('course.facts.format'), tba],
+        [t('course.facts.language'), tba],
+        [
+          t('course.facts.schedule'),
+          c.startDate ? <LocalTime key="s" iso={c.startDate} style="date" /> : tba,
+        ],
+        [t('course.facts.price'), price],
+        [t('course.facts.certificate'), c.included.certificate ? t('course.inc.certificate') : tba],
+      ]
+    : [];
   const facts: [string, ReactNode][] = [
     ...(ran ? ([[t('course.ran'), ran]] as [string, ReactNode][]) : []),
     ...(c.startDate && !completed ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
     ...(c.durationWeeks ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
     ...(c.hoursPerWeek ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
     [t('course.facts.level'), courseLevelLabels[c.level][locale]],
-    [t('course.facts.language'), courseLanguageLabels[c.language][locale]],
+    ...(comingSoon
+      ? []
+      : ([[t('course.facts.language'), courseLanguageLabels[c.language][locale]]] as [
+          string,
+          ReactNode,
+        ][])),
     [t('course.facts.price'), price],
     ...(c.applicationDeadline && !completed
       ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
@@ -158,7 +183,9 @@ export default async function CoursePage({ params }: Props) {
       name: title,
       description: pick(locale, c.shortDescriptionEn, c.shortDescriptionAr),
       url,
-      inLanguage: c.language === 'AR' ? 'ar' : c.language === 'EN' ? 'en' : ['ar', 'en'],
+      ...(comingSoon
+        ? {}
+        : { inLanguage: c.language === 'AR' ? 'ar' : c.language === 'EN' ? 'en' : ['ar', 'en'] }),
       educationalLevel: courseLevelLabels[c.level].en,
       teaches: outcomes,
       coursePrerequisites: prereqs,
@@ -321,7 +348,13 @@ export default async function CoursePage({ params }: Props) {
                   return (
                     <li key={s.id} id={`lesson-${s.order}`} className="flex min-w-0 scroll-mt-6 flex-col gap-3">
                       {s.recordingUrl ? (
-                        <RecordingPlayer url={s.recordingUrl} youtubeId={youtubeId(s.recordingUrl)} title={lessonTitle} locale={locale} />
+                        <RecordingPlayer
+                          url={s.recordingUrl}
+                          youtubeId={youtubeId(s.recordingUrl)}
+                          title={lessonTitle}
+                          locale={locale}
+                          sizes="(min-width: 1024px) 332px, (min-width: 640px) calc(50vw - 36px), calc(100vw - 40px)"
+                        />
                       ) : (
                         <div className="grid aspect-video place-items-center rounded-xl border border-dashed border-line-strong/50 bg-muted-bg p-4 text-center text-sm text-muted">
                           {t('course.noRecording')}
@@ -369,13 +402,17 @@ export default async function CoursePage({ params }: Props) {
                   {audience && (
                     <div className="rounded-card bg-logo-green-soft p-5 sm:p-6">
                       <h3 className="text-base text-success">{t('course.audience')}</h3>
-                      <p className="mt-2 leading-relaxed">{audience}</p>
+                      <div className="mt-2 leading-relaxed">
+                        <Markdown>{audience}</Markdown>
+                      </div>
                     </div>
                   )}
                   {notFor && (
                     <div className="rounded-card bg-muted-bg p-5 sm:p-6">
                       <h3 className="text-base">{t('course.notFor')}</h3>
-                      <p className="mt-2 leading-relaxed">{notFor}</p>
+                      <div className="mt-2 leading-relaxed">
+                        <Markdown>{notFor}</Markdown>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -474,8 +511,14 @@ export default async function CoursePage({ params }: Props) {
                           pick(locale, i.name, i.nameAr)
                         )}
                       </h3>
-                      <p className="mt-1 text-muted">{pick(locale, i.titleEn, i.titleAr)}</p>
-                      <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>
+                      {pick(locale, i.titleEn, i.titleAr) && (
+                        <p className="mt-1 text-muted">{pick(locale, i.titleEn, i.titleAr)}</p>
+                      )}
+                      {pick(locale, i.bioEn, i.bioAr).trim() && (
+                        <p className="mt-3 leading-relaxed whitespace-pre-line">
+                          {pick(locale, i.bioEn, i.bioAr)}
+                        </p>
+                      )}
                       {i.linkedinUrl && (
                         <a href={i.linkedinUrl} rel="noopener" className="mt-2 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">
                           LinkedIn
@@ -488,23 +531,45 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          <Section id="included" title={t('course.included')}>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {included.map(([k, label]) => (
-                <li key={k} className="flex items-start gap-3 leading-relaxed">
-                  <span aria-hidden className="mt-[0.15em] grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs text-primary">
-                    ✓
-                  </span>
-                  {label}
-                </li>
-              ))}
-            </ul>
-            {includedNote && (
-              <Alert tone="info" className="mt-5">
-                {includedNote}
-              </Alert>
-            )}
-          </Section>
+          {details.length > 0 && (
+            <Section id="details" title={t('course.details')}>
+              <dl className="grid gap-x-8 sm:grid-cols-2">
+                {details.map(([k, v]) => (
+                  <div
+                    key={k}
+                    className={`${rowClass} flex items-baseline justify-between gap-4 py-3 sm:[&:nth-last-child(2)]:border-b`}
+                  >
+                    <dt className="text-muted">{k}</dt>
+                    <dd className="text-end font-medium text-fg">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Section>
+          )}
+
+          {/* Coming soon with nothing decided: "Course details" already says so. */}
+          {!(comingSoon && included.length === 0) && (
+            <Section id="included" title={t('course.included')}>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {included.map(([k, label]) => (
+                  <li key={k} className="flex items-start gap-3 leading-relaxed">
+                    <span
+                      aria-hidden
+                      className="mt-[0.15em] grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs text-primary"
+                    >
+                      ✓
+                    </span>
+                    {label}
+                  </li>
+                ))}
+              </ul>
+              {includedNote && (
+                <Alert tone="info" className="mt-5">
+                  {includedNote}
+                </Alert>
+              )}
+            </Section>
+          )}
 
           {c.faq.length > 0 && (
             <Section id="faq" title={t('course.faq')}>
@@ -524,7 +589,8 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          {c.type === 'PAID' && (
+          {/* Payment terms are part of the price, which a coming-soon course hasn't set. */}
+          {c.type === 'PAID' && !comingSoon && (
             <p className="text-[0.9375rem] text-muted">
               {t('course.paidNote', { refund: '\u0000' }).split('\u0000')[0]}
               <Link href={`/${locale}/refund-policy`} className="text-primary underline underline-offset-4">

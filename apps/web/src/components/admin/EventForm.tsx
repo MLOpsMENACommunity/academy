@@ -5,11 +5,14 @@ import {
   courseLanguageLabels,
   DELIVERY_PLATFORMS,
   deliveryPlatformLabels,
+  EVENT_SPEAKER_ROLES,
   EVENT_STATUSES,
+  eventSpeakerRoleLabels,
   eventEnded,
   eventInputSchema,
   eventStatusLabels,
   type EventInput,
+  type EventSpeakerRole,
   type EventStatus,
   type InstructorDto,
   type Localized,
@@ -39,7 +42,11 @@ export interface AdminEvent extends Omit<EventInput, 'startsAt'> {
   _count: { registrations: number };
 }
 
-export type EventFormValue = Omit<EventInput, 'startsAt'> & { startsAt: string };
+export type CoSpeakerValue = { instructorId: string; role: EventSpeakerRole };
+export type EventFormValue = Omit<EventInput, 'startsAt' | 'coSpeakers'> & {
+  startsAt: string;
+  coSpeakers: CoSpeakerValue[];
+};
 
 export const EMPTY_EVENT: EventFormValue = {
   slug: '',
@@ -55,6 +62,7 @@ export const EMPTY_EVENT: EventFormValue = {
   speakerPhotoUrl: null,
   speakerLinkedinUrl: null,
   speakerId: null,
+  coSpeakers: [],
   topics: [],
   startsAt: '',
   durationMin: 60,
@@ -81,6 +89,7 @@ export function toEventForm(e: AdminEvent): EventFormValue {
     speakerPhotoUrl: e.speakerPhotoUrl,
     speakerLinkedinUrl: e.speakerLinkedinUrl,
     speakerId: e.speakerId ?? null,
+    coSpeakers: (e.coSpeakers ?? []).map((c) => ({ instructorId: c.instructorId, role: c.role })),
     topics: e.topics ?? [],
     startsAt: toLocalInput(e.startsAt),
     durationMin: e.durationMin,
@@ -135,7 +144,12 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
-    const payload = { ...v, startsAt: fromLocalInput(v.startsAt) };
+    // A row left without a person is dropped rather than blocking the save.
+    const payload = {
+      ...v,
+      startsAt: fromLocalInput(v.startsAt),
+      coSpeakers: v.coSpeakers.filter((c) => c.instructorId),
+    };
     const parsed = eventInputSchema.safeParse(payload);
     // z.coerce.date() would turn an empty date into 1970.
     const found = parsed.success ? {} : issuesToErrors(parsed.error.issues, t);
@@ -246,12 +260,106 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
             options={speakers.map((s) => ({ value: s.id, label: `${(locale === 'ar' && s.nameAr) || s.name} · ${(locale === 'ar' && s.titleAr) || s.titleEn}` }))}
           />
         </div>
-        <TextField label={f('speakerName')} value={v.speakerName} onChange={set('speakerName')} error={errors.speakerName} maxLength={120} />
-        <TextField label={f('speakerNameAr')} dir="rtl" value={v.speakerNameAr} onChange={set('speakerNameAr')} error={errors.speakerNameAr} maxLength={120} />
-        <TextField label={f('speakerTitleEn')} value={v.speakerTitleEn} onChange={set('speakerTitleEn')} error={errors.speakerTitleEn} maxLength={160} />
-        <TextField label={f('speakerTitleAr')} dir="rtl" value={v.speakerTitleAr} onChange={set('speakerTitleAr')} error={errors.speakerTitleAr} maxLength={160} />
-        <TextField label={f('speakerPhoto')} type="url" dir="ltr" value={v.speakerPhotoUrl ?? ''} onChange={url('speakerPhotoUrl')} error={errors.speakerPhotoUrl} />
-        <TextField label={f('speakerLinkedin')} type="url" dir="ltr" value={v.speakerLinkedinUrl ?? ''} onChange={url('speakerLinkedinUrl')} error={errors.speakerLinkedinUrl} />
+        <TextField
+          label={f('speakerName')}
+          value={v.speakerName}
+          onChange={set('speakerName')}
+          error={errors.speakerName}
+          maxLength={120}
+        />
+        <TextField
+          label={f('speakerNameAr')}
+          dir="rtl"
+          value={v.speakerNameAr}
+          onChange={set('speakerNameAr')}
+          error={errors.speakerNameAr}
+          maxLength={120}
+        />
+        <TextField
+          label={f('speakerTitleEn')}
+          value={v.speakerTitleEn}
+          onChange={set('speakerTitleEn')}
+          error={errors.speakerTitleEn}
+          maxLength={160}
+        />
+        <TextField
+          label={f('speakerTitleAr')}
+          dir="rtl"
+          value={v.speakerTitleAr}
+          onChange={set('speakerTitleAr')}
+          error={errors.speakerTitleAr}
+          maxLength={160}
+        />
+        <TextField
+          label={f('speakerPhoto')}
+          type="url"
+          dir="ltr"
+          value={v.speakerPhotoUrl ?? ''}
+          onChange={url('speakerPhotoUrl')}
+          error={errors.speakerPhotoUrl}
+        />
+        <TextField
+          label={f('speakerLinkedin')}
+          type="url"
+          dir="ltr"
+          value={v.speakerLinkedinUrl ?? ''}
+          onChange={url('speakerLinkedinUrl')}
+          error={errors.speakerLinkedinUrl}
+        />
+        <div className="sm:col-span-2">
+          <p className="text-sm font-semibold text-fg">{f('coSpeakers')}</p>
+          <p className="mt-1 text-xs text-muted">{f('coSpeakersHint')}</p>
+          {errors.coSpeakers && <p className="mt-1 text-sm text-danger">{errors.coSpeakers}</p>}
+          <ul className="mt-3 space-y-3">
+            {v.coSpeakers.map((c, i) => {
+              const update = (next: Partial<CoSpeakerValue>) =>
+                set('coSpeakers')(v.coSpeakers.map((x, j) => (j === i ? { ...x, ...next } : x)));
+              return (
+                <li key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_12rem_auto]">
+                  <SelectField
+                    label={f('coSpeakerPerson')}
+                    required
+                    value={c.instructorId}
+                    onChange={(x) => update({ instructorId: x ?? '' })}
+                    placeholder={f('noSpeakerProfile')}
+                    options={speakers.map((s) => ({
+                      value: s.id,
+                      label: (locale === 'ar' && s.nameAr) || s.name,
+                    }))}
+                  />
+                  <SelectField
+                    label={f('coSpeakerRole')}
+                    required
+                    value={c.role}
+                    onChange={(x) => update({ role: (x ?? 'GUEST') as EventSpeakerRole })}
+                    options={opts(EVENT_SPEAKER_ROLES, eventSpeakerRoleLabels)}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => set('coSpeakers')(v.coSpeakers.filter((_, j) => j !== i))}
+                  >
+                    {f('removeCoSpeaker')}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+          {v.coSpeakers.length < 10 && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={() =>
+                set('coSpeakers')([...v.coSpeakers, { instructorId: '', role: 'GUEST' }])
+              }
+            >
+              {f('addCoSpeaker')}
+            </Button>
+          )}
+        </div>
       </Fieldset>
 
       <Fieldset title={t('admin.sessions.links')}>

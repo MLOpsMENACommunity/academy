@@ -11,6 +11,7 @@ import type {
   DeliveryPlatform,
   EducationLevel,
   EmploymentStatus,
+  EventSpeakerRole,
   EventStatus,
   ExperienceRange,
   Industry,
@@ -206,6 +207,12 @@ export const courseTypeLabels: LabelMap<CourseType> = {
   PAID: { en: 'Paid', ar: 'مدفوع' },
 };
 
+/** The catalog's price filter (see catalogPrice): "Paid" means a price is set. */
+export const catalogPriceLabels: Record<CourseType | 'TBA', Localized> = {
+  ...courseTypeLabels,
+  TBA: { en: 'Price to be announced', ar: 'يُعلن السعر لاحقًا' },
+};
+
 export const courseStatusLabels: LabelMap<CourseStatus> = {
   DRAFT: { en: 'Draft', ar: 'مسودة' },
   COMING_SOON: { en: 'Coming soon', ar: 'قريبًا' },
@@ -213,6 +220,12 @@ export const courseStatusLabels: LabelMap<CourseStatus> = {
   CLOSED: { en: 'Closed', ar: 'مغلق' },
   ARCHIVED: { en: 'Archived', ar: 'مؤرشف' },
   COMPLETED: { en: 'Completed', ar: 'مكتمل' },
+};
+
+export const eventSpeakerRoleLabels: LabelMap<EventSpeakerRole> = {
+  SPEAKER: { en: 'Speaker', ar: 'متحدث' },
+  HOST: { en: 'Host', ar: 'مضيف' },
+  GUEST: { en: 'Guest', ar: 'ضيف' },
 };
 
 export const eventStatusLabels: LabelMap<EventStatus> = {

@@ -34,7 +34,10 @@ describe('recordings library and speaker pages (e2e)', () => {
           ...over,
         },
       });
-    await event('older', { startsAt: days(-20), speakerId: speaker.id, topics: [tag, 'docker'] });
+    const older = await event('older', { startsAt: days(-20), speakerId: speaker.id, topics: [tag, 'docker'] });
+    // A host with an Arabic name, written "عبد الله" with a space (searches spell it both ways).
+    const host = await prisma.instructor.create({ data: { slug: `host-${run}`, name: `Abdallah Host ${run}`, nameAr: 'عبد الله المضيف', titleEn: 'Host', bioEn: '' } });
+    await prisma.liveEventSpeaker.create({ data: { eventId: older.id, instructorId: host.id, role: 'HOST' } });
     await event('newer', { startsAt: days(-5), speakerName: 'Guest Person' });
     await event('draft', { status: 'DRAFT' });
     await event('norec', { recordingUrl: null });
@@ -81,7 +84,8 @@ describe('recordings library and speaker pages (e2e)', () => {
     // Drafts, sessions without a recording, upcoming ones and private course recordings never show.
     expect(JSON.stringify(res.body)).not.toMatch(/draft-|norec-|soon-|privatePRIVATE/);
     const older = res.body.items.find((i: { id: string }) => i.id === `event:older-${run}`);
-    expect(older).toMatchObject({ path: `/sessions/older-${run}`, youtubeId: 'older', speakers: [{ slug: `speaker-${run}`, name: `Speaker ${run}` }] });
+    // The main speaker first, then the host.
+    expect(older).toMatchObject({ path: `/sessions/older-${run}`, youtubeId: 'older', speakers: [{ slug: `speaker-${run}`, name: `Speaker ${run}` }, { slug: `host-${run}` }] });
     const lesson = res.body.items.find((i: { id: string }) => i.id === `course:public-${run}:1`);
     expect(lesson).toMatchObject({ path: `/courses/public-${run}`, course: { slug: `public-${run}`, order: 1 }, speakers: [{ slug: `speaker-${run}` }] });
     expect(res.body.items.find((i: { id: string }) => i.id === `event:newer-${run}`).speakers).toEqual([expect.objectContaining({ slug: null, name: 'Guest Person' })]);
@@ -96,6 +100,36 @@ describe('recordings library and speaker pages (e2e)', () => {
     const byCourse = await http().get(`/api/recordings?topic=${tag}&q=public%20course`).expect(200);
     expect(byCourse.body.items.map((i: { id: string }) => i.id)).toEqual([`course:public-${run}:1`]);
     await http().get('/api/recordings?topic=Not%20A%20Tag!').expect(400);
+  });
+
+  // QA L16: Arabic spellings of tools and names find English recordings.
+  it('searches Arabic spellings of topics and speaker names', async () => {
+    const ids = async (q: string) => ((await http().get(`/api/recordings?topic=${tag}&q=${encodeURIComponent(q)}`).expect(200)).body.items as { id: string }[]).map((i) => i.id);
+    expect(await ids('دوكر')).toEqual([`event:older-${run}`]);
+    expect(await ids('DOCKER')).toEqual([`event:older-${run}`]);
+    expect(await ids('عبدالله')).toEqual([`event:older-${run}`]);
+    expect(await ids('عبد الله')).toEqual([`event:older-${run}`]);
+    expect(await ids('كوبرنيتيس')).toEqual([]);
+    const search = await http().get(`/api/recordings/search?q=${encodeURIComponent('دوكر')}`).expect(200);
+    expect(search.body.ids).toContain(`event:older-${run}`);
+  });
+
+  // QA L20: an unknown topic (a typo, an old link) is ignored instead of matching nothing.
+  it('ignores a topic the library does not have', async () => {
+    const all = (await http().get(`/api/recordings?q=${run}`).expect(200)).body.items.length;
+    expect(all).toBeGreaterThan(0);
+    expect((await http().get(`/api/recordings?topic=nope-${run}&q=${run}`).expect(200)).body.items).toHaveLength(all);
+  });
+
+  it('lists hosts and guests on the session, in the library and on their own page', async () => {
+    const ev = await http().get(`/api/events/older-${run}`).expect(200);
+    expect(ev.body.coSpeakers).toEqual([expect.objectContaining({ slug: `host-${run}`, nameAr: 'عبد الله المضيف', role: 'HOST' })]);
+    const lib = await http().get(`/api/recordings?topic=${tag}`).expect(200);
+    const item = lib.body.items.find((i: { id: string }) => i.id === `event:older-${run}`);
+    expect(item.speakers.map((x: { slug: string }) => x.slug)).toEqual([`speaker-${run}`, `host-${run}`]);
+    const page = await http().get(`/api/speakers/host-${run}`).expect(200);
+    expect(page.body.events).toEqual([expect.objectContaining({ slug: `older-${run}`, role: 'HOST' })]);
+    expect((await http().get(`/api/speakers/speaker-${run}`).expect(200)).body.events.every((e: { role: unknown }) => e.role === null)).toBe(true);
   });
 
   it('serves a speaker page with their sessions and courses', async () => {
@@ -150,6 +184,20 @@ describe('recordings library and speaker pages (e2e)', () => {
     await http().post('/api/admin/events').set('Cookie', admin.cookie).send({ ...body, slug: `upcoming-${run}`, startsAt: days(2).toISOString() }).expect(400);
     await http().post('/api/admin/events').set('Cookie', admin.cookie).send({ ...body, slug: 'recordings' }).expect(400);
     await http().post('/api/admin/events').set('Cookie', admin.cookie).send({ ...body, slug: `ghost-${run}`, speakerId: 'nope' }).expect(400);
+
+    // Hosts and guests: saved in order, kept when a save leaves them out, cleared with an empty list.
+    const host = await prisma.instructor.findUniqueOrThrow({ where: { slug: `host-${run}` } });
+    const id = created.body.id as string;
+    const put = (extra: Record<string, unknown>) => http().put(`/api/admin/events/${id}`).set('Cookie', admin.cookie).send({ ...body, ...extra });
+    await put({ coSpeakers: [{ instructorId: host.id, role: 'GUEST' }] }).expect(200);
+    const rows = () => prisma.liveEventSpeaker.findMany({ where: { eventId: id }, orderBy: { order: 'asc' } });
+    expect((await rows()).map((r) => [r.instructorId, r.role])).toEqual([[host.id, 'GUEST']]);
+    expect((await http().get(`/api/admin/events/${id}`).set('Cookie', admin.cookie).expect(200)).body.coSpeakers).toEqual([expect.objectContaining({ instructorId: host.id, role: 'GUEST' })]);
+    await put({}).expect(200);
+    expect(await rows()).toHaveLength(1);
+    await put({ coSpeakers: [{ instructorId: host.id, role: 'HOST' }, { instructorId: host.id, role: 'GUEST' }] }).expect(400);
+    await put({ coSpeakers: [] }).expect(200);
+    expect(await rows()).toHaveLength(0);
   });
 
   it('marks an imported record as the admin\'s on every admin save, so the import leaves it alone', async () => {

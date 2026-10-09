@@ -110,7 +110,8 @@ export class AdminApplicationsService {
     return new Map(rows.map((r) => [r.courseId, r._count._all]));
   }
 
-  async detail(id: string) {
+  /** `viewerId`: the admin looking. Their own application offers no status changes (someone else decides). */
+  async detail(id: string, viewerId?: string) {
     const a = await this.prisma.application.findUnique({
       where: { id },
       include: {
@@ -153,7 +154,15 @@ export class AdminApplicationsService {
       })),
       notes: a.notes.map((n) => ({ id: n.id, body: n.body, author: n.author?.email ?? null, createdAt: n.createdAt.toISOString() })),
       payments: await Promise.all(a.payments.map((p) => this.payments.adminGet(p.id))),
-      availableEvents: availableAdminEvents(a.status, { courseType: a.course.type, capacity: a.course.capacity, seatsTaken: taken }),
+      ownApplication: viewerId === a.userId,
+      availableEvents:
+        viewerId === a.userId
+          ? []
+          : availableAdminEvents(a.status, {
+              courseType: a.course.type,
+              capacity: a.course.capacity,
+              seatsTaken: taken,
+            }),
     };
   }
 

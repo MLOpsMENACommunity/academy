@@ -87,6 +87,27 @@ describe('admin panel API (e2e)', () => {
     expect((await as(admin.cookie).get(`/api/admin/applications/${ids[0]}`)).body.notes[0].body).toBe('Strong candidate');
   });
 
+  // QA L25: an admin who applied to a course can't shortlist, accept or reject themselves.
+  it('never lets an admin change the status of their own application', async () => {
+    const course = await createCourse(prisma);
+    const me = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin-applicant' });
+    const appId = (await http().post('/api/applications').set('Cookie', me.cookie).send({ courseSlug: course.slug, answers: { [course.questionId]: true } }).expect(201)).body.id;
+
+    const own = await as(me.cookie).post(`/api/admin/applications/${appId}/transition`).send({ event: 'ACCEPT' }).expect(403);
+    expect(own.body.code).toBe('OWN_APPLICATION');
+    const bulk = await as(me.cookie).post('/api/admin/applications/bulk').send({ ids: [appId], event: 'SHORTLIST' }).expect(200);
+    expect(bulk.body.succeeded).toBe(0);
+    // The admin panel offers no status changes on it (the UI hides them).
+    expect((await as(me.cookie).get(`/api/admin/applications/${appId}`).expect(200)).body).toMatchObject({ ownApplication: true, availableEvents: [], status: 'SUBMITTED' });
+    expect(await prisma.applicationStatusHistory.count({ where: { applicationId: appId, toStatus: { not: 'SUBMITTED' } } })).toBe(0);
+
+    // Another admin decides as usual.
+    const other = await as(admin.cookie).get(`/api/admin/applications/${appId}`).expect(200);
+    expect(other.body.ownApplication).toBe(false);
+    expect(other.body.availableEvents).toContain('SHORTLIST');
+    await as(admin.cookie).post(`/api/admin/applications/${appId}/transition`).send({ event: 'SHORTLIST' }).expect(200);
+  });
+
   it('lists students (not admins or deleted users) and audits CV views', async () => {
     const s = await createUser(app, prisma, { prefix: 'dir' });
     const gone = await createUser(app, prisma, { prefix: 'gone' });

@@ -152,4 +152,69 @@ describe('archive import (e2e)', () => {
     expect(again.updated).toEqual([]);
     expect(await prisma.course.findUnique({ where: { slug: 'mlops-practitioner' } })).toMatchObject({ status: 'COMPLETED', source: 'import' });
   });
+
+  // The owner's past sessions: new ones are added, existing entries corrected, hosts and guests linked.
+  it("brings in the owner's past sessions with their hosts and guests, idempotently", async () => {
+    const committed = readArchive();
+    await importArchive(prisma, committed, { force: true });
+    const llm = await prisma.liveEvent.findUnique({
+      where: { slug: 'introduction-to-llm-inference-engines' },
+      include: { speaker: true, coSpeakers: { include: { instructor: true }, orderBy: { order: 'asc' } } },
+    });
+    // Only checked where the import owns the row (an earlier run of this suite may have created it).
+    if (llm?.source === 'import' && llm.importHash) {
+      expect(llm).toMatchObject({ status: 'PUBLISHED', durationMin: 90, recordingUrl: null });
+      expect(llm.startsAt.toISOString()).toBe('2026-10-08T17:00:00.000Z');
+      expect(llm.speaker?.slug).toBe('mohamed-rashad');
+      expect(llm.coSpeakers.map((c) => [c.instructor.slug, c.role])).toEqual([['aya-nasser-salama', 'HOST']]);
+    }
+    const fastapi = await prisma.liveEvent.findUniqueOrThrow({ where: { slug: 'hands-on-fastapi-backend-for-mlops' } });
+    if (fastapi.importHash) expect(fastapi.startsAt.toISOString()).toBe('2026-09-12T16:00:00.000Z');
+
+    const before = await prisma.liveEventSpeaker.findMany({ orderBy: [{ eventId: 'asc' }, { order: 'asc' }] });
+    const again = await importArchive(prisma, committed, { force: true });
+    expect(again.updated).toEqual([]);
+    expect(await prisma.liveEventSpeaker.findMany({ orderBy: [{ eventId: 'asc' }, { order: 'asc' }] })).toEqual(before);
+    expect(JSON.stringify(await prisma.liveEvent.findMany({ where: { source: 'import' } }))).not.toContain('zomra');
+  });
+
+  it('replaces hosts and guests when an entry changes, and leaves an admin-edited session alone', async () => {
+    const withHost = (role: 'HOST' | 'GUEST', title = 'Hosted talk') =>
+      parseArchive([
+        {
+          name: 'co.json',
+          data: {
+            version: 1,
+            speakers: [
+              { slug: slug('main'), name: 'Main Speaker', titleEn: 'Engineer' },
+              { slug: slug('host'), name: 'The Host', nameAr: 'المضيف' },
+            ],
+            sessions: [
+              {
+                slug: slug('hosted'),
+                titleEn: title,
+                speaker: slug('main'),
+                // The main speaker listed again is ignored; they are the speaker already.
+                coSpeakers: [{ speaker: slug('host'), role }, { speaker: slug('main'), role: 'GUEST' }],
+                startsAt: '2026-08-29T19:00:00+03:00',
+              },
+            ],
+          },
+        },
+      ]);
+    await importArchive(prisma, withHost('HOST'));
+    const event = await prisma.liveEvent.findUniqueOrThrow({ where: { slug: slug('hosted') }, include: { coSpeakers: { include: { instructor: true } } } });
+    expect(event.coSpeakers.map((c) => [c.instructor.slug, c.role])).toEqual([[slug('host'), 'HOST']]);
+    expect(await prisma.instructor.findUniqueOrThrow({ where: { slug: slug('host') } })).toMatchObject({ titleEn: '', nameAr: 'المضيف' });
+
+    expect((await importArchive(prisma, withHost('GUEST'))).updated).toEqual([`session:${slug('hosted')}`]);
+    expect((await prisma.liveEventSpeaker.findMany({ where: { eventId: event.id } })).map((c) => c.role)).toEqual(['GUEST']);
+
+    // An admin takes the session over: the import no longer changes its people.
+    await prisma.liveEvent.update({ where: { id: event.id }, data: { importHash: null } });
+    await prisma.liveEventSpeaker.deleteMany({ where: { eventId: event.id } });
+    const report = await importArchive(prisma, withHost('HOST', 'Hosted talk, renamed'));
+    expect(report.skipped).toContain(`session:${slug('hosted')}: edited by an admin since it was imported`);
+    expect(await prisma.liveEventSpeaker.count({ where: { eventId: event.id } })).toBe(0);
+  });
 });

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CourseAvailability, EventStatus } from './enums';
+import type { CourseAvailability, EventSpeakerRole, EventStatus } from './enums';
 import type { Localized } from './labels';
 
 // ------------------------------------------------------------------ topics
@@ -40,6 +40,73 @@ export const TOPIC_LABELS: Record<string, Localized> = {
 
 export function topicLabel(tag: string, locale: 'en' | 'ar'): string {
   return TOPIC_LABELS[tag]?.[locale] ?? tag;
+}
+
+// ------------------------------------------------------------------ search
+
+/**
+ * How people spell tools and topics when they search in Arabic (or in short), mapped to the
+ * English word the recordings use. Searching "دوكر" also finds "Docker".
+ */
+export const SEARCH_ALIASES: Record<string, string[]> = {
+  docker: ['دوكر', 'دوكير', 'داكر', 'دوكار'],
+  kubernetes: [
+    'كوبرنيتيس',
+    'كوبرنيتس',
+    'كوبيرنيتيس',
+    'كوبيرنيتس',
+    'كوبرنتس',
+    'كيوبرنيتيس',
+    'كيوبرنيتس',
+    'k8s',
+  ],
+  python: ['بايثون', 'بايتون', 'بيثون'],
+  fastapi: ['فاست اي بي اي', 'فاست ابي', 'فاستapi', 'فاست api'],
+  'ci/cd': ['cicd', 'ci-cd', 'ci cd', 'سي اي سي دي', 'التكامل المستمر', 'النشر المستمر'],
+  'github actions': ['جيت هاب اكشنز', 'جيتهاب اكشنز', 'جيت هب اكشنز'],
+  mlops: ['ام ال اوبس', 'ام ال أوبس', 'إم إل أوبس'],
+  llmops: ['ال ال ام اوبس', 'إل إل إم أوبس'],
+  llm: ['ال ال ام', 'نماذج اللغة الكبيرة', 'النماذج اللغوية'],
+  prometheus: ['بروميثيوس', 'بروميثيس'],
+  grafana: ['جرافانا', 'غرافانا', 'جرافنا'],
+  redis: ['ريديس', 'رديس'],
+  uv: ['يو في'],
+  ruff: ['راف'],
+  vllm: ['في ال ال ام'],
+  'on-prem': ['on prem', 'اون بريم', 'أون بريم'],
+};
+
+/**
+ * Text folded for search: lower case, Arabic without diacritics or tatweel, one form of
+ * alef, yaa and taa marbuta, and "عبد ال…" written as one word, as names are spelled both ways.
+ */
+export function foldSearch(text: string): string {
+  return text
+    .toLocaleLowerCase('en')
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/عبد\s+ال/g, 'عبدال')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * What a search looks for: the folded text, plus the same text with each Arabic or short
+ * spelling of a tool replaced by its English name. Null for an empty search.
+ */
+export function searchTerms(query: string): string[] | null {
+  const q = foldSearch(query);
+  if (!q) return null;
+  const terms = new Set([q]);
+  for (const [word, aliases] of Object.entries(SEARCH_ALIASES)) {
+    for (const alias of aliases.map(foldSearch)) {
+      if (q.includes(alias)) terms.add(q.split(alias).join(word));
+    }
+  }
+  return [...terms];
 }
 
 /** Comma-separated text from an admin field -> tags (invalid ones dropped). */
@@ -88,6 +155,8 @@ export interface SpeakerEventDto {
   past: boolean;
   recordingUrl: string | null;
   topics: string[];
+  /** Null when they were the session's main speaker; otherwise what they did (host, guest). */
+  role: EventSpeakerRole | null;
 }
 
 /** One course on a speaker's page. */

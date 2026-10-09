@@ -28,13 +28,52 @@ export function courseAvailability(
   return 'OPEN';
 }
 
+/**
+ * The catalog's price filter: free, paid with a price, or paid with the price not announced
+ * yet (a "coming soon" course). A course without a price is never counted as "Paid".
+ */
+export const CATALOG_PRICES = [...COURSE_TYPES, 'TBA'] as const;
+export type CatalogPrice = (typeof CATALOG_PRICES)[number];
+
+export function catalogPrice(c: { type: CourseType; price: number }): CatalogPrice {
+  if (c.type === 'FREE') return 'FREE';
+  return c.price > 0 ? 'PAID' : 'TBA';
+}
+
 export const catalogQuerySchema = z.object({
   level: z.enum(COURSE_LEVELS).optional(),
-  type: z.enum(COURSE_TYPES).optional(),
+  type: z.enum(CATALOG_PRICES).optional(),
   language: z.enum(COURSE_LANGUAGES).optional(),
   availability: z.enum(['OPEN', 'UPCOMING', 'CLOSED']).optional(),
 });
 export type CatalogQuery = z.infer<typeof catalogQuerySchema>;
+
+/** The fields of a course the catalog filters on. */
+export interface CatalogFacets {
+  level: CourseLevel;
+  type: CourseType;
+  price: number;
+  language: CourseLanguage;
+  availability: CourseAvailability;
+}
+
+/**
+ * One matcher for the API (?level=&type=&language=&availability=) and the static catalog page.
+ * English or Arabic also matches bilingual courses (they're taught in both); "Arabic & English"
+ * matches bilingual courses only.
+ */
+export function matchesCatalog(c: CatalogFacets, q: CatalogQuery): boolean {
+  if (q.level && c.level !== q.level) return false;
+  if (q.type && catalogPrice(c) !== q.type) return false;
+  if (
+    q.language &&
+    c.language !== q.language &&
+    !(c.language === 'BILINGUAL' && q.language !== 'BILINGUAL')
+  )
+    return false;
+  if (q.availability && c.availability !== q.availability) return false;
+  return true;
+}
 
 export interface InstructorDto {
   id: string;
@@ -74,6 +113,11 @@ export interface CourseSummaryDto {
   instructorNames: string[];
   /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
   completed: boolean;
+  /**
+   * Announced, not open yet (status COMING_SOON): its details (dates, format, language,
+   * certificate) aren't decided, so pages say "Will be announced soon" for them.
+   */
+  comingSoon: boolean;
   cohortNumber: number | null;
   endDate: string | null;
   topics: string[];

@@ -2,7 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   courseAvailability,
   eventEnded,
+  foldSearch,
   PUBLIC_COURSE_STATUSES,
+  searchTerms,
+  TOPIC_LABELS,
   youtubeId,
   type PublicSpeakerDto,
   type RecordingDto,
@@ -11,7 +14,7 @@ import {
   type SpeakerRefDto,
 } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
-import { speakerRefSelect, toSpeakerRef } from '../events/events.service';
+import { speakerRefSelect, toCoSpeakers, toSpeakerRef } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** The whole library is small (tens of items, hundreds one day): it's built once a minute and filtered in memory. */
@@ -29,7 +32,13 @@ interface LibraryItem {
   text: string;
 }
 
-const fold = (s: string) => s.toLocaleLowerCase('en').normalize('NFKC');
+/** Searchable text: the given fields, plus each tag's English and Arabic label. */
+const searchText = (fields: (string | null | undefined)[], topics: string[]) =>
+  foldSearch(
+    [...fields, ...topics.flatMap((t) => [t, TOPIC_LABELS[t]?.en ?? '', TOPIC_LABELS[t]?.ar ?? ''])]
+      .filter(Boolean)
+      .join('\n'),
+  );
 
 /** The archive: the recordings library and speaker pages. Everything here is public. */
 @Injectable()
@@ -48,14 +57,23 @@ export class ArchiveService {
    */
   async recordings(q: RecordingsQuery, now = new Date()): Promise<RecordingsDto> {
     const ended = (await this.libraryItems()).filter((x) => x.endsAt < now.getTime());
-    const text = q.q ? fold(q.q.trim()) : '';
+    const counts = new Map<string, number>();
+    for (const { item } of ended)
+      for (const tag of item.topics) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    // A topic the library doesn't have (a typo, an old link) is ignored rather than matching nothing.
+    const topic = q.topic && counts.has(q.topic) ? q.topic : undefined;
+    const terms = searchTerms(q.q ?? '');
     const items = ended
-      .filter((x) => (!q.topic || x.item.topics.includes(q.topic)) && (!text || x.text.includes(text)))
+      .filter(
+        (x) =>
+          (!topic || x.item.topics.includes(topic)) &&
+          (!terms || terms.some((t) => x.text.includes(t))),
+      )
       .map((x) => x.item);
 
-    const counts = new Map<string, number>();
-    for (const { item } of ended) for (const tag of item.topics) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    const topics = [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    const topics = [...counts]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
     return { items, topics };
   }
 
@@ -79,7 +97,13 @@ export class ArchiveService {
         where: { status: 'PUBLISHED', recordingUrl: { not: null } },
         orderBy: { startsAt: 'desc' },
         take: MAX_ITEMS,
-        include: { speaker: { select: speakerRefSelect } },
+        include: {
+          speaker: { select: speakerRefSelect },
+          coSpeakers: {
+            orderBy: { order: 'asc' },
+            select: { role: true, instructorId: true, instructor: { select: speakerRefSelect } },
+          },
+        },
       }),
       this.prisma.courseSession.findMany({
         where: { recordingUrl: { not: null }, course: publicCourse },
@@ -103,11 +127,16 @@ export class ArchiveService {
       ...events
         .filter((e) => e.recordingUrl)
         .map((e): LibraryItem => {
-          const speakers: SpeakerRefDto[] = e.speaker
+          const main: SpeakerRefDto[] = e.speaker
             ? [toSpeakerRef(e.speaker)]
             : e.speakerName
               ? [{ slug: null, name: e.speakerName, nameAr: e.speakerNameAr || null, titleEn: e.speakerTitleEn || null, titleAr: e.speakerTitleAr || null, photoUrl: e.speakerPhotoUrl }]
               : [];
+          // The main speaker first, then hosts and guests (their names are searchable too).
+          const speakers: SpeakerRefDto[] = [
+            ...main,
+            ...toCoSpeakers(e).map(({ role: _role, ...ref }) => ref),
+          ];
           const item: RecordingDto = {
             id: `event:${e.slug}`,
             kind: 'event',
@@ -125,7 +154,10 @@ export class ArchiveService {
           return {
             item,
             endsAt: e.startsAt.getTime() + e.durationMin * 60_000,
-            text: fold([e.titleEn, e.titleAr, e.descriptionEn, e.descriptionAr, ...names(speakers)].join('\n')),
+            text: searchText(
+              [e.titleEn, e.titleAr, e.descriptionEn, e.descriptionAr, ...names(speakers)],
+              e.topics,
+            ),
           };
         }),
       ...sessions
@@ -149,7 +181,18 @@ export class ArchiveService {
           return {
             item,
             endsAt: s.startsAt.getTime() + s.durationMin * 60_000,
-            text: fold([s.titleEn, s.titleAr, s.descriptionEn ?? '', s.descriptionAr ?? '', s.course.titleEn, s.course.titleAr, ...names(speakers)].join('\n')),
+            text: searchText(
+              [
+                s.titleEn,
+                s.titleAr,
+                s.descriptionEn,
+                s.descriptionAr,
+                s.course.titleEn,
+                s.course.titleAr,
+                ...names(speakers),
+              ],
+              s.topics,
+            ),
           };
         }),
     ];
@@ -162,6 +205,7 @@ export class ArchiveService {
       slug: { not: null },
       OR: [
         { events: { some: { status: { in: ['PUBLISHED', 'CANCELLED'] } } } },
+        { coSpeaking: { some: { event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } } } },
         { courses: { some: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } } } },
       ],
     };
@@ -176,7 +220,14 @@ export class ArchiveService {
     const s = await this.prisma.instructor.findFirst({
       where: { ...this.publicSpeaker(), slug },
       include: {
-        events: { where: { status: { in: ['PUBLISHED', 'CANCELLED'] } }, orderBy: { startsAt: 'desc' } },
+        events: {
+          where: { status: { in: ['PUBLISHED', 'CANCELLED'] } },
+          orderBy: { startsAt: 'desc' },
+        },
+        coSpeaking: {
+          where: { event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } },
+          include: { event: true },
+        },
         courses: {
           where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } },
           include: { course: true },
@@ -195,20 +246,29 @@ export class ArchiveService {
       photoUrl: s.photoUrl,
       linkedinUrl: s.linkedinUrl,
       githubUrl: s.githubUrl,
-      events: s.events.map((e) => {
-        const past = eventEnded(e.startsAt, e.durationMin, now);
-        return {
-          slug: e.slug,
-          status: e.status,
-          titleEn: e.titleEn,
-          titleAr: e.titleAr || e.titleEn,
-          startsAt: e.startsAt.toISOString(),
-          durationMin: e.durationMin,
-          past,
-          recordingUrl: past ? e.recordingUrl : null,
-          topics: e.topics,
-        };
-      }),
+      // Sessions they gave, and those they hosted or joined as a guest, newest first.
+      events: [
+        ...s.events.map((e) => ({ e, role: null })),
+        ...s.coSpeaking
+          .filter((c) => c.event.speakerId !== s.id)
+          .map((c) => ({ e: c.event, role: c.role })),
+      ]
+        .sort((a, b) => b.e.startsAt.getTime() - a.e.startsAt.getTime())
+        .map(({ e, role }) => {
+          const past = eventEnded(e.startsAt, e.durationMin, now);
+          return {
+            slug: e.slug,
+            status: e.status,
+            titleEn: e.titleEn,
+            titleAr: e.titleAr || e.titleEn,
+            startsAt: e.startsAt.toISOString(),
+            durationMin: e.durationMin,
+            past,
+            recordingUrl: past ? e.recordingUrl : null,
+            topics: e.topics,
+            role,
+          };
+        }),
       courses: s.courses
         .map(({ course: c }) => ({
           slug: c.slug,

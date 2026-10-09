@@ -5,6 +5,7 @@
     {
       "slug": "aya-nasser-salama",
       "name": "Aya Nasser Salama",
+      "nameAr": "آية ناصر سلامة",
       "titleEn": "Founder of MLOps MENA Community and Senior MLOps Engineer",
       "titleAr": "مؤسِّسة مجتمع MLOps MENA ومهندسة MLOps أولى",
       "bioEn": "Senior MLOps & LLMOps Engineer with 6+ years in AI. At Unifonic she is the central MLOps/LLMOps support across AI teams — agentic products with LangGraph and MCP, LLM evaluation and observability, and 30B+ model serving on Kubernetes. She designed and teaches \"Production ML Engineering\" at ITI, and built Valeo's first production RAG system.",
@@ -15,13 +16,26 @@
     {
       "slug": "mahmoud-sharif",
       "name": "Mahmoud Sharif",
-      "titleEn": "Instructor · 3+ years experience",
-      "titleAr": "مدرّب · خبرة أكثر من 3 سنوات",
-      "bioEn": ""
+      "nameAr": "محمود شريف",
+      "titleEn": "Instructor with eYouth and Mindset",
+      "titleAr": "مدرّب مع eYouth وMindset",
+      "bioEn": "3+ years instructing with eYouth and Mindset.",
+      "bioAr": "أكثر من 3 سنوات في التدريب مع eYouth وMindset."
+    },
+    {
+      "slug": "mariam-qotob",
+      "name": "Mariam Qotob",
+      "nameAr": "مريم قطب",
+      "titleEn": "AI Engineer",
+      "titleAr": "مهندسة ذكاء اصطناعي",
+      "bioEn": "AI/ML engineer with a professional master's in AI from Queen's University, working across the full machine learning pipeline with applied experience in LLMs and RAG. Currently a Teaching Assistant for the Digilians Initiative.",
+      "bioAr": "مهندسة ذكاء اصطناعي وتعلّم آلة، حاصلة على ماجستير مهني في الذكاء الاصطناعي من جامعة Queen’s، وتعمل عبر مسار تعلّم الآلة كاملًا مع خبرة تطبيقية في النماذج اللغوية الكبيرة (LLMs) وRAG. تعمل حاليًا مساعدة تدريس في مبادرة Digilians.",
+      "linkedinUrl": "https://www.linkedin.com/in/mariamqotob/"
     },
     {
       "slug": "abdallah-almalawany",
       "name": "Abdallah Almalawany",
+      "nameAr": "عبدالله الملواني",
       "titleEn": "DevOps Engineer",
       "titleAr": "مهندس DevOps",
       "bioEn": ""
@@ -29,8 +43,17 @@
     {
       "slug": "mohamed-rashad",
       "name": "Mohamed Rashad",
-      "titleEn": "Co-Founder & CTO, DevisionX",
+      "nameAr": "محمد رشاد",
+      "titleEn": "Co-Founder and CTO, DevisionX",
       "titleAr": "شريك مؤسس ومدير تقني، DevisionX",
+      "bioEn": "Co-Founder and CTO of DevisionX. His on-prem Llama-2 work was featured on Meta's Engineering Blog.",
+      "bioAr": "شريك مؤسس ومدير تقني في DevisionX. عُرض عمله على تشغيل Llama-2 داخل المؤسسة (On-Prem) في مدونة Meta الهندسية."
+    },
+    {
+      "slug": "mohamed-samy",
+      "name": "Mohamed Samy",
+      "nameAr": "محمد سامي",
+      "titleEn": "",
       "bioEn": ""
     }
   ],
@@ -39,9 +62,15 @@
       "slug": "on-prem-mlops-playbook",
       "titleEn": "The On-Prem MLOps Playbook",
       "titleAr": "دليل MLOps داخل المؤسسة (On-Prem)",
-      "descriptionEn": "Bridging traditional DevOps and private AI workloads. Banks, manufacturers and government environments run every inference on hardware they physically control: no elastic GPU clusters, no managed scheduling, one fixed pool of GPUs shared by training, inference and experimentation. Most MLOps content quietly assumes the cloud; this session covers what changes when that assumption disappears, from GPU partitioning and scheduling to CUDA and driver versioning.",
-      "descriptionAr": "الجسر بين DevOps التقليدي وأحمال الذكاء الاصطناعي الخاصة\n\nالبنوك والمصانع والجهات الحكومية تشغّل كل عملية استدلال على عتاد تملكه فعليًا: لا عناقيد GPU مرنة ولا جدولة مُدارة، بل مجموعة ثابتة من وحدات GPU يتقاسمها التدريب والاستدلال والتجارب. معظم محتوى MLOps يفترض السحابة ضمنيًا؛ وهذه الجلسة تتناول ما يتغيّر حين يغيب هذا الافتراض، من تقسيم وحدات GPU وجدولتها إلى إدارة إصدارات CUDA والتعريفات.",
+      "descriptionEn": "Bridging traditional DevOps and private AI workloads. Banks, manufacturers and government environments run every inference on hardware they physically control: no elastic GPU clusters, no managed scheduling, one fixed pool of GPUs shared by training, inference and experimentation. Most MLOps content quietly assumes the cloud; this session covers what changes when that assumption disappears, from GPU partitioning and scheduling to CUDA and driver versioning.\n\n### Why attend\n\nIn MENA, on-prem is the default for banks, telecoms, government and healthcare due to data-residency rules, while most MLOps content assumes the cloud. A production playbook from regulated deployments, plus Q&A with a CTO. For MLOps/DevOps engineers moving into AI workloads, ML engineers, and tech leads weighing cloud vs on-prem. Hosted by MLOps MENA Community in partnership with DevisionX.\n\n### What you'll learn\n\n- Partitioning and scheduling a fixed GPU pool across training, inference and experimentation.\n- Managing CUDA/driver versions without breaking running jobs.\n- Monitoring utilization to catch idle or contended hardware.\n- Designing around power, cooling and bandwidth.\n- When on-prem is mandatory: data residency, air-gapped environments, regulation.",
+      "descriptionAr": "الجسر بين DevOps التقليدي وأحمال الذكاء الاصطناعي الخاصة\n\n### لماذا تحضر هذه الجلسة\n\nفي منطقة الشرق الأوسط وشمال أفريقيا، التشغيل داخل المؤسسة (On-Prem) هو الأصل في البنوك وشركات الاتصالات والجهات الحكومية والقطاع الصحي بسبب قواعد توطين البيانات، بينما يفترض معظم محتوى MLOps وجود السحابة. دليل عملي للإنتاج مستخلص من بيئات خاضعة للتنظيم، مع أسئلة وأجوبة مع مدير تقني. لمهندسي MLOps وDevOps المنتقلين إلى أحمال الذكاء الاصطناعي، ومهندسي تعلّم الآلة، والقادة التقنيين الذين يوازنون بين السحابة والتشغيل داخل المؤسسة. بالشراكة بين مجتمع MLOps MENA وDevisionX.\n\n### ما ستتعلمه\n\n- تقسيم مجموعة ثابتة من وحدات GPU وجدولتها بين التدريب والاستدلال والتجارب.\n- إدارة إصدارات CUDA والتعريفات دون تعطيل المهام الجارية.\n- مراقبة الاستخدام لاكتشاف العتاد الخامل أو المتنازَع عليه.\n- التصميم في حدود الطاقة والتبريد وعرض النطاق.\n- متى يكون التشغيل داخل المؤسسة إلزاميًا: توطين البيانات، والبيئات المعزولة (Air-gapped)، والمتطلبات التنظيمية.",
       "speaker": "mohamed-rashad",
+      "coSpeakers": [
+        {
+          "speaker": "aya-nasser-salama",
+          "role": "HOST"
+        }
+      ],
       "startsAt": "2026-08-06T20:00:00+03:00",
       "durationMin": 85,
       "topics": [
@@ -54,10 +83,20 @@
       "slug": "docker-deep-dive",
       "titleEn": "Docker Deep Dive",
       "titleAr": "تعمّق في Docker",
-      "descriptionEn": "Docker: Building the Foundation for MLOps — Day 1\n\nNo prerequisites — no prior Docker or Kubernetes required.\n\n### What we covered\n\n- Virtualization vs containerization\n- Docker architecture\n- Images & containers\n- Networking\n- Storage & volumes\n- Writing a Dockerfile\n- Security\n- Docker Compose",
-      "descriptionAr": "Docker: أساس البناء لـ MLOps — اليوم الأول\n\nلا متطلبات سابقة — لا تحتاج خبرة مسبقة بـ Docker أو Kubernetes.\n\n### ما تناولته الجلسة\n\n- المحاكاة الافتراضية مقابل الحاويات\n- معمارية Docker\n- الصور والحاويات\n- الشبكات\n- التخزين ووحدات التخزين\n- كتابة ملف Dockerfile\n- الأمان\n- Docker Compose",
+      "descriptionEn": "Docker: Building the Foundation for MLOps — Day 1\n\n### Why attend\n\nDeeper hands-on Docker for anyone whose Docker part of the MLOps course isn't solid yet, focused on what you need when building ML systems. Delivered by Mahmoud Sharif (3+ years instructing with eYouth and Mindset). Live on Google Meet; MLOps Practitioner students could ask directly.\n\n### What you'll learn\n\n- Virtualization vs containerization, and Docker architecture.\n- Docker images and containers in practice.\n- Docker networking and storage/volumes.\n- Writing a Dockerfile with best practices, plus Docker security.\n- Docker Compose for multi-container setups.\n\n### Requirements\n\n- Docker installed (recommended).\n- Basic terminal familiarity (nice to have).\n- No prior Docker or Kubernetes background needed.",
+      "descriptionAr": "Docker: أساس البناء لـ MLOps — اليوم الأول\n\n### لماذا تحضر هذه الجلسة\n\nتعمّق عملي في Docker لكل من لم يتمكّن بعد من جزء Docker في دورة MLOps، مع التركيز على ما تحتاجه عند بناء أنظمة تعلّم الآلة. قدّمها محمود شريف (أكثر من 3 سنوات في التدريب مع eYouth وMindset). بثّ مباشر على Google Meet، وكان بإمكان طلاب MLOps Practitioner طرح أسئلتهم مباشرة.\n\n### ما ستتعلمه\n\n- المحاكاة الافتراضية مقابل الحاويات، ومعمارية Docker.\n- صور Docker وحاوياته عمليًا.\n- الشبكات والتخزين ووحدات التخزين (Volumes) في Docker.\n- كتابة Dockerfile بأفضل الممارسات، وأمان Docker.\n- Docker Compose لتشغيل عدة حاويات معًا.\n\n### المتطلبات\n\n- Docker مثبّت على جهازك (يُنصح به).\n- إلمام أساسي بالطرفية (Terminal) (ميزة إضافية).\n- لا تحتاج خبرة سابقة في Docker أو Kubernetes.",
       "speaker": "mahmoud-sharif",
-      "startsAt": "2026-08-22T20:00:00+03:00",
+      "coSpeakers": [
+        {
+          "speaker": "aya-nasser-salama",
+          "role": "HOST"
+        },
+        {
+          "speaker": "mariam-qotob",
+          "role": "GUEST"
+        }
+      ],
+      "startsAt": "2026-08-22T19:00:00+03:00",
       "durationMin": 185,
       "topics": [
         "docker",
@@ -69,9 +108,15 @@
       "slug": "hands-on-cicd-github-actions",
       "titleEn": "Hands-on CI/CD and GitHub Actions",
       "titleAr": "CI/CD وGitHub Actions عمليًا",
-      "descriptionEn": "Build a working workflow file you can drop into your own repo the same day\n\nAssumes Git branching, Bash basics, and building and pushing a Docker image.\n\n### What we covered\n\n- Writing ci.yml from scratch\n- Triggers, jobs and steps\n- needs: and matrix builds\n- Hosted vs self-hosted runners\n- Artifacts and caching\n- Secrets and GITHUB_TOKEN scope\n- Conditions and approval gates\n- Pinning actions to a SHA\n- Ruff and pre-commit",
-      "descriptionAr": "اخرج بملف workflow جاهز تضعه في مستودعك في نفس اليوم، لا بمجرد ملاحظات\n\nيفترض معرفتك بفروع Git وأساسيات Bash وبناء صورة Docker ورفعها.\n\n### ما تناولته الجلسة\n\n- كتابة ci.yml من الصفر\n- المشغّلات والمهام والخطوات\n- needs: وبناء المصفوفات\n- المشغّلات المستضافة مقابل الذاتية\n- الملفات الوسيطة والتخزين المؤقت\n- الأسرار ونطاق GITHUB_TOKEN\n- الشروط وبوابات الموافقة\n- تثبيت الإجراءات على SHA\n- Ruff وpre-commit",
+      "descriptionEn": "Build a working workflow file you can drop into your own repo the same day\n\n### Why attend\n\n- Build a working `ci.yml` incrementally.\n- Understand why workflows are correct, not just green.\n- Real trade-offs: runners, caching, approval gates.\n- Supply-chain security: pin actions to SHAs, least-privilege permissions, `pull_request_target` risks.\n- Ruff + pre-commit enforced both locally and in CI.\n- Live Q&A.\n\n### What you'll learn\n\n- Writing a workflow from scratch: `.github/workflows/ci.yml`, triggers with `on:`, jobs from `run:` and `uses:`.\n- Ordering and parallelism: `needs:` and `strategy: matrix`.\n- Choosing runners: GitHub-hosted vs self-hosted, and `container:` jobs.\n- Artifacts, `actions/cache`, repository secrets and scoped `GITHUB_TOKEN` permissions.\n- Controlling execution: `if:` conditions, environment approval gates, PR checks, schedules, `continue-on-error`.\n\n### Requirements\n\n- Git fundamentals (branching, commits, merge requests).\n- Linux command line and Bash basics.\n- Docker basics (build, tag, push images).",
+      "descriptionAr": "اخرج بملف workflow جاهز تضعه في مستودعك في نفس اليوم، لا بمجرد ملاحظات\n\n### لماذا تحضر هذه الجلسة\n\n- بناء ملف `ci.yml` يعمل خطوة بخطوة.\n- فهم لماذا يكون الـ workflow صحيحًا، لا مجرد ناجح بعلامة خضراء.\n- موازنات حقيقية: الـ runners والتخزين المؤقت وبوابات الموافقة.\n- أمن سلسلة التوريد: تثبيت الـ actions على SHA، وأقل الصلاحيات اللازمة، ومخاطر `pull_request_target`.\n- فرض Ruff وpre-commit محليًا وفي CI.\n- أسئلة وأجوبة مباشرة.\n\n### ما ستتعلمه\n\n- كتابة workflow من الصفر: ملف `.github/workflows/ci.yml`، والتشغيل عبر `on:`، والمهام عبر `run:` و`uses:`.\n- الترتيب والتوازي: `needs:` و`strategy: matrix`.\n- اختيار الـ runners: المستضافة على GitHub مقابل المستضافة ذاتيًا، ومهام `container:`.\n- الملفات الناتجة (Artifacts)، و`actions/cache`، وأسرار المستودع، وصلاحيات `GITHUB_TOKEN` محددة النطاق.\n- التحكم في التنفيذ: شروط `if:`، وبوابات الموافقة على البيئات، وفحوص الـ PR، والجدولة، و`continue-on-error`.\n\n### المتطلبات\n\n- أساسيات Git (الفروع والـ commits وطلبات الدمج).\n- سطر أوامر Linux وأساسيات Bash.\n- أساسيات Docker (بناء الصور ووسمها ورفعها).",
       "speaker": "abdallah-almalawany",
+      "coSpeakers": [
+        {
+          "speaker": "aya-nasser-salama",
+          "role": "HOST"
+        }
+      ],
       "startsAt": "2026-08-29T19:00:00+03:00",
       "durationMin": 185,
       "topics": [
@@ -83,8 +128,8 @@
       "slug": "kubernetes-deployment-strategies-part-1",
       "titleEn": "Kubernetes Deployment Strategies, Part 1: Recreate, Rolling Update, Blue-Green",
       "titleAr": "استراتيجيات النشر في Kubernetes (الجزء الأول): Recreate وRolling Update وBlue-Green",
-      "descriptionEn": "Three Kubernetes deployment approaches: Recreate, Rolling Update and A/B routing. When each one fits, how rolling updates reduce downtime during a release, how Recreate replaces the old version completely, and how A/B routing sends users to different versions by routing rules.\n\n[Session slides](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)",
-      "descriptionAr": "ثلاث طرق للنشر في Kubernetes: Recreate وRolling Update وتوجيه A/B. متى تناسب كل طريقة، وكيف يقلّل Rolling Update التوقف أثناء الإصدار، وكيف يستبدل Recreate النسخة القديمة بالكامل، وكيف يوجّه A/B المستخدمين إلى نسخ مختلفة وفق قواعد التوجيه.\n\n[شرائح الجلسة](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)",
+      "descriptionEn": "Three Kubernetes deployment approaches: Recreate, Rolling Update and Blue-Green. When each one fits, how Recreate replaces the old version completely, how rolling updates reduce downtime during a release, and how Blue-Green runs the new version alongside the old one and switches traffic over once it is ready. Canary, A/B routing and shadow traffic follow in Part 2.\n\n[Session slides](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)",
+      "descriptionAr": "ثلاث طرق للنشر في Kubernetes: Recreate وRolling Update وBlue-Green. متى تناسب كل طريقة، وكيف يستبدل Recreate النسخة القديمة بالكامل، وكيف يقلّل Rolling Update التوقف أثناء الإصدار، وكيف يشغّل Blue-Green النسخة الجديدة بجانب القديمة ثم يحوّل الحركة إليها حين تجهز. أما Canary وتوجيه A/B وShadow Traffic ففي الجزء الثاني.\n\n[شرائح الجلسة](https://docs.google.com/presentation/d/1KyEEb5cQp9vQOV2mVLGCnlm61HbgytSU8tCAPY9RkT8/edit)",
       "startsAt": "2026-09-09T19:52:35.000Z",
       "durationMin": 45,
       "topics": [
@@ -111,9 +156,20 @@
       "slug": "hands-on-fastapi-backend-for-mlops",
       "titleEn": "Hands-on FastAPI and Backend for MLOps",
       "titleAr": "FastAPI والـ Backend لمهندسي MLOps عمليًا",
-      "descriptionEn": "A practical, code-heavy session on the backend skills every AI/ML engineer needs, from HTTP and API fundamentals to serving LLMs in production with FastAPI and vLLM: Pydantic validation for model inputs and outputs, FastAPI project structure with SQLAlchemy, dependency injection, async and concurrency, and rate limiting, middleware, auth and error handling.",
-      "descriptionAr": "جلسة عملية مليئة بالكود عن مهارات الـ Backend التي يحتاجها كل مهندس ذكاء اصطناعي وتعلّم آلي، من أساسيات HTTP وواجهات API إلى تقديم النماذج اللغوية في الإنتاج باستخدام FastAPI وvLLM: التحقق من مدخلات النماذج ومخرجاتها بـ Pydantic، وهيكلة مشروع FastAPI مع SQLAlchemy، وحقن الاعتماديات، والبرمجة غير المتزامنة والتزامن، وتحديد معدل الطلبات والـ middleware والمصادقة ومعالجة الأخطاء.",
-      "startsAt": "2026-09-13T14:19:37.000Z",
+      "descriptionEn": "A practical, code-heavy session on the backend skills every AI/ML engineer needs, from HTTP and API fundamentals to serving LLMs in production with FastAPI and vLLM: Pydantic validation for model inputs and outputs, FastAPI project structure with SQLAlchemy, dependency injection, async and concurrency, and rate limiting, middleware, auth and error handling.\n\n### Why attend\n\nLearn how to build a backend service for your AI project.\n\n### What you'll learn\n\n- Backend basics and how APIs work.\n- HTTP methods.\n- Databases and ORM with FastAPI.\n- Streaming responses with WebSocket and SSE.\n- Authentication, authorization and rate limiting.\n\n### Requirements\n\n- Basic Python.\n- Basic command-line skills.\n- Basic database knowledge.",
+      "descriptionAr": "جلسة عملية مليئة بالكود عن مهارات الـ Backend التي يحتاجها كل مهندس ذكاء اصطناعي وتعلّم آلي، من أساسيات HTTP وواجهات API إلى تقديم النماذج اللغوية في الإنتاج باستخدام FastAPI وvLLM: التحقق من مدخلات النماذج ومخرجاتها بـ Pydantic، وهيكلة مشروع FastAPI مع SQLAlchemy، وحقن الاعتماديات، والبرمجة غير المتزامنة والتزامن، وتحديد معدل الطلبات والـ middleware والمصادقة ومعالجة الأخطاء.\n\n### لماذا تحضر هذه الجلسة\n\nتعلّم كيف تبني خدمة Backend لمشروع الذكاء الاصطناعي الخاص بك.\n\n### ما ستتعلمه\n\n- أساسيات الـ Backend وكيف تعمل واجهات API.\n- طرق HTTP ‏(HTTP methods).\n- قواعد البيانات والـ ORM مع FastAPI.\n- بث الردود عبر WebSocket وSSE.\n- المصادقة والتفويض وتحديد معدل الطلبات (Rate Limiting).\n\n### المتطلبات\n\n- أساسيات Python.\n- مهارات أساسية في سطر الأوامر.\n- معرفة أساسية بقواعد البيانات.",
+      "speaker": "mohamed-samy",
+      "coSpeakers": [
+        {
+          "speaker": "aya-nasser-salama",
+          "role": "HOST"
+        },
+        {
+          "speaker": "mariam-qotob",
+          "role": "GUEST"
+        }
+      ],
+      "startsAt": "2026-09-12T19:00:00+03:00",
       "durationMin": 230,
       "topics": [
         "fastapi",
@@ -129,6 +185,7 @@
       "descriptionEn": "Caching LLM responses by meaning rather than exact text with Redis, so similar questions reuse an earlier answer instead of paying for a new completion.\n\n- [Slides](https://drive.google.com/drive/folders/1SAqjHhoeetTCvhcHFRSVvXdYDPNzDYcE)\n- [Code](https://github.com/MLOpsMENACommunity/Redis_Semantic_Caching_MLOpsMENA)",
       "descriptionAr": "تخزين ردود النماذج اللغوية مؤقتًا حسب المعنى لا النص الحرفي باستخدام Redis، لتعيد الأسئلة المتشابهة استخدام إجابة سابقة بدل دفع تكلفة توليد جديد.\n\n- [الشرائح](https://drive.google.com/drive/folders/1SAqjHhoeetTCvhcHFRSVvXdYDPNzDYcE)\n- [الكود](https://github.com/MLOpsMENACommunity/Redis_Semantic_Caching_MLOpsMENA)",
       "speakerName": "Omar Khalil",
+      "speakerNameAr": "عمر خليل",
       "speakerLinkedinUrl": "https://www.linkedin.com/in/omar-khalil-10om01/",
       "startsAt": "2026-09-20T17:27:16.000Z",
       "durationMin": 35,
@@ -176,6 +233,26 @@
         "python"
       ],
       "recordingUrl": "https://www.youtube.com/watch?v=AzZy4wqDEWI"
+    },
+    {
+      "slug": "introduction-to-llm-inference-engines",
+      "titleEn": "Introduction to LLM Inference Engines",
+      "titleAr": "مقدمة في محركات الاستدلال للنماذج اللغوية الكبيرة",
+      "descriptionEn": "How inference engines turn a trained LLM into a fast, cheap, scalable and reliable service: token generation, memory, batching, scheduling, caching, quantization and hardware execution.\n\n### What you'll learn\n\n- Where an inference engine sits between model weights and the application.\n- Architectures of vLLM, TensorRT-LLM, SGLang, llama.cpp and others compared.\n- KV cache management, continuous batching, speculative decoding, tensor parallelism and quantization.\n- Choosing and configuring the right engine, from a single local GPU to high-throughput production clusters.",
+      "descriptionAr": "كيف تحوّل محركات الاستدلال نموذجًا لغويًا كبيرًا مُدرَّبًا إلى خدمة سريعة ومنخفضة التكلفة وقابلة للتوسع وموثوقة: توليد الـ tokens، والذاكرة، والتجميع (Batching)، والجدولة، والتخزين المؤقت، والتكميم (Quantization)، والتنفيذ على العتاد.\n\n### ما ستتعلمه\n\n- أين يقع محرك الاستدلال بين أوزان النموذج والتطبيق.\n- مقارنة بين معماريات vLLM وTensorRT-LLM وSGLang وllama.cpp وغيرها.\n- إدارة KV cache، والتجميع المستمر (Continuous Batching)، وفك الترميز التخميني (Speculative Decoding)، وتوازي الموترات (Tensor Parallelism)، والتكميم.\n- اختيار المحرك المناسب وضبطه، من وحدة GPU محلية واحدة إلى عناقيد إنتاج عالية الإنتاجية.",
+      "speaker": "mohamed-rashad",
+      "coSpeakers": [
+        {
+          "speaker": "aya-nasser-salama",
+          "role": "HOST"
+        }
+      ],
+      "startsAt": "2026-10-08T20:00:00+03:00",
+      "durationMin": 90,
+      "topics": [
+        "llmops",
+        "model-serving"
+      ]
     }
   ],
   "courses": [
@@ -183,18 +260,18 @@
       "slug": "mlops-practitioner",
       "titleEn": "The MLOps Practitioner",
       "titleAr": "The MLOps Practitioner",
-      "shortDescriptionEn": "Take an ML model from notebook to production: packaging and APIs, experiment tracking and CI/CD, serving at scale, drift monitoring and model optimization. Cohort 1 ran Aug–Oct 2026, and every lesson is recorded.",
-      "shortDescriptionAr": "انقل نموذج تعلّم آلي من الـ notebook إلى الإنتاج: الحزم وواجهات API، وتتبّع التجارب وCI/CD، وخدمة النماذج على نطاق واسع، ورصد الانحراف وتحسين النماذج. أُقيمت الدفعة الأولى بين أغسطس وأكتوبر 2026، وكل دروسها مسجّلة.",
-      "longDescriptionEn": "By the end of this course, students will take a machine learning model from notebook to production — building automated CI/CD pipelines, experiment tracking, and scheduled retraining. They will serve predictions at scale using FastAPI, BentoML, Triton, and vLLM, monitor for drift before users notice, and optimize models for GPU, CPU, and edge devices. They will think and work like production ML engineers.\n\n**Most ML engineers know how to train a model. Almost none know how to ship it.**\n\nThis course bridges the gap between data science and production engineering. You will take a machine learning model from a research notebook all the way to a live, monitored, auto-retrained production system — step by step, with real code and real tools used by companies like Uber, Spotify, Meta, and Netflix.\n\nAcross 5 sessions you will learn how to:\n\n- Package ML code professionally and build REST APIs with FastAPI and Litestar — fully containerized with Docker and tested with pytest\n- Track experiments with MLflow, version data with DVC, and automate your entire pipeline with GitHub Actions and Terraform\n- Orchestrate retraining with Apache Airflow, serve models at scale using BentoML, Triton, and vLLM, and release safely with canary and shadow deployments\n- Monitor production models for data drift, concept drift, and embedding drift using Evidently AI, Prometheus, Grafana, and Langfuse\n- Optimize models for speed and size using pruning, quantization, knowledge distillation, TensorRT, and OpenVINO — and measure every tradeoff\n\nEvery session ends with a deployable project that builds on the previous one. By the end you will have a full MLOps portfolio that demonstrates real production engineering skills.\n\n## Cohort 1\n\nCohort 1 ran from 15 August to 2 October 2026: five live lessons on YouTube Live, two project weeks and a final project.\n\n## Course materials\n\n- [Course repository](https://github.com/MLOpsMENACommunity/mlops_practitioner_course): all code, notebooks and module projects.\n- [Slides for every session](https://drive.google.com/drive/folders/1o8qowW7QRfpDyZXKxKLs7dx5QQqZhHKG?usp=sharing): a Google Drive folder.",
-      "longDescriptionAr": "بنهاية هذه الدورة سينقل الدارس نموذج تعلّم آلي من الـ notebook إلى الإنتاج — ببناء مسارات CI/CD آلية، وتتبّع للتجارب، وإعادة تدريب مجدولة. وسيقدّم التنبؤات على نطاق واسع باستخدام FastAPI وBentoML وTriton وvLLM، ويرصد الانحراف قبل أن يلاحظه المستخدمون، ويحسّن النماذج لوحدات GPU وCPU والأجهزة الطرفية. وسيفكّر ويعمل كمهندس تعلّم آلي إنتاجي.\n\n**معظم مهندسي التعلّم الآلي يعرفون كيف يدرّبون نموذجًا. وقليلون جدًا يعرفون كيف يشغّلونه في الإنتاج.**\n\nتسدّ هذه الدورة الفجوة بين علم البيانات وهندسة الإنتاج. ستأخذ نموذج تعلّم آلي من دفتر بحثي وصولًا إلى نظام إنتاجي حيّ ومراقَب ويعيد تدريب نفسه تلقائيًا — خطوة بخطوة، بكود حقيقي وأدوات حقيقية تستخدمها شركات مثل Uber وSpotify وMeta وNetflix.\n\nعبر 5 جلسات ستتعلّم كيف:\n\n- تحزّم كود التعلّم الآلي باحتراف وتبني واجهات REST بـ FastAPI وLitestar — داخل حاويات Docker ومختبرة بـ pytest\n- تتبّع التجارب بـ MLflow، وتصدر نسخ البيانات بـ DVC، وتؤتمت مسارك بالكامل عبر GitHub Actions وTerraform\n- تنسّق إعادة التدريب بـ Apache Airflow، وتخدم النماذج على نطاق واسع عبر BentoML وTriton وvLLM، وتطلقها بأمان عبر النشر التدريجي ووضع الظل\n- تراقب نماذج الإنتاج بحثًا عن انحراف البيانات والمفهوم والتضمينات عبر Evidently AI وPrometheus وGrafana وLangfuse\n- تحسّن النماذج سرعةً وحجمًا عبر التقليم والتكميم وتقطير المعرفة وTensorRT وOpenVINO — وتقيس كل مفاضلة\n\nكل جلسة تنتهي بمشروع قابل للنشر يبني على ما قبله. وبنهاية الدورة سيكون لديك ملف أعمال MLOps كامل يثبت مهارات هندسة إنتاج حقيقية.\n\n## الدفعة الأولى\n\nأُقيمت الدفعة الأولى من 15 أغسطس إلى 2 أكتوبر 2026: خمسة دروس مباشرة على YouTube Live، وأسبوعان للمشروع، ومشروع نهائي.\n\n## مواد الدورة\n\n- [مستودع الدورة](https://github.com/MLOpsMENACommunity/mlops_practitioner_course): كل الأكواد والدفاتر ومشاريع الوحدات.\n- [شرائح كل الجلسات](https://drive.google.com/drive/folders/1o8qowW7QRfpDyZXKxKLs7dx5QQqZhHKG?usp=sharing): مجلد Google Drive.",
+      "shortDescriptionEn": "Take an ML model from notebook to production: packaging and APIs, experiment tracking and CI/CD, serving at scale, drift monitoring and model optimization. Cohort 1 ran Aug–Sep 2026; four of its five lessons are recorded.",
+      "shortDescriptionAr": "انقل نموذج تعلّم آلي من الـ notebook إلى الإنتاج: الحزم وواجهات API، وتتبّع التجارب وCI/CD، وخدمة النماذج على نطاق واسع، ورصد الانحراف وتحسين النماذج. أُقيمت الدفعة الأولى بين أغسطس وسبتمبر 2026، وأربعة من دروسها الخمسة مسجّلة.",
+      "longDescriptionEn": "By the end of this course, students will take a machine learning model from notebook to production — building automated CI/CD pipelines, experiment tracking, and scheduled retraining. They will serve predictions at scale using FastAPI, BentoML, Triton, and vLLM, monitor for drift before users notice, and optimize models for GPU, CPU, and edge devices. They will think and work like production ML engineers.\n\n**Most ML engineers know how to train a model. Almost none know how to ship it.**\n\nThis course bridges the gap between data science and production engineering. You will take a machine learning model from a research notebook all the way to a live, monitored, auto-retrained production system — step by step, with real code and real tools used by companies like Uber, Spotify, Meta, and Netflix.\n\nAcross 5 sessions you will learn how to:\n\n- Package ML code professionally and build REST APIs with FastAPI and Litestar — fully containerized with Docker and tested with pytest\n- Track experiments with MLflow, version data with DVC, and automate your entire pipeline with GitHub Actions and Terraform\n- Orchestrate retraining with Apache Airflow, serve models at scale using BentoML, Triton, and vLLM, and release safely with canary and shadow deployments\n- Monitor production models for data drift, concept drift, and embedding drift using Evidently AI, Prometheus, Grafana, and Langfuse\n- Optimize models for speed and size using pruning, quantization, knowledge distillation, TensorRT, and OpenVINO — and measure every tradeoff\n\nEvery session ends with a deployable project that builds on the previous one. By the end you will have a full MLOps portfolio that demonstrates real production engineering skills.\n\n## Cohort 1\n\nCohort 1 ran its five live lessons on YouTube Live from 16 August to 20 September 2026, with a project week and a final project. Lessons 1 to 4 are recorded; lesson 5 (Model Optimization, 20 September) has no public recording.\n\n## Course materials\n\n- [Course repository](https://github.com/MLOpsMENACommunity/mlops_practitioner_course): all code, notebooks and module projects.\n- [Slides for every session](https://drive.google.com/drive/folders/1o8qowW7QRfpDyZXKxKLs7dx5QQqZhHKG?usp=sharing): a Google Drive folder.",
+      "longDescriptionAr": "بنهاية هذه الدورة سينقل الدارس نموذج تعلّم آلي من الـ notebook إلى الإنتاج — ببناء مسارات CI/CD آلية، وتتبّع للتجارب، وإعادة تدريب مجدولة. وسيقدّم التنبؤات على نطاق واسع باستخدام FastAPI وBentoML وTriton وvLLM، ويرصد الانحراف قبل أن يلاحظه المستخدمون، ويحسّن النماذج لوحدات GPU وCPU والأجهزة الطرفية. وسيفكّر ويعمل كمهندس تعلّم آلي إنتاجي.\n\n**معظم مهندسي التعلّم الآلي يعرفون كيف يدرّبون نموذجًا. وقليلون جدًا يعرفون كيف يشغّلونه في الإنتاج.**\n\nتسدّ هذه الدورة الفجوة بين علم البيانات وهندسة الإنتاج. ستأخذ نموذج تعلّم آلي من دفتر بحثي وصولًا إلى نظام إنتاجي حيّ ومراقَب ويعيد تدريب نفسه تلقائيًا — خطوة بخطوة، بكود حقيقي وأدوات حقيقية تستخدمها شركات مثل Uber وSpotify وMeta وNetflix.\n\nعبر 5 جلسات ستتعلّم كيف:\n\n- تحزّم كود التعلّم الآلي باحتراف وتبني واجهات REST بـ FastAPI وLitestar — داخل حاويات Docker ومختبرة بـ pytest\n- تتبّع التجارب بـ MLflow، وتصدر نسخ البيانات بـ DVC، وتؤتمت مسارك بالكامل عبر GitHub Actions وTerraform\n- تنسّق إعادة التدريب بـ Apache Airflow، وتخدم النماذج على نطاق واسع عبر BentoML وTriton وvLLM، وتطلقها بأمان عبر النشر التدريجي ووضع الظل\n- تراقب نماذج الإنتاج بحثًا عن انحراف البيانات والمفهوم والتضمينات عبر Evidently AI وPrometheus وGrafana وLangfuse\n- تحسّن النماذج سرعةً وحجمًا عبر التقليم والتكميم وتقطير المعرفة وTensorRT وOpenVINO — وتقيس كل مفاضلة\n\nكل جلسة تنتهي بمشروع قابل للنشر يبني على ما قبله. وبنهاية الدورة سيكون لديك ملف أعمال MLOps كامل يثبت مهارات هندسة إنتاج حقيقية.\n\n## الدفعة الأولى\n\nأُقيمت دروس الدفعة الأولى الخمسة مباشرةً على YouTube Live من 16 أغسطس إلى 20 سبتمبر 2026، مع أسبوع للمشروع ومشروع نهائي. الدروس من 1 إلى 4 مسجّلة؛ أما الدرس 5 (تحسين النماذج، 20 سبتمبر) فليس له تسجيل منشور.\n\n## مواد الدورة\n\n- [مستودع الدورة](https://github.com/MLOpsMENACommunity/mlops_practitioner_course): كل الأكواد والدفاتر ومشاريع الوحدات.\n- [شرائح كل الجلسات](https://drive.google.com/drive/folders/1o8qowW7QRfpDyZXKxKLs7dx5QQqZhHKG?usp=sharing): مجلد Google Drive.",
       "status": "COMPLETED",
       "type": "FREE",
       "price": 0,
       "level": "INTERMEDIATE",
       "cohortNumber": 1,
-      "startDate": "2026-08-15",
-      "endDate": "2026-10-02",
-      "durationWeeks": 7,
+      "startDate": "2026-08-16",
+      "endDate": "2026-09-20",
+      "durationWeeks": 6,
       "publicRecordings": true,
       "deliveryPlatform": "YOUTUBE_LIVE",
       "recordingsPlatform": "YOUTUBE",
@@ -271,12 +348,12 @@
           "descriptionAr": "قدّم نموذج مدة الرحلة بثلاث طرق، واختبر الحِمل حتى 100 مستخدم متزامن، ووثّق عنق الزجاجة، ثم انشر إصدارًا جديدًا عبر نشر تدريجي مع تراجع تلقائي."
         },
         {
-          "titleEn": "Model Optimization — Faster, Smaller, Cheaper Without Losing Accuracy",
-          "titleAr": "تحسين النماذج: أسرع وأصغر وأرخص دون خسارة الدقة"
-        },
-        {
           "titleEn": "Observability & Drift Detection — Know Before Your Users Do",
           "titleAr": "المراقبة ورصد الانحراف: اعرف قبل أن يعرف مستخدموك"
+        },
+        {
+          "titleEn": "Model Optimization — Faster, Smaller, Cheaper Without Losing Accuracy",
+          "titleAr": "تحسين النماذج: أسرع وأصغر وأرخص دون خسارة الدقة"
         },
         {
           "titleEn": "Final project",
