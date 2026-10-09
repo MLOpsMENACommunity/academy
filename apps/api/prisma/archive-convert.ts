@@ -19,6 +19,10 @@ import { ARCHIVE_FORMAT_VERSION, archiveFileSchema, type ArchiveFileInput } from
 
 // ------------------------------------------------------------------ website shapes (the parts we read)
 
+/** Shown for every part of an announced course that isn't decided yet. */
+const COMING_SOON_EN = 'Will be announced soon.';
+const COMING_SOON_AR = 'سيُعلَن عنه قريبًا.';
+
 export interface WebsiteSession {
   slug: string;
   title: string;
@@ -275,22 +279,25 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
       titleAr: uAr?.title ?? u.title,
       shortDescriptionEn: u.summary,
       shortDescriptionAr: uAr?.summary ?? u.summary,
-      longDescriptionEn: paragraphs(
-        u.summary,
-        "This course is coming soon. We're finalising the curriculum, the instructor and the dates.",
-        `What it will cover:\n\n${bullets(u.topics)}`,
-      ),
-      longDescriptionAr: uAr
-        ? paragraphs(uAr.summary, 'ستنطلق هذه الدورة قريبًا. نعمل حاليًا على وضع اللمسات الأخيرة على المحتوى والمحاضر والمواعيد.', `ما الذي ستغطيه:\n\n${bullets(uAr.topics)}`)
-        : '',
+      // Curriculum, format and what's included aren't decided yet: say so instead of guessing.
+      longDescriptionEn: COMING_SOON_EN,
+      longDescriptionAr: COMING_SOON_AR,
       status: 'COMING_SOON',
       // The price isn't announced: "Price to be announced" rather than claiming it's free.
       type: 'PAID',
       price: 0,
       level: 'INTERMEDIATE',
       topics: ['llmops'],
-      learningOutcomes: { en: [...u.topics], ar: uAr?.topics ?? [...u.topics] },
-      included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+      learningOutcomes: { en: [COMING_SOON_EN], ar: [COMING_SOON_AR] },
+      included: {
+        liveSessions: false,
+        recordings: false,
+        assignments: false,
+        finalProject: false,
+        certificate: false,
+        notesEn: COMING_SOON_EN,
+        notesAr: COMING_SOON_AR,
+      },
     });
   }
 
