@@ -10,7 +10,7 @@ import { IS_PUBLIC, ROLES_KEY, type AuthedRequest } from './decorators';
 /**
  * Global guard: every route requires a valid session unless marked @Public().
  * The access token's signature is not enough: its token version must match the
- * user's current one (bumped on password/email change, account claim, deletion
+ * user's current one (bumped on password change, account claim, deletion
  * and token theft), so revoked sessions stop working immediately. Role comes
  * from the database, not the token.
  */

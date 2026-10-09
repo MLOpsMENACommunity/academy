@@ -180,7 +180,7 @@ export default function ApplicationDetailAdmin() {
           </Card>
         </div>
         <div className="space-y-5">
-          <CvCard studentId={a.student.id} hasCv={a.hasCv} hint={a.hasCv ? undefined : t('admin.apps.cvHint')} />
+          <CvCard studentId={a.student.id} hasCv={a.hasCv} hint={a.hasCv || a.student.deleted ? undefined : t('admin.apps.cvHint')} />
           <Card>
             <h2 className="text-lg">{t('admin.apps.history')}</h2>
             <ol className="mt-3 space-y-2 text-sm">

@@ -165,6 +165,9 @@
   "account": {
     "title": "Account",
     "language": "Email language",
+    "loginEmail": "Login email",
+    "loginEmailHint": "Your login email can’t be changed from your account. If it’s wrong, or you lost access to it,",
+    "contactUs": "contact us.",
     "changePassword": "Change password",
     "setPassword": "Set a password",
     "passwordChanged": "Password changed. Please log in again.",

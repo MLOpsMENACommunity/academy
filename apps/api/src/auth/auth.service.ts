@@ -48,7 +48,7 @@ export class AuthService {
       },
     });
     const returnTo = input.returnTo ? safeReturnTo(input.returnTo) : null;
-    await this.sendVerification(user, user.email, returnTo);
+    await this.sendVerification(user, returnTo);
     const slug = courseSlugFromPath(returnTo);
     if (slug) await this.funnel.record({ slug }, 'REGISTERED', { userId: user.id });
     return user;
@@ -143,7 +143,9 @@ export class AuthService {
 
   // ------------------------------------------------------------------ email verification
 
-  async sendVerification(user: User, address: string, returnTo: string | null): Promise<void> {
+  /** Always to the login email: verifyEmail refuses links sent to any other address. */
+  private async sendVerification(user: User, returnTo: string | null): Promise<void> {
+    const address = user.email;
     const token = randomToken();
     await this.prisma.emailVerificationToken.create({
       data: {
@@ -166,7 +168,7 @@ export class AuthService {
       where: { userId, createdAt: { gt: new Date(Date.now() - 60_000) } },
     });
     if (recent) return;
-    await this.sendVerification(user, user.email, null);
+    await this.sendVerification(user, null);
   }
 
   async verifyEmail(token: string, sessionUserId: string): Promise<{ returnTo: string | null; user: User }> {
