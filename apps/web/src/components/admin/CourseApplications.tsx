@@ -11,7 +11,7 @@ import {
   type Seniority,
 } from '@academy/shared';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApplicationBulkBar } from '@/components/admin/ApplicationBulkBar';
 import { CvMark } from '@/components/admin/CvCard';
 import { Pager } from '@/components/admin/Pager';
@@ -61,6 +61,7 @@ export function CourseApplications({ courseId, slug, onChange }: { courseId: str
   const [error, setError] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [version, setVersion] = useState(0);
 
   const query = (extra: Record<string, string> = {}) => {
     const p = new URLSearchParams({ courseId, ...extra });
@@ -69,12 +70,6 @@ export function CourseApplications({ courseId, slug, onChange }: { courseId: str
     return p.toString();
   };
   const listQuery = query({ page: String(page), pageSize: String(PAGE_SIZE) });
-
-  const load = useCallback(async () => {
-    const d = await api<Page>(`/admin/applications?${listQuery}`);
-    setData(d);
-    setSelected(new Set());
-  }, [listQuery]);
 
   useEffect(() => {
     let current = true;
@@ -85,7 +80,8 @@ export function CourseApplications({ courseId, slug, onChange }: { courseId: str
     return () => {
       current = false;
     };
-  }, [listQuery]);
+    // `version` reloads the same page after a bulk action.
+  }, [listQuery, version]);
 
   const pick = (s: ApplicationStatus | null) => {
     setStatus(s);
@@ -160,7 +156,7 @@ export function CourseApplications({ courseId, slug, onChange }: { courseId: str
         selected={selected}
         names={new Map(data?.items.map((i) => [i.id, i.student.name ?? i.student.email]))}
         onDone={async () => {
-          await load();
+          setVersion((v) => v + 1);
           onChange?.();
         }}
       />

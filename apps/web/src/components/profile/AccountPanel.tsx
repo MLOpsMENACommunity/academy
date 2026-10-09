@@ -1,6 +1,7 @@
 'use client';
 
 import type { MeResponse } from '@academy/shared';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -87,6 +88,18 @@ export function AccountPanel({ user }: { user: MeResponse }) {
           }
         />
         {note('locale')}
+      </Block>
+
+      <Block title={t('account.loginEmail')}>
+        <p className="text-sm">
+          <strong className="ltr-embed">{user.email}</strong>
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          {t('account.loginEmailHint')}{' '}
+          <Link href={`/${locale}/contact`} className="font-semibold text-primary underline underline-offset-2">
+            {t('account.contactUs')}
+          </Link>
+        </p>
       </Block>
 
       <Block title={user.hasPassword ? t('account.changePassword') : t('account.setPassword')}>
