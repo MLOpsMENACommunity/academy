@@ -8,7 +8,7 @@ import { EmailService } from '../email/email.service';
 import { formatWhen } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Same windows as course reminders: wide enough for the 15-minute Cloudflare cron. */
+/** Same windows as course reminders: wide enough for the hourly Cloudflare cron. */
 const WINDOWS: Record<ReminderKind, { from: number; to: number; hours: 24 | 1 }> = {
   H24: { from: 22 * 60, to: 24 * 60, hours: 24 },
   H1: { from: 10, to: 75, hours: 1 },

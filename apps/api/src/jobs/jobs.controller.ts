@@ -14,7 +14,7 @@ import { RetentionJobs } from './retention.jobs';
 /**
  * Runs all scheduled jobs once. Used where in-process cron can't be relied on
  * (Cloudflare Containers sleep when idle): a Cron Trigger on the Worker calls
- * this every 15 minutes with a shared secret. Every job is idempotent.
+ * this every hour with a shared secret. Every job is idempotent.
  */
 @ApiExcludeController()
 @Controller('internal/jobs')

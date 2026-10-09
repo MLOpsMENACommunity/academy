@@ -9,7 +9,7 @@ academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
    Worker mlops-academy                    Worker mlops-academy-staging
      ├── /api/*   → ApiContainer   (apps/api/Dockerfile, NestJS)
      ├── /*       → WebContainer   (apps/web/Dockerfile, Next.js)
-     └── cron     → POST /api/internal/jobs/tick (production every 15 min, staging hourly)
+     └── cron     → POST /api/internal/jobs/tick (hourly)
                        │
           Neon Postgres · private R2 bucket · Resend
 ```
