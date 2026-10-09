@@ -76,7 +76,7 @@ export class ApiExceptionFilter extends SentryGlobalFilter {
     if (host.getType() === 'http' && mapped instanceof HttpException) {
       const res = host.switchToHttp().getResponse<Response>();
       if (mapped instanceof BusyException) {
-        busyLog.record(mapped.reason);
+        busyLog.record(mapped.reason, exception);
         // Never cached anywhere: the next try may well succeed.
         if (!res.headersSent) {
           res.setHeader('Retry-After', String(mapped.retryAfterS));

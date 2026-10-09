@@ -92,7 +92,7 @@ describe('ApiExceptionFilter', () => {
     expect(reply).toHaveBeenCalledWith(expect.anything(), { statusCode: 503, code: 'BUSY', message: BUSY_MESSAGE }, 503);
     expect(headers['Retry-After']).toBe('5');
     expect(headers['Cache-Control']).toBe('no-store');
-    expect(record).toHaveBeenCalledWith('db_pool');
+    expect(record).toHaveBeenCalledWith('db_pool', expect.anything());
   });
 
   it('answers an unreachable database with 503 BUSY too', () => {

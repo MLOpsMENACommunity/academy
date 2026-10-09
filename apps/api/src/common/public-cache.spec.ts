@@ -2,6 +2,7 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import type { Env } from '../config/env';
 import {
+  cacheKey,
   hasPersonalFields,
   isAnonymous,
   MAX_ENTRIES,
@@ -37,6 +38,17 @@ describe('hasPersonalFields', () => {
     expect(hasPersonalFields({ slug: 'x', titleEn: 'T', startsAt: new Date(), me: undefined })).toBe(false);
     expect(hasPersonalFields({ supportEmail: 's@x.y', recordingUrl: 'https://y' })).toBe(false);
     expect(hasPersonalFields(null)).toBe(false);
+  });
+});
+
+describe('cacheKey', () => {
+  it('keeps only the query parameters the handler reads, in a stable order', () => {
+    expect(cacheKey('/api/courses', ['level', 'type'])).toBe('/api/courses');
+    expect(cacheKey('/api/courses?type=FREE&level=BEGINNER', ['level', 'type'])).toBe('/api/courses?level=BEGINNER&type=FREE');
+    expect(cacheKey('/api/courses?level=BEGINNER&type=FREE', ['level', 'type'])).toBe('/api/courses?level=BEGINNER&type=FREE');
+    // Cache-busting junk can't make a new entry.
+    expect(cacheKey('/api/courses?x=123&utm_source=y', ['level', 'type'])).toBe('/api/courses');
+    expect(cacheKey('/api/events/x?nocache=1', [])).toBe('/api/events/x');
   });
 });
 
@@ -155,6 +167,24 @@ describe('PublicCacheInterceptor', () => {
     expect(cache.size).toBe(1);
     await lastValueFrom(icpt.intercept(context({ method: 'PUT', path: '/api/admin/courses/1', role: 'ADMIN' }).ctx, handler({ ok: true })));
     expect(cache.size).toBe(0);
+  });
+
+  it('a live-session registration clears the cache (seat counts)', async () => {
+    const cache = cacheWith(30);
+    const icpt = new PublicCacheInterceptor(cache);
+    await cache.get('/api/events', async () => [], () => true);
+    await lastValueFrom(icpt.intercept(context({ method: 'POST', path: '/api/events/x/registration', role: 'STUDENT' }).ctx, handler({ ok: true })));
+    expect(cache.size).toBe(0);
+  });
+
+  it('serves junk-query variants from the same entry', async () => {
+    const cache = cacheWith(30);
+    const icpt = new PublicCacheInterceptor(cache);
+    const h = handler([]);
+    for (const path of ['/api/events', '/api/events?x=1', '/api/events?y=2']) {
+      await lastValueFrom(icpt.intercept(context({ route: '/api/events', path }).ctx, h));
+    }
+    expect(h.calls.n).toBe(1);
   });
 
   it('with the cache off, still sets the headers but always calls the handler', async () => {

@@ -16,13 +16,18 @@
  * A request that gets no answer within the timeout also becomes a 503 with Retry-After. The
  * timeouts sit above the slowest legitimate case: a cold start (the container library waits
  * up to 20 s for the port; the API now listens within seconds) plus the API's own fast-fail
- * limits (5 s database pool wait), so they only cut off requests that are truly stuck.
+ * limits (5 s database pool wait), so they only cut off requests that are truly stuck; writes
+ * and admin requests (exports) wait as long as the API would.
  */
 
-/** Idempotent reads (GET/HEAD): cold start + a slow render, nothing more. */
+/** Public and personal reads (GET/HEAD): cold start + a slow render, nothing more. */
 export const READ_TIMEOUT_MS = 25_000;
-/** Writes (uploads, exports, bulk emails queued by admins) get longer. */
-export const WRITE_TIMEOUT_MS = 60_000;
+/**
+ * Writes and admin requests (uploads, CSV exports, bulk actions) get as long as the API itself
+ * allows a request (server.requestTimeout, apps/api/src/main.ts), so the Worker never answers
+ * "try again" for a write the API is still carrying out (which could be repeated twice).
+ */
+export const LONG_TIMEOUT_MS = 120_000;
 
 export const RETRY_AFTER_STARTING_S = 10;
 export const RETRY_AFTER_TIMEOUT_S = 5;
@@ -34,8 +39,9 @@ const LIBRARY_FAILURES = [
   'there is no container instance available',
 ];
 
-export function timeoutFor(method: string): number {
-  return method === 'GET' || method === 'HEAD' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS;
+export function timeoutFor(method: string, pathname = '/'): number {
+  if (method !== 'GET' && method !== 'HEAD') return LONG_TIMEOUT_MS;
+  return pathname.startsWith('/api/admin/') ? LONG_TIMEOUT_MS : READ_TIMEOUT_MS;
 }
 
 /** Whether a response could be one of the container library's own failures (needs a body check). */

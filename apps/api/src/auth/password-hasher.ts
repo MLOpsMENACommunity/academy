@@ -39,6 +39,13 @@ export class Gate {
     return this.waiting.length;
   }
 
+  /** Throws BusyException when a job submitted now would be refused. */
+  assertRoom(): void {
+    if (this.active >= this.concurrency && (this.waiting.length >= this.maxQueue || this.expectedWaitMs() > this.maxWaitMs)) {
+      throw new BusyException('password_hash', 5);
+    }
+  }
+
   /** Expected wait for a job queued now. */
   expectedWaitMs(): number {
     return ((this.waiting.length + 1) * this.avgMs) / this.concurrency;
@@ -46,7 +53,7 @@ export class Gate {
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
     if (this.active >= this.concurrency) {
-      if (this.waiting.length >= this.maxQueue || this.expectedWaitMs() > this.maxWaitMs) throw new BusyException('password_hash', 5);
+      this.assertRoom();
       await new Promise<void>((resolve) => this.waiting.push(resolve));
     } else {
       this.active++;
@@ -64,8 +71,20 @@ export class Gate {
   }
 }
 
-const concurrency = Number(process.env.PASSWORD_HASH_CONCURRENCY) || 1;
-const gate = new Gate(concurrency, MAX_QUEUE, MAX_WAIT_MS);
+let gate = new Gate(1, MAX_QUEUE, MAX_WAIT_MS);
+
+/** From the validated PASSWORD_HASH_CONCURRENCY (main.ts); one until then. */
+export function configurePasswordHashing(concurrency: number): void {
+  gate = new Gate(concurrency, MAX_QUEUE, MAX_WAIT_MS);
+}
+
+/**
+ * Refuses (503 BUSY) when a password check would be refused anyway. Login calls it before
+ * looking the account up, so a "busy" answer never depends on whether the email exists.
+ */
+export function assertPasswordCapacity(): void {
+  gate.assertRoom();
+}
 
 export function hashPassword(password: string): Promise<string> {
   return gate.run(() => hash(password, ARGON2_OPTIONS));

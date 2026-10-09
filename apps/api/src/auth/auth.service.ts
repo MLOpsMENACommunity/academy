@@ -9,7 +9,7 @@ import { courseSlugFromPath, FunnelService } from '../funnel/funnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { GoogleIdentity } from './google.service';
 import { FailureLimiter } from './failure-limiter';
-import { hashPassword, verifyPassword } from './password-hasher';
+import { assertPasswordCapacity, hashPassword, verifyPassword } from './password-hasher';
 import { TokensService } from './tokens.service';
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -56,6 +56,8 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<User> {
     this.loginLimiter.check(input.email);
+    // Before the lookup: a "too busy" answer must not tell registered emails from unknown ones.
+    assertPasswordCapacity();
     const user = await this.prisma.user.findUnique({ where: { email: input.email } });
     // Same error for unknown email, wrong password and deleted accounts.
     const fail = new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });

@@ -1,5 +1,6 @@
 import { HttpStatus, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 
 /**
  * "Too busy right now, try again in a moment": a fast 503 with Retry-After instead of a
@@ -47,9 +48,16 @@ export class BusyLog {
     private readonly everyMs = 10_000,
   ) {}
 
-  record(reason: string): void {
+  private lastOutageReport = 0;
+
+  record(reason: string, cause?: unknown): void {
     this.counts.set(reason, (this.counts.get(reason) ?? 0) + 1);
     this.timer ??= setTimeout(() => this.flush(), this.everyMs).unref();
+    // Overload is expected; an unreachable database is an outage: tell Sentry (once a minute at most).
+    if (reason === 'db_unreachable' && cause !== undefined && Date.now() - this.lastOutageReport > 60_000) {
+      this.lastOutageReport = Date.now();
+      Sentry.captureException(cause);
+    }
   }
 
   flush(): void {
@@ -57,7 +65,9 @@ export class BusyLog {
     if (!this.counts.size) return;
     const entry = Object.fromEntries(this.counts);
     this.counts = new Map();
-    this.logger.warn({ event: 'shed_load', status: 503, counts: entry });
+    const line = { event: 'shed_load', status: 503, counts: entry };
+    if (entry.db_unreachable) this.logger.error(line);
+    else this.logger.warn(line);
   }
 }
 

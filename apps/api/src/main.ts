@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import './load-env';
 import './instrument';
 import { ConsoleLogger, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Server } from 'node:http';
@@ -9,6 +10,7 @@ import { availableParallelism } from 'node:os';
 import { getHeapStatistics } from 'node:v8';
 import { AppModule } from './app.module';
 import { ENV } from './config/config.module';
+import { configurePasswordHashing } from './auth/password-hasher';
 import { loadEnv, type Env } from './config/env';
 import { loadEmailRenderer } from './email/email.service';
 import { migrateOnStart } from './migrate-on-start';
@@ -31,7 +33,9 @@ function installProcessGuards(): void {
   });
   process.on('uncaughtException', (err: Error) => {
     logger.error({ event: 'uncaught_exception', error: `${err.name}: ${err.message}`, stack: err.stack });
-    process.exit(1);
+    // Sentry captures it (instrument.ts); give its transport a moment to send before exiting.
+    setTimeout(() => process.exit(1), 3_000).unref();
+    void Sentry.flush(2_000).finally(() => process.exit(1));
   });
 }
 
@@ -39,6 +43,7 @@ async function bootstrap(): Promise<void> {
   installProcessGuards();
   // JSON bodies only (see configureApp): no form-encoded bodies means no login CSRF via HTML forms.
   const boot = loadEnv();
+  configurePasswordHashing(boot.PASSWORD_HASH_CONCURRENCY);
   // Schema first (the app's startup hooks already query it), and only when something is pending.
   if (process.env.RUN_MIGRATIONS === 'true') await migrateOnStart();
   const json = boot.LOG_JSON ?? boot.NODE_ENV === 'production';
@@ -70,7 +75,9 @@ async function bootstrap(): Promise<void> {
   server.requestTimeout = 120_000;
 
   // The email renderer loads lazily (email.service.ts); warm it once serving has settled.
-  setTimeout(() => void loadEmailRenderer().catch(() => undefined), 20_000).unref();
+  setTimeout(() => {
+    loadEmailRenderer().catch((err: unknown) => Logger.warn(`Email renderer warm-up failed: ${(err as Error)?.message ?? err}`, 'Email'));
+  }, 20_000).unref();
 
   const heapMb = Math.round(getHeapStatistics().heap_size_limit / 1024 / 1024);
   Logger.log(

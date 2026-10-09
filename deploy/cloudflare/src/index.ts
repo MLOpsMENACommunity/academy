@@ -79,9 +79,28 @@ async function restartIfConfigChanged(container: Container<Env>, ctx: DurableObj
   const previous = await ctx.storage.get<string>('configKey');
   if (previous !== key) {
     // Also on the first run of this code (no stored hash): one harmless restart picks up the current config.
-    if (ctx.container?.running) await container.destroy();
+    if (ctx.container?.running) await stopGracefully(container, ctx);
     await ctx.storage.put('configKey', key);
   }
+}
+
+/** The API drains in-flight requests for up to 10 s on SIGTERM (apps/api/src/main.ts). */
+const STOP_GRACE_MS = 12_000;
+
+/**
+ * SIGTERM first, so requests in progress finish and the database pool closes cleanly; a kill
+ * only if the container is still up after STOP_GRACE_MS. Requests arriving meanwhile wait (this
+ * runs inside blockConcurrencyWhile) and then start the new container.
+ */
+async function stopGracefully(container: Container<Env>, ctx: DurableObjectState<Env>): Promise<void> {
+  try {
+    await container.stop('SIGTERM');
+    const deadline = Date.now() + STOP_GRACE_MS;
+    while (ctx.container?.running && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
+  } catch {
+    // fall through to destroy
+  }
+  if (ctx.container?.running) await container.destroy();
 }
 
 export class ApiContainer extends Container<Env> {
@@ -169,7 +188,7 @@ function forwardable(request: Request): Request {
  */
 async function fromContainer(stub: { fetch(request: Request): Promise<Response> }, request: Request, name: string): Promise<Response> {
   const forwarded = forwardable(request);
-  const { response } = await fetchContainer(() => stub.fetch(forwarded), { ms: timeoutFor(request.method), name });
+  const { response } = await fetchContainer(() => stub.fetch(forwarded), { ms: timeoutFor(request.method, new URL(request.url).pathname), name });
   return response;
 }
 

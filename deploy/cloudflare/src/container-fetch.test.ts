@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fetchContainer, isLibraryFailureText, READ_TIMEOUT_MS, RETRY_AFTER_STARTING_S, RETRY_AFTER_TIMEOUT_S, timeoutFor, WRITE_TIMEOUT_MS } from './container-fetch.ts';
+import { fetchContainer, isLibraryFailureText, LONG_TIMEOUT_MS, READ_TIMEOUT_MS, RETRY_AFTER_STARTING_S, RETRY_AFTER_TIMEOUT_S, timeoutFor } from './container-fetch.ts';
 
 const logs: string[] = [];
 const log = (m: string) => logs.push(m);
@@ -59,13 +59,15 @@ test('a thrown fetch (container unreachable) is a 503 too', async () => {
   assert.equal(response.status, 503);
 });
 
-test('timeouts: reads leave room for a cold start, writes get longer', () => {
-  assert.equal(timeoutFor('GET'), READ_TIMEOUT_MS);
-  assert.equal(timeoutFor('HEAD'), READ_TIMEOUT_MS);
-  assert.equal(timeoutFor('POST'), WRITE_TIMEOUT_MS);
+test('timeouts: reads leave room for a cold start; writes and admin exports wait as long as the API', () => {
+  assert.equal(timeoutFor('GET', '/api/courses'), READ_TIMEOUT_MS);
+  assert.equal(timeoutFor('HEAD', '/en/courses'), READ_TIMEOUT_MS);
+  for (const m of ['POST', 'PUT', 'PATCH', 'DELETE']) assert.equal(timeoutFor(m, '/api/me/profile'), LONG_TIMEOUT_MS, m);
+  assert.equal(timeoutFor('GET', '/api/admin/students/export.csv'), LONG_TIMEOUT_MS);
   // Above the container library's 20 s wait for the port, so a cold start isn't cut off.
   assert.ok(READ_TIMEOUT_MS > 20_000 && READ_TIMEOUT_MS <= 30_000);
-  assert.ok(WRITE_TIMEOUT_MS >= READ_TIMEOUT_MS);
+  // Never shorter than the API's own request timeout (120 s): no "try again" for a write still running.
+  assert.equal(LONG_TIMEOUT_MS, 120_000);
 });
 
 test('library failure texts are recognised by their prefix only', () => {

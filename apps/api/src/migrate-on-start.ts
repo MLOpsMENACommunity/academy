@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { poolSettings } from './prisma/database-url';
 
 /**
  * `prisma migrate deploy` before the API listens, but only when there is something to apply.
@@ -29,9 +30,8 @@ export function migrationsOnDisk(dir: string): string[] {
 }
 
 async function appliedMigrations(url: string): Promise<string[] | null> {
-  const u = new URL(url);
-  u.searchParams.set('connection_limit', '1');
-  const prisma = new PrismaClient({ datasourceUrl: u.toString(), errorFormat: 'minimal' });
+  // One connection; pgbouncer=true when this is a pooler URL (see database-url.ts).
+  const prisma = new PrismaClient({ datasourceUrl: poolSettings(url, { poolSize: 1 }).url, errorFormat: 'minimal' });
   try {
     const rows = await prisma.$queryRaw<{ migration_name: string }[]>`
       SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`;

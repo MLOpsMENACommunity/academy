@@ -73,4 +73,17 @@ describe('Gate', () => {
     await first;
     await expect(Promise.all([second, third])).resolves.toEqual(['a', 'b']);
   });
+
+  it('assertRoom refuses exactly when run would', async () => {
+    const gate = new Gate(1, 1);
+    expect(() => gate.assertRoom()).not.toThrow();
+    let release!: () => void;
+    const first = gate.run(() => new Promise<void>((r) => (release = r)));
+    expect(() => gate.assertRoom()).not.toThrow(); // one may queue
+    const second = gate.run(async () => undefined);
+    expect(() => gate.assertRoom()).toThrow(BusyException);
+    release();
+    await Promise.all([first, second]);
+    expect(() => gate.assertRoom()).not.toThrow();
+  });
 });

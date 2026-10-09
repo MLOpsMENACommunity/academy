@@ -12,10 +12,13 @@ import type { EmailTemplate } from './templates/catalog';
  */
 let renderer: Promise<{ buildEmail: typeof import('./templates/catalog').buildEmail; render: typeof import('@react-email/render').render }> | null = null;
 export function loadEmailRenderer(): NonNullable<typeof renderer> {
-  renderer ??= Promise.all([import('./templates/catalog'), import('@react-email/render')]).then(([catalog, r]) => ({
-    buildEmail: catalog.buildEmail,
-    render: r.render,
-  }));
+  renderer ??= Promise.all([import('./templates/catalog'), import('@react-email/render')]).then(
+    ([catalog, r]) => ({ buildEmail: catalog.buildEmail, render: r.render }),
+    (err: unknown) => {
+      renderer = null; // a failed load is retried on the next email, not kept
+      throw err;
+    },
+  );
   return renderer;
 }
 

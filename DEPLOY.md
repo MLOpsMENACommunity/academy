@@ -213,11 +213,13 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   - **Health:** `/api/health/live` never touches the database (Docker's healthcheck);
     `/api/health` checks it at most every 5 s, with a 2 s limit (the deploy check).
 - **Worker → containers:** a container that can't be reached, is starting, or doesn't answer
-  within 25 s (60 s for writes) gets a 503 with `Retry-After` from the Worker, logged as a
+  within 25 s (writes and admin requests: 120 s, as long as the API itself allows) gets a 503 with `Retry-After` from the Worker, logged as a
   warning, never a hang or an opaque 500 (`deploy/cloudflare/src/container-fetch.ts`).
 - **Deploys restart the containers at once:** the deployed commit (`ACADEMY_RELEASE`) is part
   of each container's configuration, so new code is served as soon as the deploy finishes,
-  not when the old container is next replaced.
+  not when the old container is next replaced. The old one gets SIGTERM and up to 12 s to
+  finish requests in progress. In-memory state (rate limits, the login lockout) starts
+  afresh on each deploy.
 - **API down while a page renders:** ISR pages load their main data with `serverGet`,
   which throws, so Next keeps serving the last good copy, or (a fresh container with
   none yet) answers a 500 that neither Next nor the edge caches. They never cache an
