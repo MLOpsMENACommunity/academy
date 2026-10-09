@@ -8,6 +8,7 @@ import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
+import { errorMessage } from '@/lib/errors';
 import { DriveNote } from './DriveNote';
 import { FeedbackForm } from './FeedbackForm';
 import { YouTubeFacade } from './YouTubeFacade';
@@ -23,6 +24,7 @@ export function SessionCard({
 }) {
   const { locale, t } = useI18n();
   const [completed, setCompleted] = useState(s.completed);
+  const [actionError, setActionError] = useState<string | null>(null);
   const title = locale === 'ar' ? s.titleAr : s.titleEn;
   const desc = locale === 'ar' ? s.descriptionAr : s.descriptionEn;
   const courseTitle = locale === 'ar' ? course.titleAr : course.titleEn;
@@ -31,11 +33,13 @@ export function SessionCard({
   async function toggle(next: boolean) {
     setCompleted(next);
     onProgress(s.id, next);
+    setActionError(null);
     try {
       await api(`/learn/${course.slug}/sessions/${s.id}/progress`, { method: 'PUT', json: { completed: next } });
-    } catch {
+    } catch (err) {
       setCompleted(!next);
       onProgress(s.id, !next);
+      setActionError(errorMessage(err, t));
     }
   }
 
@@ -69,7 +73,10 @@ export function SessionCard({
           <button
             type="button"
             className="inline-flex min-h-11 items-center text-primary underline"
-            onClick={() => downloadViaApi(`/learn/${course.slug}/sessions/${s.id}/calendar.ics`, `${course.slug}-${s.order}.ics`).catch(() => undefined)}
+            onClick={() => {
+              setActionError(null);
+              downloadViaApi(`/learn/${course.slug}/sessions/${s.id}/calendar.ics`, `${course.slug}-${s.order}.ics`).catch((err: unknown) => setActionError(errorMessage(err, t)));
+            }}
           >
             {t('learn.downloadIcs')}
           </button>
@@ -135,6 +142,11 @@ export function SessionCard({
           </label>
           <FeedbackForm slug={course.slug} sessionId={s.id} legend={t('learn.feedbackTitle')} initial={s.myFeedback} />
         </div>
+      )}
+      {actionError && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          {actionError}
+        </p>
       )}
     </article>
   );

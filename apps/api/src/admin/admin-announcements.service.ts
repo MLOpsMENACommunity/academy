@@ -111,12 +111,17 @@ export class AdminAnnouncementsService {
       take: 50,
       include: { createdBy: { select: { email: true } } },
     });
-    const counts = await this.prisma.announcementRecipient.groupBy({
-      by: ['announcementId', 'status'],
-      where: { announcementId: { in: list.map((a) => a.id) } },
-      _count: { _all: true },
-    });
-    const n = (id: string, status: string) => counts.find((c) => c.announcementId === id && c.status === status)?._count._all ?? 0;
+    const ids = list.map((a) => a.id);
+    const [students, waitlist] = await Promise.all([
+      this.prisma.announcementRecipient.groupBy({ by: ['announcementId', 'status'], where: { announcementId: { in: ids } }, _count: { _all: true } }),
+      // Waiting-list announcements are delivered to CourseInterest rows instead.
+      this.prisma.courseInterest.groupBy({ by: ['announcementId', 'deliveryStatus'], where: { announcementId: { in: ids } }, _count: { _all: true } }),
+    ]);
+    const counts = [
+      ...students.map((c) => ({ id: c.announcementId, status: c.status as string, n: c._count._all })),
+      ...waitlist.map((c) => ({ id: c.announcementId, status: c.deliveryStatus as string, n: c._count._all })),
+    ];
+    const n = (id: string, status: string) => counts.filter((c) => c.id === id && c.status === status).reduce((s, c) => s + c.n, 0);
     return list.map((a) => ({
       id: a.id,
       at: a.createdAt.toISOString(),

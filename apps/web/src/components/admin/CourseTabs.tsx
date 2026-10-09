@@ -542,7 +542,7 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
         <Button size="sm" variant="secondary" onClick={() => copy('pending', active.filter((r) => !r.driveAccessGranted))}>
           {copied === 'pending' ? `✓ ${t('admin.common.copied')}` : c('copyPending')}
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => downloadViaApi(`/admin/courses/${courseId}/enrollments.csv`, 'enrolled-students.csv').catch(() => undefined)}>
+        <Button size="sm" variant="secondary" onClick={() => downloadViaApi(`/admin/courses/${courseId}/enrollments.csv`, 'enrolled-students.csv').catch((err: unknown) => setError(errorMessage(err, t)))}>
           ⬇ {t('admin.common.export')}
         </Button>
         <label className="ms-auto flex items-center gap-2 text-sm">

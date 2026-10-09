@@ -11,6 +11,9 @@ import {
   computePaymentFlags,
   normalizeTransactionRef,
   paymentsConfigured,
+  configuredPaymentMethods,
+  publicContact,
+  realValue,
   paymentProofSchema,
   type AdminPaymentDto,
   type MyPaymentDto,
@@ -78,12 +81,12 @@ export class PaymentsService {
     return {
       amount: app.course.price,
       currency: app.course.currency,
-      instapayHandle: s.instapayHandle,
-      instapayName: s.instapayName,
-      vodafoneCashNumber: s.vodafoneCashNumber,
-      vodafoneCashName: s.vodafoneCashName,
-      supportEmail: s.supportEmail,
-      supportWhatsapp: s.supportWhatsapp,
+      instapayHandle: realValue(s.instapayHandle),
+      instapayName: realValue(s.instapayName),
+      vodafoneCashNumber: realValue(s.vodafoneCashNumber),
+      vodafoneCashName: realValue(s.vodafoneCashName),
+      ...publicContact(s),
+      methods: configuredPaymentMethods(s),
       configured: paymentsConfigured(s),
     };
   }
@@ -122,6 +125,9 @@ export class PaymentsService {
         message: 'Validation failed',
         errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
+    }
+    if (!(configuredPaymentMethods(s) as string[]).includes(parsed.data.method)) {
+      throw new BadRequestException({ code: 'METHOD_NOT_AVAILABLE', message: 'This payment method is not available. Choose another one.' });
     }
     if (!file) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'Upload a screenshot of the payment' });
     if (file.size > MAX_UPLOAD_BYTES) {

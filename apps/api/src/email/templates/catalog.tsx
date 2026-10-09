@@ -48,7 +48,10 @@ export type EmailTemplate =
   | { name: 'eventCancelled'; title: string; when: string; url: string }
   | { name: 'eventReminder'; title: string; when: string; hoursBefore: 24 | 1; url: string }
   /** Sent by an admin to a course's students. */
-  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string };
+  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string }
+  /** Waiting list ("Notify me"): may go to people without an account, so every one has a leave link. */
+  | { name: 'waitlistJoined'; courseTitle: string; courseUrl: string; leaveUrl: string }
+  | { name: 'waitlistOpen'; courseTitle: string; subject: string; body: string; url: string; leaveUrl: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -71,6 +74,13 @@ const footer: Record<Locale, string> = {
   en: 'MLOps MENA Academy · academy.mlopsmena.com. You are receiving this because you have an account with us.',
   ar: 'أكاديمية MLOps MENA · academy.mlopsmena.com. وصلتك هذه الرسالة لأن لديك حسابًا لدينا.',
 };
+
+/** Waiting-list emails: why you got this, and how to stop. */
+function waitlistFooter(courseTitle: string, leaveUrl: string, ar: boolean): string {
+  return ar
+    ? `أكاديمية MLOps MENA · وصلتك هذه الرسالة لأنك انضممت إلى قائمة الانتظار لدورة ${courseTitle}. لمغادرة القائمة: ${leaveUrl}`
+    : `MLOps MENA Academy · You're receiving this because you joined the waiting list for ${courseTitle}. To leave the list: ${leaveUrl}`;
+}
 
 type StatusTemplate = Extract<EmailTemplate, { name: 'applicationStatus' }>;
 
@@ -400,6 +410,43 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
         ),
       };
     }
+    case 'waitlistJoined': {
+      const subject = ar ? `أنت في قائمة الانتظار: ${t.courseTitle}` : `You're on the waiting list: ${t.courseTitle}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            locale={locale}
+            footer={waitlistFooter(t.courseTitle, t.leaveUrl, ar)}
+            preview={subject}
+            heading={ar ? 'أنت في قائمة الانتظار' : "You're on the waiting list"}
+            paragraphs={[
+              ar
+                ? `سنراسلك مرة واحدة عند فتح باب التسجيل في ${t.courseTitle}. لن نستخدم بريدك لأي شيء آخر.`
+                : `We'll email you once when ${t.courseTitle} opens for applications. We won't use your email for anything else.`,
+            ]}
+            cta={{ label: ar ? 'صفحة الدورة' : 'View the course', url: t.courseUrl }}
+            note={ar ? `غيّرت رأيك؟ غادر القائمة: ${t.leaveUrl}` : `Changed your mind? Leave the list: ${t.leaveUrl}`}
+          />
+        ),
+      };
+    }
+    case 'waitlistOpen': {
+      const subject = `${t.courseTitle}: ${t.subject}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            locale={locale}
+            footer={waitlistFooter(t.courseTitle, t.leaveUrl, ar)}
+            preview={t.subject}
+            heading={t.subject}
+            paragraphs={t.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)}
+            cta={{ label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }}
+          />
+        ),
+      };
+    }
     case 'profileReview': {
       const subject = ar ? 'هل ملفك الشخصي محدّث؟' : 'Is your profile still up to date?';
       return {
@@ -460,8 +507,12 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             cta={{ label: ar ? 'لم أقم بذلك' : "This wasn't me", url: t.url }}
             note={
               ar
-                ? 'إذا قمت بهذا التغيير فلا داعي لأي إجراء. إذا لم تقم به، تواصل معنا فورًا.'
-                : "If you made this change, you don't need to do anything. If you didn't, contact us right away."
+                ? t.kind === 'passwordChanged'
+                  ? 'إذا قمت بهذا التغيير فلا داعي لأي إجراء. إذا لم تقم به، أعد تعيين كلمة المرور فورًا من الزر أعلاه.'
+                  : 'إذا قمت بهذا التغيير فلا داعي لأي إجراء. إذا لم تقم به، تواصل معنا فورًا.'
+                : t.kind === 'passwordChanged'
+                  ? "If you made this change, you don't need to do anything. If you didn't, reset your password right away with the button above."
+                  : "If you made this change, you don't need to do anything. If you didn't, contact us right away."
             }
           />
         ),

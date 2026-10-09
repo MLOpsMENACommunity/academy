@@ -64,11 +64,18 @@ export class CoursesService {
   }
 
   async myStatus(slug: string, userId: string): Promise<MyCourseStatusDto> {
-    const app = await this.prisma.application.findFirst({
-      where: { userId, course: { slug } },
-      select: { id: true, status: true, enrollment: { select: { id: true } } },
-    });
-    return { applicationId: app?.id ?? null, status: app?.status ?? null, enrolled: Boolean(app?.enrollment) };
+    const [app, user] = await Promise.all([
+      this.prisma.application.findFirst({
+        where: { userId, course: { slug } },
+        select: { id: true, status: true, enrollment: { select: { id: true } } },
+      }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } }),
+    ]);
+    // On the waiting list from this account, or with this email before signing in.
+    const interested = user
+      ? (await this.prisma.courseInterest.count({ where: { course: { slug }, OR: [{ userId }, { email: user.email.toLowerCase() }] } })) > 0
+      : false;
+    return { applicationId: app?.id ?? null, status: app?.status ?? null, enrolled: Boolean(app?.enrollment), interested };
   }
 
   async publicSlugs(): Promise<{ slug: string; updatedAt: Date }[]> {

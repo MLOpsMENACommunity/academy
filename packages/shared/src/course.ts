@@ -138,6 +138,8 @@ export interface MyCourseStatusDto {
   applicationId: string | null;
   status: ApplicationStatus | null;
   enrolled: boolean;
+  /** On the course's waiting list (hears when it opens). */
+  interested: boolean;
 }
 
 export const applicationStatusSchema = z.enum(APPLICATION_STATUSES);

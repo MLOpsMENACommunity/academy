@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MANUAL_PAYMENT_METHODS, type PaymentMethod, type PaymentStatus } from './enums';
+import { realValue } from './settings';
 
 /** Proof-of-payment fields (the screenshot is a separate multipart file). */
 /** References are compared case- and punctuation-insensitively for duplicate checks. */
@@ -65,15 +66,26 @@ export interface PaymentInstructionsDto {
   instapayName: string;
   vodafoneCashNumber: string;
   vodafoneCashName: string;
+  /** Empty when not set: the page then points to the contact page instead. */
   supportEmail: string;
   supportWhatsapp: string;
-  /** False while the admin hasn't replaced the placeholder payment details in Settings. */
+  /** Methods with real details; empty until an admin sets them in Settings. */
+  methods: ('INSTAPAY' | 'VODAFONE_CASH')[];
+  /** False until an admin sets real payment details in Settings. */
   configured: boolean;
 }
 
-/** Payments are refused until real InstaPay and Vodafone Cash details are set in Settings. */
+/** The manual payment methods whose details are set in Settings (only those are offered). */
+export function configuredPaymentMethods(s: { instapayHandle: string; vodafoneCashNumber: string }): ('INSTAPAY' | 'VODAFONE_CASH')[] {
+  const out: ('INSTAPAY' | 'VODAFONE_CASH')[] = [];
+  if (realValue(s.instapayHandle)) out.push('INSTAPAY');
+  if (realValue(s.vodafoneCashNumber)) out.push('VODAFONE_CASH');
+  return out;
+}
+
+/** Payments are refused until at least one method has real details in Settings. */
 export function paymentsConfigured(s: { instapayHandle: string; vodafoneCashNumber: string }): boolean {
-  return ![s.instapayHandle, s.vodafoneCashNumber].some((v) => !v || v.includes('[PLACEHOLDER]'));
+  return configuredPaymentMethods(s).length > 0;
 }
 
 export interface MyPaymentDto {

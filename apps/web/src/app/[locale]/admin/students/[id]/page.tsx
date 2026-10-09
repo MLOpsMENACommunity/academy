@@ -50,6 +50,7 @@ export default function StudentDetail() {
         </p>
       </div>
       <Alert tone="info">{t('admin.students.readOnly')}</Alert>
+      {error && <Alert tone="danger">{error}</Alert>}
       <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
         <Card>
           <ProfileView profile={s.profile} />
@@ -72,8 +73,9 @@ export default function StudentDetail() {
                     const r = await api<{ url: string }>(`/admin/students/${s.id}/cv`);
                     if (tab) tab.location.href = r.url;
                     else window.location.href = r.url;
-                  } catch {
+                  } catch (err) {
                     tab?.close();
+                    setError(errorMessage(err, t));
                   } finally {
                     setCvBusy(false);
                   }

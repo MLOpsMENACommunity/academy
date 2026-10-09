@@ -26,7 +26,8 @@ export function RequireAuth({
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      const here = pathname + (typeof window !== 'undefined' ? window.location.search : '');
+      // Keep the #section too (e.g. #reminders from an email), so login lands on the same spot.
+      const here = pathname + (typeof window !== 'undefined' ? window.location.search + window.location.hash : '');
       router.replace(`/${locale}/login?returnTo=${encodeURIComponent(here)}`);
     } else if (role && user.role !== role) {
       router.replace(`/${locale}/dashboard`);

@@ -2,7 +2,7 @@
 
 import type { MeResponse } from '@academy/shared';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, hasSessionCookie } from '@/lib/api';
+import { api, ApiError, hasSessionCookie } from '@/lib/api';
 
 interface AuthState {
   user: MeResponse | null;
@@ -25,21 +25,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return null;
     }
+    // api() refreshes an expired session itself, once and deduplicated. Never refresh again
+    // here: after a network error or a request cut off by navigation, a second refresh can
+    // rotate the token without the browser storing the new one, and the next page's old
+    // token then looks like theft to the API, which signs the user out everywhere.
+    const me = () => api<MeResponse>('/auth/me');
     try {
-      const me = await api<MeResponse>('/auth/me');
-      setUser(me);
-      return me;
-    } catch {
-      // Access token expired: refresh once, then give up.
+      let current: MeResponse;
       try {
-        const ok = await fetch('/api/auth/refresh', { method: 'POST' }).then((r) => r.ok || r.status === 409);
-        const me = ok ? await api<MeResponse>('/auth/me') : null;
-        setUser(me);
-        return me;
-      } catch {
-        setUser(null);
-        return null;
+        current = await me();
+      } catch (err) {
+        // Signed out for real, or a blip (deploy, flaky network): try once more for the latter.
+        if (err instanceof ApiError && err.status === 401) throw err;
+        await new Promise((r) => setTimeout(r, 1500));
+        current = await me();
       }
+      setUser(current);
+      return current;
+    } catch {
+      setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }

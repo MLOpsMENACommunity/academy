@@ -142,7 +142,7 @@ export function Announcements({ courseId }: { courseId: string }) {
               <li key={h.id} className="py-3">
                 <p className="font-semibold text-fg">{h.subject}</p>
                 <p className="text-xs text-muted">
-                  {formatDateTime(h.at, locale)} · {h.by ?? '—'} · {h.statuses.map((s) => applicationStatusLabels[s]?.[locale] ?? s).join(', ')}
+                  {formatDateTime(h.at, locale)} · {h.by ?? '—'} · {h.statuses.map((s) => ((s as string) === 'WAITLIST' ? t('admin.courses.wl.title') : (applicationStatusLabels[s]?.[locale] ?? s))).join(', ')}
                 </p>
                 <p className="text-xs">
                   {a('delivered', { sent: h.sent, count: h.recipients })}

@@ -27,6 +27,8 @@ import { formatDate } from '@/lib/format';
 /** Read-only profile for admins (they can view but never edit; notes are separate). */
 export function ProfileView({ profile: p }: { profile: ProfileDto }) {
   const { locale, t } = useI18n();
+  // Anonymised accounts keep their applications with an empty profile snapshot.
+  if (!p || Object.keys(p).length === 0) return <p className="text-sm text-muted">{t('admin.apps.noProfile')}</p>;
   const f = (k: string) => t(`profile.fields.${k}`);
   const one = (map: Record<string, Localized>, v: string | null) => (v ? (map[v]?.[locale] ?? v) : null);
   const many = (map: Record<string, Localized>, v: string[]) => (v.length ? v.map((x) => map[x]?.[locale] ?? x).join(', ') : null);
