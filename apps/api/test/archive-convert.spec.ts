@@ -95,7 +95,8 @@ describe('archive converter', () => {
       topics: ['docker', 'mlops'],
     });
     expect(docker.descriptionEn).toContain('- Docker architecture');
-    expect(docker.descriptionEn).toContain('Originally hosted on [zomra.io](https://zomra.io/free-sessions/abc)');
+    // No links to the platform it was first hosted on.
+    expect(docker.descriptionEn).not.toContain('zomra');
     expect(docker.descriptionAr).toContain('- معمارية Docker');
   });
 
@@ -112,17 +113,18 @@ describe('archive converter', () => {
     expect(course.sessions[2]!.descriptionAr).toContain('• اختبار الحِمل باستخدام Locust');
   });
 
-  it('imports the course as a completed cohort with its instructor, syllabus and external platform', () => {
+  it('imports the course as a completed cohort with its instructor and syllabus, without the external platform', () => {
     const course = file.courses.find((c) => c.slug === 'mlops-practitioner')!;
     expect(course).toMatchObject({
       status: 'COMPLETED',
       cohortNumber: 1,
       startDate: '2026-08-15',
       endDate: '2026-10-02',
-      externalPlatform: 'zomra.io',
       publicRecordings: true,
       instructors: ['aya-nasser-salama'],
     });
+    expect(course).not.toHaveProperty('externalPlatform');
+    expect(JSON.stringify(course)).not.toContain('zomra');
     expect(course.outline).toHaveLength(7);
     expect(course.outline[2]).toMatchObject({ titleAr: 'النصف الأول من المشروع (تنفيذ ومراجعة)', descriptionEn: 'No lecture.' });
     expect(course.sessions.map((s) => s.recordingUrl ?? null)).toEqual([

@@ -93,7 +93,6 @@ function videoMinutes(input: WebsiteInput, id: string | undefined | null): numbe
 
 const bullets = (items: readonly string[]) => items.map((x) => `- ${x}`).join('\n');
 const paragraphs = (...parts: (string | undefined | false)[]) => parts.filter(Boolean).join('\n\n');
-const platformName = (url: string) => new URL(url).hostname.replace(/^www\./, '');
 
 export function convertWebsite(input: WebsiteInput, curation: Curation = defaultCuration): ArchiveFileInput {
   const out: Required<Pick<ArchiveFileInput, 'speakers' | 'sessions' | 'courses'>> = { speakers: [], sessions: [], courses: [] };
@@ -128,7 +127,6 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
   const ar = curation.practitionerAr;
   const repo = c.resources.find((r) => /repository/i.test(r.label))?.href ?? c.repoUrl;
   const slides = c.resources.find((r) => /all session slides/i.test(r.label))?.href;
-  const platform = platformName(c.enrollUrl);
   const lessons = curation.practitionerLessons.map((l) => {
     const week = c.outline.find((w) => w.week === l.week);
     // Lesson 3's topic names are on the website's session entry; elsewhere the syllabus week's lessons.
@@ -163,7 +161,7 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
       bullets(c.description.learn),
       c.description.outro,
       '## Cohort 1',
-      `Cohort 1 ran from 15 August to 2 October 2026 on [${platform}](${c.enrollUrl}): five live lessons on YouTube Live, two project weeks and a final project.`,
+      'Cohort 1 ran from 15 August to 2 October 2026: five live lessons on YouTube Live, two project weeks and a final project.',
       '## Course materials',
       bullets([`[Course repository](${repo}): all code, notebooks and module projects.`, ...(slides ? [`[Slides for every session](${slides}): a Google Drive folder.`] : [])]),
     ),
@@ -175,7 +173,7 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
       bullets(ar.learn),
       ar.outro,
       `## ${ar.cohortHeading}`,
-      ar.cohortBody(`[${platform}](${c.enrollUrl})`),
+      ar.cohortBody,
       `## ${ar.materialsHeading}`,
       bullets([`[${ar.repo.label}](${repo}): ${ar.repo.desc}`, ...(slides ? [`[${ar.slides.label}](${slides}): ${ar.slides.desc}`] : [])]),
     ),
@@ -187,8 +185,6 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
     startDate: c.dates.start,
     endDate: c.dates.end,
     durationWeeks: c.outline.length,
-    externalPlatform: platform,
-    externalUrl: c.enrollUrl,
     publicRecordings: true,
     deliveryPlatform: 'YOUTUBE_LIVE',
     recordingsPlatform: 'YOUTUBE',
@@ -224,7 +220,6 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
     const youtubeId = s.youtubeId ?? cur?.youtubeId;
     if (youtubeId) usedVideos.add(youtubeId);
     const recordingUrl = youtubeId ? watchUrl(youtubeId) : s.recordingUrl;
-    const page = s.sessionPageUrl ?? s.registerUrl;
     const topicsAr = cur?.topicsAr?.length === s.topics.length ? cur.topicsAr : s.topics;
     out.sessions.push({
       slug: s.slug,
@@ -234,14 +229,12 @@ export function convertWebsite(input: WebsiteInput, curation: Curation = default
         cur?.summaryEn ?? s.subtitle,
         s.note,
         s.topics.length > 0 && `### What we covered\n\n${bullets(s.topics)}`,
-        page && `Originally hosted on [${platformName(page)}](${page}).`,
       ),
       descriptionAr: cur?.summaryAr
         ? paragraphs(
             cur.summaryAr,
             cur.noteAr,
             s.topics.length > 0 && `### ما تناولته الجلسة\n\n${bullets(topicsAr)}`,
-            page && `استُضيفت الجلسة في الأصل على [${platformName(page)}](${page}).`,
           )
         : '',
       speaker: speaker(s.speaker, s.speakerRole),

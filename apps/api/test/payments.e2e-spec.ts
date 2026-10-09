@@ -143,14 +143,27 @@ describe('payments (e2e)', () => {
     expect(row.transactionRef).toMatch(/^RT-/);
   });
 
-  it('refuses payments while the payment details are still placeholders', async () => {
+  it('refuses payments while no payment method is set (empty or old placeholders)', async () => {
     const { student, applicationId } = await awaitingPayment();
-    await setPaymentDetails('[PLACEHOLDER]@instapay', '01000000000');
+    await setPaymentDetails('[PLACEHOLDER]@instapay', '');
     try {
       const ins = await http().get(`/api/me/applications/${applicationId}/payment-instructions`).set('Cookie', student.cookie).expect(200);
-      expect(ins.body.configured).toBe(false);
+      expect(ins.body).toMatchObject({ configured: false, methods: [], instapayHandle: '', vodafoneCashNumber: '' });
       const res = await submit(student.cookie, applicationId, proof(`PH-${Date.now()}`), png(`ph${Date.now()}`)).expect(503);
       expect(res.body.code).toBe('PAYMENTS_NOT_CONFIGURED');
+    } finally {
+      await setPaymentDetails('academy@instapay', '01000000000');
+    }
+  });
+
+  it('offers only the methods that are set up', async () => {
+    const { student, applicationId } = await awaitingPayment();
+    await setPaymentDetails('', '01000000000');
+    try {
+      const ins = await http().get(`/api/me/applications/${applicationId}/payment-instructions`).set('Cookie', student.cookie).expect(200);
+      expect(ins.body).toMatchObject({ configured: true, methods: ['VODAFONE_CASH'], instapayHandle: '' });
+      const res = await submit(student.cookie, applicationId, proof(`VF-${Date.now()}`), png(`vf${Date.now()}`)).expect(400);
+      expect(res.body.code).toBe('METHOD_NOT_AVAILABLE');
     } finally {
       await setPaymentDetails('academy@instapay', '01000000000');
     }

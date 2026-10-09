@@ -46,6 +46,7 @@ export function ApplicationsTable() {
   const { params, query, set, replaceAll } = useQueryState();
   const [data, setData] = useState<Page | null>(null);
   const [error, setError] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [courses, setCourses] = useState<{ id: string; titleEn: string; titleAr: string }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [event, setEvent] = useState<AdminApplicationEvent>('SHORTLIST');
@@ -113,10 +114,14 @@ export function ApplicationsTable() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.apps.title')}</h1>
-        <Button variant="secondary" size="sm" onClick={() => downloadViaApi(`/admin/applications.csv?${apiQuery}`, 'applications.csv').catch(() => undefined)}>
+        <Button variant="secondary" size="sm" onClick={() => {
+            setExportError(null);
+            downloadViaApi(`/admin/applications.csv?${apiQuery}`, 'applications.csv').catch((err: unknown) => setExportError(errorMessage(err, t)));
+          }}>
           ⬇ {t('admin.common.export')}
         </Button>
       </div>
+      {exportError && <Alert tone="danger" className="mt-4">{exportError}</Alert>}
 
       <div className="mt-5 space-y-4 rounded-card border border-line bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

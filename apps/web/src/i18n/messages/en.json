@@ -22,7 +22,8 @@
     "optional": "optional",
     "required": "required",
     "free": "Free",
-    "placeholderNotice": "This page contains placeholder text pending legal review."
+    "placeholderNotice": "This page contains placeholder text pending legal review.",
+    "or": "or"
   },
   "nav": {
     "courses": "Courses",
@@ -181,7 +182,7 @@
   },
   "onboarding": {
     "title": "Complete your profile",
-    "subtitle": "The first three steps are required and take about 5 minutes. The rest is optional but helps us shape courses for you.",
+    "subtitle": "The first five steps are required and take about 5 minutes. The rest is optional but helps us shape courses for you.",
     "step": "Step {current} of {total}",
     "skip": "Skip for now",
     "saveContinue": "Save and continue",
@@ -387,11 +388,7 @@
     "recordings": "Recordings",
     "recordingsNote": "Every lesson of this cohort, free to watch.",
     "noRecording": "No public recording for this lesson.",
-    "lesson": "Lesson {n}",
-    "notifyCta": "Notify me about the next cohort",
-    "notifyNote": "Send us a one-line email and we'll tell you when the next cohort opens.",
-    "notifySubject": "Next cohort of {course}",
-    "notifyBody": "Please let me know when the next cohort of {course} opens."
+    "lesson": "Lesson {n}"
   },
   "apply": {
     "title": "Apply: {course}",
@@ -470,17 +467,20 @@
     "history": "Your payment submissions",
     "statusLabel": "Status",
     "rejectedReason": "Reason: {reason}",
-    "help": "Questions about payment? Contact {email}.",
     "errors": {
       "NOT_AWAITING_PAYMENT": "This application isn't waiting for a payment.",
       "GOOGLE_EMAIL_REQUIRED": "Add your Google account email to your profile first.",
       "FILE_TYPE": "Upload a JPG, PNG or PDF file.",
       "FILE_TOO_LARGE": "The file must be 5 MB or smaller.",
       "FILE_REQUIRED": "Upload a screenshot of the payment.",
-      "PAYMENTS_NOT_CONFIGURED": "Payment details aren't available yet. Please try again later."
+      "PAYMENTS_NOT_CONFIGURED": "Payment details aren't available yet. Please try again later.",
+      "METHOD_NOT_AVAILABLE": "This payment method isn't available. Choose another one."
     },
     "retry": "Try again",
-    "notConfigured": "Payment details aren't available yet. Please check back soon or contact {email}."
+    "notConfigured": "Payment details aren't available yet. Please check back soon.",
+    "copyManual": "Selected: copy it",
+    "helpPrefix": "Questions about payment? Contact",
+    "helpNoContact": "Questions about payment? See"
   },
   "admin": {
     "title": "Admin",
@@ -717,7 +717,7 @@
         "cohortNumber": "Cohort number",
         "endDate": "End date",
         "externalPlatform": "Ran on another platform",
-        "externalPlatformHint": "e.g. zomra.io. Leave empty if it ran on the academy.",
+        "externalPlatformHint": "The platform it ran on, if not the academy. Leave empty if it ran here.",
         "externalUrl": "Link to it on that platform",
         "publicRecordings": "Recordings are public: shown on the course page and in the Recordings library once each lesson has ended",
         "sessionTags": "Tags (Recordings filter)"
@@ -822,7 +822,38 @@
       },
       "pastCohort": "Past cohort",
       "pastCohortHint": "For a cohort that has ended (status Completed): the course page stays public with its recordings, and nobody can apply.",
-      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a course after an admin edits it or its sessions."
+      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a course after an admin edits it or its sessions.",
+      "waitlist": "Waiting list",
+      "wl": {
+        "title": "Waiting list",
+        "help": "People who pressed \"Notify me\" on the course page, with or without an account. Nobody is emailed until you send the message below.",
+        "total": "On the list",
+        "waiting": "Not told yet",
+        "notified": "Told",
+        "sending": "Sending now",
+        "notifyTitle": "Notify the waiting list",
+        "notifyHelp": "Emails everyone not told yet, with a button to the course page and a link to leave the list. Students with an account also get an in-app notification. People who were already told are not emailed again.",
+        "notOpen": "This course isn't open for applications yet. Set its status to Open (Details tab) before telling the list, or people will land on a page where they can't apply.",
+        "recipients": "Recipients: {count}",
+        "notify": "Notify the waiting list",
+        "confirm": "Email {count} people now? It can’t be undone.",
+        "sent": "Queued for {count} people. Emails go out over the next few minutes.",
+        "email": "Email",
+        "language": "Language",
+        "joined": "Joined",
+        "status": "Status",
+        "remove": "Remove",
+        "removeConfirm": "Remove {email} from the waiting list?",
+        "empty": "Nobody is on the waiting list yet.",
+        "student": "Student account",
+        "visitor": "No account",
+        "notifiedOn": "Told {date}",
+        "sendingOne": "Sending",
+        "failed": "Email failed",
+        "waitingOne": "Waiting",
+        "openPrompt": "The course is open and {count} people on its waiting list haven’t been told yet.",
+        "openPromptAction": "Notify the waiting list"
+      }
     },
     "settings": {
       "title": "Settings",
@@ -837,7 +868,13 @@
       "supportWhatsapp": "Support WhatsApp",
       "liveLinkRevealMinutes": "Show live links this many minutes before a session",
       "screenshotRetentionDays": "Delete payment screenshots and CVs after (days)",
-      "placeholderWarning": "Payment details still contain [PLACEHOLDER]. Students can't pay until you set real values."
+      "placeholderWarning": "No payment method is set up yet. Students can't pay until you add InstaPay or Vodafone Cash details.",
+      "hints": {
+        "instapayHandle": "Leave empty to stop offering InstaPay.",
+        "vodafoneCashNumber": "Leave empty to stop offering Vodafone Cash.",
+        "supportEmail": "A real, monitored inbox. Shown on the contact and policy pages and in payment help. Empty: those pages point to the community channels.",
+        "supportWhatsapp": "International format, e.g. +20 100 123 4567. Shown in payment help and on the contact page. Empty: hidden."
+      }
     },
     "audit": {
       "title": "Audit log",
@@ -966,7 +1003,8 @@
       "duplicatesNote": "Already imported the .ics file? Delete those events after subscribing, or you'll see each session twice.",
       "loading": "Preparing your calendar link…",
       "error": "We couldn't prepare your calendar link. You can still download the file.",
-      "subscribe": "Add your sessions to your calendar"
+      "subscribe": "Add your sessions to your calendar",
+      "downloadError": "We couldn't download the calendar file. Try again."
     },
     "reminders": "Email me reminders 24 hours and 1 hour before each session",
     "remindersSaved": "Reminder preference saved.",
@@ -1072,5 +1110,34 @@
     "hasRecording": "Recording",
     "cancelled": "Cancelled",
     "metaDescription": "{name}: talks, workshops and courses at MLOps MENA Academy."
+  },
+  "policy": {
+    "contactPage": "our contact page",
+    "communityBelow": "the community channels below",
+    "whatsapp": "For payment questions:"
+  },
+  "waitlist": {
+    "cta": "Notify me when it opens",
+    "ctaShort": "Notify me",
+    "headingCompleted": "This cohort has ended",
+    "emailLabel": "Your email",
+    "emailPlaceholder": "you@example.com",
+    "invalidEmail": "Enter a valid email address.",
+    "noteGuest": "We'll email you once when it opens. Nothing else.",
+    "noteUser": "One click: we'll email your account address once when it opens.",
+    "joined": "You're on the waiting list",
+    "joinedNoteUser": "We'll email you when it opens.",
+    "joinedNoteGuest": "Check your inbox for a confirmation. Every email has a link to leave the list.",
+    "leave": "Leave the waiting list",
+    "otherEmail": "Use a different email",
+    "leaveTitle": "Leave the waiting list",
+    "leaveConfirm": "Stop emails about {course}? You won't hear from us when it opens.",
+    "leaveConfirmGeneric": "Stop emails about this course? You won't hear from us when it opens.",
+    "leaveButton": "Leave the list",
+    "leftCourse": "Done. You've left the waiting list for {course}.",
+    "left": "Done. You're no longer on this waiting list.",
+    "invalidLink": "This link isn't valid. Copy the whole link from the email and try again.",
+    "backToCourse": "Back to the course",
+    "browse": "Browse courses"
   }
 }

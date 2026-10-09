@@ -69,7 +69,7 @@ export class AccountService {
     await this.email.send(user.email, user.locale, {
       name: 'securityNotice',
       kind: 'passwordChanged',
-      url: this.email.url(user.locale, '/contact'),
+      url: this.email.url(user.locale, '/forgot-password'),
     });
   }
 
@@ -125,6 +125,12 @@ export class AccountService {
         eventRegistrations: { select: { createdAt: true, event: { select: { slug: true, titleEn: true, startsAt: true } } } },
       },
     });
+    // Waiting lists joined from this account, or with this address before signing in.
+    const waitingLists = await this.prisma.courseInterest.findMany({
+      where: { OR: [{ userId }, { email: user.email.toLowerCase() }] },
+      select: { email: true, locale: true, createdAt: true, notifiedAt: true, course: { select: { slug: true, titleEn: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
     return {
       exportedAt: new Date().toISOString(),
       account: {
@@ -152,6 +158,7 @@ export class AccountService {
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
       liveSessionRegistrations: user.eventRegistrations.map((r) => ({ session: r.event, registeredAt: r.createdAt })),
+      waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
     };
   }
 
@@ -169,6 +176,8 @@ export class AccountService {
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
     // The private calendar link stops working at once (calendar apps poll without signing in).
     await this.prisma.calendarFeed.deleteMany({ where: { userId } });
+    // Off every waiting list: nobody should email a deleted account about new courses.
+    await this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } });
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
     await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted' });
@@ -227,6 +236,7 @@ export class AccountService {
       this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
       this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
       this.prisma.calendarFeed.deleteMany({ where: { userId } }),
+      this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
       this.prisma.user.update({
         where: { id: userId },

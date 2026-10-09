@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { trackFunnel } from '@/lib/funnel';
 import { buttonClass } from '../ui/Button';
+import { NotifyMe } from './NotifyMe';
 
 /** Shared across the two CTA instances on a page so my-status is fetched once. */
 const statusCache = new Map<string, Promise<MyCourseStatusDto>>();
@@ -19,6 +20,10 @@ interface Props {
   requiresApproval: boolean;
   full: boolean;
   priceText: string;
+  /** A past cohort (status COMPLETED). */
+  completed?: boolean;
+  /** The phone bar: shorter copy. */
+  compact?: boolean;
 }
 
 /**
@@ -27,7 +32,7 @@ interface Props {
  * travel with them to the application. Signed-in users who already applied
  * see their status instead.
  */
-export function ApplyCta({ slug, availability, isFree, requiresApproval, full, priceText }: Props) {
+export function ApplyCta({ slug, availability, isFree, requiresApproval, full, priceText, completed = false, compact = false }: Props) {
   const { locale, t } = useI18n();
   const { user } = useAuth();
   const [status, setStatus] = useState<MyCourseStatusDto | null>(null);
@@ -67,7 +72,7 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
         {needsPayment ? t('course.completePayment') : t('course.viewApplication')}
       </Link>
     );
-  } else if (availability === 'OPEN') {
+  } else if (availability === 'OPEN' && !completed) {
     action = (
       <Link
         href={`/${locale}/courses/${slug}/apply${query}`}
@@ -78,10 +83,16 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
       </Link>
     );
   } else {
+    // Not open (coming soon, closed or a past cohort): join the waiting list instead.
     action = (
-      <span className={buttonClass('secondary', 'lg', 'w-full pointer-events-none opacity-70')} aria-disabled>
-        {availability === 'UPCOMING' ? t('course.upcoming') : t('course.closed')}
-      </span>
+      <>
+        {!compact && (
+          <p className="text-center text-sm font-medium text-fg">
+            {completed ? t('waitlist.headingCompleted') : availability === 'UPCOMING' ? t('course.upcoming') : t('course.closed')}
+          </p>
+        )}
+        <NotifyMe slug={slug} interested={user ? (status ? status.interested : undefined) : undefined} compact={compact} />
+      </>
     );
   }
 
@@ -93,7 +104,7 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
         </p>
       )}
       {action}
-      {!status?.status && availability === 'OPEN' && (
+      {!status?.status && availability === 'OPEN' && !completed && (
         <p className="text-center text-sm leading-relaxed text-muted">
           {priceText} · {requiresApproval ? t('course.screened') : t('course.instant')}
         </p>

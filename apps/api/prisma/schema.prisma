@@ -313,6 +313,7 @@ model User {
   adminNotesAbout         AdminNote[]              @relation("AdminNoteSubject")
   statusChanges           ApplicationStatusHistory[]
   calendarFeed            CalendarFeed?
+  courseInterests         CourseInterest[]
 
   @@index([role])
   @@index([createdAt])
@@ -571,6 +572,7 @@ model Course {
 
   @@index([status])
   announcements       Announcement[]
+  interests           CourseInterest[]
 }
 
 model CourseInstructor {
@@ -934,6 +936,8 @@ model Announcement {
   statuses       Json
   createdAt      DateTime                @default(now())
   recipients     AnnouncementRecipient[]
+  /// Waiting-list announcements ("the course is open") are delivered to these rows instead.
+  waitlist       CourseInterest[]
 
   @@index([courseId, createdAt])
 }
@@ -1042,4 +1046,30 @@ model EventConfirmation {
 
   @@id([eventId, userId])
   @@index([userId])
+}
+
+/// The waiting list: people who asked to hear when a course opens (signed in or not).
+model CourseInterest {
+  id             String          @id @default(cuid())
+  courseId       String
+  course         Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Set when a signed-in student joined.
+  userId         String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Lower-cased. For signed-in students, their account email at the time they joined.
+  email          String
+  locale         Locale          @default(en)
+  createdAt      DateTime        @default(now())
+  /// When the "the course is open" email was sent to this person.
+  notifiedAt     DateTime?
+  /// The announcement that notified (or is notifying) this person, with its delivery state.
+  announcementId String?
+  announcement   Announcement?   @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  deliveryStatus DeliveryStatus?
+  attempts       Int             @default(0)
+
+  @@unique([courseId, email])
+  @@index([userId])
+  @@index([email])
+  @@index([deliveryStatus])
 }

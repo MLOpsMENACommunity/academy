@@ -1,10 +1,11 @@
 'use client';
 
-import { courseStatusLabels, PUBLIC_COURSE_STATUSES, type CourseStatus, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
+import { courseStatusLabels, PUBLIC_COURSE_STATUSES, type CourseStatus, type WaitlistDto, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
 import { Announcements } from '@/components/admin/Announcements';
+import { Waitlist } from '@/components/admin/Waitlist';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'sessions', 'enrolled', 'announcements', 'feedback'] as const;
+const TABS = ['details', 'questions', 'sessions', 'enrolled', 'announcements', 'waitlist', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
@@ -90,12 +91,20 @@ function CourseEditor() {
   const [course, setCourse] = useState<AdminCourse | null>(null);
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
   const [version, setVersion] = useState(0);
+  const [waiting, setWaiting] = useState<{ count: number; waiting: number } | null>(null);
 
   useEffect(() => {
     api<AdminCourse>(`/admin/courses/${id}`)
       .then(setCourse)
       .catch((err) => setError(err instanceof ApiError && err.status === 404 ? 'notFound' : 'generic'));
   }, [id, version]);
+
+  // For the tab count and the "tell the waiting list" prompt once the course opens.
+  useEffect(() => {
+    api<WaitlistDto>(`/admin/courses/${id}/waitlist`)
+      .then((w) => setWaiting({ count: w.count, waiting: w.waiting }))
+      .catch(() => setWaiting(null));
+  }, [id, version, tab]);
 
   const refresh = () => setVersion((v) => v + 1);
   const go = (next: Tab) => router.replace(`/${locale}/admin/courses/${id}${next === 'details' ? '' : `?tab=${next}`}`, { scroll: false });
@@ -140,6 +149,18 @@ function CourseEditor() {
 
       {course.source === 'import' && <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.courses.importedHint')}</p>}
 
+      {/* Opening a course never emails anyone by itself: the admin decides when to tell the list. */}
+      {course.status === 'OPEN' && waiting && waiting.waiting > 0 && tab !== 'waitlist' && (
+        <Alert tone="info" className="mt-4">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {t('admin.courses.wl.openPrompt', { count: waiting.waiting })}
+            <button type="button" onClick={() => go('waitlist')} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4 sm:min-h-0">
+              {t('admin.courses.wl.openPromptAction')}
+            </button>
+          </span>
+        </Alert>
+      )}
+
       <div role="tablist" aria-label={t('admin.courses.title')} className="mt-5 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>
         {TABS.map((k) => (
           <button
@@ -156,6 +177,7 @@ function CourseEditor() {
             {t(`admin.courses.${k}`)}
             {k === 'sessions' && ` (${course.sessions.length})`}
             {k === 'questions' && ` (${course.questions.length})`}
+            {k === 'waitlist' && waiting && ` (${waiting.count})`}
           </button>
         ))}
       </div>
@@ -166,6 +188,7 @@ function CourseEditor() {
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
         {tab === 'announcements' && <Announcements courseId={course.id} />}
+        {tab === 'waitlist' && <Waitlist courseId={course.id} status={course.status} titleEn={course.titleEn} titleAr={course.titleAr} />}
         {tab === 'feedback' && <FeedbackPanel courseId={course.id} />}
       </div>
     </div>

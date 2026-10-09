@@ -111,6 +111,7 @@ export function CalendarMenu({ slug, align = 'end' }: { slug?: string; /** Where
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [showLink, setShowLink] = useState(false);
+  const [downloadFailed, setDownloadFailed] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panelId = useId();
@@ -227,14 +228,17 @@ export function CalendarMenu({ slug, align = 'end' }: { slug?: string; /** Where
             </div>
           )}
           {/* One live region, always mounted, so changes are announced. */}
-          <p role="status" className={`px-3 text-sm ${state === 'error' ? 'py-2 text-danger' : 'text-muted'} ${state === 'loading' ? 'py-2' : ''}`}>
-            {state === 'loading' ? t('learn.calendar.loading') : state === 'error' ? t('learn.calendar.error') : ''}
+          <p role="status" className={`px-3 text-sm ${state === 'error' || downloadFailed ? 'py-2 text-danger' : 'text-muted'} ${state === 'loading' ? 'py-2' : ''}`}>
+            {state === 'loading' ? t('learn.calendar.loading') : state === 'error' ? t('learn.calendar.error') : downloadFailed ? t('learn.calendar.downloadError') : ''}
           </p>
           {slug && (
             <button
               type="button"
               className={item}
-              onClick={() => downloadViaApi(`/learn/${slug}/calendar.ics`, `${slug}.ics`).catch(() => undefined)}
+              onClick={() => {
+                setDownloadFailed(false);
+                downloadViaApi(`/learn/${slug}/calendar.ics`, `${slug}.ics`).catch(() => setDownloadFailed(true));
+              }}
             >
               {t('learn.calendar.download')}
             </button>

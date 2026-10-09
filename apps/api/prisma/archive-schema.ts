@@ -110,7 +110,7 @@ export const archiveCourseSchema = z.object({
   endDate: day.optional(),
   durationWeeks: z.number().int().min(1).max(104).optional(),
   hoursPerWeek: z.number().int().min(1).max(60).optional(),
-  /** Where the cohort ran when it wasn't on the academy, e.g. "zomra.io". */
+  /** Where the cohort ran when it wasn't on the academy. */
   externalPlatform: z.string().max(80).optional(),
   externalUrl: url.optional(),
   /** Session recordings shown to everyone. Defaults to true for COMPLETED courses. */

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
+import { errorMessage } from '@/lib/errors';
 import { formatDate } from '@/lib/format';
 
 interface Row {
@@ -33,6 +34,7 @@ export function StudentsDirectory() {
   const { params, query, set, replaceAll } = useQueryState();
   const [data, setData] = useState<{ total: number; page: number; pageSize: number; items: Row[] } | null>(null);
   const [error, setError] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [q, setQ] = useState(params.q ?? '');
   // Keep the search box in step with the URL (Reset, saved views, back button).
   useEffect(() => setQ(params.q ?? ''), [params.q]);
@@ -55,10 +57,14 @@ export function StudentsDirectory() {
           <h1 className="text-3xl">{t('admin.students.title')}</h1>
           <p className="text-sm text-muted">{t('admin.students.subtitle')}</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => downloadViaApi(`/admin/students.csv?${query}`, 'students.csv').catch(() => undefined)}>
+        <Button variant="secondary" size="sm" onClick={() => {
+            setExportError(null);
+            downloadViaApi(`/admin/students.csv?${query}`, 'students.csv').catch((err: unknown) => setExportError(errorMessage(err, t)));
+          }}>
           ⬇ {t('admin.common.export')}
         </Button>
       </div>
+      {exportError && <Alert tone="danger" className="mt-4">{exportError}</Alert>}
       <div className="mt-5 space-y-4 rounded-card border border-line bg-card p-4">
         <form
           onSubmit={(e) => {

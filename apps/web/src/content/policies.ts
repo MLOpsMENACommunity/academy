@@ -2,10 +2,10 @@ import type { Locale } from '@academy/shared';
 
 /**
  * Policy texts. They describe what the platform actually does (retention, storage,
- * recordings, payments). Privacy, Terms, Code of Conduct and Contact are launch-ready
- * drafts; they are not legal advice, so have them reviewed when you can. The Refund
- * Policy only matters for paid courses and is still marked "[PLACEHOLDER]", which
- * shows a "pending review" banner on its page until it has been reviewed.
+ * recordings, payments). They are launch drafts, not legal advice, so have them
+ * reviewed when you can. "{contact}" is replaced on the page by the support email from
+ * Admin → Settings, or by a link to the contact page while none is set. Text marked
+ * "[PLACEHOLDER]" shows a "pending review" banner, so never ship any.
  */
 
 export const POLICY_SLUGS = ['privacy', 'terms', 'refund-policy', 'code-of-conduct', 'contact'] as const;
@@ -14,6 +14,10 @@ export type PolicySlug = (typeof POLICY_SLUGS)[number];
 interface Section {
   heading: string;
   body: string[];
+  /** Shown only when a support email is set in Admin → Settings. */
+  needsEmail?: boolean;
+  /** Followed by links to the community channels (Discord, Telegram, LinkedIn, YouTube). */
+  communityLinks?: boolean;
 }
 interface Policy {
   title: string;
@@ -22,9 +26,8 @@ interface Policy {
   sections: Section[];
 }
 
-const UPDATED_EN = 'Last updated: 8 October 2026';
-const UPDATED_AR = 'آخر تحديث: 8 أكتوبر 2026';
-const EMAIL = 'academy@mlopsmena.com';
+const UPDATED_EN = 'Last updated: 9 October 2026';
+const UPDATED_AR = 'آخر تحديث: 9 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
@@ -36,7 +39,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Who we are',
           body: [
-            `MLOps MENA Academy (academy.mlopsmena.com) is run by MLOps MENA Community, a volunteer-led community for ML, MLOps and AI practitioners across the Middle East and North Africa. We are responsible for the personal data described here and process it in line with Egypt's Personal Data Protection Law (Law No. 151 of 2020). You can reach us at ${EMAIL}.`,
+            `MLOps MENA Academy (academy.mlopsmena.com) is run by MLOps MENA Community, a volunteer-led community for ML, MLOps and AI practitioners across the Middle East and North Africa. We are responsible for the personal data described here and process it in line with Egypt's Personal Data Protection Law (Law No. 151 of 2020). You can reach us through {contact}.`,
           ],
         },
         {
@@ -46,6 +49,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'Profile data you choose to give us: name, phone, country and city, professional background, education, skills, learning goals, links (LinkedIn, GitHub and similar) and an optional CV.',
             'Course data: your applications and answers to screening questions, your enrolment, session progress and the feedback you submit through the academy. Quizzes and assignment forms linked from a course are run on the services they are hosted on (for example Google Forms).',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
+            'Waiting lists: if you ask to be told when a course opens ("Notify me"), your email address and language, with or without an account.',
             'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Our own logs do not contain your email address, IP address or the content you submit. Our hosting provider (Cloudflare) processes IP addresses to deliver and protect the site.',
           ],
         },
@@ -81,6 +85,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'How long we keep it',
           body: [
             'Your account and profile are kept until you delete your account (an uploaded CV is deleted after 180 days). Applications and enrolments are kept for course records and certificates. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting.',
+            'You stay on a waiting list until you leave it (every waiting-list email has a link to leave) or delete your account. We email you about that course only.',
             'Encrypted database backups are kept for up to 30 days, so deleted data disappears from them within 30 days after anonymisation.',
           ],
         },
@@ -88,7 +93,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'Your rights',
           body: [
             'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. You can also ask us to correct, restrict or explain how we process your data.',
-            `To exercise any right or raise a concern, email ${EMAIL}. We respond within the time limits set by law. You may also complain to Egypt's Personal Data Protection Center.`,
+            `To exercise any right or raise a concern, write to us through {contact}. We respond within the time limits set by law. You may also complain to Egypt's Personal Data Protection Center.`,
           ],
         },
         {
@@ -115,7 +120,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'من نحن',
           body: [
-            `يدير مجتمع MLOps MENA أكاديمية MLOps MENA ‏(academy.mlopsmena.com)، وهو مجتمع تطوعي لممارسي تعلم الآلة وMLOps والذكاء الاصطناعي في منطقة الشرق الأوسط وشمال أفريقيا. نحن المسؤولون عن البيانات الشخصية الموضحة هنا، ونعالجها وفقًا لقانون حماية البيانات الشخصية المصري (القانون رقم 151 لسنة 2020). يمكنك التواصل معنا عبر ${EMAIL}.`,
+            `يدير مجتمع MLOps MENA أكاديمية MLOps MENA ‏(academy.mlopsmena.com)، وهو مجتمع تطوعي لممارسي تعلم الآلة وMLOps والذكاء الاصطناعي في منطقة الشرق الأوسط وشمال أفريقيا. نحن المسؤولون عن البيانات الشخصية الموضحة هنا، ونعالجها وفقًا لقانون حماية البيانات الشخصية المصري (القانون رقم 151 لسنة 2020). يمكنك التواصل معنا عبر {contact}.`,
           ],
         },
         {
@@ -125,6 +130,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والدولة والمدينة والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط (مثل LinkedIn وGitHub) وسيرة ذاتية اختيارية.',
             'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية. أما الاختبارات ونماذج الواجبات المرتبطة بالدورة فتعمل على الخدمات المستضافة عليها (مثل Google Forms).',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
+            'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريدك الإلكتروني ولغتك، سواء كان لديك حساب أم لا.',
             'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن سجلاتنا بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله. ويعالج مزود الاستضافة لدينا (Cloudflare) عناوين IP لتقديم الموقع وحمايته.',
           ],
         },
@@ -160,6 +166,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'مدة الاحتفاظ بالبيانات',
           body: [
             'نحتفظ بحسابك وملفك الشخصي حتى تحذف حسابك (وتُحذف السيرة الذاتية المرفوعة بعد 180 يومًا). ونحتفظ بالطلبات والتسجيلات لسجلات الدورات والشهادات. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.',
+            'تبقى في قائمة الانتظار حتى تغادرها (كل رسالة من قائمة الانتظار فيها رابط للمغادرة) أو تحذف حسابك. ولا نراسلك إلا بخصوص تلك الدورة.',
             'نحتفظ بنسخ احتياطية مشفرة من قاعدة البيانات لمدة أقصاها 30 يومًا، لذا تختفي البيانات المحذوفة منها خلال 30 يومًا بعد التجهيل.',
           ],
         },
@@ -167,7 +174,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'حقوقك',
           body: [
             'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. ويمكنك أيضًا أن تطلب منا تصحيح بياناتك أو تقييد معالجتها أو توضيح كيفية معالجتها.',
-            `لممارسة أي حق أو تقديم شكوى، راسلنا عبر ${EMAIL}، وسنرد خلال المدد التي يحددها القانون. ويمكنك أيضًا تقديم شكوى إلى مركز حماية البيانات الشخصية في مصر.`,
+            `لممارسة أي حق أو تقديم شكوى، راسلنا عبر {contact}، وسنرد خلال المدد التي يحددها القانون. ويمكنك أيضًا تقديم شكوى إلى مركز حماية البيانات الشخصية في مصر.`,
           ],
         },
         {
@@ -246,7 +253,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Law and changes',
           body: [
-            `These terms are governed by the laws of the Arab Republic of Egypt. We may update them; if a change matters, we will tell you before it takes effect. Questions: ${EMAIL}.`,
+            `These terms are governed by the laws of the Arab Republic of Egypt. We may update them; if a change matters, we will tell you before it takes effect. Questions: {contact}.`,
           ],
         },
       ],
@@ -308,7 +315,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'القانون والتغييرات',
           body: [
-            `تخضع هذه الشروط لقوانين جمهورية مصر العربية. قد نحدّثها، وإذا كان التغيير مهمًا فسنخبرك قبل سريانه. للأسئلة: ${EMAIL}.`,
+            `تخضع هذه الشروط لقوانين جمهورية مصر العربية. قد نحدّثها، وإذا كان التغيير مهمًا فسنخبرك قبل سريانه. للأسئلة: {contact}.`,
           ],
         },
       ],
@@ -327,20 +334,20 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'Before a paid course starts',
-          body: ['[PLACEHOLDER] Full refund if you withdraw at least 7 days before the first session.'],
+          body: ['Full refund if you withdraw at least 7 days before the first session.'],
         },
         {
           heading: 'After a paid course starts',
-          body: ["[PLACEHOLDER] Partial or no refund after the first session, at the academy's discretion."],
+          body: ["Partial or no refund after the first session, at the academy's discretion."],
         },
         {
           heading: 'If we cancel',
-          body: ['[PLACEHOLDER] If the academy cancels a course, you receive a full refund.'],
+          body: ['If the academy cancels a course, you receive a full refund.'],
         },
         {
           heading: 'How refunds are paid',
           body: [
-            `[PLACEHOLDER] Refunds are sent back by the same method used to pay (InstaPay or Vodafone Cash) within 14 days. Contact ${EMAIL} to request one.`,
+            `Refunds are sent back by the same method used to pay (InstaPay or Vodafone Cash) within 14 days. Contact us through {contact} to request one.`,
           ],
         },
       ],
@@ -356,19 +363,19 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'قبل بدء الدورة المدفوعة',
-          body: ['[PLACEHOLDER] استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل.'],
+          body: ['استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل.'],
         },
         {
           heading: 'بعد بدء الدورة المدفوعة',
-          body: ['[PLACEHOLDER] استرداد جزئي أو عدم استرداد بعد الجلسة الأولى، وفقًا لتقدير الأكاديمية.'],
+          body: ['استرداد جزئي أو عدم استرداد بعد الجلسة الأولى، وفقًا لتقدير الأكاديمية.'],
         },
         {
           heading: 'إذا ألغينا الدورة',
-          body: ['[PLACEHOLDER] إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
+          body: ['إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
         },
         {
           heading: 'كيف يُرد المبلغ',
-          body: [`[PLACEHOLDER] يُرد المبلغ بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا. تواصل مع ${EMAIL} لطلب الاسترداد.`],
+          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا. تواصل معنا عبر {contact} لطلب الاسترداد.`],
         },
       ],
     },
@@ -413,7 +420,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Reporting and consequences',
           body: [
-            `Report any concern to ${EMAIL}, or privately to an organiser in the study group. Reports are handled confidentially. Depending on what happened, we may give a warning, remove someone from a session or study group, or remove them from the course or the community.`,
+            `Report any concern through {contact}, or privately to an organiser in the study group. Reports are handled confidentially. Depending on what happened, we may give a warning, remove someone from a session or study group, or remove them from the course or the community.`,
           ],
         },
       ],
@@ -456,7 +463,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'الإبلاغ والعواقب',
           body: [
-            `أبلغ عن أي مشكلة عبر ${EMAIL}، أو بشكل خاص لأحد المنظمين في مجموعة الدراسة. تُعالج البلاغات بسرية. وبحسب ما حدث، قد نوجّه تحذيرًا، أو نزيل الشخص من جلسة أو مجموعة دراسة، أو من الدورة أو المجتمع.`,
+            `أبلغ عن أي مشكلة عبر {contact}، أو بشكل خاص لأحد المنظمين في مجموعة الدراسة. تُعالج البلاغات بسرية. وبحسب ما حدث، قد نوجّه تحذيرًا، أو نزيل الشخص من جلسة أو مجموعة دراسة، أو من الدورة أو المجتمع.`,
           ],
         },
       ],
@@ -471,7 +478,8 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
       sections: [
         {
           heading: 'Email',
-          body: [`${EMAIL}. We usually reply within 2 working days.`],
+          needsEmail: true,
+          body: [`{contact}. We usually reply within 2 working days.`],
         },
         {
           heading: 'Applications and courses',
@@ -487,10 +495,11 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'Your data',
-          body: [`To download or delete your data, use your profile page. For anything else about your personal data, email ${EMAIL}.`],
+          body: [`To download or delete your data, use your profile page. For anything else about your personal data, write to us through {contact}.`],
         },
         {
           heading: 'Community',
+          communityLinks: true,
           body: ['For general questions, ask in the MLOps MENA community channels. Enrolled students also get a course study group.'],
         },
       ],
@@ -502,7 +511,8 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
       sections: [
         {
           heading: 'البريد الإلكتروني',
-          body: [`${EMAIL}. نرد عادةً خلال يومي عمل.`],
+          needsEmail: true,
+          body: [`{contact}. نرد عادةً خلال يومي عمل.`],
         },
         {
           heading: 'الطلبات والدورات',
@@ -514,10 +524,11 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'بياناتك',
-          body: [`لتنزيل بياناتك أو حذفها، استخدم صفحة ملفك الشخصي. ولأي أمر آخر يخص بياناتك الشخصية، راسل ${EMAIL}.`],
+          body: [`لتنزيل بياناتك أو حذفها، استخدم صفحة ملفك الشخصي. ولأي أمر آخر يخص بياناتك الشخصية، راسلنا عبر {contact}.`],
         },
         {
           heading: 'المجتمع',
+          communityLinks: true,
           body: ['للأسئلة العامة، اسأل في قنوات مجتمع MLOps MENA. ويحصل الطلاب المسجلون أيضًا على مجموعة دراسة خاصة بالدورة.'],
         },
       ],

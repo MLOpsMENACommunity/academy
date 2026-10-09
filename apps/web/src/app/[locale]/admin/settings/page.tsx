@@ -17,6 +17,8 @@ const GROUPS: { title: string; keys: (keyof Settings)[] }[] = [
   { title: 'windows', keys: ['liveLinkRevealMinutes', 'screenshotRetentionDays'] },
 ];
 const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays']);
+/** Fields that explain what an empty value does. */
+const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'supportEmail', 'supportWhatsapp']);
 
 export default function AdminSettings() {
   const { t } = useI18n();
@@ -69,7 +71,8 @@ export default function AdminSettings() {
                 <TextField
                   key={k}
                   label={t(`admin.settings.${k}`)}
-                  type={NUMERIC.has(k) ? 'number' : k === 'supportEmail' ? 'email' : 'text'}
+                  hint={HINTS.has(k) ? t(`admin.settings.hints.${k}`) : undefined}
+                  type={NUMERIC.has(k) ? 'number' : k === 'supportEmail' ? 'email' : k === 'supportWhatsapp' ? 'tel' : 'text'}
                   dir={NUMERIC.has(k) ? undefined : 'ltr'}
                   value={String(values[k])}
                   error={errors[k]}

@@ -25,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     CalendarModule,
     CoursesModule,
+    WaitlistModule,
     ArchiveModule,
     ApplicationsModule,
     PaymentsModule,

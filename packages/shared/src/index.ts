@@ -19,3 +19,4 @@ export * from './learn';
 export * from './admin';
 export * from './events';
 export * from './archive';
+export * from './waitlist';

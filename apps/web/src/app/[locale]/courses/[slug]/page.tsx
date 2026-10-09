@@ -29,7 +29,6 @@ import { serverGet } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { formatDate, formatDateTime } from '@/lib/format';
-import { buttonClass } from '@/components/ui/Button';
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -41,15 +40,6 @@ async function load(slug: string): Promise<CourseDetailDto | null> {
 }
 
 const pick = (locale: Locale, en: string, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en);
-
-/** Until there is a waitlist: a prefilled email to the academy (the same inbox as the contact page). */
-const ACADEMY_EMAIL = 'academy@mlopsmena.com';
-function notifyHref(locale: Locale, course: string): string {
-  const t = createTranslator(locale);
-  const q = new URLSearchParams({ subject: t('course.notifySubject', { course }), body: t('course.notifyBody', { course }) });
-  // mailto wants %20, not "+", for spaces.
-  return `mailto:${ACADEMY_EMAIL}?${q.toString().replace(/\+/g, '%20')}`;
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
@@ -134,15 +124,8 @@ export default async function CoursePage({ params }: Props) {
       : []),
   ];
 
-  const titleForMail = pick(locale, c.titleEn, c.titleAr);
-  const cta = completed ? (
-    <div className="space-y-2">
-      <a href={notifyHref(locale, titleForMail)} className={buttonClass('accent', 'lg', 'w-full')}>
-        {t('course.notifyCta')}
-      </a>
-      <p className="text-center text-sm leading-relaxed text-muted">{t('course.notifyNote')}</p>
-    </div>
-  ) : (
+  // Open courses: apply. Anything else (coming soon, closed, a past cohort): the waiting list.
+  const cta = (compact: boolean) => (
     <ApplyCta
       slug={c.slug}
       availability={c.availability}
@@ -150,6 +133,8 @@ export default async function CoursePage({ params }: Props) {
       requiresApproval={c.requiresApproval}
       full={full}
       priceText={price}
+      completed={completed}
+      compact={compact}
     />
   );
 
@@ -547,13 +532,13 @@ export default async function CoursePage({ params }: Props) {
                 {t('course.facts.deadline')}: <span className="font-medium text-fg">{formatDateTime(c.applicationDeadline, locale)}</span>
               </p>
             )}
-            {cta}
+            {cta(false)}
           </div>
         </aside>
       </Container>
       {/* Sticky (not fixed) inside <main>: it follows the visitor down the page and stops above the footer. */}
       <div className="sticky bottom-0 z-30 border-t border-line bg-card/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
-        {cta}
+        {cta(true)}
       </div>
     </>
   );

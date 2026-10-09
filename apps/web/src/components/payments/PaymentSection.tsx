@@ -8,6 +8,7 @@ import {
   type MyPaymentDto,
   type PaymentInstructionsDto,
   type ProfileDto,
+  whatsappUrl,
 } from '@academy/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
@@ -33,23 +34,32 @@ const ACCEPT = ['image/jpeg', 'image/png', 'application/pdf'];
 function CopyValue({ value }: { value: string }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [manual, setManual] = useState(false);
+  const code = useRef<HTMLElement>(null);
   return (
-    <span className="inline-flex items-center gap-2">
-      <code className="ltr-embed rounded bg-muted-bg px-2 py-1 text-sm font-semibold text-fg">{value}</code>
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <code ref={code} className="ltr-embed rounded bg-muted-bg px-2 py-1 text-sm font-semibold text-fg">{value}</code>
       <button
         type="button"
         className="min-h-9 rounded px-2 text-xs font-semibold text-primary hover:underline"
         onClick={() =>
-          navigator.clipboard
-            ?.writeText(value)
+          Promise.resolve(navigator.clipboard?.writeText(value) ?? Promise.reject(new Error('no clipboard')))
             .then(() => {
               setCopied(true);
               setTimeout(() => setCopied(false), 1500);
             })
-            .catch(() => undefined)
+            // Clipboard blocked (e.g. an in-app browser): select the value so it can be copied by hand.
+            .catch(() => {
+              if (!code.current) return;
+              const range = document.createRange();
+              range.selectNodeContents(code.current);
+              window.getSelection()?.removeAllRanges();
+              window.getSelection()?.addRange(range);
+              setManual(true);
+            })
         }
       >
-        {copied ? t('payment.copied') : t('payment.copy')}
+        {copied ? t('payment.copied') : manual ? t('payment.copyManual') : t('payment.copy')}
       </button>
     </span>
   );
@@ -85,6 +95,8 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
     api<PaymentInstructionsDto>(`/me/applications/${app.id}/payment-instructions`)
       .then((i) => {
         setInfo(i);
+        // Offer only the methods the academy has set up.
+        setMethod((m) => (i.methods.includes(m as 'INSTAPAY') ? m : (i.methods[0] ?? 'INSTAPAY')));
         setAmount((a) => a || String(i.amount));
         // Deep links (#payment-title from the dashboard) can only scroll once this has rendered.
         if (window.location.hash === '#payment-title') {
@@ -174,22 +186,36 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
             <li>{t('payment.step2')}</li>
             <li>{t('payment.step3')}</li>
           </ol>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-line bg-card p-4">
-              <p className="font-semibold text-fg">{t('payment.instapay')}</p>
-              <p className="mt-2 text-xs text-muted">{t('payment.handle')}</p>
-              <CopyValue value={info.instapayHandle} />
-              <p className="mt-2 text-xs text-muted">{t('payment.accountName')}</p>
-              <p className="text-sm">{info.instapayName}</p>
+          {info.methods.length > 0 && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {info.methods.includes('INSTAPAY') && (
+                <div className="rounded-lg border border-line bg-card p-4">
+                  <p className="font-semibold text-fg">{t('payment.instapay')}</p>
+                  <p className="mt-2 text-xs text-muted">{t('payment.handle')}</p>
+                  <CopyValue value={info.instapayHandle} />
+                  {info.instapayName && (
+                    <>
+                      <p className="mt-2 text-xs text-muted">{t('payment.accountName')}</p>
+                      <p className="text-sm">{info.instapayName}</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {info.methods.includes('VODAFONE_CASH') && (
+                <div className="rounded-lg border border-line bg-card p-4">
+                  <p className="font-semibold text-fg">{t('payment.vodafone')}</p>
+                  <p className="mt-2 text-xs text-muted">{t('payment.number')}</p>
+                  <CopyValue value={info.vodafoneCashNumber} />
+                  {info.vodafoneCashName && (
+                    <>
+                      <p className="mt-2 text-xs text-muted">{t('payment.accountName')}</p>
+                      <p className="text-sm">{info.vodafoneCashName}</p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="rounded-lg border border-line bg-card p-4">
-              <p className="font-semibold text-fg">{t('payment.vodafone')}</p>
-              <p className="mt-2 text-xs text-muted">{t('payment.number')}</p>
-              <CopyValue value={info.vodafoneCashNumber} />
-              <p className="mt-2 text-xs text-muted">{t('payment.accountName')}</p>
-              <p className="text-sm">{info.vodafoneCashName}</p>
-            </div>
-          </div>
+          )}
           {googleEmail && (
             <Alert tone="info" className="mt-4">
               {t('payment.driveNote', { email: googleEmail })}{' '}
@@ -214,7 +240,7 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
 
       {app.status === 'PAYMENT_SUBMITTED' && <Alert tone="success">{t('payment.submitted')}</Alert>}
 
-      {canSubmit && !info.configured && <Alert tone="warning">{t('payment.notConfigured', { email: info.supportEmail })}</Alert>}
+      {canSubmit && !info.configured && <Alert tone="warning">{t('payment.notConfigured')}</Alert>}
 
       {canSubmit && info.configured && (
         <form id="payment-form" onSubmit={onSubmit} noValidate className="space-y-5 rounded-card border border-line bg-card p-5 sm:p-6">
@@ -229,7 +255,7 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
             required
             value={method}
             onChange={setMethod}
-            options={(['INSTAPAY', 'VODAFONE_CASH'] as const).map((m) => ({ value: m, label: paymentMethodLabels[m][locale] }))}
+            options={info.methods.map((m) => ({ value: m, label: paymentMethodLabels[m][locale] }))}
             error={errors.method}
           />
           <div className="grid gap-5 sm:grid-cols-2">
@@ -301,7 +327,25 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
           </ul>
         </div>
       )}
-      <p className="text-xs text-muted">{t('payment.help', { email: info.supportEmail })}</p>
+      <p className="text-xs text-muted">
+        {info.supportEmail || info.supportWhatsapp ? t('payment.helpPrefix') : t('payment.helpNoContact')}{' '}
+        {info.supportEmail && (
+          <a href={`mailto:${info.supportEmail}`} className="ltr-embed font-semibold text-primary underline underline-offset-2">
+            {info.supportEmail}
+          </a>
+        )}
+        {info.supportEmail && info.supportWhatsapp && ` ${t('common.or')} `}
+        {info.supportWhatsapp && (
+          <a href={whatsappUrl(info.supportWhatsapp)} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-2">
+            WhatsApp
+          </a>
+        )}
+        {!info.supportEmail && !info.supportWhatsapp && (
+          <Link href={`/${locale}/contact`} className="font-semibold text-primary underline underline-offset-2">
+            {t('footer.contact')}
+          </Link>
+        )}
+      </p>
     </section>
   );
 }

@@ -11,6 +11,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
 import { serverGetOr } from '@/lib/server-api';
+import { community } from '@/lib/site';
 import { excerpt, pick } from '@/lib/sessions';
 
 type Props = { params: Promise<{ locale: string }> };
@@ -53,6 +54,19 @@ export default async function SessionsPage({ params }: Props) {
           <div className="rounded-card border border-dashed border-line-strong/50 px-6 py-12 text-center sm:py-16">
             <h2 className="text-xl sm:text-2xl">{t('sessions.empty')}</h2>
             <p className="mx-auto mt-3 max-w-md leading-relaxed text-muted">{t('sessions.emptyBody')}</p>
+            <p className="mt-2 flex flex-wrap justify-center gap-x-4 text-[0.9375rem]">
+              {(
+                [
+                  ['Telegram', community.telegram],
+                  ['Discord', community.discord],
+                  ['LinkedIn', community.linkedin],
+                ] as const
+              ).map(([name, href]) => (
+                <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">
+                  {name}
+                </a>
+              ))}
+            </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <ButtonLink href={`/${locale}/sessions/recordings`} variant="secondary">
                 {t('sessions.watchPast')}
