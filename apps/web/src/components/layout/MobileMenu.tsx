@@ -1,57 +1,76 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
+import { IconChevron, IconClose, IconMenu } from '../ui/Icons';
 import { LanguageSwitcher } from './LanguageSwitcher';
-import { isActive, PRIMARY_NAV } from './nav';
+import { MenuItem } from './MegaNav';
+import type { MenuData } from './menu';
+import { menuSections, type MenuSection } from './sections';
+import { WhatsNewLink } from './WhatsNew';
 
-const itemClass =
-  'flex min-h-12 w-full items-center rounded-xl px-3 text-base text-fg hover:bg-muted-bg aria-[current=page]:font-medium aria-[current=page]:bg-muted-bg';
+const rowClass = 'flex min-h-12 w-full items-center justify-between gap-3 rounded-[10px] px-4 text-start text-fg';
 
 /**
- * Phone navigation: a disclosure button that opens a panel under the header with
- * the primary nav, the account links and the language switch. Escape closes it
- * and returns focus to the button; a click outside, a navigation, or focus moving
- * past both the button and the panel also closes it.
+ * Phones and tablets (below lg): a menu button that opens a full-screen drawer with
+ * the Learn / Live / Community sections (each a disclosure), What's new, the account
+ * links and the language switch. It is a modal dialog: focus moves into it and stays
+ * there, Escape or the close button closes it and returns focus to the menu button,
+ * and the page behind doesn't scroll. Logical properties keep it right in Arabic (RTL).
  */
-export function MobileMenu() {
+export function MobileMenu({ data }: { data: MenuData }) {
   const { locale, t } = useI18n();
   const { user, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname() ?? '';
+  const sections = useMemo(() => menuSections(t, locale, data), [t, locale, data]);
   const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
+  const [section, setSection] = useState<MenuSection['id'] | null>('learn');
   const button = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  const panelId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
-  // A navigation closes the menu.
   useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
     if (!open) return;
-    panel.current?.querySelector<HTMLElement>('a, button')?.focus();
+    const opener = button.current;
+    dialog.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      setOpen(false);
-      button.current?.focus();
-    };
-    const onPointer = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (!panel.current?.contains(target) && !button.current?.contains(target)) setOpen(false);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab' || !dialog.current) return;
+      // Keep Tab inside the drawer.
+      const focusable = [...dialog.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')].filter((el) => el.offsetParent !== null);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onPointer);
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onPointer);
+      document.body.style.overflow = prevOverflow;
+      opener?.focus();
     };
   }, [open]);
 
+  const close = () => setOpen(false);
   const account: [string, string][] = user
     ? [
         [`/${locale}/dashboard`, t('nav.dashboard')],
@@ -61,98 +80,111 @@ export function MobileMenu() {
     : [];
 
   return (
-    <div
-      ref={root}
-      className="md:hidden"
-      // Tabbing (either way) out of the button + panel closes the menu, so focus never lands on content hidden under it.
-      // A null relatedTarget is a click on something not focusable: the pointerdown handler decides that case.
-      onBlur={(e) => {
-        const next = e.relatedTarget as Node | null;
-        if (next && !root.current?.contains(next)) setOpen(false);
-      }}
-    >
+    <div className="lg:hidden">
       <button
         ref={button}
         type="button"
         aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line-strong ps-3 pe-3.5 text-[0.9375rem] font-medium text-fg hover:bg-muted-bg"
+        aria-haspopup="dialog"
+        aria-label={t('nav.menu')}
+        onClick={() => setOpen(true)}
+        className="grid size-11 place-items-center rounded-lg text-fg hover:bg-hover-bg"
       >
-        <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-          {open ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-        </svg>
-        {t('nav.menu')}
+        <IconMenu size={22} />
       </button>
-      <div
-        ref={panel}
-        id={panelId}
-        hidden={!open}
-        className="absolute inset-x-0 top-full border-b border-line bg-card px-5 pt-2 pb-5 shadow-[0_12px_24px_-16px_rgba(19,35,63,0.25)]"
-      >
-        <nav aria-label={t('nav.primary')}>
-          <ul>
-            {PRIMARY_NAV.map((item) => (
-              <li key={item.path}>
-                <Link
-                  href={`/${locale}${item.path}`}
-                  aria-current={isActive(pathname, locale, item.path) ? 'page' : undefined}
-                  className={itemClass}
-                  onClick={() => setOpen(false)}
-                >
-                  {t(item.label)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="mt-2 border-t border-line pt-2">
-          {user ? (
-            <>
-              <p className="truncate px-3 py-2 text-sm text-muted ltr-embed">{user.email}</p>
-              <ul>
-                {account.map(([href, label]) => (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      aria-current={pathname === href ? 'page' : undefined}
-                      className={itemClass}
-                      onClick={() => setOpen(false)}
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-                <li>
+
+      {open && (
+        <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex flex-col bg-card">
+          <div className="flex min-h-16 items-center gap-2.5 border-b border-line px-4 sm:px-6">
+            <Image src="/logo.svg" alt="" width={40} height={23} className="h-[23px] w-10 shrink-0" />
+            <span id={titleId} className="text-[0.9375rem] font-semibold text-fg">
+              {t('meta.siteName')}
+            </span>
+            <button
+              type="button"
+              data-autofocus
+              onClick={close}
+              aria-label={t('nav.closeMenu')}
+              className="ms-auto grid size-11 place-items-center rounded-lg text-fg hover:bg-hover-bg"
+            >
+              <IconClose size={20} />
+            </button>
+          </div>
+
+          <nav aria-label={t('nav.primary')} className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3 sm:px-6">
+            {sections.map((s) => {
+              const expanded = section === s.id;
+              const panelId = `${titleId}-${s.id}`;
+              const links = s.id === 'learn' ? s.columns[0]!.links : s.columns.flatMap((c) => c.links);
+              return (
+                <div key={s.id} className={expanded ? 'rounded-xl bg-muted-bg p-1.5 pb-2.5' : 'border-b border-line-soft'}>
                   <button
                     type="button"
-                    className={`${itemClass} text-start text-danger`}
-                    onClick={async () => {
-                      setOpen(false);
-                      await logout();
-                      router.replace(`/${locale}`);
-                    }}
+                    aria-expanded={expanded}
+                    aria-controls={panelId}
+                    onClick={() => setSection(expanded ? null : s.id)}
+                    className={`${rowClass} ${expanded ? 'font-semibold' : ''}`}
                   >
-                    {t('nav.logout')}
+                    {s.label}
+                    <IconChevron up={expanded} className={expanded ? 'text-primary' : 'text-muted'} />
                   </button>
-                </li>
-              </ul>
-            </>
-          ) : loading ? null : (
-            <div className="flex flex-col gap-2 pt-2">
-              <Link href={`/${locale}/login`} className={buttonClass('secondary', 'lg', 'w-full')} onClick={() => setOpen(false)}>
-                {t('nav.login')}
-              </Link>
-              <Link href={`/${locale}/register`} className={buttonClass('primary', 'lg', 'w-full')} onClick={() => setOpen(false)}>
-                {t('nav.register')}
-              </Link>
-            </div>
-          )}
+                  <ul id={panelId} hidden={!expanded} className="flex flex-col gap-1">
+                    {links.map((link) => (
+                      <li key={link.href + link.label}>
+                        <MenuItem link={link} compact onNavigate={close} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+            <WhatsNewLink onNavigate={close} className={`${rowClass} justify-start! gap-2 aria-[current=page]:font-medium`} />
+          </nav>
+
+          <div className="flex flex-col gap-2.5 border-t border-line px-5 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6">
+            {user ? (
+              <>
+                <div className="px-1">
+                  {user.name && <p className="truncate font-medium text-fg">{user.name}</p>}
+                  <p className="truncate text-sm text-muted ltr-embed">{user.email}</p>
+                </div>
+                <ul className="grid grid-cols-2 gap-2">
+                  {account.map(([href, label]) => (
+                    <li key={href}>
+                      <Link href={href} onClick={close} aria-current={pathname === href ? 'page' : undefined} className={buttonClass('secondary', 'md', 'w-full')}>
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg px-5 text-[0.9375rem] font-medium text-danger hover:bg-hover-bg"
+                      onClick={async () => {
+                        close();
+                        await logout();
+                        router.replace(`/${locale}`);
+                      }}
+                    >
+                      {t('nav.logout')}
+                    </button>
+                  </li>
+                </ul>
+              </>
+            ) : loading ? null : (
+              <>
+                <Link href={`/${locale}/register`} onClick={close} className={buttonClass('primary', 'lg', 'w-full')}>
+                  {t('nav.register')}
+                </Link>
+                <Link href={`/${locale}/login`} onClick={close} className={buttonClass('secondary', 'lg', 'w-full')}>
+                  {t('nav.login')}
+                </Link>
+              </>
+            )}
+            <LanguageSwitcher className="w-full justify-center" />
+          </div>
         </div>
-        <div className="mt-3 border-t border-line pt-2">
-          <LanguageSwitcher className="min-h-12 w-full px-3 text-base" />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

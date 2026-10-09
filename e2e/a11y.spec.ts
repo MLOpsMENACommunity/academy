@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 /** WCAG 2.2 AA automated checks on the public pages, in both languages. */
-const PAGES = ['/en', '/ar', '/en/courses', '/ar/courses', '/en/sessions', '/ar/sessions', '/en/login', '/ar/register', '/en/privacy', '/ar/contact'];
+const PAGES = ['/en', '/ar', '/en/courses', '/ar/courses', '/en/sessions', '/ar/sessions', '/en/login', '/ar/register', '/en/privacy', '/ar/contact', '/en/learning-paths', '/ar/learning-paths/mlops-engineer', '/en/speakers', '/ar/whats-new'];
 
 for (const path of PAGES) {
   test(`no axe violations on ${path}`, async ({ page }) => {
@@ -36,6 +36,35 @@ test('live sessions pages render in both languages', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
+});
+
+test('the header menus open with the keyboard, pass axe and close on Escape', async ({ page }) => {
+  await page.goto('/en');
+  const learn = page.getByRole('button', { name: 'Learn' });
+  await learn.focus();
+  await page.keyboard.press('Enter');
+  await expect(learn).toHaveAttribute('aria-expanded', 'true');
+  const panel = page.getByRole('region', { name: 'Learn' });
+  await expect(panel.getByRole('link', { name: /Learning paths/ }).first()).toBeVisible();
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(learn).toHaveAttribute('aria-expanded', 'false');
+  await expect(learn).toBeFocused();
+});
+
+test('the phone drawer is a dialog that traps focus, in Arabic too', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/ar');
+  const open = page.getByRole('button', { name: 'القائمة' });
+  await open.click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.getByRole('button', { name: 'إغلاق القائمة' })).toBeFocused();
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(open).toBeFocused();
 });
 
 test('security headers are set', async ({ request }) => {

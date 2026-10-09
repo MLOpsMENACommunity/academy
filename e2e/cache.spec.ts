@@ -26,7 +26,7 @@ test('a cached course page carries no personal data; the signed-in header loads 
 
   // The student's view: their account in the header, once loaded.
   await page.goto(path);
-  const menu = page.getByRole('button', { name: 'Menu' }).last();
+  const menu = page.getByRole('button', { name: 'Account menu' });
   await expect(menu).toBeVisible();
   await menu.click();
   await expect(page.getByRole('menu')).toContainText(email);

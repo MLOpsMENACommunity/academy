@@ -10,6 +10,9 @@ export const community = {
   x: 'https://x.com/MLOpsMENA',
 };
 
+/** The community blog on mlopsmena.com, in the reader's language. */
+export const blogUrl = (locale: 'en' | 'ar') => `${community.mainSite}${locale === 'ar' ? '/ar' : ''}/articles`;
+
 /** Absolute URL for a locale-prefixed path. */
 export function absoluteUrl(path: string): string {
   return `${siteUrl}${path.startsWith('/') ? path : `/${path}`}`;

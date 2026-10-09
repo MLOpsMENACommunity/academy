@@ -100,7 +100,7 @@ export default async function SpeakerPage({ params }: Props) {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: t('speakers.breadcrumb'), item: absoluteUrl(`/${locale}/sessions`) },
+        { '@type': 'ListItem', position: 1, name: t('speakers.title'), item: absoluteUrl(`/${locale}/speakers`) },
         { '@type': 'ListItem', position: 2, name, item: url },
       ],
     },
@@ -110,14 +110,14 @@ export default async function SpeakerPage({ params }: Props) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(structured)} />
 
-      <section className="border-b border-line bg-card">
+      <section className="border-b border-line bg-muted-bg">
         <Container className="flex flex-col gap-5 py-8 sm:py-14 lg:py-16">
           <nav aria-label={t('course.breadcrumbLabel')} className="-ms-1 text-[0.9375rem] text-muted">
-            <Link href={`/${locale}/sessions`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 hover:text-fg">
+            <Link href={`/${locale}/speakers`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 hover:text-fg">
               <span aria-hidden className="inline-block rtl:rotate-180">
                 ←
               </span>
-              {t('speakers.breadcrumb')}
+              {t('speakers.title')}
             </Link>
           </nav>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">

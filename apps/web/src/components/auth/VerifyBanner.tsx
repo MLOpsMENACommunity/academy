@@ -13,7 +13,7 @@ export function VerifyBanner() {
   if (!user || user.emailVerified) return null;
   return (
     <div className="border-b border-warning/30 bg-warning-soft text-warning" role="status">
-      <div className="mx-auto flex max-w-[70rem] flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2 text-sm sm:px-6">
+      <div className="mx-auto flex max-w-[75rem] flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2 text-sm sm:px-6 lg:px-10">
         <span>
           {/* <bdi> keeps the LTR address intact inside the Arabic sentence. */}
           {t('auth.verifyBanner', { email: '\u0000' })

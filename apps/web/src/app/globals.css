@@ -2,58 +2,69 @@
 
 /*
  * Brand tokens: the ONLY place colours are defined. Swap these to re-skin the
- * academy. "Calm" palette: warm off-white page, white surfaces, navy ink used
- * sparingly (home hero, footer, primary buttons), and the logo's colours
- * (cyan, green, amber, orange) as soft fills and small markers. Text colours
- * are tuned for WCAG AA on white, on the page colour and on their soft fills.
+ * academy. "Light academy" palette (proposal B): white pages, light-grey bands
+ * (#f6f7f8) to split sections, no navy. The logo's colours appear only as soft
+ * tints with one meaning each: cyan = progress, green = open/done, amber =
+ * coming soon, orange = the main call to action. Every text colour below is
+ * checked for WCAG AA (4.5:1) on white, on the grey band and on its own soft tint.
  */
 :root {
-  --brand-ink: #13233f; /* home hero, footer, primary buttons */
-  --brand-ink-soft: #1f3358;
-  --brand-primary: #097a88; /* teal text and links: AA on white (5.1:1) and on primary-soft (4.6:1) */
-  --brand-primary-hover: #07636f;
-  --brand-primary-soft: #e9f7f9;
-  --brand-primary-soft-hover: #d7f0f3;
-  --brand-accent: #a35c00; /* amber text: AA on white (5.1:1) and on accent-soft */
-  --brand-accent-soft: #fdf3e2;
+  /* Near-black slate (not navy): headings, the selected segmented tab, the video frame. */
+  --brand-ink: #161d29;
+  --brand-ink-soft: #2b3240;
+  /* Teal links and text: 5.1:1 on white, 4.7:1 on the grey band, 4.6:1 on primary-soft. */
+  --brand-primary: #097a88;
+  --brand-primary-hover: #075f6a;
+  --brand-primary-soft: #e6f8fa;
+  --brand-primary-soft-hover: #d4f1f5;
+  /* Amber text ("coming soon"): 5.9:1 on white, 5.4:1 on accent-soft. */
+  --brand-accent: #8a5a00;
+  --brand-accent-soft: #fbf3e4;
   --brand-cyan: #097a88; /* focus rings on custom controls: 3:1+ against white */
 
-  /* Logo colours: decorative fills, dots and the orange call to action only, never small text on white. */
+  /* Logo colours: bars, dots and fills only, never text. */
   --logo-cyan: #16c6d8;
   --logo-green: #72b97b;
   --logo-amber: #e5a13a;
   --logo-orange: #ff9912;
-  --logo-cyan-soft: #e9f7f9;
-  --logo-green-soft: #eef6ef;
-  --logo-amber-soft: #fdf3e2;
-  --cta: #ff9912; /* main call to action, with ink text (7.3:1) */
-  --cta-hover: #f08a00;
-  --cta-text: #13233f;
+  --logo-cyan-soft: #e6f8fa;
+  --logo-green-soft: #edf6ee;
+  --logo-amber-soft: #fbf3e4;
+  --logo-orange-soft: #fff1e0;
+  --cta: #ff9912; /* the main call to action, with dark text (7.7:1) */
+  --cta-hover: #f08a00; /* 6.6:1 with the same text */
+  --cta-text: #1b1f27;
 
-  --surface-page: #fafaf7;
+  --surface-page: #ffffff;
   --surface-card: #ffffff;
-  --surface-muted: #f4f3ee;
-  --border: #ecebe6;
-  --border-strong: #8e95a1; /* form controls: 3:1 against white */
+  --surface-muted: #f6f7f8; /* section bands */
+  --surface-hover: #f1f3f5;
+  --border: #e4e7eb;
+  --border-soft: #eef0f2;
+  --border-button: #cfd5db; /* outline buttons: the label identifies them */
+  --border-strong: #848b97; /* form controls: 3:1 against white and the grey band */
+  --track: #e6ebef; /* empty part of a progress bar */
 
-  --text: #13233f;
+  --text: #161d29;
   --text-body: #2b3240;
-  --text-muted: #5e6675; /* 5.5:1 on the page colour */
-  --text-on-dark: #c6cfdc;
+  --text-muted: #5b6472; /* 6.0:1 on white, 5.6:1 on the grey band, 5.4:1 on the tints */
+  /* Kept for compatibility; nothing in the light theme sits on a dark surface. */
+  --text-on-dark: #d5dbe2;
   --text-on-dark-accent: #9fdde6;
 
-  --success: #1f7a3d;
-  --success-soft: #eef6ef;
-  --warning: #8a4f06;
-  --warning-soft: #fcf4e6;
+  --success: #2e7d3a; /* 5.1:1 on white, 4.6:1 on success-soft */
+  --success-soft: #edf6ee;
+  --warning: #8a5a00;
+  --warning-soft: #fbf3e4;
   --danger: #b4232f;
   --danger-soft: #fdecee;
-  --info: #0a6f7c;
-  --info-soft: #e9f7f9;
+  --info: #0a6f7c; /* 5.4:1 on info-soft */
+  --info-soft: #e6f8fa;
 
   --focus-ring: #097a88;
   --focus-ring-on-dark: #16c6d8;
-  --radius: 1rem;
+  --radius: 0.875rem;
+  --elevation-pop: 0 16px 40px rgba(22, 29, 41, 0.12);
 
   --font-latin: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-arabic: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
@@ -82,6 +93,7 @@ html[lang='ar'] {
   --color-logo-cyan-soft: var(--logo-cyan-soft);
   --color-logo-green-soft: var(--logo-green-soft);
   --color-logo-amber-soft: var(--logo-amber-soft);
+  --color-logo-orange-soft: var(--logo-orange-soft);
   --color-cta: var(--cta);
   --color-cta-hover: var(--cta-hover);
   --color-cta-text: var(--cta-text);
@@ -90,8 +102,12 @@ html[lang='ar'] {
   --color-page: var(--surface-page);
   --color-card: var(--surface-card);
   --color-muted-bg: var(--surface-muted);
+  --color-hover-bg: var(--surface-hover);
   --color-line: var(--border);
+  --color-line-soft: var(--border-soft);
+  --color-track: var(--track);
   --color-line-strong: var(--border-strong);
+  --color-line-button: var(--border-button);
   --color-fg: var(--text);
   --color-body: var(--text-body);
   --color-muted: var(--text-muted);
@@ -105,6 +121,7 @@ html[lang='ar'] {
   --color-info-soft: var(--info-soft);
   --font-sans: var(--font-body);
   --radius-card: var(--radius);
+  --shadow-pop: var(--elevation-pop);
 }
 
 @layer base {
@@ -151,11 +168,11 @@ html[lang='ar'] {
     outline-offset: 3px;
     border-radius: 6px;
   }
-  /* Navy areas (home hero, footer): a lighter ring that stays visible on dark. */
+  /* Dark areas (the video frame): a lighter ring that stays visible on dark. */
   .on-dark :focus-visible {
     outline-color: var(--focus-ring-on-dark);
   }
-  /* A light surface inside a navy area (e.g. the hero's course card) gets the normal ring back. */
+  /* A light surface inside a dark area gets the normal ring back. */
   .on-dark .on-light :focus-visible {
     outline-color: var(--focus-ring);
   }

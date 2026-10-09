@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { POLICY_SLUGS } from '@/content/policies';
+import { LEARNING_PATHS } from '@/lib/paths';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl } from '@/lib/site';
 
@@ -33,6 +34,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...entry('/sessions', undefined, 0.8),
     ...events.upcoming.flatMap((e) => entry(`/sessions/${e.slug}`, undefined, 0.7)),
     ...entry('/sessions/recordings', undefined, 0.7),
+    ...entry('/learning-paths', undefined, 0.7),
+    ...LEARNING_PATHS.flatMap((p) => entry(`/learning-paths/${p.slug}`, undefined, 0.6)),
+    ...entry('/speakers', undefined, 0.5),
+    ...entry('/whats-new', undefined, 0.3),
     ...pastPaths.flatMap((p) => entry(p, undefined, 0.4)),
     ...speakers.flatMap((s) => entry(`/speakers/${s.slug}`, s.updatedAt, 0.4)),
     ...POLICY_SLUGS.flatMap((s) => entry(`/${s}`, undefined, 0.2)),
