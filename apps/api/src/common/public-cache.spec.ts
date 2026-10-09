@@ -2,6 +2,7 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import type { Env } from '../config/env';
 import {
+  PUBLIC_CACHE_ROUTES,
   cacheKey,
   hasPersonalFields,
   isAnonymous,
@@ -42,6 +43,12 @@ describe('hasPersonalFields', () => {
 });
 
 describe('cacheKey', () => {
+  it("keeps every filter the catalog and recordings handlers read (from their schemas)", () => {
+    expect(PUBLIC_CACHE_ROUTES.get('/api/courses')).toEqual(expect.arrayContaining(['level', 'type', 'language', 'availability']));
+    expect(PUBLIC_CACHE_ROUTES.get('/api/recordings')).toEqual(expect.arrayContaining(['topic', 'category', 'q']));
+    expect(cacheKey('/api/recordings?category=HANDS_ON&x=1', PUBLIC_CACHE_ROUTES.get('/api/recordings')!)).toBe('/api/recordings?category=HANDS_ON');
+  });
+
   it('keeps only the query parameters the handler reads, in a stable order', () => {
     expect(cacheKey('/api/courses', ['level', 'type'])).toBe('/api/courses');
     expect(cacheKey('/api/courses?type=FREE&level=BEGINNER', ['level', 'type'])).toBe('/api/courses?level=BEGINNER&type=FREE');
