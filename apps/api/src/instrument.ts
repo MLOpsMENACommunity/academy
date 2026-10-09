@@ -14,12 +14,13 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
-    release: process.env.CONFIG_VERSION,
+    release: process.env.ACADEMY_RELEASE ?? process.env.CONFIG_VERSION,
     // v11 collects user info, cookies, headers, bodies and query strings by default: turn all of it off.
     dataCollection: { userInfo: false, cookies: false, httpHeaders: false, httpBodies: [], urlQueryParams: false },
     tracesSampleRate: 0,
-    // Report, then crash as Node normally would, so the container restarts instead of limping on.
-    integrations: [Sentry.onUnhandledRejectionIntegration({ mode: 'strict' })],
+    // Report, and keep serving: main.ts logs unhandled rejections instead of exiting, because a
+    // restart costs every visitor seconds of 503s (uncaught exceptions still exit, see main.ts).
+    integrations: [Sentry.onUnhandledRejectionIntegration({ mode: 'warn' })],
     beforeSend(event) {
       delete event.user;
       // Belt and braces: mask anything that looks like an email or phone number in error text.

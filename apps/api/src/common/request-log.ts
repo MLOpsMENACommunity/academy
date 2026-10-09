@@ -17,7 +17,7 @@ export function requestLog(req: Request, res: Response, next: NextFunction): voi
   res.on('finish', () => {
     const route = req.route?.path ? `${req.baseUrl}${req.route.path}` : 'unmatched';
     // Health checks are noise.
-    if (route.endsWith('/health')) return;
+    if (/\/health(\/live)?$/.test(route)) return;
     const entry = {
       requestId: id,
       method: req.method,

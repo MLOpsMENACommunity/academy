@@ -61,6 +61,14 @@ services:
       ALLOW_INSECURE_PRODUCTION: 'true'
       RUN_MIGRATIONS: 'true'
       RUN_SEED: 'true'
+    # Healthy once the API answers and the background seed is over (it runs after the API
+    # listens, see apps/api/docker-entrypoint.sh), so `up --wait` and the tests see seeded data.
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4000/api/health/live && test -f /tmp/academy-startup-tasks.done']
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
     depends_on:
       postgres: { condition: service_healthy }
       minio: { condition: service_started }

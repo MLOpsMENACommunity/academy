@@ -2,6 +2,7 @@ import { Catch, HttpException, HttpStatus, NotFoundException, type ArgumentsHost
 import { ThrottlerException } from '@nestjs/throttler';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import type { NextFunction, Request, Response } from 'express';
+import { BusyException, busyFromPrisma, busyLog } from './busy';
 
 /** Generic bodies for errors the framework would otherwise describe in its own words. */
 export const PUBLIC_ERRORS = {
@@ -27,11 +28,17 @@ function isBodyParserError(e: unknown): e is { status: number; type: string } {
  *   - unknown routes ("Cannot GET /api/x")          -> 404 "Not found"
  *   - throttling ("ThrottlerException: Too Many…")  -> 429 "Too many requests…"
  *   - body-parser errors (raw JSON.parse messages)   -> 400 "Invalid request body" (413 for size)
+ *   - no database capacity (Prisma P2024 pool timeout, database unreachable)
+ *                                                    -> 503 code BUSY, with Retry-After
  * Every other error is returned unchanged: our own HttpExceptions (codes, field `errors`
  * from ZodPipe, messages the web shows) pass through as before, and unexpected errors
  * still become a bare 500 "Internal server error" (and reach Sentry).
  */
 export function toPublicException(exception: unknown): unknown {
+  // No database capacity (pool exhausted, database unreachable): a fast 503 with Retry-After,
+  // not a 500 after Prisma's wait. Expected under overload, so not reported to Sentry.
+  const busy = busyFromPrisma(exception);
+  if (busy) return busy;
   if (exception instanceof ThrottlerException) {
     return new HttpException({ statusCode: HttpStatus.TOO_MANY_REQUESTS, message: PUBLIC_ERRORS.tooManyRequests }, HttpStatus.TOO_MANY_REQUESTS);
   }
@@ -66,9 +73,18 @@ export function bodyParserErrors(err: unknown, _req: Request, _res: Response, ne
 export class ApiExceptionFilter extends SentryGlobalFilter {
   override catch(exception: unknown, host: ArgumentsHost): void {
     const mapped = toPublicException(exception);
-    if (host.getType() === 'http' && mapped instanceof HttpException && mapped.getStatus() === HttpStatus.TOO_MANY_REQUESTS) {
+    if (host.getType() === 'http' && mapped instanceof HttpException) {
       const res = host.switchToHttp().getResponse<Response>();
-      if (!res.headersSent && !res.getHeader('Retry-After')) res.setHeader('Retry-After', String(DEFAULT_RETRY_AFTER_S));
+      if (mapped instanceof BusyException) {
+        busyLog.record(mapped.reason);
+        // Never cached anywhere: the next try may well succeed.
+        if (!res.headersSent) {
+          res.setHeader('Retry-After', String(mapped.retryAfterS));
+          res.setHeader('Cache-Control', 'no-store');
+        }
+      } else if (mapped.getStatus() === HttpStatus.TOO_MANY_REQUESTS) {
+        if (!res.headersSent && !res.getHeader('Retry-After')) res.setHeader('Retry-After', String(DEFAULT_RETRY_AFTER_S));
+      }
     }
     super.catch(mapped, host);
   }

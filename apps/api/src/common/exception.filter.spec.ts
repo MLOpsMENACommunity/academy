@@ -1,5 +1,7 @@
 import { BadRequestException, HttpException, Logger, NotFoundException, UnauthorizedException, type ArgumentsHost } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
+import { Prisma } from '@prisma/client';
+import { BUSY_MESSAGE, busyLog } from './busy';
 import { ApiExceptionFilter, DEFAULT_RETRY_AFTER_S, PUBLIC_ERRORS, toPublicException } from './exception.filter';
 
 const body = (e: unknown) => (e as HttpException).getResponse();
@@ -79,5 +81,30 @@ describe('ApiExceptionFilter', () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined); // the stack is logged, not sent
     const { reply } = run(new Error('secret internals at /app/src/x.ts:12'));
     expect(reply).toHaveBeenCalledWith(expect.anything(), { statusCode: 500, message: 'Internal server error' }, 500);
+  });
+
+  const poolTimeout = () =>
+    new Prisma.PrismaClientKnownRequestError('Timed out fetching a new connection from the connection pool.', { code: 'P2024', clientVersion: 'x' });
+
+  it('answers an exhausted database pool with a fast 503 BUSY and Retry-After, never a 500', () => {
+    const record = jest.spyOn(busyLog, 'record').mockImplementation(() => undefined);
+    const { reply, headers } = run(poolTimeout());
+    expect(reply).toHaveBeenCalledWith(expect.anything(), { statusCode: 503, code: 'BUSY', message: BUSY_MESSAGE }, 503);
+    expect(headers['Retry-After']).toBe('5');
+    expect(headers['Cache-Control']).toBe('no-store');
+    expect(record).toHaveBeenCalledWith('db_pool');
+  });
+
+  it('answers an unreachable database with 503 BUSY too', () => {
+    jest.spyOn(busyLog, 'record').mockImplementation(() => undefined);
+    const unreachable = new Prisma.PrismaClientKnownRequestError("Can't reach database server", { code: 'P1001', clientVersion: 'x' });
+    const { reply, headers } = run(unreachable);
+    expect(reply).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ statusCode: 503, code: 'BUSY' }), 503);
+    expect(headers['Retry-After']).toBe('10');
+  });
+
+  it('leaves other Prisma errors alone (a unique violation is a bug or a 409, not load)', () => {
+    const unique = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'x' });
+    expect(toPublicException(unique)).toBe(unique);
   });
 });

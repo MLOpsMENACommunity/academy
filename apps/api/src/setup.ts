@@ -7,6 +7,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { ENV } from './config/config.module';
 import type { Env } from './config/env';
 import { bodyParserErrors } from './common/exception.filter';
+import { inFlightLimiter } from './common/in-flight';
 import { requestLog } from './common/request-log';
 
 /** Shared by main.ts and the e2e tests so both run the same pipeline. */
@@ -20,6 +21,8 @@ export function configureApp(app: NestExpressApplication): void {
   // Only JSON bodies are parsed (multipart uploads go through multer per route).
   // A cross-site HTML form can't send JSON, so cookie-authenticated writes can't be forged.
   app.use(requestLog);
+  // Load shedding: beyond MAX_IN_FLIGHT concurrent requests, a fast 503 (common/in-flight.ts).
+  app.use(inFlightLimiter(env.MAX_IN_FLIGHT));
   // The API only returns JSON (and CSV/ICS downloads): nothing may run or be framed.
   // The Swagger UI (dev only, see setupSwagger) gets helmet's default policy instead.
   // HSTS matches the web pages (apps/web/next.config.ts): two years, subdomains, no preload.
