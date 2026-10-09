@@ -1,10 +1,26 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { render } from '@react-email/render';
 import type { Locale } from '@academy/shared';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { EmailSendError, EmailTransport } from './email.transport';
-import { buildEmail, type EmailTemplate } from './templates/catalog';
+import type { EmailTemplate } from './templates/catalog';
+
+/**
+ * The templates and their renderer (React Email: ~2.6 s of module loading on a ¼ vCPU) are
+ * loaded on first use, not at boot, so a container start isn't slowed by them (main.ts warms
+ * them shortly after the API listens).
+ */
+let renderer: Promise<{ buildEmail: typeof import('./templates/catalog').buildEmail; render: typeof import('@react-email/render').render }> | null = null;
+export function loadEmailRenderer(): NonNullable<typeof renderer> {
+  renderer ??= Promise.all([import('./templates/catalog'), import('@react-email/render')]).then(
+    ([catalog, r]) => ({ buildEmail: catalog.buildEmail, render: r.render }),
+    (err: unknown) => {
+      renderer = null; // a failed load is retried on the next email, not kept
+      throw err;
+    },
+  );
+  return renderer;
+}
 
 interface Job {
   run: () => Promise<void>;
@@ -55,6 +71,7 @@ export class EmailService {
   async send(to: string, locale: Locale, template: EmailTemplate, opts: { bulk?: boolean } = {}): Promise<boolean> {
     let message: { subject: string; html: string; text: string };
     try {
+      const { buildEmail, render } = await loadEmailRenderer();
       const { subject, element } = buildEmail(template, locale);
       const [html, text] = await Promise.all([render(element), render(element, { plainText: true })]);
       message = { subject, html, text };

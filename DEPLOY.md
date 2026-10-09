@@ -132,8 +132,9 @@ Never rename or drop something in the same release that stops using it. See
 ## Costs
 
 - Workers Paid: $5/month, required for Containers. It includes 25 GiB-hours
-  of memory and 375 vCPU-minutes per month, shared by both environments. Staging's
-  cron runs hourly so its containers can sleep.
+  of memory and 375 vCPU-minutes per month, shared by both environments. Staging has no
+  cron, so its containers only wake when someone uses staging (see
+  [Jobs on staging](#jobs-on-staging)).
 - Neon: free tier (both databases in one project).
 - R2: free tier, up to 10 GB.
 - Resend: free tier at first.
@@ -162,6 +163,16 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   while the image builds, so `scripts/drop-isr-prerenders.mjs` removes those build-time
   renders; otherwise each fresh container (deploy, wake from sleep) would show its first
   visitors an empty catalog.
+- **Cloudflare's edge also caches anonymous reads of the public API** (`/api/courses`,
+  `/api/courses/:slug`, `/api/courses/slugs`, `/api/events`, `/api/events/:slug`,
+  `/api/speakers*`, `/api/recordings*`, `/api/settings/public`) for up to 60 s. The API marks
+  them `public, s-maxage=60, stale-while-revalidate=300` only when the request carries no
+  session cookie at all and the body holds no personal field (an event's join link, for
+  instance, is only ever in a signed-in, `private, no-store` answer); the Worker stores only
+  what the API marked public, never with a session cookie or an `Origin` header
+  (`apps/api/src/common/public-cache.ts`, `deploy/cloudflare/src/edge-cache.ts`). The API
+  also keeps those anonymous answers in memory for 30 s (`PUBLIC_CACHE_TTL_S`), with
+  concurrent misses sharing one query, and drops them on any admin write.
 - **Cloudflare's edge caches anonymous page views** for up to 60 s (Workers Cache API in
   `deploy/cloudflare/src/edge-cache.ts`, which lists exactly what is and isn't cached). Never
   cached: requests with a session cookie (`access_token`, `has_session`), `/api/*`, non-GET,
@@ -169,30 +180,70 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   cookie, isn't a 200, is `private`/`no-store`, or is a stale ISR copy. Build assets
   (`/_next/static`, immutable) are cached for everyone. Responses carry `x-edge-cache:
   HIT|MISS|BYPASS`. Each data centre has its own cache.
-- **An admin edit shows publicly within about 2 minutes** (Next's 60 s window plus the
-  edge's 60 s; the home page up to ~6 minutes). There is no on-demand revalidation yet.
+- **An admin edit shows publicly within about 3 minutes** (the API's edge copy, 60 s, then
+  Next's 60 s window, then the page's edge copy, 60 s; the home page up to ~7 minutes).
+  Admins themselves are signed in, so they see their edits at once. There is no on-demand
+  revalidation yet.
 - **Web containers:** `max_instances: 3`, and the Worker spreads requests at random over
-  `WEB_INSTANCES` of them (3 in production, 1 on staging). The Worker caps it at
+  `WEB_INSTANCES` of them (1 in production and on staging, to stay near the $5 plan). The Worker caps it at
   `MAX_WEB_INSTANCES` in `src/instances.ts` (a test keeps that equal to `max_instances`)
   and uses only `main` if the value is invalid. They are stateless; each has
   its own ISR cache, so two visitors may briefly see versions up to one revalidate window
   apart. Lower `WEB_INSTANCES` after launch to save cost; it never needs to exceed
   `max_instances`.
-- **API container:** exactly one (`max_instances: 1`), now `standard-1`: rate limits and
-  the login lockout are in memory.
-- **Database pool:** the API holds up to `DATABASE_POOL_SIZE` (default 10) connections to
-  Neon's pooler and a query waits up to `DATABASE_POOL_TIMEOUT` (20 s) for one. Prisma's
-  own default is 3 on a small container, which failed under load with `P2024` ("Timed out
-  fetching a new connection"). A `connection_limit` in `DATABASE_URL` overrides it.
-- If a container can't be reached (starting, overloaded), the Worker answers 503 with
-  `Retry-After: 5` instead of an opaque 500.
+- **API container:** exactly one `basic` (¼ vCPU, 1 GiB; `max_instances: 1`): rate limits
+  and the login lockout are in memory. What keeps it standing under load, all without more
+  CPU (measured in PR "API under load"):
+  - **Database pool:** 10 connections (`DATABASE_POOL_SIZE`) and a 5 s wait
+    (`DATABASE_POOL_TIMEOUT`); Prisma's own default on a ¼ vCPU is 3 connections and 10 s, which is what made every
+    endpoint take 10 s and then fail under the staging load test. When no connection is
+    free in time the API answers **503 `BUSY` with `Retry-After`**, never a 500. `pgbouncer=true`
+    is added automatically for Neon's `-pooler` host. Values in `DATABASE_URL` win.
+  - **Load shedding:** beyond 200 requests in progress (`MAX_IN_FLIGHT`), new ones get an
+    immediate 503 with `Retry-After`. Password hashing (argon2id at OWASP's cost, unchanged)
+    runs one at a time (`PASSWORD_HASH_CONCURRENCY`), and a login that would wait more than
+    5 s for it gets a 503 too.
+  - **Fast restarts:** the API checks for pending migrations itself and starts the Prisma CLI
+    only when one is pending; the seed and the archive import run in the background after it
+    listens (one container at a time, by advisory lock); the image ships a V8 compile cache.
+    A start takes ~6–10 s instead of ~20 s (the container library gives up after 20 s, which
+    is where "container is not listening" came from).
+  - **Memory:** Node's heap is capped at 512 MB (`API_MAX_OLD_SPACE_MB`), leaving the rest of
+    the 1 GiB for Prisma's engine and the background seed.
+  - **Health:** `/api/health/live` never touches the database (Docker's healthcheck);
+    `/api/health` checks it at most every 5 s, with a 2 s limit (the deploy check).
+- **Worker → containers:** a container that can't be reached, is starting, or doesn't answer
+  within 25 s (writes and admin requests: 120 s, as long as the API itself allows) gets a 503 with `Retry-After` from the Worker, logged as a
+  warning, never a hang or an opaque 500 (`deploy/cloudflare/src/container-fetch.ts`).
+- **Deploys restart the containers at once:** the deployed commit (`ACADEMY_RELEASE`) is part
+  of each container's configuration, so new code is served as soon as the deploy finishes,
+  not when the old container is next replaced. The old one gets SIGTERM and up to 12 s to
+  finish requests in progress. In-memory state (rate limits, the login lockout) starts
+  afresh on each deploy.
 - **API down while a page renders:** ISR pages load their main data with `serverGet`,
   which throws, so Next keeps serving the last good copy, or (a fresh container with
   none yet) answers a 500 that neither Next nor the edge caches. They never cache an
   empty "no courses" page.
+- **Browsers poll little:** the notification bell asks for the unread count every 2 minutes
+  while the tab is visible (backing off up to 10 minutes after errors), and `/auth/me` is
+  fetched once per page load.
+- **Load testing:** `loadtest/` (Locust): anonymous browsing plus signed-in students, with
+  `smoke`, `load` (100 users) and `stress` (500, spike to 750) profiles. Run smoke first.
 - **Recordings search** runs in the browser against `GET /api/recordings/search` (ids
   only), limited to 60 a minute per IP. Plain `/api/recordings` reads, which the web
   server makes for every visitor, stay unthrottled unless they carry `?q=`.
+
+### Jobs on staging
+
+Production's Cron Trigger runs the scheduled jobs (anonymisation, retention, reminders,
+profile reviews) hourly. Staging has none, so it costs nothing while nobody uses it. To run
+the jobs on staging by hand (e.g. to test reminders), with staging's `JOBS_TOKEN`:
+
+```sh
+curl -X POST -H "x-jobs-token: $JOBS_TOKEN" https://academy-staging.mlopsmena.com/_jobs/tick
+```
+
+The route exists only outside production and answers 403 without the right token.
 
 ## One-time setup
 

@@ -10,7 +10,8 @@
 //   EMAIL_ALLOWLIST         staging only, optional: comma-separated addresses or "@domain"
 //                           entries that receive their own staging email (testers)
 //   EMAIL_REDIRECT_TO       staging only, optional: where everyone else's staging email goes
-//   SHA                     optional, the commit being deployed (names the web build)
+//   SHA                     optional, the commit being deployed (names the web build, and is
+//                           ACADEMY_RELEASE: a new one restarts the containers)
 //
 // Sets ACADEMY_ENVIRONMENT (Worker var and web build arg) to the target: only production is indexed.
 // Writes host, url and bucket to $GITHUB_OUTPUT for the later steps. Refuses to let one
@@ -66,6 +67,10 @@ const sha = process.env.SHA?.trim();
 if (sha) {
   if (!/^[0-9a-f]{7,40}$/.test(sha)) throw new Error(`Invalid SHA: ${sha}`);
   web.image_vars.NEXT_DEPLOYMENT_ID = sha.slice(0, 12);
+  // Also handed to both containers at start: it is part of their config hash, so a deploy of
+  // new code restarts them at once instead of after the rollout (src/index.ts), and the API
+  // reports it at /api/health.
+  block.vars.ACADEMY_RELEASE = sha.slice(0, 12);
 }
 if (target === 'staging') {
   // Testers listed here get their own staging email; everyone else's is redirected.

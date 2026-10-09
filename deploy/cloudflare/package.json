@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/edge-cache.test.ts src/instances.test.ts src/robots.test.ts",
+    "test": "node --test src/edge-cache.test.ts src/container-fetch.test.ts src/instances.test.ts src/jobs.test.ts src/robots.test.ts",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail"
   },

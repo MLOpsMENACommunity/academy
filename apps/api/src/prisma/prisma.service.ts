@@ -1,26 +1,34 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
-
-/** DATABASE_URL with the pool settings from the environment, unless the URL sets its own. */
-export function pooledDatabaseUrl(env: Pick<Env, 'DATABASE_URL' | 'DATABASE_POOL_SIZE' | 'DATABASE_POOL_TIMEOUT'>): string {
-  const url = new URL(env.DATABASE_URL);
-  if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', String(env.DATABASE_POOL_SIZE));
-  if (!url.searchParams.has('pool_timeout')) url.searchParams.set('pool_timeout', String(env.DATABASE_POOL_TIMEOUT));
-  return url.toString();
-}
+import { poolSettings, type PoolSettings } from './database-url';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  readonly pool: Omit<PoolSettings, 'url'>;
+
   constructor(@Inject(ENV) env: Env) {
+    // Explicit pool size and a short pool timeout (see database-url.ts): a request that can't
+    // get a connection within DATABASE_POOL_TIMEOUT fails fast with a 503 (exception.filter.ts).
+    const { url, ...pool } = poolSettings(env.DATABASE_URL, {
+      poolSize: env.DATABASE_POOL_SIZE,
+      poolTimeoutS: env.DATABASE_POOL_TIMEOUT,
+      pgbouncer: env.DB_PGBOUNCER,
+    });
     // 'minimal' keeps query arguments (emails, phones, answers) out of error messages,
     // which end up in logs and error tracking.
-    super({ errorFormat: 'minimal', datasourceUrl: pooledDatabaseUrl(env) });
+    super({ errorFormat: 'minimal', datasourceUrl: url });
+    this.pool = pool;
   }
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
+    // Never the URL: only the pool settings.
+    Logger.log(
+      `Database pool: ${this.pool.connectionLimit} connections, ${this.pool.poolTimeoutS}s pool timeout${this.pool.pgbouncer ? ', pgbouncer mode' : ''}`,
+      'Prisma',
+    );
   }
 
   async onModuleDestroy(): Promise<void> {

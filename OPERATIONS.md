@@ -196,7 +196,7 @@ him in the admin.
 
 ## Incident checklist
 
-1. **Site down?** Check `https://<host>/api/health` (database status included), then `wrangler tail` and `wrangler containers list`.
+1. **Site down?** Check `https://<host>/api/health` (database status included, plus the deployed `release`), then `wrangler tail` and `wrangler containers list`. 503s with `Retry-After` mean "busy or starting", not broken: the API logs a `shed_load` warning (every 10 s at most) saying why (`db_pool`, `in_flight`, `password_hash`, `db_unreachable`), and the Worker logs "container unavailable" or "no response within …". See DEPLOY.md, "Capacity and caching".
 2. **Bad deploy?** Run **Release to production** with the previous tag (DEPLOY.md, "Roll back"); in a hurry, Workers & Pages → `mlops-academy` → Deployments → roll back first. Database migrations are forward-only and stay in place, which is why schema changes are released as expand, then contract. One exception: versions from before the "Coming soon" course status (PR #13) don't know that value. Before rolling back past it, run this on Neon (SQL editor):
    ```sql
    UPDATE "Course" SET status = 'DRAFT' WHERE status = 'COMING_SOON';

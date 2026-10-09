@@ -37,7 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         // Signed out for real, or a blip (deploy, flaky network): try once more for the latter.
         if (err instanceof ApiError && err.status === 401) throw err;
-        await new Promise((r) => setTimeout(r, 1500));
+        // A busy API (503/429 under load) asked us to come back later: don't add to the pile at once.
+        const busy = err instanceof ApiError && (err.status === 503 || err.status === 429);
+        await new Promise((r) => setTimeout(r, busy ? 5000 : 1500));
         current = await me();
       }
       setUser(current);

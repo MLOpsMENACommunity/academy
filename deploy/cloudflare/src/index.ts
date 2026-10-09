@@ -1,5 +1,7 @@
 import { Container } from '@cloudflare/containers';
+import { fetchContainer, timeoutFor } from './container-fetch';
 import { cacheKind, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
+import { isManualJobsTick, tokenMatches } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 import { disallowAllRobots, isProduction, withNoindex } from './robots';
 
@@ -9,14 +11,17 @@ import { disallowAllRobots, isProduction, withNoindex } from './robots';
  *   https://<host>/api/*  ->  ApiContainer (NestJS, apps/api/Dockerfile)
  *   https://<host>/*      ->  WebContainer (Next.js, apps/web/Dockerfile)
  *   http://*, other hosts ->  301/308 to https://<host>
- *   Cron Trigger          ->  POST /api/internal/jobs/tick on the API (containers sleep when idle)
+ *   Cron Trigger          ->  POST /api/internal/jobs/tick on the API (containers sleep when idle;
+ *                             production only, staging runs jobs on demand: see jobs.ts)
  *   not production        ->  robots.txt "Disallow: /", X-Robots-Tag: noindex on everything (robots.ts)
  *
  * One API instance (max_instances: 1): rate limits and the login lockout are in-memory
  * in the API. The web app is stateless, so requests are spread over WEB_INSTANCES
  * containers (each with its own ISR cache; they converge within the revalidate window).
- * Anonymous page views of static/ISR pages are answered from Cloudflare's edge cache
- * when possible: see edge-cache.ts for exactly what is and isn't cached.
+ * Anonymous page views of static/ISR pages, and anonymous reads of the public catalog API,
+ * are answered from Cloudflare's edge cache when possible: see edge-cache.ts for exactly
+ * what is and isn't cached. Container failures and stuck requests become a 503 with
+ * Retry-After, never a hang or an opaque 500: see container-fetch.ts.
  * Secrets come from `wrangler secret put` and are handed to the containers as
  * environment variables at start.
  */
@@ -33,6 +38,8 @@ export interface Env {
   WEB_INSTANCES?: string;
   /** Idle time before a container sleeps (default 2h; staging uses less so it sleeps between hourly crons). */
   SLEEP_AFTER?: string;
+  /** The deployed commit (set by configure-host.mjs from SHA). Part of the containers' config, so a deploy restarts them. */
+  ACADEMY_RELEASE?: string;
   /** Staging only: see EMAIL_ALLOWLIST / EMAIL_REDIRECT_TO in apps/api/src/config/env.ts. */
   EMAIL_ALLOWLIST?: string;
   EMAIL_REDIRECT_TO?: string;
@@ -60,8 +67,9 @@ const optional = (pairs: Record<string, string | undefined>): Record<string, str
 
 /**
  * Restarts a running container when its configuration changes (new hostname, rotated
- * secret): env vars are only read when a container starts, so without this a config-only
- * deploy would keep serving with the old values until the container next slept.
+ * secret, or a new release: ACADEMY_RELEASE is the deployed commit, so every deploy of new
+ * code counts): env vars are only read when a container starts, so without this a deploy
+ * would keep serving the old container until it next slept or the rollout replaced it.
  * Only a hash of the configuration is stored.
  */
 async function restartIfConfigChanged(container: Container<Env>, ctx: DurableObjectState<Env>): Promise<void> {
@@ -71,9 +79,28 @@ async function restartIfConfigChanged(container: Container<Env>, ctx: DurableObj
   const previous = await ctx.storage.get<string>('configKey');
   if (previous !== key) {
     // Also on the first run of this code (no stored hash): one harmless restart picks up the current config.
-    if (ctx.container?.running) await container.destroy();
+    if (ctx.container?.running) await stopGracefully(container, ctx);
     await ctx.storage.put('configKey', key);
   }
+}
+
+/** The API drains in-flight requests for up to 10 s on SIGTERM (apps/api/src/main.ts). */
+const STOP_GRACE_MS = 12_000;
+
+/**
+ * SIGTERM first, so requests in progress finish and the database pool closes cleanly; a kill
+ * only if the container is still up after STOP_GRACE_MS. Requests arriving meanwhile wait (this
+ * runs inside blockConcurrencyWhile) and then start the new container.
+ */
+async function stopGracefully(container: Container<Env>, ctx: DurableObjectState<Env>): Promise<void> {
+  try {
+    await container.stop('SIGTERM');
+    const deadline = Date.now() + STOP_GRACE_MS;
+    while (ctx.container?.running && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
+  } catch {
+    // fall through to destroy
+  }
+  if (ctx.container?.running) await container.destroy();
 }
 
 export class ApiContainer extends Container<Env> {
@@ -112,6 +139,7 @@ export class ApiContainer extends Container<Env> {
         DIRECT_DATABASE_URL: env.DIRECT_DATABASE_URL,
         SENTRY_DSN: env.SENTRY_DSN,
         SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,
+        ACADEMY_RELEASE: env.ACADEMY_RELEASE,
         EMAIL_ALLOWLIST: env.EMAIL_ALLOWLIST,
         EMAIL_REDIRECT_TO: env.EMAIL_REDIRECT_TO,
       }),
@@ -130,6 +158,7 @@ export class WebContainer extends Container<Env> {
       NODE_ENV: 'production',
       // Server-side fetches go back through the public hostname (and this Worker) to the API.
       API_INTERNAL_URL: `https://${env.ACADEMY_HOSTNAME}`,
+      ...optional({ ACADEMY_RELEASE: env.ACADEMY_RELEASE }),
     };
     void ctx.blockConcurrencyWhile(() => restartIfConfigChanged(this, ctx));
   }
@@ -153,17 +182,14 @@ function forwardable(request: Request): Request {
   return new Request(request, { headers });
 }
 
-/** A container that can't be reached (starting, overloaded, restarting) answers 503, not an opaque 500. */
+/**
+ * A container that can't be reached (starting, restarting, overloaded) or doesn't answer in
+ * time gets a 503 with Retry-After, logged as a warning: never a hang, never an opaque 500.
+ */
 async function fromContainer(stub: { fetch(request: Request): Promise<Response> }, request: Request, name: string): Promise<Response> {
-  try {
-    return await stub.fetch(forwardable(request));
-  } catch (err) {
-    console.error(`${name} container fetch failed: ${(err as Error).message}`);
-    return new Response('The academy is busy, please try again in a moment.', {
-      status: 503,
-      headers: { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '5', 'cache-control': 'no-store' },
-    });
-  }
+  const forwarded = forwardable(request);
+  const { response } = await fetchContainer(() => stub.fetch(forwarded), { ms: timeoutFor(request.method, new URL(request.url).pathname), name });
+  return response;
 }
 
 function withHeaders(response: Response, set: Record<string, string>, append: Record<string, string | null> = {}): Response {
@@ -192,10 +218,14 @@ async function webFetch(request: Request, env: Env, kind: CacheKind | null): Pro
   return response;
 }
 
-/** Web requests, through the edge cache where edge-cache.ts allows it. */
-async function web(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+/** One request through the edge cache, where edge-cache.ts allows it; `origin` fetches from a container. */
+async function throughEdgeCache(
+  request: Request,
+  ctx: ExecutionContext,
+  origin: (kind: CacheKind | null) => Promise<Response>,
+): Promise<Response> {
   const kind: CacheKind | null = cacheKind(request);
-  if (!kind) return withHeaders(await webFetch(request, env, null), { 'x-edge-cache': 'BYPASS' });
+  if (!kind) return withHeaders(await origin(null), { 'x-edge-cache': 'BYPASS' });
 
   const cache = caches.default;
   // Only the URL: never the visitor's cookies or other headers.
@@ -203,13 +233,33 @@ async function web(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { 'x-edge-cache': 'HIT' }, { 'set-cookie': kind === 'page' ? localeCookie(request) : null });
 
-  const response = await webFetch(request, env, kind);
+  const response = await origin(kind);
   const cacheControl = storableCacheControl(kind, response);
   if (!cacheControl) return withHeaders(response, { 'x-edge-cache': 'MISS' });
   // Stored without Set-Cookie; the visitor still gets the response as the container sent it.
   const stored = storedCopy(response.clone(), cacheControl);
   ctx.waitUntil(cache.put(key, stored));
   return withHeaders(response, { 'x-edge-cache': 'MISS' });
+}
+
+/** Web requests, through the edge cache where edge-cache.ts allows it. */
+function web(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  return throughEdgeCache(request, ctx, (kind) => webFetch(request, env, kind));
+}
+
+/** API requests: anonymous public catalog reads through the edge cache, everything else straight through. */
+function api(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  return throughEdgeCache(request, ctx, () => fromContainer(env.API.getByName(INSTANCE), request, 'api'));
+}
+
+/** POSTs /api/internal/jobs/tick to the API container (the cron, or a manual run on staging). */
+async function jobsTick(env: Env): Promise<Response> {
+  const tick = new Request(`https://${env.ACADEMY_HOSTNAME}/api/internal/jobs/tick`, {
+    method: 'POST',
+    headers: { 'x-jobs-token': env.JOBS_TOKEN },
+  });
+  const { response } = await fetchContainer(() => env.API.getByName(INSTANCE).fetch(tick), { ms: 5 * 60_000, name: 'api (jobs tick)' });
+  return response;
 }
 
 /** Routes one request. Non-production deployments are kept out of search engines in fetch() below. */
@@ -231,7 +281,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     // Internal endpoints are only reachable from the cron handler below. Same body as the API's own 404.
     return Response.json({ statusCode: 404, message: 'Not found' }, { status: 404 });
   }
-  if (isApi) return fromContainer(env.API.getByName(INSTANCE), request, 'api');
+  if (isApi) return api(request, env, ctx);
   return web(request, env, ctx);
 }
 
@@ -240,18 +290,18 @@ export default {
     if (isProduction(env.ACADEMY_ENVIRONMENT)) return route(request, env, ctx);
     // Staging (anything not production): never indexed. See robots.ts.
     if (new URL(request.url).pathname === '/robots.txt') return disallowAllRobots();
+    // Staging has no cron: jobs run on demand, with the jobs token (see jobs.ts and DEPLOY.md).
+    if (isManualJobsTick(request)) {
+      if (!tokenMatches(request.headers.get('x-jobs-token'), env.JOBS_TOKEN)) return new Response('Forbidden', { status: 403 });
+      const res = await jobsTick(env);
+      return new Response(res.body, { status: res.status, headers: { 'content-type': res.headers.get('content-type') ?? 'text/plain', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
+    }
     return withNoindex(await route(request, env, ctx));
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
-      env.API.getByName(INSTANCE)
-        .fetch(
-          new Request(`https://${env.ACADEMY_HOSTNAME}/api/internal/jobs/tick`, {
-            method: 'POST',
-            headers: { 'x-jobs-token': env.JOBS_TOKEN },
-          }),
-        )
+      jobsTick(env)
         // eslint-disable-next-line no-console -- Workers logs are the record of each tick
         .then(async (res) => console.log(`jobs tick: ${res.status} ${await res.text()}`))
         .catch((err: unknown) => console.error(`jobs tick failed: ${(err as Error).message}`)),

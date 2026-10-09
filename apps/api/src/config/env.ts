@@ -16,8 +16,12 @@ const envSchema = z.object({
    * connection_limit / pool_timeout already in DATABASE_URL wins.
    */
   DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
-  /** Seconds a query waits for a free connection before failing with P2024. */
-  DATABASE_POOL_TIMEOUT: z.coerce.number().int().min(0).max(120).default(20),
+  /**
+   * Seconds a query waits for a free connection before failing with P2024, which the API
+   * answers with a fast 503 + Retry-After (common/busy.ts). Short on purpose: under overload a
+   * long wait only makes every request hang that long before failing anyway.
+   */
+  DATABASE_POOL_TIMEOUT: z.coerce.number().int().min(0).max(120).default(5),
 
   /** Public origin of the academy (Next.js). Used in emails, redirects and CORS. */
   WEB_URL: z.string().url().default('http://localhost:3000'),
@@ -74,6 +78,18 @@ const envSchema = z.object({
   JOBS_ENABLED: bool.default('true'),
   /** Shared secret for POST /api/internal/jobs/tick. Unset disables the endpoint. */
   JOBS_TOKEN: z.string().min(32).optional(),
+
+  // ---- Capacity (see DEPLOY.md, "Capacity and caching"). Sized for one ¼-vCPU, 1 GiB container.
+  /** Force pgbouncer=true (Neon "-pooler" hosts get it automatically). */
+  DB_PGBOUNCER: bool.default('false'),
+  /** In-process cache of anonymous public catalog reads, in seconds (0 turns it off). */
+  PUBLIC_CACHE_TTL_S: z.coerce.number().int().min(0).max(300).default(30),
+  /** Requests in progress at once before new ones get a fast 503 (0 turns the limit off). */
+  MAX_IN_FLIGHT: z.coerce.number().int().min(0).max(10_000).default(200),
+  /** Password hashes (argon2) computed at once; more queue. One is right for a ¼ vCPU. */
+  PASSWORD_HASH_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(1),
+  /** Release identifier (the deployed commit), reported by /api/health and Sentry. */
+  ACADEMY_RELEASE: z.string().max(64).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

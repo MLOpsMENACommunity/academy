@@ -4,7 +4,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { verify } from '@node-rs/argon2';
+import { verifyPassword } from '../auth/password-hasher';
 import type { Locale } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
@@ -45,7 +45,7 @@ export class AccountService {
       }
       return;
     }
-    if (!password || !(await verify(user.passwordHash, password))) {
+    if (!password || !(await verifyPassword(user.passwordHash, password))) {
       throw new UnauthorizedException({ code: 'WRONG_PASSWORD', message: 'Your current password is incorrect' });
     }
   }

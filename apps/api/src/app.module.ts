@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
@@ -10,6 +10,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
 import { ApiExceptionFilter } from './common/exception.filter';
+import { PublicCache, PublicCacheInterceptor } from './common/public-cache';
 import { CalendarModule } from './calendar/calendar.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
@@ -63,6 +64,10 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
+    // Public catalog reads: edge-cacheable headers for anonymous visitors, a short in-process
+    // cache, and invalidation on admin writes (common/public-cache.ts).
+    PublicCache,
+    { provide: APP_INTERCEPTOR, useClass: PublicCacheInterceptor },
   ],
 })
 export class AppModule {}

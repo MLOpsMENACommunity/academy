@@ -1,5 +1,4 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { hash, verify } from '@node-rs/argon2';
 import type { User } from '@prisma/client';
 import { safeReturnTo, type Locale, type LoginInput, type MeResponse, type RegisterInput } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
@@ -10,6 +9,7 @@ import { courseSlugFromPath, FunnelService } from '../funnel/funnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { GoogleIdentity } from './google.service';
 import { FailureLimiter } from './failure-limiter';
+import { assertPasswordCapacity, hashPassword, verifyPassword } from './password-hasher';
 import { TokensService } from './tokens.service';
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -30,7 +30,7 @@ export class AuthService {
   ) {}
 
   hashPassword(password: string): Promise<string> {
-    return hash(password);
+    return hashPassword(password);
   }
 
   async register(input: RegisterInput): Promise<User> {
@@ -56,6 +56,8 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<User> {
     this.loginLimiter.check(input.email);
+    // Before the lookup: a "too busy" answer must not tell registered emails from unknown ones.
+    assertPasswordCapacity();
     const user = await this.prisma.user.findUnique({ where: { email: input.email } });
     // Same error for unknown email, wrong password and deleted accounts.
     const fail = new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
@@ -64,7 +66,7 @@ export class AuthService {
       throw fail;
     }
     // Google-only accounts get the same error; the login page hints at Google sign-in.
-    if (!user.passwordHash || !(await verify(user.passwordHash, input.password))) {
+    if (!user.passwordHash || !(await verifyPassword(user.passwordHash, input.password))) {
       this.loginLimiter.fail(input.email);
       throw fail;
     }

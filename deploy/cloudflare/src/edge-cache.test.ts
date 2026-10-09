@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cacheKind, localeCookie, PAGE_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
+import { API_TTL, cacheKind, localeCookie, PAGE_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
 
 const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
   new Request(`https://academy.mlopsmena.com${path}`, init);
@@ -21,8 +21,7 @@ test('signed-in visitors always reach the container', () => {
   }
 });
 
-test('API, non-GET, RSC/prefetch and private areas are never cached', () => {
-  assert.equal(cacheKind(req('/api/courses')), null);
+test('non-public API, non-GET, RSC/prefetch and private areas are never cached', () => {
   assert.equal(cacheKind(req('/api')), null);
   assert.equal(cacheKind(req('/en/courses', { method: 'HEAD' })), null);
   assert.equal(cacheKind(req('/en/courses', { method: 'POST' })), null);
@@ -96,4 +95,75 @@ test('NEXT_LOCALE plus any other cookie is never stored', () => {
   // Assets never carry cookies into the cache, NEXT_LOCALE or not.
   const asset = new Response('x', { headers: { 'cache-control': 'public, max-age=31536000, immutable', 'set-cookie': 'NEXT_LOCALE=en' } });
   assert.equal(storableCacheControl('asset', asset), null);
+});
+
+// ---- Public API reads
+
+const json = (headers: Record<string, string>, status = 200, body = '[]') =>
+  new Response(body, { status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers } });
+const apiPublic = { 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' };
+
+test('anonymous GETs of the public catalog API are cacheable', () => {
+  for (const p of [
+    '/api/courses',
+    '/api/courses?level=BEGINNER',
+    '/api/courses/slugs',
+    '/api/courses/llmops',
+    '/api/events',
+    '/api/events/redis-for-semantic-caching',
+    '/api/speakers',
+    '/api/speakers/aya-nasser-salama',
+    '/api/recordings',
+    '/api/recordings?topic=python',
+    '/api/recordings/search?q=k8s',
+    '/api/settings/public',
+  ]) {
+    assert.equal(cacheKind(req(p)), 'api', p);
+  }
+  // Unrelated cookies don't matter.
+  assert.equal(cacheKind(req('/api/courses', { headers: { cookie: 'NEXT_LOCALE=ar; _ga=1' } })), 'api');
+});
+
+test('the API is never cached for a session, a cross-origin caller, or anything personal', () => {
+  for (const cookie of ['access_token=abc', 'has_session=1791556000', 'refresh_token=x', 'NEXT_LOCALE=en; has_session=1']) {
+    assert.equal(cacheKind(req('/api/courses', { headers: { cookie } })), null, cookie);
+    assert.equal(cacheKind(req('/api/events/x', { headers: { cookie } })), null, cookie);
+  }
+  assert.equal(cacheKind(req('/api/courses', { headers: { origin: 'https://example.com' } })), null);
+  assert.equal(cacheKind(req('/api/courses', { headers: { authorization: 'Bearer x' } })), null);
+  for (const p of [
+    '/api/auth/me',
+    '/api/notifications/unread-count',
+    '/api/me/events',
+    '/api/me/applications',
+    '/api/courses/llmops/my-status',
+    '/api/events/x/calendar.ics',
+    '/api/learn/llmops',
+    '/api/admin/courses',
+    '/api/health',
+    '/api/health/live',
+    '/api/calendar/feed/secret-token.ics',
+    '/api/courses/../admin',
+    '/api/courses/UPPER',
+  ]) {
+    assert.equal(cacheKind(req(p)), null, p);
+  }
+  for (const method of ['POST', 'PUT', 'DELETE', 'HEAD']) assert.equal(cacheKind(req('/api/courses', { method })), null, method);
+});
+
+test('only what the API marked public is stored, capped at API_TTL', () => {
+  assert.equal(storableCacheControl('api', json(apiPublic)), `public, max-age=0, s-maxage=${API_TTL}`);
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'public, s-maxage=30' })), 'public, max-age=0, s-maxage=30');
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'public, s-maxage=600' })), `public, max-age=0, s-maxage=${API_TTL}`);
+  // Signed-in or personal answers (the API marks them private).
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'private, no-store' })), null);
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'private, no-cache' })), null);
+  // The old browser-only header, or nothing: not for the edge.
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'public, max-age=60' })), null);
+  assert.equal(storableCacheControl('api', json({})), null);
+  // Anything that sets a cookie, even with public headers.
+  assert.equal(storableCacheControl('api', json({ ...apiPublic, 'set-cookie': 'NEXT_LOCALE=en; Path=/' })), null);
+  // Errors, busy answers, non-JSON.
+  for (const status of [404, 429, 500, 503]) assert.equal(storableCacheControl('api', json(apiPublic, status)), null, String(status));
+  assert.equal(storableCacheControl('api', new Response('x', { headers: { ...apiPublic, 'content-type': 'text/calendar' } })), null);
 });
