@@ -266,7 +266,10 @@ export function RadioGroup({
   const { t } = useI18n();
   const id = useId();
   return (
-    <fieldset aria-describedby={error ? `${id}-err` : undefined} data-invalid={error ? 'true' : undefined}>
+    <fieldset
+      aria-describedby={[hint ? `${id}-hint` : '', error ? `${id}-err` : ''].filter(Boolean).join(' ') || undefined}
+      data-invalid={error ? 'true' : undefined}
+    >
       <legend className="mb-1.5 text-sm font-semibold text-fg">
         {legend}
         {required ? (
@@ -278,7 +281,11 @@ export function RadioGroup({
           <span className="ms-1 text-xs font-normal text-muted">({t('common.optional')})</span>
         )}
       </legend>
-      {hint && <p className="mb-2 text-xs text-muted">{hint}</p>}
+      {hint && (
+        <p id={`${id}-hint`} className="mb-2 text-xs text-muted">
+          {hint}
+        </p>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
         {options.map((o) => (
           <label

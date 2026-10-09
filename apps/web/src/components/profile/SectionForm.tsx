@@ -126,15 +126,18 @@ function initialValues(section: ProfileSection, p: ProfileDto): Values {
         kaggleUrl: p.kaggleUrl ?? '',
         huggingfaceUrl: p.huggingfaceUrl ?? '',
       };
-    case 'community':
-      // Unanswered until the student saves this step once: no Yes/No is preselected.
+    case 'community': {
+      // Nothing is preselected for a new student. A "yes" given before these became
+      // required questions is still in effect, so it is shown (and can be changed).
+      const answer = (v: boolean | null) => (p.communityAnsweredAt || v ? Boolean(v) : null);
       return {
         referralSource: p.referralSource,
-        communityMember: p.communityAnsweredAt ? Boolean(p.communityMember) : null,
-        openToOpportunities: p.communityAnsweredAt ? p.openToOpportunities : null,
-        shareWithPartners: p.communityAnsweredAt ? p.shareWithPartners : null,
-        marketingEmails: p.communityAnsweredAt ? p.marketingEmails : null,
+        communityMember: answer(p.communityMember),
+        openToOpportunities: answer(p.openToOpportunities),
+        shareWithPartners: answer(p.shareWithPartners),
+        marketingEmails: answer(p.marketingEmails),
       };
+    }
   }
 }
 
