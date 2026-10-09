@@ -12,8 +12,6 @@ import {
   EMPLOYMENT_STATUSES,
   employmentStatusLabels,
   EXPERIENCE_RANGES,
-  GRADUATION_YEAR_MAX,
-  GRADUATION_YEAR_MIN,
   experienceRangeLabels,
   INDUSTRIES,
   industryLabels,
@@ -61,7 +59,7 @@ import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
-import { CvUpload } from './CvUpload';
+import { SavedCv } from './SavedCv';
 
 type Values = Record<string, unknown>;
 
@@ -110,13 +108,7 @@ function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 
         secondaryAreas: p.secondaryAreas,
       };
     case 'education':
-      return {
-        educationLevel: p.educationLevel,
-        fieldOfStudy: p.fieldOfStudy ?? '',
-        university: p.university ?? '',
-        graduationYear: p.graduationYear ?? '',
-        currentlyStudying: p.currentlyStudying ?? false,
-      };
+      return { educationLevel: p.educationLevel };
     case 'skills':
       return { skills: p.skills, cloudPlatforms: p.cloudPlatforms, productionTools: p.productionTools };
     case 'goals':
@@ -128,13 +120,7 @@ function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 
         preferredFormat: p.preferredFormat,
       };
     case 'links':
-      return {
-        linkedinUrl: p.linkedinUrl ?? '',
-        githubUrl: p.githubUrl ?? '',
-        websiteUrl: p.websiteUrl ?? '',
-        kaggleUrl: p.kaggleUrl ?? '',
-        huggingfaceUrl: p.huggingfaceUrl ?? '',
-      };
+      return { linkedinUrl: p.linkedinUrl ?? '', githubUrl: p.githubUrl ?? '' };
     case 'community': {
       // Nothing is preselected for a new student. A "yes" given before these became
       // required questions is still in effect, so it is shown (and can be changed).
@@ -161,7 +147,7 @@ export function SectionForm({
   section: ProfileSection;
   profile: ProfileDto;
   onSaved: (p: ProfileDto) => void;
-  /** Side updates that are not a form submit (e.g. CV upload). Defaults to onSaved. */
+  /** Side updates that are not a form submit (e.g. removing a saved CV). Defaults to onSaved. */
   onProfileChange?: (p: ProfileDto) => void;
   submitLabel?: string;
   /** Extra action next to submit (e.g. "Skip for now" in onboarding). */
@@ -344,21 +330,6 @@ export function SectionForm({
       body = (
         <div className="grid gap-5 sm:grid-cols-2">
           <SelectField label={f('educationLevel')} required value={str('educationLevel')} onChange={set('educationLevel')} error={errors.educationLevel} options={options(EDUCATION_LEVELS, educationLevelLabels, locale)} />
-          <TextField label={f('fieldOfStudy')} required value={str('fieldOfStudy')} onChange={set('fieldOfStudy')} error={errors.fieldOfStudy} />
-          <TextField label={f('university')} required hint={f('universityHint')} value={str('university')} onChange={set('university')} error={errors.university} />
-          <TextField
-            label={f('graduationYear')}
-            type="number"
-            inputMode="numeric"
-            min={GRADUATION_YEAR_MIN}
-            max={GRADUATION_YEAR_MAX}
-            value={String(values.graduationYear ?? '')}
-            onChange={(v) => set('graduationYear')(v === '' ? '' : Number(v))}
-            error={errors.graduationYear}
-          />
-          <div className="sm:col-span-2">
-            <CheckboxField label={f('currentlyStudying')} checked={Boolean(values.currentlyStudying)} onChange={set('currentlyStudying')} />
-          </div>
         </div>
       );
       break;
@@ -425,11 +396,9 @@ export function SectionForm({
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f('linkedinUrl')} required type="url" inputMode="url" placeholder="https://www.linkedin.com/in/…" value={str('linkedinUrl')} onChange={set('linkedinUrl')} error={errors.linkedinUrl} />
             <TextField label={f('githubUrl')} required type="url" inputMode="url" placeholder="https://github.com/…" value={str('githubUrl')} onChange={set('githubUrl')} error={errors.githubUrl} />
-            {(['websiteUrl', 'kaggleUrl', 'huggingfaceUrl'] as const).map((k) => (
-              <TextField key={k} label={f(k)} type="url" inputMode="url" placeholder="https://" value={str(k)} onChange={set(k)} error={errors[k]} />
-            ))}
           </div>
-          <CvUpload profile={profile} onChange={onProfileChange ?? onSaved} />
+          {/* CVs are no longer collected; a student who uploaded one before can still open or remove it. */}
+          {profile.hasCv && <SavedCv profile={profile} onChange={onProfileChange ?? onSaved} />}
         </div>
       );
       break;

@@ -150,15 +150,18 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await page.getByLabel('Seniority level').selectOption('MID');
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 3 of 7')).toBeVisible();
+  // Only the highest degree is asked.
   await page.getByLabel('Highest degree').selectOption('BACHELORS');
-  await page.getByLabel('Field of study').fill('Computer Science');
-  await page.getByLabel(/University, institution or learning platform/).fill('Cairo University');
+  await expect(page.getByLabel('Field of study')).toHaveCount(0);
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 4 of 7')).toBeVisible();
   // LinkedIn, GitHub and the community questions are required as well.
   await expect(page.getByRole('button', { name: 'Skip for now' })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'LinkedIn', exact: true }).fill('https://www.linkedin.com/in/e2e-student');
   await page.getByRole('textbox', { name: 'GitHub', exact: true }).fill('https://github.com/e2e-student');
+  // LinkedIn and GitHub only: no other links and no CV upload.
+  await expect(page.locator('main form').getByRole('textbox')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Upload CV' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 5 of 7')).toBeVisible();
   await page.getByLabel(/How did you hear about us/).selectOption('LINKEDIN');
@@ -167,6 +170,8 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   }
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 6 of 7')).toBeVisible();
+  // Skills (and Goals) are optional, and say so.
+  await expect(page.getByRole('heading', { level: 2, name: 'Skills (optional)' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Skip for now' })).toBeVisible();
 
   // 3. Confirm the email from the inbox.

@@ -108,14 +108,25 @@ function Stepper() {
             className={`h-1.5 flex-1 rounded-full ${i < step ? 'bg-primary' : i === step ? 'bg-ink' : 'bg-line'}`}
             aria-current={i === step ? 'step' : undefined}
           >
-            <span className="sr-only">{t(`profile.sections.${s}`)}</span>
+            <span className="sr-only">
+              {t(`profile.sections.${s}`)}
+              {!isRequiredSection(s) && ` (${t('common.optional')})`}
+            </span>
           </li>
         ))}
       </ol>
 
       <section className="mt-8 rounded-card border border-line bg-card p-5 sm:p-8">
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-xl">{t(`profile.sections.${section}`)}</h2>
+          <h2 className="text-xl">
+            {t(`profile.sections.${section}`)}
+            {!isRequiredSection(section) && (
+              <>
+                {' '}
+                <span className="text-base font-normal text-muted">({t('common.optional')})</span>
+              </>
+            )}
+          </h2>
           {isRequiredSection(section) && <span className="text-xs font-semibold text-danger">{t('onboarding.requiredStep')}</span>}
         </div>
         <p className="-mt-4 mb-6 text-sm text-muted">{t(`profile.sectionHints.${section}`)}</p>

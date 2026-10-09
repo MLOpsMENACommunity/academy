@@ -1,6 +1,6 @@
 'use client';
 
-import { computeCompleteness, CORE_FIELD_SECTION, PROFILE_SECTIONS, type MeResponse, type ProfileDto } from '@academy/shared';
+import { computeCompleteness, CORE_FIELD_SECTION, isRequiredSection, PROFILE_SECTIONS, type MeResponse, type ProfileDto } from '@academy/shared';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -119,7 +119,16 @@ function Tabs({ user }: { user: MeResponse }) {
           <AccountPanel user={user} />
         ) : (
           <div className="rounded-card border border-line bg-card p-5 sm:p-8">
-            <p className="mb-6 text-sm text-muted">{t(`profile.sectionHints.${tab}`)}</p>
+            <h2 className="text-xl">
+              {t(`profile.sections.${tab}`)}
+              {!isRequiredSection(tab) && (
+                <>
+                  {' '}
+                  <span className="text-base font-normal text-muted">({t('common.optional')})</span>
+                </>
+              )}
+            </h2>
+            <p className="mt-1 mb-6 text-sm text-muted">{t(`profile.sectionHints.${tab}`)}</p>
             <SectionForm
               key={tab}
               section={tab}

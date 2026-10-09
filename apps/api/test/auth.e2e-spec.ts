@@ -126,10 +126,11 @@ describe('auth & profile (e2e)', () => {
     const edu = await http()
       .put('/api/me/profile/education')
       .set('Cookie', cookies)
-      .send({ educationLevel: 'BACHELORS', fieldOfStudy: 'Computer Science', university: 'Cairo University' })
+      .send({ educationLevel: 'BACHELORS', fieldOfStudy: 'Computer Science' })
       .expect(200);
+    // Only the highest degree is asked now; fields no longer on the form are ignored, not saved.
     // Links and the community questions are required too.
-    expect(edu.body).toMatchObject({ coreComplete: false });
+    expect(edu.body).toMatchObject({ coreComplete: false, educationLevel: 'BACHELORS', fieldOfStudy: null, university: null });
     await http()
       .put('/api/me/profile/links')
       .set('Cookie', cookies)
@@ -138,17 +139,17 @@ describe('auth & profile (e2e)', () => {
     await http()
       .put('/api/me/profile/links')
       .set('Cookie', cookies)
-      .send({ linkedinUrl: 'https://www.linkedin.com/in/student', githubUrl: 'https://github.com/student' })
+      .send({ linkedinUrl: 'https://www.linkedin.com/in/student', githubUrl: 'https://github.com/student', websiteUrl: 'https://me.dev' })
       .expect(200);
     // Every community question needs an explicit answer; nothing defaults to "no".
-    // 66% = every required field (60%) plus the optional industry and secondary area given above.
+    // 67% = every required field (60%) plus the optional industry and secondary area given above (2 of 11 optional fields).
     await http().put('/api/me/profile/community').set('Cookie', cookies).send({ referralSource: 'LINKEDIN' }).expect(400);
     const community = await http()
       .put('/api/me/profile/community')
       .set('Cookie', cookies)
       .send({ referralSource: 'LINKEDIN', communityMember: true, openToOpportunities: false, shareWithPartners: false, marketingEmails: true })
       .expect(200);
-    expect(community.body).toMatchObject({ coreComplete: true, completeness: 66, marketingEmails: true, shareWithPartners: false });
+    expect(community.body).toMatchObject({ coreComplete: true, completeness: 67, websiteUrl: null, marketingEmails: true, shareWithPartners: false });
     expect(community.body.communityAnsweredAt).toBeTruthy();
     const skills = await http()
       .put('/api/me/profile/skills')

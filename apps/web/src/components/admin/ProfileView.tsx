@@ -38,6 +38,8 @@ export function ProfileView({ profile: p }: { profile: ProfileDto }) {
         {url.replace(/^https?:\/\//, '')}
       </a>
     ) : null;
+  /** Fields the form no longer asks for: shown only when a value was saved before. */
+  const legacy = (label: string, v: ReactNode): [string, ReactNode][] => (v === null || v === undefined || v === '' ? [] : [[label, v]]);
   const yes = (v: boolean | null) => (v === null ? null : v ? t('admin.common.yes') : t('admin.common.no'));
   const sections: [string, [string, ReactNode][]][] = [
     [
@@ -70,9 +72,9 @@ export function ProfileView({ profile: p }: { profile: ProfileDto }) {
       'education',
       [
         [f('educationLevel'), one(educationLevelLabels, p.educationLevel)],
-        [f('fieldOfStudy'), p.fieldOfStudy],
-        [f('university'), p.university],
-        [f('graduationYear'), p.graduationYear],
+        ...legacy(f('fieldOfStudy'), p.fieldOfStudy),
+        ...legacy(f('university'), p.university),
+        ...legacy(f('graduationYear'), p.graduationYear),
       ],
     ],
     [
@@ -103,9 +105,9 @@ export function ProfileView({ profile: p }: { profile: ProfileDto }) {
       [
         [f('linkedinUrl'), link(p.linkedinUrl)],
         [f('githubUrl'), link(p.githubUrl)],
-        [f('websiteUrl'), link(p.websiteUrl)],
-        [f('kaggleUrl'), link(p.kaggleUrl)],
-        [f('huggingfaceUrl'), link(p.huggingfaceUrl)],
+        ...legacy(f('websiteUrl'), link(p.websiteUrl)),
+        ...legacy(f('kaggleUrl'), link(p.kaggleUrl)),
+        ...legacy(f('huggingfaceUrl'), link(p.huggingfaceUrl)),
       ],
     ],
     [
