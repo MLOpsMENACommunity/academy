@@ -74,11 +74,32 @@ export default async function LearningPathPage({ params }: Props) {
   };
 
   function line(s: ResolvedStep): string {
-    if (s.kind === 'course') return [t('paths.kindCourse'), s.people.join(sep), s.description].filter(Boolean).join(' · ');
+    if (s.kind === 'course') return [t('paths.kindCourse'), s.description].filter(Boolean).join(' · ');
     // Steps with their own badge (Live / Video) and description don't repeat the kind here.
-    return [!s.format && t('paths.kindRecording'), s.people.join(sep), s.date && formatDate(s.date, loc), s.durationMin && durationLabel(s.durationMin, loc)]
+    return [!s.format && t('paths.kindRecording'), s.date && formatDate(s.date, loc), s.durationMin && durationLabel(s.durationMin, loc)]
       .filter(Boolean)
       .join(' · ');
+  }
+  /** Speakers first, each linked to their speaker page when they have one, then the rest of the line. */
+  function meta(s: ResolvedStep) {
+    const rest = line(s);
+    const people = s.speakers.flatMap((sp, i) => [
+      ...(i > 0 ? [sep] : []),
+      sp.slug ? (
+        <Link key={sp.slug} href={`/${loc}/speakers/${sp.slug}`} className="text-body hover:text-primary hover:underline">
+          {sp.name}
+        </Link>
+      ) : (
+        <span key={`${sp.name}-${i}`}>{sp.name}</span>
+      ),
+    ]);
+    return (
+      <>
+        {people}
+        {people.length > 0 && rest && ' · '}
+        {rest}
+      </>
+    );
   }
   function action(s: ResolvedStep): string {
     if (s.kind === 'video') return t('paths.watchYoutube');
@@ -145,7 +166,7 @@ export default async function LearningPathPage({ params }: Props) {
                           </Link>
                         )}
                       </h3>
-                      <p className="line-clamp-2 text-sm text-muted">{line(s)}</p>
+                      <p className="line-clamp-2 text-sm text-muted">{meta(s)}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       {s.format ? (

@@ -17,8 +17,11 @@ export interface StepDetails {
   /** As published on YouTube; English titles are used in both languages unless `ar` is given. */
   title?: { en: string; ar?: string };
   format?: StepFormat;
-  /** Speaker or instructor names; [] for none. */
-  people?: Text[];
+  /**
+   * Speaker slugs; [] for none. Names (and their speaker pages) come from the speaker
+   * records the API returns with the recordings, so a rename flows through.
+   */
+  speakers?: string[];
   description?: Text;
   /** Public slides and code only (never invite links, forms or spreadsheets). */
   links?: StepLink[];
@@ -45,7 +48,7 @@ export interface LearningPath {
   showDates?: boolean;
 }
 
-const AYA: Text = { en: 'Aya Nasser Salama', ar: 'آية ناصر سلامة' };
+const AYA = 'aya-nasser-salama';
 const COURSE_REPO = 'https://github.com/MLOpsMENACommunity/mlops_practitioner_course';
 
 /**
@@ -58,7 +61,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     kind: 'video',
     title: { en: 'MLOps Course Guide' },
     format: 'video',
-    people: [],
+    speakers: [],
     description: {
       en: 'How The MLOps Practitioner works: timeline, commitment and certificates, prerequisites, the two project tracks (Arabic sentiment analysis and Arabic legal RAG) and the submission timeline.',
       ar: 'كيف تسير دورة The MLOps Practitioner: الجدول الزمني والالتزام والشهادات، والمتطلبات المسبقة، ومساري المشروع (تحليل المشاعر بالعربية وRAG للنصوص القانونية العربية)، ومواعيد التسليم.',
@@ -72,7 +75,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     order: 1,
     title: { en: 'MLOps #1: From Notebook to Production-Ready ML Code' },
     format: 'live',
-    people: [AYA],
+    speakers: [AYA],
     description: {
       en: 'Turn notebook code into a tested, containerised ML API: packaging, FastAPI and Pydantic, serialisation formats, Docker multi-stage builds and Compose, structured logging and pytest.',
       ar: 'حوّل كود الـ Notebook إلى واجهة API لنموذج مختبرة وداخل حاوية: حزم المشروع، وFastAPI وPydantic، وصيغ حفظ النماذج، وبناء Docker متعدد المراحل وCompose، والسجلات المنظمة، وpytest.',
@@ -88,7 +91,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     slug: 'hands-on-fastapi-backend-for-mlops',
     title: { en: 'Hands-on FastAPI and backend for MLOps' },
     format: 'video',
-    people: [{ en: 'Mohamed Samy', ar: 'محمد سامي' }],
+    speakers: ['mohamed-samy'],
     description: {
       en: 'API fundamentals for AI engineers: Pydantic, FastAPI with SQLAlchemy, async and dependency injection, rate limiting and auth, streaming LLM responses, FastAPI with vLLM, and Docker with PostgreSQL.',
       ar: 'أساسيات الواجهات البرمجية لمهندسي الذكاء الاصطناعي: Pydantic، وFastAPI مع SQLAlchemy، والبرمجة غير المتزامنة وحقن الاعتماديات، وتحديد المعدّل والمصادقة، وبثّ ردود النماذج اللغوية، وFastAPI مع vLLM، وDocker مع PostgreSQL.',
@@ -104,7 +107,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     slug: 'docker-deep-dive',
     title: { en: 'Hands-on Docker' },
     format: 'video',
-    people: [{ en: 'Mahmoud Sharif', ar: 'محمود شريف' }],
+    speakers: ['mahmoud-sharif'],
     description: {
       en: 'Hands-on Docker for building ML systems: containers and images, networking and volumes, Dockerfile best practices and security, and Docker Compose.',
       ar: 'Docker عمليًا لبناء أنظمة تعلّم الآلة: الحاويات والصور، والشبكات ووحدات التخزين، وأفضل ممارسات Dockerfile والأمان، وDocker Compose.',
@@ -117,7 +120,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     order: 2,
     title: { en: 'MLOps #2: MLflow, DVC & GitHub Actions' },
     format: 'live',
-    people: [AYA],
+    speakers: [AYA],
     description: {
       en: 'Experiment tracking and the model registry with MLflow, data and model versioning with DVC, and a GitHub Actions pipeline from training to a pushed image, with continuous training.',
       ar: 'تتبّع التجارب وسجلّ النماذج باستخدام MLflow، وإدارة نسخ البيانات والنماذج باستخدام DVC، وخط GitHub Actions من التدريب حتى رفع الصورة، مع التدريب المستمر.',
@@ -133,7 +136,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     slug: 'hands-on-cicd-github-actions',
     title: { en: 'Hands-on CI/CD pipelines' },
     format: 'video',
-    people: [{ en: 'Abdallah Almalawany', ar: 'عبدالله الملواني' }],
+    speakers: ['abdallah-almalawany'],
     description: {
       en: 'Build a working GitHub Actions workflow step by step: triggers, jobs, matrices, runners, caching, secrets and approval gates, with supply-chain security in mind.',
       ar: 'ابنِ workflow يعمل على GitHub Actions خطوة بخطوة: المشغّلات والمهام والـ matrix والـ runners والتخزين المؤقت والأسرار وبوابات الموافقة، مع مراعاة أمن سلسلة التوريد.',
@@ -146,7 +149,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     order: 3,
     title: { en: 'MLOps #3: Model Serving at Scale' },
     format: 'video',
-    people: [AYA],
+    speakers: [AYA],
     description: {
       en: 'Inference patterns and the serving stack: Airflow orchestration, batch and streaming, BentoML, Triton and TensorRT, ONNX Runtime and OpenVINO, vLLM, load testing, and canary and shadow releases.',
       ar: 'أنماط الاستدلال ومنظومة تقديم النماذج: التنسيق بـ Airflow، والمعالجة الدفعية والمتدفقة، وBentoML وTriton وTensorRT، وONNX Runtime وOpenVINO، وvLLM، واختبار الحِمل، والإصدار التدريجي (Canary) وShadow.',
@@ -162,7 +165,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     slug: 'kubernetes-deployment-strategies-part-1',
     title: { en: 'Kubernetes Deployment Strategies Part 1: Recreate, Rolling Update, Blue-Green' },
     format: 'video',
-    people: [],
+    speakers: [],
     description: {
       en: 'Recreate, Rolling Update and Blue-Green: when each fits, and how each one moves traffic from the old version to the new.',
       ar: 'Recreate وRolling Update وBlue-Green: متى تناسب كل طريقة، وكيف تنقل كلٌّ منها الحركة من النسخة القديمة إلى الجديدة.',
@@ -175,7 +178,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     slug: 'kubernetes-deployment-strategies-part-2',
     title: { en: 'Kubernetes Deployment Strategies Part 2: Canary, A/B Routing, Shadow Traffic' },
     format: 'video',
-    people: [],
+    speakers: [],
     description: {
       en: 'Canary releases, A/B routing to user groups, and mirroring shadow traffic to a new version.',
       ar: 'الإصدار التدريجي (Canary)، وتوجيه A/B لمجموعات المستخدمين، ونسخ الحركة (Shadow Traffic) إلى النسخة الجديدة.',
@@ -189,7 +192,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     order: 4,
     title: { en: 'MLOps #4: Observability and Drift Detection' },
     format: 'live',
-    people: [AYA],
+    speakers: [AYA],
     description: {
       en: 'Why models fail quietly: data, concept, prediction and label drift; Prometheus, Grafana and Evidently AI; real production incidents; Langfuse tracing and RAGAS evaluation.',
       ar: 'لماذا تفشل النماذج بصمت: انحراف البيانات والمفاهيم والتنبؤات والتسميات؛ وPrometheus وGrafana وEvidently AI؛ وحوادث إنتاج حقيقية؛ والتتبّع بـ Langfuse والتقييم بـ RAGAS.',
@@ -205,7 +208,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     slug: 'prometheus-grafana-monitoring-stack-part-1',
     title: { en: 'Prometheus & Grafana Monitoring Stack: Architecture, Metrics & PromQL (Part 1)' },
     format: 'video',
-    people: [{ en: 'Mahmoud Sharif', ar: 'محمود شريف' }],
+    speakers: ['mahmoud-sharif'],
     description: {
       en: 'Monitoring foundations: metrics, logs and traces; the Prometheus pull model, discovery and storage; metric types and exporters; and PromQL.',
       ar: 'أسس المراقبة: المقاييس والسجلات والتتبّعات؛ ونموذج السحب في Prometheus واكتشاف الأهداف والتخزين؛ وأنواع المقاييس والـ exporters؛ وPromQL.',
@@ -220,7 +223,7 @@ const MLOPS_ENGINEER_STEPS: PathStepRef[] = [
     kind: 'video',
     title: { en: 'MLOps Practitioner Course: Final project submission' },
     format: 'video',
-    people: [],
+    speakers: [],
     description: {
       en: 'How to submit your final project for The MLOps Practitioner.',
       ar: 'كيف تسلّم مشروعك النهائي في دورة The MLOps Practitioner.',
@@ -293,6 +296,8 @@ export interface ResolvedStep {
   status: StepStatus;
   /** Course instructors or the recording's speakers, by name. */
   people: string[];
+  /** The same people with their speaker page slug, when they have one. */
+  speakers: { slug: string | null; name: string }[];
   /** Recordings: when it was recorded (or released) and how long it is. */
   date: string | null;
   durationMin: number | null;
@@ -314,6 +319,9 @@ const speakerNames = (locale: Locale, speakers: SpeakerRefDto[]) => speakers.map
 
 /** The path's steps that exist on the site (or on YouTube, for steps with a video fallback), in order. */
 export function resolveSteps(path: LearningPath, courses: CourseSummaryDto[], recordings: RecordingDto[], locale: Locale): ResolvedStep[] {
+  // Every speaker the API knows, by slug: the same records the speaker pages show.
+  const known = new Map(recordings.flatMap((r) => r.speakers).flatMap((sp) => (sp.slug ? [[sp.slug, sp] as const] : [])));
+  const named = (list: SpeakerRefDto[]) => list.map((sp) => ({ slug: sp.slug, name: pick(locale, sp.name, sp.nameAr) }));
   return path.steps.flatMap((ref, i): ResolvedStep[] => {
     const title = ref.title ? (locale === 'ar' && ref.title.ar ? ref.title.ar : ref.title.en) : null;
     const details = {
@@ -321,7 +329,9 @@ export function resolveSteps(path: LearningPath, courses: CourseSummaryDto[], re
       format: ref.format ?? null,
       links: ref.links ?? [],
     };
-    const people = ref.people?.map((n) => n[locale]);
+    // A slug the API doesn't return (not imported yet, API down) is left out rather than guessed.
+    const listed = ref.speakers && named(ref.speakers.flatMap((slug) => known.get(slug) ?? []));
+    const people = listed?.map((sp) => sp.name);
     if (ref.kind === 'course') {
       const c = courses.find((x) => x.slug === ref.slug);
       if (!c) return [];
@@ -334,6 +344,7 @@ export function resolveSteps(path: LearningPath, courses: CourseSummaryDto[], re
           title: title ?? pick(locale, c.titleEn, c.titleAr),
           status: courseStatus(c),
           people: people ?? c.instructorNames,
+          speakers: listed ?? c.instructorNames.map((name) => ({ slug: null, name })),
           date: null,
           durationMin: null,
           ...details,
@@ -357,6 +368,7 @@ export function resolveSteps(path: LearningPath, courses: CourseSummaryDto[], re
           title: title ?? pick(locale, r.titleEn, r.titleAr),
           status: 'recording',
           people: people ?? speakerNames(locale, r.speakers),
+          speakers: listed ?? named(r.speakers),
           date: path.showDates === false ? null : r.startsAt,
           durationMin: r.durationMin,
           ...details,
@@ -374,6 +386,7 @@ export function resolveSteps(path: LearningPath, courses: CourseSummaryDto[], re
         title,
         status: 'recording',
         people: people ?? [],
+        speakers: listed ?? [],
         date: null,
         durationMin: null,
         ...details,

@@ -105,6 +105,7 @@ const lesson = (order: number): RecordingDto => ({
   kind: 'course',
   path: '/courses/mlops-practitioner',
   course: { slug: 'mlops-practitioner', titleEn: 'The MLOps Practitioner', titleAr: 'The MLOps Practitioner', order },
+  speakers: [],
 });
 
 describe('the MLOps Engineer path', () => {
@@ -130,7 +131,17 @@ describe('the MLOps Engineer path', () => {
   });
 
   it('links each step to its page on the academy when there is one, else to YouTube', () => {
-    const recs = ['docker-deep-dive', 'hands-on-cicd-github-actions', 'kubernetes-deployment-strategies-part-1', 'kubernetes-deployment-strategies-part-2', 'hands-on-fastapi-backend-for-mlops', 'prometheus-grafana-monitoring-stack-part-1'].map(recording);
+    const sp = (slug: string, name: string) => ({ slug, name, nameAr: null, titleEn: null, titleAr: null, photoUrl: null });
+    const speakersBySession: Record<string, ReturnType<typeof sp>[]> = {
+      'docker-deep-dive': [sp('mahmoud-sharif', 'Mahmoud Sharif')],
+      // A renamed speaker: the path shows the current name from the speaker record.
+      'hands-on-cicd-github-actions': [sp('abdallah-almalawany', 'Abdallah Elmalawany'), sp('aya-nasser-salama', 'Aya Nasser Salama')],
+      'hands-on-fastapi-backend-for-mlops': [sp('mohamed-samy', 'Mohamed Samy')],
+    };
+    const recs = ['docker-deep-dive', 'hands-on-cicd-github-actions', 'kubernetes-deployment-strategies-part-1', 'kubernetes-deployment-strategies-part-2', 'hands-on-fastapi-backend-for-mlops', 'prometheus-grafana-monitoring-stack-part-1'].map((slug) => ({
+      ...recording(slug),
+      speakers: speakersBySession[slug] ?? [],
+    }));
     const steps = resolveSteps(path, [], [...recs, lesson(1), lesson(2), lesson(3), lesson(4)], 'en');
     expect(steps.map((s) => s.path)).toEqual([
       'https://www.youtube.com/watch?v=n0dv6KZHq9M',
@@ -148,16 +159,20 @@ describe('the MLOps Engineer path', () => {
     ]);
     expect(steps.map((s) => s.title)).toEqual(MLOPS_ENGINEER_ORDER.map(([t]) => t));
     expect(steps[1]).toMatchObject({ kind: 'lesson', people: ['Aya Nasser Salama'], format: 'live' });
+    expect(steps[1]!.speakers).toEqual([{ slug: 'aya-nasser-salama', name: 'Aya Nasser Salama' }]);
+    expect(steps[5]!.speakers).toEqual([{ slug: 'abdallah-almalawany', name: 'Abdallah Elmalawany' }]);
     expect(steps[7]!.people).toEqual([]);
     // The order isn't chronological: no dates at all.
     expect(steps.every((s) => s.date === null)).toBe(true);
-    expect(steps[10]!.people).toEqual(['Mahmoud Sharif']);
+    // Prometheus has no speaker in the archive: the path names him by slug, resolved from the API's records.
+    expect(steps[10]!.speakers).toEqual([{ slug: 'mahmoud-sharif', name: 'Mahmoud Sharif' }]);
 
     // Nothing on the site yet (API down at build, archive not imported): all 12 still show, on YouTube.
     const bare = resolveSteps(path, [], [], 'ar');
     expect(bare).toHaveLength(12);
     expect(bare.every((s) => s.external && s.kind === 'video')).toBe(true);
-    expect(bare[2]!.people).toEqual(['محمد سامي']);
+    // Without the API's speaker records nobody is named (never a hardcoded, possibly stale name).
+    expect(bare.every((s) => s.people.length === 0)).toBe(true);
     expect(new Set(bare.map((s) => s.slug)).size).toBe(12);
   });
 
