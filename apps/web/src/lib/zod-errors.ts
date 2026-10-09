@@ -41,6 +41,8 @@ function translateIssue(i: ZodIssue, t: Translate): string {
       if (m.includes('to publish')) return t('forms.errors.arabicToPublish');
       if (m.includes('required') || m.includes('choose at least')) return t('forms.errors.required');
       if (m.includes('drive.google.com')) return t('forms.errors.driveUrl');
+      if (m.includes('linkedin.com')) return t('forms.errors.linkedinUrl');
+      if (m.includes('github.com')) return t('forms.errors.githubUrl');
       if (m.includes('price')) return t('forms.errors.price');
       if (m.includes('url')) return t('forms.errors.url');
       if (m.includes('international') || m.includes('phone')) return t('forms.errors.phone');

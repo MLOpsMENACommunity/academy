@@ -94,7 +94,9 @@
       "driveUrl": "يجب أن يكون رابط Google Drive ‏(https://drive.google.com/…)",
       "price": "الدورات المدفوعة تحتاج سعرًا أكبر من 0، والمجانية سعرها 0",
       "arabicToPublish": "مطلوب قبل نشر الدورة. يمكن حفظ المسودات بالإنجليزية فقط.",
-      "liveLinkToPublish": "أضف رابط البث قبل النشر."
+      "liveLinkToPublish": "أضف رابط البث قبل النشر.",
+      "linkedinUrl": "أدخل رابط ملفك على LinkedIn (https://www.linkedin.com/in/…)",
+      "githubUrl": "أدخل رابط ملفك على GitHub (https://github.com/…)"
     }
   },
   "auth": {

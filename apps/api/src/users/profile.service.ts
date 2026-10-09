@@ -39,7 +39,6 @@ export function toProfileDto(p: ProfileWithSkills | null): ProfileDto {
     acceptedTermsAt: iso(p?.acceptedTermsAt),
     company: p?.company ?? null,
     industry: p?.industry ?? null,
-    companySize: p?.companySize ?? null,
     mlExperienceYears: p?.mlExperienceYears ?? null,
     seniority: p?.seniority ?? null,
     secondaryAreas: p?.secondaryAreas ?? [],
@@ -68,6 +67,7 @@ export function toProfileDto(p: ProfileWithSkills | null): ProfileDto {
     openToOpportunities: p?.openToOpportunities ?? false,
     shareWithPartners: p?.shareWithPartners ?? false,
     marketingEmails: p?.marketingEmails ?? false,
+    communityAnsweredAt: iso(p?.communityAnsweredAt),
     completeness: p?.completeness ?? 0,
     coreComplete: Boolean(p?.coreCompletedAt),
     updatedAt: iso(p?.updatedAt),
@@ -128,6 +128,11 @@ export class ProfileService {
         await tx.profile.update({
           where: { id: before.id },
           data: { ...rest, acceptedTermsAt: before.acceptedTermsAt ?? new Date() },
+        });
+      } else if (section === 'community') {
+        await tx.profile.update({
+          where: { id: before.id },
+          data: { ...(data as Prisma.ProfileUpdateInput), communityAnsweredAt: new Date() },
         });
       } else {
         await tx.profile.update({ where: { id: before.id }, data: data as Prisma.ProfileUpdateInput });

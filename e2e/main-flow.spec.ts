@@ -129,7 +129,6 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await expect(page.getByText('Step 2 of 7')).toBeVisible();
   // Professional background and education are required too (no "Skip").
   await expect(page.getByRole('button', { name: 'Skip for now' })).toHaveCount(0);
-  await page.getByLabel('Industry').selectOption('TELECOM');
   await page.getByLabel('Experience in ML/AI specifically').selectOption('Y1_3');
   await page.getByLabel('Seniority level').selectOption('MID');
   await page.getByRole('button', { name: 'Save and continue' }).click();
@@ -139,6 +138,18 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await page.getByLabel(/University, institution or learning platform/).fill('Cairo University');
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 4 of 7')).toBeVisible();
+  // LinkedIn, GitHub and the community questions are required as well.
+  await expect(page.getByRole('button', { name: 'Skip for now' })).toHaveCount(0);
+  await page.getByLabel('LinkedIn', { exact: true }).fill('https://www.linkedin.com/in/e2e-student');
+  await page.getByLabel('GitHub', { exact: true }).fill('https://github.com/e2e-student');
+  await page.getByRole('button', { name: 'Save and continue' }).click();
+  await expect(page.getByText('Step 5 of 7')).toBeVisible();
+  await page.getByLabel(/How did you hear about us/).selectOption('LINKEDIN');
+  for (const q of [/member of the community/, /open to job opportunities/, /Share my profile/, /Email me about new courses/]) {
+    await page.getByRole('group', { name: q }).getByLabel('No').check();
+  }
+  await page.getByRole('button', { name: 'Save and continue' }).click();
+  await expect(page.getByText('Step 6 of 7')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Skip for now' })).toBeVisible();
 
   // 3. Confirm the email from the inbox.
