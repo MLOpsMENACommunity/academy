@@ -52,11 +52,36 @@ export interface SeedRevision {
 
 export interface SeedInstructorRevision {
   name: string;
-  from: Partial<Pick<Instructor, 'slug' | 'linkedinUrl'>>;
-  to: Partial<Pick<Instructor, 'slug' | 'linkedinUrl'>>;
+  from: Partial<Pick<Instructor, 'slug' | 'linkedinUrl' | 'bioEn' | 'bioAr' | 'photoUrl'>>;
+  to: Partial<Pick<Instructor, 'slug' | 'linkedinUrl' | 'bioEn' | 'bioAr' | 'photoUrl'>>;
 }
 
 const PLAYLIST = 'https://www.youtube.com/playlist?list=PLfBN40jBVI-U';
+
+/** Eng. Sameh's bio as the first version of this seed stored it (see instructorRevisions). */
+const SAMEH_BIO_V1_EN = `Sameh has over 20 years in software and AI engineering and nearly a decade building AI organisations and production AI systems across the Middle East and Europe.
+
+At Unifonic, he founded the AI department from scratch. He launched an Arabic/English NLP engine, built a real-time SMS classifier processing 5,000 messages per second, and scaled AI to 6 squads of 20+ engineers delivering RAG, summarisation and text-generation services. He now leads Unifonic's agentic AI startup, which lets customers build working agents in under an hour.
+
+Before Unifonic, at DocuSign he designed an AI contract-negotiation system processing 100K+ contracts. At Etisalat he delivered the company's first NLP chatbot, a recommendation engine that lifted digital engagement by 70%, OCR document automation, and deep-learning face login.
+
+He holds an MSc in Artificial Intelligence from the University of Colorado Boulder and engineering leadership training from Cornell University.`;
+const SAMEH_BIO_V1_AR = `يمتلك سامح خبرة تتجاوز 20 عامًا في هندسة البرمجيات والذكاء الاصطناعي، وقرابة عقد في بناء فرق الذكاء الاصطناعي وأنظمته في بيئة الإنتاج في الشرق الأوسط وأوروبا.
+
+في Unifonic أسّس قسم الذكاء الاصطناعي من الصفر. أطلق محركًا لمعالجة اللغة الطبيعية بالعربية والإنجليزية، وبنى مصنّفًا فوريًا لرسائل SMS يعالج 5,000 رسالة في الثانية، ووسّع فريق الذكاء الاصطناعي إلى 6 فرق تضم أكثر من 20 مهندسًا تقدم خدمات RAG والتلخيص وتوليد النصوص. ويقود اليوم الشركة الناشئة التابعة لـ Unifonic في مجال الوكلاء الذكيين (Agentic AI)، التي تتيح للعملاء بناء وكلاء يعملون فعليًا في أقل من ساعة.
+
+قبل Unifonic، صمّم في DocuSign نظامًا للتفاوض على العقود بالذكاء الاصطناعي يعالج أكثر من 100 ألف عقد. وفي Etisalat قدّم أول روبوت محادثة يعتمد على معالجة اللغة الطبيعية في الشركة، ومحرك توصيات رفع التفاعل الرقمي بنسبة 70%، وأتمتة المستندات بتقنية التعرف الضوئي على الحروف (OCR)، وتسجيل الدخول ببصمة الوجه باستخدام التعلم العميق.
+
+حاصل على ماجستير في الذكاء الاصطناعي من جامعة كولورادو بولدر، وتدريب في القيادة الهندسية من جامعة كورنيل.`;
+
+/**
+ * His bio from the owner (10 Oct 2026), grammar lightly tidied. The CV line "Targeting a
+ * Leadership AI roles." is left out: it isn't for a public page.
+ */
+const SAMEH_BIO_EN =
+  'Results-driven AI Executive with 15+ years of leadership in AI strategy, MLOps, and scalable machine learning systems. Currently building an AI startup within Unifonic. Proven track record in founding and scaling AI departments, delivering measurable business impact through AI solutions (LLMs, RAG, NLP, agentic AI, recommendation engines and more), and leading globally distributed teams. Passionate about leveraging AI to solve complex business problems.';
+const SAMEH_BIO_AR =
+  'قائد في مجال الذكاء الاصطناعي يركّز على النتائج، بخبرة قيادية تتجاوز 15 عامًا في استراتيجيات الذكاء الاصطناعي وMLOps وأنظمة machine learning القابلة للتوسّع. يبني حاليًا شركة ناشئة في الذكاء الاصطناعي داخل Unifonic. له سجل مثبت في تأسيس أقسام الذكاء الاصطناعي وتوسيعها، وتحقيق أثر ملموس على الأعمال من خلال حلول الذكاء الاصطناعي (LLMs وRAG وNLP وAgentic AI وأنظمة التوصية وغيرها)، وقيادة فرق موزّعة حول العالم. شغوف بتوظيف الذكاء الاصطناعي لحل مشكلات الأعمال المعقّدة.';
 
 // ------------------------------------------------------------------ AI Architecture Design
 
@@ -375,6 +400,11 @@ ai-architecture-portfolio/
       from: { slug: null, linkedinUrl: null },
       to: { slug: 'sameh-amin', linkedinUrl: 'https://www.linkedin.com/in/sameh-amin' },
     },
+    {
+      name: '2026-10 photo and bio',
+      from: { bioEn: SAMEH_BIO_V1_EN, bioAr: SAMEH_BIO_V1_AR, photoUrl: null },
+      to: { bioEn: SAMEH_BIO_EN, bioAr: SAMEH_BIO_AR, photoUrl: '/speakers/sameh-amin.webp' },
+    },
   ],
   instructor: {
     // His page: /speakers/sameh-amin. Photo and bio: see OPERATIONS.md (instructor and speaker photos).
@@ -384,20 +414,9 @@ ai-architecture-portfolio/
     nameAr: 'م. سامح أمين',
     titleEn: 'Head of Artificial Intelligence, Unifonic',
     titleAr: 'رئيس قسم الذكاء الاصطناعي في Unifonic',
-    bioEn: `Sameh has over 20 years in software and AI engineering and nearly a decade building AI organisations and production AI systems across the Middle East and Europe.
-
-At Unifonic, he founded the AI department from scratch. He launched an Arabic/English NLP engine, built a real-time SMS classifier processing 5,000 messages per second, and scaled AI to 6 squads of 20+ engineers delivering RAG, summarisation and text-generation services. He now leads Unifonic's agentic AI startup, which lets customers build working agents in under an hour.
-
-Before Unifonic, at DocuSign he designed an AI contract-negotiation system processing 100K+ contracts. At Etisalat he delivered the company's first NLP chatbot, a recommendation engine that lifted digital engagement by 70%, OCR document automation, and deep-learning face login.
-
-He holds an MSc in Artificial Intelligence from the University of Colorado Boulder and engineering leadership training from Cornell University.`,
-    bioAr: `يمتلك سامح خبرة تتجاوز 20 عامًا في هندسة البرمجيات والذكاء الاصطناعي، وقرابة عقد في بناء فرق الذكاء الاصطناعي وأنظمته في بيئة الإنتاج في الشرق الأوسط وأوروبا.
-
-في Unifonic أسّس قسم الذكاء الاصطناعي من الصفر. أطلق محركًا لمعالجة اللغة الطبيعية بالعربية والإنجليزية، وبنى مصنّفًا فوريًا لرسائل SMS يعالج 5,000 رسالة في الثانية، ووسّع فريق الذكاء الاصطناعي إلى 6 فرق تضم أكثر من 20 مهندسًا تقدم خدمات RAG والتلخيص وتوليد النصوص. ويقود اليوم الشركة الناشئة التابعة لـ Unifonic في مجال الوكلاء الذكيين (Agentic AI)، التي تتيح للعملاء بناء وكلاء يعملون فعليًا في أقل من ساعة.
-
-قبل Unifonic، صمّم في DocuSign نظامًا للتفاوض على العقود بالذكاء الاصطناعي يعالج أكثر من 100 ألف عقد. وفي Etisalat قدّم أول روبوت محادثة يعتمد على معالجة اللغة الطبيعية في الشركة، ومحرك توصيات رفع التفاعل الرقمي بنسبة 70%، وأتمتة المستندات بتقنية التعرف الضوئي على الحروف (OCR)، وتسجيل الدخول ببصمة الوجه باستخدام التعلم العميق.
-
-حاصل على ماجستير في الذكاء الاصطناعي من جامعة كولورادو بولدر، وتدريب في القيادة الهندسية من جامعة كورنيل.`,
+    bioEn: SAMEH_BIO_EN,
+    bioAr: SAMEH_BIO_AR,
+    photoUrl: '/speakers/sameh-amin.webp',
   },
   questions: [
     {

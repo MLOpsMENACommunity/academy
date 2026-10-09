@@ -164,6 +164,11 @@ export const archiveFileSchema = z.object({
   speakers: z.array(archiveSpeakerSchema).default([]),
   sessions: z.array(archiveSessionSchema).default([]),
   courses: z.array(archiveCourseSchema).default([]),
+  /**
+   * Speaker slugs the archive used to list and no longer does. The import deletes each one it
+   * created, that no admin has saved and that nothing links to any more; others stay for an admin.
+   */
+  removed: z.object({ speakers: z.array(slug).default([]) }).default({ speakers: [] }),
 });
 
 export type ArchiveSpeaker = z.infer<typeof archiveSpeakerSchema>;
@@ -177,11 +182,13 @@ export interface Archive {
   speakers: ArchiveSpeaker[];
   sessions: ArchiveSession[];
   courses: ArchiveCourse[];
+  /** Speaker slugs to remove (see archiveFileSchema.removed). */
+  removedSpeakers?: string[];
 }
 
 /** Validates and merges several files; a slug may appear only once per kind across all of them. */
 export function parseArchive(files: { name: string; data: unknown }[]): Archive {
-  const out: Archive = { speakers: [], sessions: [], courses: [] };
+  const out: Archive = { speakers: [], sessions: [], courses: [], removedSpeakers: [] };
   for (const f of files) {
     const r = archiveFileSchema.safeParse(f.data);
     if (!r.success) {
@@ -191,6 +198,7 @@ export function parseArchive(files: { name: string; data: unknown }[]): Archive 
     out.speakers.push(...r.data.speakers);
     out.sessions.push(...r.data.sessions);
     out.courses.push(...r.data.courses);
+    out.removedSpeakers!.push(...r.data.removed.speakers);
   }
   for (const kind of ['speakers', 'sessions', 'courses'] as const) {
     const seen = new Set<string>();
@@ -199,5 +207,7 @@ export function parseArchive(files: { name: string; data: unknown }[]): Archive 
       seen.add(e.slug);
     }
   }
+  const listed = out.removedSpeakers!.find((s) => out.speakers.some((x) => x.slug === s));
+  if (listed) throw new Error(`Speaker ${listed} is both listed and removed in the archive`);
   return out;
 }

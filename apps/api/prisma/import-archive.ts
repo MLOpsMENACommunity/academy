@@ -19,7 +19,9 @@ import { ARCHIVE_FORMAT_VERSION, parseArchive, type Archive, type ArchiveCourse,
  *   (the slugs ever imported are kept in the `__archiveImported` setting);
  * - when no archive file changed since the last successful import, nothing is read at all.
  *
- * Everything else is created, or updated in place when its entry changed.
+ * Everything else is created, or updated in place when its entry changed. A speaker the archive
+ * lists under `removed` is deleted once nothing links to it, but only if the import created it
+ * and no admin has saved it (the same rule as updates).
  */
 
 const SOURCE = 'import';
@@ -41,6 +43,8 @@ interface Registry {
 export interface ImportReport {
   created: string[];
   updated: string[];
+  /** "speaker:slug" records deleted because the archive no longer lists them. */
+  removed: string[];
   /** "kind:slug: reason" */
   skipped: string[];
   /** True when the archive was unchanged since the last import and nothing was read. */
@@ -205,7 +209,7 @@ async function readRegistry(tx: Tx | PrismaClient): Promise<Registry> {
  */
 export async function importArchive(prisma: PrismaClient, archive: Archive, opts: { now?: Date; force?: boolean } = {}): Promise<ImportReport> {
   const now = opts.now ?? new Date();
-  const report: ImportReport = { created: [], updated: [], skipped: [] };
+  const report: ImportReport = { created: [], updated: [], removed: [], skipped: [] };
   const archiveHash = importHash({ version: ARCHIVE_FORMAT_VERSION, archive });
   // The common case on a container start: one query, no transaction.
   if (!opts.force && (await readRegistry(prisma)).archiveHash === archiveHash) return { ...report, unchangedArchive: true };
@@ -336,6 +340,23 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
         }
       }
 
+      // ---- speakers no longer in the archive (after the sessions and courses dropped their links)
+      for (const r of archive.removedSpeakers ?? []) {
+        const s = await tx.instructor.findUnique({
+          where: { slug: r },
+          select: { id: true, source: true, importHash: true, _count: { select: { events: true, coSpeaking: true, courses: true } } },
+        });
+        if (!s) continue;
+        const links = s._count.events + s._count.coSpeaking + s._count.courses;
+        if (s.source !== SOURCE) report.skipped.push(`speaker:${r}: not removed (not created by the import)`);
+        else if (s.importHash === null) report.skipped.push(`speaker:${r}: not removed (edited by an admin since it was imported)`);
+        else if (links > 0) report.skipped.push(`speaker:${r}: not removed (still on a session or course an admin has edited: remove them there, then delete the speaker)`);
+        else {
+          await tx.instructor.delete({ where: { id: s.id } });
+          report.removed.push(`speaker:${r}`);
+        }
+      }
+
       registry.archiveHash = archiveHash;
       await tx.setting.upsert({
         where: { key: IMPORTED_KEY },
@@ -396,10 +417,11 @@ async function main(): Promise<void> {
     }
     for (const line of report.created) console.log(`Archive: created ${line}`);
     for (const line of report.updated) console.log(`Archive: updated ${line}`);
+    for (const line of report.removed) console.log(`Archive: removed ${line}`);
     const unchanged = report.skipped.filter((s) => s.endsWith(': unchanged')).length;
     for (const line of report.skipped.filter((s) => !s.endsWith(': unchanged'))) console.log(`Archive: kept ${line}`);
     console.log(
-      `Archive import done: ${report.created.length} created, ${report.updated.length} updated, ${unchanged} unchanged, ${report.skipped.length - unchanged} kept as they are.`,
+      `Archive import done: ${report.created.length} created, ${report.updated.length} updated, ${report.removed.length} removed, ${unchanged} unchanged, ${report.skipped.length - unchanged} kept as they are.`,
     );
   } finally {
     await prisma.$disconnect();

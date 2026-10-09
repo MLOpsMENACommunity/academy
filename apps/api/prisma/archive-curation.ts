@@ -105,6 +105,8 @@ export interface CuratedLesson {
  * and a field we don't know stays empty (pages hide it). Arabic names: REVIEW.
  */
 export interface SpeakerProfile {
+  /** Replaces the website's spelling of the name (the slug still comes from the website's). */
+  name?: string;
   nameAr?: string;
   /** Replaces the website's role. */
   titleEn?: string;
@@ -123,46 +125,53 @@ export const speakerProfiles: Record<string, SpeakerProfile> = {
     bioAr:
       'مهندسة MLOps وLLMOps أولى بخبرة تتجاوز 6 سنوات في الذكاء الاصطناعي. في Unifonic هي المرجع المركزي لدعم MLOps/LLMOps عبر فرق الذكاء الاصطناعي — منتجات وكيلة باستخدام LangGraph وMCP، وتقييم ومراقبة النماذج اللغوية، وخدمة نماذج تتجاوز 30 مليار معامل على Kubernetes. صمّمت وتدرّس مادة «Production ML Engineering» في ITI، وبنت أول نظام RAG إنتاجي في Valeo.',
   },
-  // The website said "Instructor · 3+ years experience"; the owner's list says with whom.
+  // Bios, titles and photos from the owner (10 Oct 2026). Grammar lightly tidied; Arabic written
+  // for the archive with tech terms kept in English. Photos: apps/web/public/speakers/{slug}.webp.
   'Mahmoud Sharif': {
     nameAr: 'محمود شريف',
     linkedinUrl: 'https://www.linkedin.com/in/mahmoud-sharif-mossad',
-    titleEn: 'Instructor with eYouth and Mindset',
-    titleAr: 'مدرّب مع eYouth وMindset',
-    bioEn: '3+ years instructing with eYouth and Mindset.',
-    bioAr: 'أكثر من 3 سنوات في التدريب مع eYouth وMindset.',
-  },
-  'Abdallah Almalawany': {
-    nameAr: 'عبدالله الملواني',
-    linkedinUrl: 'https://www.linkedin.com/in/abdallah-elmalawany-840595270',
     titleEn: 'DevOps Engineer',
     titleAr: 'مهندس DevOps',
+    bioEn:
+      'DevOps Engineer with hands-on experience in building and automating CI/CD pipelines and deploying scalable applications in cloud environments. Skilled in AWS, Docker, Kubernetes, Jenkins, Terraform, Ansible, and Linux system administration.',
+    bioAr:
+      'مهندس DevOps بخبرة عملية في بناء خطوط CI/CD وأتمتتها، ونشر تطبيقات قابلة للتوسّع في البيئات السحابية. متمكّن من AWS وDocker وKubernetes وJenkins وTerraform وAnsible وإدارة أنظمة Linux.',
+  },
+  // The website spells him "Almalawany"; the owner and his LinkedIn spell it Elmalawany. The slug
+  // (abdallah-almalawany) stays, so his page address and the import's record don't change.
+  'Abdallah Almalawany': {
+    name: 'Abdallah Elmalawany',
+    nameAr: 'عبدالله الملواني',
+    linkedinUrl: 'https://www.linkedin.com/in/abdallah-elmalawany-840595270',
+    titleEn: 'DevOps Engineer · CKA',
+    titleAr: 'مهندس DevOps · CKA',
+    bioEn:
+      'DevOps Engineer with experience in Kubernetes, AWS, Docker, Terraform, Ansible, GitLab CI/CD, and Linux administration. Passionate about building scalable, secure, and highly available infrastructure through automation and Infrastructure as Code. Certified CKA, AWS Solutions Architect Associate, AWS Cloud Practitioner, and RHCSA. Experienced in GitOps, observability, cloud-native technologies, and production platform operations. Always learning, improving, and exploring modern DevOps and SRE practices.',
+    bioAr:
+      'مهندس DevOps بخبرة في Kubernetes وAWS وDocker وTerraform وAnsible وGitLab CI/CD وإدارة أنظمة Linux. شغوف ببناء بنية تحتية قابلة للتوسّع وآمنة وعالية الإتاحة من خلال الأتمتة وInfrastructure as Code. حاصل على شهادات CKA وAWS Solutions Architect Associate وAWS Cloud Practitioner وRHCSA. لديه خبرة في GitOps وobservability وتقنيات cloud-native وتشغيل منصات الإنتاج. دائم التعلّم والتطوير واستكشاف أحدث ممارسات DevOps وSRE.',
   },
   'Mohamed Rashad': {
     nameAr: 'محمد رشاد',
     linkedinUrl: 'https://www.linkedin.com/in/rashaddism',
-    titleEn: 'Co-Founder and CTO, DevisionX',
-    titleAr: 'شريك مؤسس ومدير تقني، DevisionX',
+    titleEn: 'Engineering Lead & Co-founder, Hyperion & DevisionX',
+    titleAr: 'قائد هندسي وشريك مؤسس، Hyperion وDevisionX',
     bioEn:
-      "Co-Founder and CTO of DevisionX. His on-prem Llama-2 work was featured on Meta's Engineering Blog.",
+      'He builds AI systems and the teams that keep them running in production. 12+ years of experience. Engineering Lead and Co-founder, Hyperion & DevisionX.',
     bioAr:
-      'شريك مؤسس ومدير تقني في DevisionX. عُرض عمله على تشغيل Llama-2 داخل المؤسسة (On-Prem) في مدونة Meta الهندسية.',
+      'يبني أنظمة الذكاء الاصطناعي والفرق التي تُبقيها تعمل في بيئة الإنتاج. خبرة تتجاوز 12 عامًا. قائد هندسي وشريك مؤسس في Hyperion وDevisionX.',
   },
   // The owner's list gives no role for Mohamed Samy: the page shows his name only.
   'Mohamed Samy': { nameAr: 'محمد سامي' },
-  // Speaker of "Redis for Semantic Caching". Name and LinkedIn from the owner (10 Oct 2026);
-  // title, bio and photo come later, so the page shows his name and LinkedIn only.
+  // Speaker of "Redis for Semantic Caching".
   'Omar Khalil': {
-    nameAr: 'عمر خليل', // REVIEW
+    nameAr: 'عمر خليل',
     linkedinUrl: 'https://www.linkedin.com/in/omar-khalil-10om01',
-  },
-  // Bio and LinkedIn from the website's team page; the role from the owner's list.
-  'Mariam Qotob': {
-    nameAr: 'مريم قطب',
     titleEn: 'AI Engineer',
-    titleAr: 'مهندسة ذكاء اصطناعي',
+    titleAr: 'مهندس ذكاء اصطناعي',
+    bioEn:
+      'AI Engineer focused on LLM applications, backend systems, machine learning, and speech technologies. Experienced in building AI workflows, RAG systems, asynchronous processing pipelines, deterministic financial models, and real-time ML applications.',
     bioAr:
-      'مهندسة ذكاء اصطناعي وتعلّم آلة، حاصلة على ماجستير مهني في الذكاء الاصطناعي من جامعة Queen’s، وتعمل عبر مسار تعلّم الآلة كاملًا مع خبرة تطبيقية في النماذج اللغوية الكبيرة (LLMs) وRAG. تعمل حاليًا مساعدة تدريس في مبادرة Digilians.',
+      'مهندس ذكاء اصطناعي يركّز على تطبيقات LLM والأنظمة الخلفية (backend) وmachine learning وتقنيات الكلام (speech). لديه خبرة في بناء AI workflows وأنظمة RAG وخطوط معالجة غير متزامنة (asynchronous) ونماذج مالية حتمية (deterministic) وتطبيقات ML تعمل في الوقت الفعلي.',
   },
 };
 
@@ -174,7 +183,6 @@ export const sessions: Record<string, CuratedSession> = {
     startsAt: '2026-08-22T19:00:00+03:00',
     coSpeakers: [
       { name: 'Aya Nasser Salama', role: 'HOST' },
-      { name: 'Mariam Qotob', role: 'GUEST' },
     ],
     details: {
       learnEn: [
@@ -378,7 +386,6 @@ export const videos: Record<string, CuratedVideo> = {
     speaker: 'Mohamed Samy',
     coSpeakers: [
       { name: 'Aya Nasser Salama', role: 'HOST' },
-      { name: 'Mariam Qotob', role: 'GUEST' },
     ],
     details: {
       learnEn: [
@@ -608,6 +615,13 @@ export const practitionerLessons: CuratedLesson[] = [
  * When the cohort ran: its live lessons, 16 Aug to 20 Sep 2026 (the website said 15 Aug to
  * 2 Oct). Six calendar weeks of lessons; the final project followed.
  */
+/**
+ * Speakers the archive no longer lists (owner, 10 Oct 2026: Mariam Qotob is not a speaker).
+ * The import deletes such a record when it created it, no admin has saved it, and nothing links
+ * to it any more (see import-archive.ts); otherwise it is left for an admin.
+ */
+export const removedSpeakers = ['mariam-qotob'];
+
 /** Weeks: the owner's figure (10 Oct 2026), five lessons over five weeks. */
 export const practitionerDates = { start: '2026-08-16', end: '2026-09-20', weeks: 5 };
 
