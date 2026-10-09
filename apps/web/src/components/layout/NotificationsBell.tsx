@@ -17,7 +17,12 @@ interface Item {
   createdAt: string;
 }
 
-const POLL_MS = 60_000;
+/** Unread count refresh: every 2 minutes while the tab is visible. */
+const POLL_MS = 120_000;
+/** After a failure (busy API, offline) the next try waits twice as long, up to this. */
+const MAX_BACKOFF_MS = 10 * 60_000;
+/** Coming back to the tab refreshes only if the last answer is older than this. */
+const FRESH_MS = 60_000;
 
 /** In-app notifications: polls the unread count, loads the list when opened. */
 export function NotificationsBell() {
@@ -26,21 +31,50 @@ export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[] | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const lastOk = useRef(0);
 
-  const poll = useCallback(() => {
-    if (document.visibilityState !== 'visible') return;
-    api<{ unread: number }>('/notifications/unread-count')
-      .then((r) => setUnread(r.unread))
-      .catch(() => undefined);
+  // One request at a time, never while the tab is hidden; resolves to whether it succeeded.
+  const inFlight = useRef<Promise<boolean> | null>(null);
+  const poll = useCallback((): Promise<boolean> => {
+    if (document.visibilityState !== 'visible') return Promise.resolve(true);
+    inFlight.current ??= api<{ unread: number }>('/notifications/unread-count')
+      .then((r) => {
+        setUnread(r.unread);
+        lastOk.current = Date.now();
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        inFlight.current = null;
+      });
+    return inFlight.current;
   }, []);
 
   useEffect(() => {
-    poll();
-    const id = setInterval(poll, POLL_MS);
-    document.addEventListener('visibilitychange', poll);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let delay = POLL_MS;
+    let stopped = false;
+    const schedule = () => {
+      if (stopped) return;
+      // A little jitter so a room full of open tabs doesn't poll in lockstep.
+      timer = setTimeout(tick, delay + Math.random() * 10_000);
+    };
+    const tick = () => {
+      void poll().then((ok) => {
+        delay = ok ? POLL_MS : Math.min(delay * 2, MAX_BACKOFF_MS);
+        schedule();
+      });
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastOk.current > FRESH_MS) void poll();
+    };
+    void poll();
+    schedule();
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', poll);
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [poll]);
 
@@ -115,7 +149,7 @@ export function NotificationsBell() {
                       className="block px-4 py-3 hover:bg-hover-bg"
                       onClick={() => {
                         setOpen(false);
-                        if (!n.readAt) void api(`/notifications/${n.id}/read`, { method: 'POST' }).then(poll);
+                        if (!n.readAt) void api(`/notifications/${n.id}/read`, { method: 'POST' }).then(() => poll());
                       }}
                     >
                       {content}
