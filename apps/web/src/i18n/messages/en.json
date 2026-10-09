@@ -616,7 +616,8 @@
       "history": "Status history",
       "payments": "Payments",
       "source": "Source",
-      "reasonPlaceholder": "e.g. We were looking for more hands-on production experience. Consider the recordings and apply to the next cohort."
+      "reasonPlaceholder": "e.g. We were looking for more hands-on production experience. Consider the recordings and apply to the next cohort.",
+      "noProfile": "No profile data: it was removed when the account was anonymised."
     },
     "filters": {
       "country": "Country",

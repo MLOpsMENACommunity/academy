@@ -30,16 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       return me;
     } catch {
-      // Access token expired: refresh once, then give up.
-      try {
-        const ok = await fetch('/api/auth/refresh', { method: 'POST' }).then((r) => r.ok || r.status === 409);
-        const me = ok ? await api<MeResponse>('/auth/me') : null;
-        setUser(me);
-        return me;
-      } catch {
-        setUser(null);
-        return null;
-      }
+      // api() already refreshed an expired session once (deduplicated). Refreshing again here
+      // after a network error or a request cut off by navigation would rotate the refresh
+      // token without the browser ever storing the new one; the next page then presents the
+      // old token, which the API treats as theft and signs the user out everywhere.
+      setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
