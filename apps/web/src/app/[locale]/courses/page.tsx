@@ -7,7 +7,7 @@ import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { alternates } from '@/lib/seo';
-import { serverGetOr } from '@/lib/server-api';
+import { serverGet } from '@/lib/server-api';
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -31,7 +31,9 @@ export default async function CatalogPage({ params }: Props) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
-  const courses = await serverGetOr<CourseSummaryDto[]>('/courses', []);
+  // serverGet, not serverGetOr: if the API is down this render fails, so Next keeps the last
+  // good copy (or answers an uncached 500) instead of caching an empty catalog.
+  const courses = (await serverGet<CourseSummaryDto[]>('/courses')) ?? [];
   // Only the filterable fields go to the browser; the cards stay server-rendered.
   const facets = courses.map(({ id, level, type, language, availability }) => ({ id, level, type, language, availability }));
 

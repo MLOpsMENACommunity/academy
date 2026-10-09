@@ -15,16 +15,26 @@ const root = process.cwd();
 const manifest = JSON.parse(readFileSync(join(root, '.next/prerender-manifest.json'), 'utf8'));
 const dirs = [join(root, '.next/server/app'), join(root, '.next/standalone/apps/web/.next/server/app')].filter((d) => existsSync(d));
 
-let dropped = 0;
+let routes = 0;
+let files = 0;
 for (const [route, info] of Object.entries(manifest.routes)) {
   if (!/^\/(en|ar)(\/|$)/.test(route) || !(typeof info.initialRevalidateSeconds === 'number' && info.initialRevalidateSeconds > 0)) continue;
+  routes++;
   for (const dir of dirs) {
     for (const ext of ['.html', '.rsc', '.meta']) {
       const file = join(dir, `${route}${ext}`);
-      if (existsSync(file)) rmSync(file);
+      if (existsSync(file)) {
+        rmSync(file);
+        files++;
+      }
     }
   }
-  dropped++;
+}
+// ISR routes but nothing deleted: Next's output layout changed under us, and the empty
+// build-time pages would ship. Fail the build rather than ship them.
+if (routes > 0 && files === 0) {
+  console.error(`drop-isr-prerenders: ${routes} ISR routes in the manifest but no prerendered files found in ${dirs.join(', ') || '(no output dirs)'}`);
+  process.exit(1);
 }
 // eslint-disable-next-line no-console -- build output
-console.log(`drop-isr-prerenders: ${dropped} ISR pages will render on first request (${dirs.length} output dirs)`);
+console.log(`drop-isr-prerenders: deleted ${files} files for ${routes} ISR pages (${dirs.length} output dirs); they render on first request`);

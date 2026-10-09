@@ -10,7 +10,7 @@ import { createTranslator } from '@/i18n/translator';
 import { isoDuration, youtubeThumbnail } from '@/lib/archive';
 import { jsonLd } from '@/lib/jsonld';
 import { alternates } from '@/lib/seo';
-import { serverGetOr } from '@/lib/server-api';
+import { serverGet } from '@/lib/server-api';
 import { pick } from '@/lib/sessions';
 import { absoluteUrl } from '@/lib/site';
 
@@ -39,7 +39,8 @@ export default async function RecordingsPage({ params }: Props) {
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
   // `topics` counts the whole library, so the chips stay put while filtering.
-  const { items, topics } = await serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [] });
+  // serverGet: an API failure fails the render instead of caching an empty library (see the catalog).
+  const { items, topics } = (await serverGet<RecordingsDto>('/recordings')) ?? { items: [], topics: [] };
 
   const structured = {
     '@context': 'https://schema.org',

@@ -147,6 +147,11 @@ export interface RecordingDto {
   speakers: SpeakerRefDto[];
 }
 
+/** GET /recordings/search: ids of the matching recordings, newest first. */
+export interface RecordingSearchDto {
+  ids: string[];
+}
+
 export interface RecordingsDto {
   /** Newest first. */
   items: RecordingDto[];

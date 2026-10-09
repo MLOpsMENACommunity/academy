@@ -5,30 +5,40 @@ const base = () => process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
 export class ApiUnavailableError extends Error {}
 
 /**
+ * `next build` prerenders pages while the API is unreachable (the image build has no API).
+ * Those renders are thrown away after the build (scripts/drop-isr-prerenders.mjs), so there
+ * a failed fetch just means "no data" rather than a failed build.
+ */
+const building = () => process.env.NEXT_PHASE === 'phase-production-build';
+
+/**
  * Server-side GET to the API for public pages (cached, revalidated by ISR).
  *
  * Returns null only for a real 404. Any other failure throws, so Next keeps
  * serving the last good version of an ISR page instead of caching a 404 for a
- * live course during a brief API restart. Callers that can render without the
- * data (home page, catalog) catch and degrade.
+ * live course during a brief API restart; with no good version yet (a fresh
+ * container), the visitor gets an uncached 500 rather than an empty page that the
+ * ISR and edge caches would keep. Use it for every ISR page's main data.
  */
 export async function serverGet<T>(path: string, revalidate = 60): Promise<T | null> {
   let res: Response;
   try {
     res = await fetch(`${base()}/api${path}`, { next: { revalidate, tags: ['courses'] } });
   } catch (err) {
+    if (building()) return null;
     console.error(`[server-api] GET ${path} failed: ${(err as Error).name}`);
     throw new ApiUnavailableError(path);
   }
   if (res.status === 404) return null;
   if (!res.ok) {
+    if (building()) return null;
     console.error(`[server-api] GET ${path} returned ${res.status}`);
     throw new ApiUnavailableError(path);
   }
   return (await res.json()) as T;
 }
 
-/** For optional data: an empty fallback instead of an error page. */
+/** For optional extras only (never an ISR page's main data): an empty fallback instead of an error page. */
 export async function serverGetOr<T>(path: string, fallback: T, revalidate = 60): Promise<T> {
   try {
     return (await serverGet<T>(path, revalidate)) ?? fallback;

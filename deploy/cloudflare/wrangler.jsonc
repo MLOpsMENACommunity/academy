@@ -46,8 +46,13 @@
       "image_build_context": "../..",
       "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy.mlopsmena.com" },
       "instance_type": "standard-1",
-      // Stateless: the Worker spreads requests over WEB_INSTANCES of these.
-      "max_instances": 3
+      // Stateless: the Worker spreads requests over WEB_INSTANCES of these
+      // (MAX_WEB_INSTANCES in src/instances.ts must match; a test checks).
+      "max_instances": 3,
+      // Replace every instance in one step (the default for 2+ instances is 10% first), so
+      // the window where old and new builds both serve is as short as possible. The Worker
+      // retries /_next/static 404s on the other instances for what remains of it.
+      "rollout_step_percentage": 100
     }
   ],
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { recordingsQuerySchema, type RecordingsDto } from '@academy/shared';
+import { recordingsQuerySchema, type RecordingSearchDto, type RecordingsDto } from '@academy/shared';
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { buttonClass } from '@/components/ui/Button';
 import { inputClass } from '@/components/ui/input';
@@ -13,8 +13,9 @@ import { topicText } from '@/lib/archive';
  *
  * The page is static (ISR + edge cache) and its HTML lists the whole library; filters
  * only hide cards. A topic is a field of each item, so it filters here. The text search
- * also matches descriptions, which the page does not carry, so it asks the API (public,
- * served from the API's in-memory copy of the library) which items match. The filters
+ * also matches descriptions, which the page does not carry, so it asks the API which
+ * items match (GET /recordings/search: ids only, from the API's in-memory copy of the
+ * library, throttled per IP). The filters
  * live in the URL but are read after hydration: the server HTML never depends on them.
  */
 export interface RecordingFacets {
@@ -60,8 +61,8 @@ export function RecordingsProvider({ items, children }: { items: RecordingFacets
   useEffect(() => {
     if (!searchKey) return;
     let live = true;
-    api<RecordingsDto>(`/recordings?${searchKey}`)
-      .then((r) => live && setFound({ key: searchKey, ids: new Set(r.items.map((i) => i.id)) }))
+    api<RecordingSearchDto>(`/recordings/search?${searchKey}`)
+      .then((r) => live && setFound({ key: searchKey, ids: new Set(r.ids) }))
       // Search unavailable: show nothing rather than the unfiltered list as if it matched.
       .catch(() => live && setFound({ key: searchKey, ids: new Set() }));
     return () => {

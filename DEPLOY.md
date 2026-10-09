@@ -172,7 +172,9 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
 - **An admin edit shows publicly within about 2 minutes** (Next's 60 s window plus the
   edge's 60 s; the home page up to ~6 minutes). There is no on-demand revalidation yet.
 - **Web containers:** `max_instances: 3`, and the Worker spreads requests at random over
-  `WEB_INSTANCES` of them (3 in production, 1 on staging). They are stateless; each has
+  `WEB_INSTANCES` of them (3 in production, 1 on staging). The Worker caps it at
+  `MAX_WEB_INSTANCES` in `src/instances.ts` (a test keeps that equal to `max_instances`)
+  and uses only `main` if the value is invalid. They are stateless; each has
   its own ISR cache, so two visitors may briefly see versions up to one revalidate window
   apart. Lower `WEB_INSTANCES` after launch to save cost; it never needs to exceed
   `max_instances`.
@@ -180,6 +182,13 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   the login lockout are in memory.
 - If a container can't be reached (starting, overloaded), the Worker answers 503 with
   `Retry-After: 5` instead of an opaque 500.
+- **API down while a page renders:** ISR pages load their main data with `serverGet`,
+  which throws, so Next keeps serving the last good copy, or (a fresh container with
+  none yet) answers a 500 that neither Next nor the edge caches. They never cache an
+  empty "no courses" page.
+- **Recordings search** runs in the browser against `GET /api/recordings/search` (ids
+  only), limited to 60 a minute per IP. Plain `/api/recordings` reads, which the web
+  server makes for every visitor, stay unthrottled unless they carry `?q=`.
 
 ## One-time setup
 
@@ -316,9 +325,13 @@ Add `--env staging` to any of these to act on staging instead of production.
   keep the API at `max_instances: 1` until they move to a shared store. The web app
   has no such state and runs several instances.
 - **Cold starts.** After 2 idle hours (staging: 30 minutes) the next request waits a
-  few seconds for a container to start. Anonymous visitors are often served from the
-  edge cache meanwhile.
-- **Deploys and the edge cache.** For up to 60 s after a deploy, a data centre can still
-  serve the previous HTML (its scripts are usually still in the same edge cache).
+  few seconds for a container to start. The edge cache doesn't help here: its entries
+  (60 s) are long gone by then.
+- **Deploys and mixed builds.** Containers roll out after the Worker, so for a while old
+  and new web builds serve side by side (`rollout_step_percentage: 100` keeps that short),
+  and a data centre can serve the previous HTML for up to 60 s. Build assets
+  (`/_next/static`) exist only on their own build: the Worker retries a 404 for one on the
+  other web instances, and Next's `deploymentId` (the deployed git SHA, set by
+  `configure-host.mjs`) turns a client navigation across builds into a full page load.
 - **No in-process cron.** `JOBS_ENABLED=false` in the container; the Worker's
   Cron Trigger runs the jobs instead.

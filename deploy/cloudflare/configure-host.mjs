@@ -10,6 +10,7 @@
 //   EMAIL_ALLOWLIST         staging only, optional: comma-separated addresses or "@domain"
 //                           entries that receive their own staging email (testers)
 //   EMAIL_REDIRECT_TO       staging only, optional: where everyone else's staging email goes
+//   SHA                     optional, the commit being deployed (names the web build)
 //
 // Writes host, url and bucket to $GITHUB_OUTPUT for the later steps. Refuses to let one
 // environment claim the other's hostname, and refuses a staging config that would share
@@ -56,6 +57,13 @@ block.vars.ACADEMY_HOSTNAME = host;
 block.routes = [host, ...aliases].map((pattern) => ({ pattern, custom_domain: true }));
 const web = block.containers.find((c) => c.class_name === 'WebContainer');
 web.image_vars = { ...web.image_vars, NEXT_PUBLIC_SITE_URL: `https://${host}` };
+// The commit being deployed names the web build (Next's deploymentId), so pages and assets
+// of different builds can tell each other apart while a rollout replaces the containers.
+const sha = process.env.SHA?.trim();
+if (sha) {
+  if (!/^[0-9a-f]{7,40}$/.test(sha)) throw new Error(`Invalid SHA: ${sha}`);
+  web.image_vars.NEXT_DEPLOYMENT_ID = sha.slice(0, 12);
+}
 if (target === 'staging') {
   // Testers listed here get their own staging email; everyone else's is redirected.
   const isEntry = (e) => /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(e) || /^@[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(e);

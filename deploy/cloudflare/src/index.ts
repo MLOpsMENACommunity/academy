@@ -1,5 +1,6 @@
 import { Container } from '@cloudflare/containers';
 import { cacheKind, localeCookie, storableCacheControl, type CacheKind } from './edge-cache';
+import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 
 /**
  * Entry Worker for academy on Cloudflare.
@@ -130,16 +131,11 @@ export class WebContainer extends Container<Env> {
   }
 }
 
-const INSTANCE = 'main';
+const INSTANCE = MAIN_INSTANCE;
 
-/**
- * One of the web containers, at random. Instance 0 keeps the original name so the
- * existing container is reused. Random is enough: every instance serves every page.
- */
-function webInstance(env: Env): DurableObjectStub<WebContainer> {
-  const n = Math.max(1, Math.min(10, Number.parseInt(env.WEB_INSTANCES ?? '1', 10) || 1));
-  const i = Math.floor(Math.random() * n);
-  return env.WEB.getByName(i === 0 ? INSTANCE : `web-${i}`);
+/** A random one of the WEB_INSTANCES web containers (see instances.ts). Every instance serves every page. */
+function pickWebInstance(env: Env): number {
+  return Math.floor(Math.random() * webInstanceCount(env.WEB_INSTANCES));
 }
 
 /** Forwarded headers are set here, never trusted from the client. */
@@ -173,10 +169,29 @@ function withHeaders(response: Response, set: Record<string, string>, append: Re
   return out;
 }
 
+/**
+ * One web request to a random instance. During a rolling deploy instances run different
+ * builds for a while, and a build asset (/_next/static/<hash>) exists only on the build
+ * that made it: a 404 for one is retried on the other instances before it is returned.
+ */
+async function webFetch(request: Request, env: Env, kind: CacheKind | null): Promise<Response> {
+  const count = webInstanceCount(env.WEB_INSTANCES);
+  const first = pickWebInstance(env);
+  let response = await fromContainer(env.WEB.getByName(webInstanceName(first)), request, 'web');
+  if (kind !== 'asset' || response.status !== 404) return response;
+  for (let k = 1; k < count; k++) {
+    await response.body?.cancel();
+    const retry = await fromContainer(env.WEB.getByName(webInstanceName((first + k) % count)), request, 'web');
+    if (retry.ok) return retry;
+    response = retry;
+  }
+  return response;
+}
+
 /** Web requests, through the edge cache where edge-cache.ts allows it. */
 async function web(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const kind: CacheKind | null = cacheKind(request);
-  if (!kind) return withHeaders(await fromContainer(webInstance(env), request, 'web'), { 'x-edge-cache': 'BYPASS' });
+  if (!kind) return withHeaders(await webFetch(request, env, null), { 'x-edge-cache': 'BYPASS' });
 
   const cache = caches.default;
   // Only the URL: never the visitor's cookies or other headers.
@@ -184,7 +199,7 @@ async function web(request: Request, env: Env, ctx: ExecutionContext): Promise<R
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { 'x-edge-cache': 'HIT' }, { 'set-cookie': kind === 'page' ? localeCookie(request) : null });
 
-  const response = await fromContainer(webInstance(env), request, 'web');
+  const response = await webFetch(request, env, kind);
   const cacheControl = storableCacheControl(kind, response);
   if (!cacheControl) return withHeaders(response, { 'x-edge-cache': 'MISS' });
   const stored = withHeaders(response.clone(), { 'cache-control': cacheControl });
