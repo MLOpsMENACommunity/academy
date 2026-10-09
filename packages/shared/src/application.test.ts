@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAnswersSchema, type QuestionLike } from './application';
+import { answerDetail, answerDetailKey, buildAnswersSchema, type QuestionLike } from './application';
 
 const qs: QuestionLike[] = [
   { id: 'role', type: 'LONG_TEXT', required: true, options: null },
@@ -40,5 +40,55 @@ describe('buildAnswersSchema', () => {
   it('coerces numbers and caps text length', () => {
     expect(schema.parse({ role: 'x', years: 'a', clouds: ['gcp'], prod: true, n: '7' }).n).toBe(7);
     expect(schema.safeParse({ role: 'x'.repeat(5000), years: 'a', clouds: ['gcp'], prod: true }).success).toBe(false);
+  });
+});
+
+describe('options that ask for details (QA L24)', () => {
+  const domain: QuestionLike = {
+    id: 'q_domain',
+    type: 'SINGLE_SELECT',
+    required: true,
+    options: [
+      { value: 'telecom', labelEn: 'Telecom', labelAr: 'الاتصالات' },
+      { value: 'own', labelEn: 'My own domain (to be approved)', labelAr: 'مجال خاص بي', requiresDetail: true },
+    ],
+  };
+  const schema = buildAnswersSchema([domain]);
+  const key = answerDetailKey('q_domain');
+
+  it('requires a description when that option is picked', () => {
+    for (const detail of [undefined, '', '   ']) {
+      const r = schema.safeParse({ q_domain: 'own', [key]: detail });
+      expect(r.success).toBe(false);
+      expect(r.error!.issues[0]!.path).toEqual([key]);
+    }
+  });
+
+  it('flags a missing description together with other missing answers', () => {
+    const both = buildAnswersSchema([domain, { id: 'q_yes', type: 'YES_NO', required: true, options: null }]);
+    const r = both.safeParse({ q_domain: 'own' });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => i.path.join('.')).sort()).toEqual([key, 'q_yes'].sort());
+  });
+
+  it('stores the description with the answer', () => {
+    const r = schema.parse({ q_domain: 'own', [key]: '  Healthcare triage  ' });
+    expect(r).toEqual({ q_domain: 'own', [key]: 'Healthcare triage' });
+    expect(answerDetail(r, domain)).toBe('Healthcare triage');
+  });
+
+  it('drops a leftover description when another option is picked', () => {
+    const r = schema.parse({ q_domain: 'telecom', [key]: 'Healthcare triage' });
+    expect(r).toEqual({ q_domain: 'telecom' });
+    expect(answerDetail(r, domain)).toBeNull();
+  });
+
+  it('caps the description length', () => {
+    expect(schema.safeParse({ q_domain: 'own', [key]: 'x'.repeat(301) }).success).toBe(false);
+  });
+
+  it('leaves questions without such options unchanged', () => {
+    const plain = buildAnswersSchema([{ ...domain, options: [domain.options![0]!] }]);
+    expect(plain.parse({ q_domain: 'telecom', [key]: 'ignored' })).toEqual({ q_domain: 'telecom' });
   });
 });

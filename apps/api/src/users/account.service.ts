@@ -142,6 +142,14 @@ export class AccountService {
         createdAt: user.createdAt,
       },
       profile: toProfileDto(user.profile),
+      // The PDF isn't embedded, and a signed link would expire in minutes, so point to where it can be downloaded.
+      cv: user.profile?.cvKey
+        ? {
+            uploadedAt: user.profile.cvUploadedAt,
+            download: this.email.url(user.locale, '/profile?tab=links'),
+            note: 'Your CV is not included in this file. Open the link above (signed in) and choose "View CV" to download it.',
+          }
+        : null,
       applications: user.applications.map((a) => ({
         course: a.course,
         status: a.status,

@@ -15,6 +15,7 @@ export function CvUpload({ profile, onChange }: { profile: ProfileDto; onChange:
   const { locale, t } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const f = (k: string, v?: Record<string, string>) => t(`profile.fields.${k}`, v);
 
@@ -32,6 +33,25 @@ export function CvUpload({ profile, onChange }: { profile: ProfileDto; onChange:
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';
+    }
+  }
+
+  /** Opens the owner's CV through a 5-minute signed link (QA L23). */
+  async function view() {
+    setError(null);
+    // Open the tab now, inside the click, so pop-up blockers allow it; point it at the CV once the link arrives.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
+    setViewing(true);
+    try {
+      const { url } = await api<{ url: string }>('/me/profile/cv');
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch (err) {
+      tab?.close();
+      setError(errorMessage(err, t));
+    } finally {
+      setViewing(false);
     }
   }
 
@@ -75,6 +95,11 @@ export function CvUpload({ profile, onChange }: { profile: ProfileDto; onChange:
         <Button type="button" variant="secondary" loading={busy} onClick={() => input.current?.click()}>
           {profile.hasCv ? f('cvReplace') : f('cvUpload')}
         </Button>
+        {profile.hasCv && (
+          <Button type="button" variant="secondary" onClick={view} loading={viewing} disabled={busy}>
+            {f('cvView')}
+          </Button>
+        )}
         {profile.hasCv && (
           <Button type="button" variant="ghost" onClick={remove} disabled={busy}>
             {f('cvDelete')}

@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { computeCompleteness, communitySectionSchema, coreSectionSchema, linksSectionSchema, phoneSchema, type ProfileDto } from './profile';
+import {
+  computeCompleteness,
+  communitySectionSchema,
+  coreSectionSchema,
+  educationSectionSchema,
+  GRADUATION_YEAR_MAX,
+  linksSectionSchema,
+  ML_EXPERIENCE_MESSAGE,
+  mlExperienceExceedsTotal,
+  normalizePhone,
+  phoneSchema,
+  sectionSchemaFor,
+  type ProfileDto,
+} from './profile';
 
 const core = {
   fullNameEn: 'Aya Example',
@@ -34,6 +47,94 @@ describe('coreSectionSchema', () => {
 describe('phoneSchema', () => {
   it.each(['01001234567', '+0123', 'abc'])('rejects %s', (v) => {
     expect(phoneSchema.safeParse(v).success).toBe(false);
+  });
+});
+
+describe('normalizePhone (QA L11)', () => {
+  it.each([
+    ['01001234567', 'EG', '+201001234567'],
+    ['0100 123 4567', 'EG', '+201001234567'],
+    ['0112-345-6789', 'EG', '+201123456789'],
+    ['+20 0100 123 4567', 'EG', '+201001234567'],
+    ['00201001234567', 'EG', '+201001234567'],
+    ['٠١٠٠١٢٣٤٥٦٧', 'EG', '+201001234567'],
+    ['0501234567', 'SA', '+966501234567'],
+    ['050 123 4567', 'AE', '+971501234567'],
+    ['+201001234567', 'EG', '+201001234567'],
+  ])('%s in %s → %s', (raw, country, expected) => {
+    expect(normalizePhone(raw, country)).toBe(expected);
+  });
+
+  it('leaves local numbers alone when the country has no rule or is unknown', () => {
+    expect(normalizePhone('01001234567', 'JO')).toBe('01001234567');
+    expect(normalizePhone('01001234567')).toBe('01001234567');
+    // Not an Egyptian mobile prefix (013): no guessing.
+    expect(normalizePhone('01301234567', 'EG')).toBe('01301234567');
+  });
+});
+
+describe('coreSectionSchema phone (QA L11)', () => {
+  it('accepts an Egyptian local number when the country is EG and stores it internationally', () => {
+    expect(coreSectionSchema.parse({ ...core, phone: '01001234567' }).phone).toBe('+201001234567');
+  });
+  it('still needs a country code elsewhere', () => {
+    const r = coreSectionSchema.safeParse({ ...core, country: 'JO', phone: '0791234567' });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues[0]!.path).toEqual(['phone']);
+  });
+});
+
+describe('experience consistency (QA L12)', () => {
+  it('compares the ranges', () => {
+    expect(mlExperienceExceedsTotal('Y1_3', 'Y5_10')).toBe(true);
+    expect(mlExperienceExceedsTotal('Y5_10', 'Y5_10')).toBe(false);
+    expect(mlExperienceExceedsTotal('Y10_PLUS', 'Y0_1')).toBe(false);
+    expect(mlExperienceExceedsTotal(null, 'Y10_PLUS')).toBe(false);
+  });
+
+  const professional = { mlExperienceYears: 'Y5_10', seniority: 'MID', secondaryAreas: [] };
+  it('rejects more ML/AI experience than total experience, on the ML field', () => {
+    const r = sectionSchemaFor('professional', { experienceYears: 'Y1_3' }).safeParse(professional);
+    expect(r.success).toBe(false);
+    expect(r.error!.issues).toEqual([expect.objectContaining({ path: ['mlExperienceYears'], message: ML_EXPERIENCE_MESSAGE })]);
+    expect(sectionSchemaFor('professional', { experienceYears: 'Y10_PLUS' }).safeParse(professional).success).toBe(true);
+  });
+
+  it('reports the experience error together with the other errors, on the first submit', () => {
+    const r = sectionSchemaFor('professional', { experienceYears: 'Y1_3' }).safeParse({ mlExperienceYears: 'Y5_10' });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => i.path.join('.')).sort()).toEqual(['mlExperienceYears', 'seniority']);
+  });
+
+  it('rejects lowering total experience below the saved ML/AI experience', () => {
+    const r = sectionSchemaFor('core', { mlExperienceYears: 'Y5_10' }).safeParse({ ...core, experienceYears: 'Y1_3' });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues[0]).toMatchObject({ path: ['experienceYears'], message: ML_EXPERIENCE_MESSAGE });
+  });
+
+  it('drops the primary area from the secondary areas', () => {
+    const r = sectionSchemaFor('professional', { experienceYears: 'Y10_PLUS', primaryArea: 'MLOPS' }).parse({
+      ...professional,
+      secondaryAreas: ['MLOPS', 'DATA_ENGINEERING'],
+    });
+    expect(r.secondaryAreas).toEqual(['DATA_ENGINEERING']);
+  });
+});
+
+describe('educationSectionSchema graduation year (QA L13)', () => {
+  const edu = { educationLevel: 'BACHELORS', fieldOfStudy: 'CS', university: 'Cairo University' };
+  it('explains the accepted range', () => {
+    for (const graduationYear of [1950, GRADUATION_YEAR_MAX + 1, 2020.5, 'soon']) {
+      const r = educationSectionSchema.safeParse({ ...edu, graduationYear });
+      expect(r.success).toBe(false);
+      expect(r.error!.issues[0]!.message).toBe(`Enter a year between 1960 and ${GRADUATION_YEAR_MAX}`);
+    }
+  });
+  it('treats blank as not given and accepts numeric strings', () => {
+    expect(educationSectionSchema.parse({ ...edu, graduationYear: '' }).graduationYear).toBeNull();
+    // Left out: not touched (undefined), so a partial save keeps the stored year.
+    expect(educationSectionSchema.parse({ ...edu }).graduationYear).toBeUndefined();
+    expect(educationSectionSchema.parse({ ...edu, graduationYear: '2015' }).graduationYear).toBe(2015);
   });
 });
 

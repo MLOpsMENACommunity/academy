@@ -26,6 +26,37 @@ describe('applications (e2e)', () => {
     expect((await apply(incomplete.cookie, course.slug, { [course.questionId]: true }).expect(403)).body.code).toBe('PROFILE_INCOMPLETE');
   });
 
+  it('requires a description for an option that asks for one, and stores it with the answers (QA L24)', async () => {
+    const course = await createCourse(prisma);
+    const q = await prisma.screeningQuestion.create({
+      data: {
+        courseId: course.id,
+        type: 'SINGLE_SELECT',
+        labelEn: 'Capstone domain',
+        labelAr: 'مجال المشروع',
+        required: true,
+        order: 1,
+        options: [
+          { value: 'telecom', labelEn: 'Telecom', labelAr: 'الاتصالات' },
+          { value: 'own', labelEn: 'My own domain (to be approved)', labelAr: 'مجال خاص بي', requiresDetail: true },
+        ],
+      },
+    });
+    const s = await createUser(app, prisma);
+    const detail = `${q.id}:detail`;
+    const missing = await apply(s.cookie, course.slug, { [course.questionId]: true, [q.id]: 'own', [detail]: '  ' }).expect(400);
+    expect(missing.body.errors.map((e: { path: string }) => e.path)).toEqual([`answers.${detail}`]);
+    const res = await apply(s.cookie, course.slug, { [course.questionId]: true, [q.id]: 'own', [detail]: 'Healthcare triage' }).expect(201);
+    expect(res.body.answers).toEqual({ [course.questionId]: true, [q.id]: 'own', [detail]: 'Healthcare triage' });
+    expect(res.body.history).toHaveLength(1);
+    // The response is built without reading the application back: it must match a fresh read.
+    const fresh = await http().get(`/api/me/applications/${res.body.id}`).set('Cookie', s.cookie).expect(200);
+    expect({ ...res.body, history: res.body.history.map((h: { toStatus: string }) => h.toStatus) }).toEqual({
+      ...fresh.body,
+      history: fresh.body.history.map((h: { toStatus: string }) => h.toStatus),
+    });
+  });
+
   it('validates answers against the course questions', async () => {
     const course = await createCourse(prisma);
     const s = await createUser(app, prisma);

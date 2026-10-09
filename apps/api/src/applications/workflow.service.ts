@@ -12,7 +12,7 @@ import {
   type Role,
   type TransitionContext,
 } from '@academy/shared';
-import type { Application, Course, Prisma, User } from '@prisma/client';
+import type { Application, ApplicationStatusHistory, Course, Prisma, User } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { FunnelService } from '../funnel/funnel.service';
@@ -25,6 +25,22 @@ export interface Actor {
 }
 
 type Tx = Prisma.TransactionClient;
+
+/** What the status notification needs about the student. */
+export type NotifyUser = User & { profile: { timezone: string | null } | null };
+
+/** What the status notification needs about the course (first session = its start). */
+export interface NotifyCourse {
+  slug: string;
+  type: Course['type'];
+  recordingsPlatform: Course['recordingsPlatform'];
+  youtubePlaylistUrl: string | null;
+  titleEn: string;
+  titleAr: string;
+  startDate: Date | null;
+  preparation: Prisma.JsonValue;
+  sessions: { startsAt: Date }[];
+}
 
 export interface LockedCourse {
   id: string;
@@ -83,7 +99,7 @@ export class ApplicationWorkflow {
     return { courseType: course.type, capacity: course.capacity, seatsTaken };
   }
 
-  /** Writes history and side tables for a status that has just been set inside `tx`. */
+  /** Writes history and side tables for a status that has just been set inside `tx`; returns the history row. */
   async recordChange(
     tx: Tx,
     app: Pick<Application, 'id' | 'userId' | 'courseId'>,
@@ -91,8 +107,8 @@ export class ApplicationWorkflow {
     to: ApplicationStatus,
     actor: Actor | null,
     reason?: string | null,
-  ): Promise<void> {
-    await tx.applicationStatusHistory.create({
+  ): Promise<ApplicationStatusHistory> {
+    const history = await tx.applicationStatusHistory.create({
       data: { applicationId: app.id, fromStatus: from, toStatus: to, actorId: actor?.id ?? null, reason: reason ?? null },
     });
     if (to === 'ENROLLED') {
@@ -115,6 +131,7 @@ export class ApplicationWorkflow {
         tx,
       );
     }
+    return history;
   }
 
   /**
@@ -155,18 +172,26 @@ export class ApplicationWorkflow {
       return { app: updated, from: fresh.status };
     });
 
-    // Bulk actions don't wait for each email; afterChange never throws (allSettled + logging).
+    // Bulk actions don't wait for the in-app notifications either (emails are always queued); afterChange never throws.
     if (opts.awaitSideEffects === false) void this.afterChange(app, from, opts.reason).catch(() => undefined);
     else await this.afterChange(app, from, opts.reason);
     return app;
   }
 
   /** Email + in-app notification + funnel. Each runs independently; failures never undo the change. */
-  async afterChange(app: Application, from: ApplicationStatus | null, reason?: string | null): Promise<void> {
+  async afterChange(
+    app: Application,
+    from: ApplicationStatus | null,
+    reason?: string | null,
+    /** The student and course, when the caller already has them (saves a read). */
+    loaded?: { user: NotifyUser; course: NotifyCourse },
+  ): Promise<void> {
     if (from === app.status) return;
     const funnelEvent = FUNNEL_FOR[app.status];
     const results = await Promise.allSettled([
-      this.prisma.application
+      loaded
+        ? this.notifyStudent(loaded.user, loaded.course, app, reason ?? null)
+        : this.prisma.application
         .findUniqueOrThrow({
           where: { id: app.id },
           include: {
@@ -198,18 +223,8 @@ export class ApplicationWorkflow {
   }
 
   private async notifyStudent(
-    user: User & { profile: { timezone: string | null } | null },
-    course: {
-      slug: string;
-      type: Course['type'];
-      recordingsPlatform: Course['recordingsPlatform'];
-      youtubePlaylistUrl: string | null;
-      titleEn: string;
-      titleAr: string;
-      startDate: Date | null;
-      preparation: Prisma.JsonValue;
-      sessions: { startsAt: Date }[];
-    },
+    user: NotifyUser,
+    course: NotifyCourse,
     app: Application,
     reason: string | null,
   ): Promise<void> {
@@ -221,29 +236,30 @@ export class ApplicationWorkflow {
     const rejected = app.status === 'REJECTED';
     // Feedback first: the notification bell shows only the first lines.
     const withReason = (text: string, prefix: string) => (reason ? `${prefix}${reason}\n\n${text}` : text);
-    const [notified, emailed] = await Promise.allSettled([
-      this.notifications.create(user.id, {
-      type: `application.${app.status.toLowerCase()}`,
-      titleEn: `${course.titleEn}: ${label.en}`,
-      titleAr: `${course.titleAr}: ${label.ar}`,
-      bodyEn: withReason(msg.en, rejected ? 'Feedback from the course team: ' : 'Reason: '),
-      bodyAr: withReason(msg.ar, rejected ? 'ملاحظات من فريق الدورة: ' : 'السبب: '),
-      link,
-    }),
-      this.email.send(user.email, user.locale, {
-        name: 'applicationStatus',
-        courseTitle: user.locale === 'ar' ? course.titleAr || course.titleEn : course.titleEn,
-        status: app.status,
-        reason,
-        url: this.email.url(user.locale, link),
-        courseUrl: this.email.url(user.locale, app.status === 'ENROLLED' ? `/learn/${course.slug}` : `/courses/${course.slug}`),
-        browseUrl: this.email.url(user.locale, '/courses'),
-        startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
-        recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
-        hasPreparation: hasText(course.preparation),
-      }),
-    ]);
-    if (notified.status === 'rejected' || emailed.status === 'rejected') {
+    // Queued, not awaited: the queue is paced for the provider's rate limit, and waiting for
+    // delivery held the request for seconds (QA M5). send() never throws; failures are logged there.
+    void this.email.send(user.email, user.locale, {
+      name: 'applicationStatus',
+      courseTitle: user.locale === 'ar' ? course.titleAr || course.titleEn : course.titleEn,
+      status: app.status,
+      reason,
+      url: this.email.url(user.locale, link),
+      courseUrl: this.email.url(user.locale, app.status === 'ENROLLED' ? `/learn/${course.slug}` : `/courses/${course.slug}`),
+      browseUrl: this.email.url(user.locale, '/courses'),
+      startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
+      recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
+      hasPreparation: hasText(course.preparation),
+    });
+    try {
+      await this.notifications.create(user.id, {
+        type: `application.${app.status.toLowerCase()}`,
+        titleEn: `${course.titleEn}: ${label.en}`,
+        titleAr: `${course.titleAr}: ${label.ar}`,
+        bodyEn: withReason(msg.en, rejected ? 'Feedback from the course team: ' : 'Reason: '),
+        bodyAr: withReason(msg.ar, rejected ? 'ملاحظات من فريق الدورة: ' : 'السبب: '),
+        link,
+      });
+    } catch {
       this.logger.error(`Notifying the student failed for application ${app.id}`);
     }
   }

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
-
+  answerDetail,
   availableAdminEvents,
   SEAT_HOLDING_STATUSES,
   toCsv,
@@ -213,7 +213,10 @@ export class AdminApplicationsService {
         p?.seniority, p?.primaryArea, p?.secondaryAreas, p?.educationLevel, p?.fieldOfStudy, p?.university,
         (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.weeklyHours, p?.interestedTopics,
         p?.openToOpportunities, p?.shareWithPartners, p?.googleEmail, p?.linkedinUrl, p?.githubUrl,
-        ...questions.map((q) => answers[q.id]),
+        ...questions.map((q) => {
+          const detail = answerDetail(answers, { id: q.id, options: q.options as QuestionOption[] | null });
+          return detail ? `${String(answers[q.id])}: ${detail}` : answers[q.id];
+        }),
       ];
     });
     await this.audit.log({

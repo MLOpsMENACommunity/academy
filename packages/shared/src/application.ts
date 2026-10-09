@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { withCrossChecks } from './cross-checks';
 import { ADMIN_APPLICATION_EVENTS } from './state-machine';
 import type { ApplicationStatus, CourseType, QuestionType } from './enums';
 import type { QuestionOption } from './course-content';
@@ -16,12 +17,32 @@ export type Answers = Record<string, AnswerValue>;
 
 const MAX_TEXT = { SHORT_TEXT: 300, LONG_TEXT: 4000 } as const;
 
+/** Longest description accepted for an option that asks for details. */
+export const ANSWER_DETAIL_MAX = 300;
+export const ANSWER_DETAIL_MESSAGE = 'Describe your choice: this question is required';
+
+/**
+ * Answers key holding the description for an option that asks for details
+ * (e.g. "My own domain (to be approved)"), next to the question's own answer.
+ */
+export const answerDetailKey = (questionId: string): string => `${questionId}:detail`;
+
+/** The description given with a single-select answer, if its option asks for one. */
+export function answerDetail(answers: Record<string, unknown>, q: Pick<QuestionLike, 'id' | 'options'>): string | null {
+  if (typeof answers[q.id] !== 'string') return null;
+  const chosen = (q.options ?? []).find((o) => o.value === answers[q.id]);
+  const d = answers[answerDetailKey(q.id)];
+  return chosen?.requiresDetail && typeof d === 'string' && d.trim() ? d.trim() : null;
+}
+
 /**
  * Builds the validator for one course's screening questions. Used by the web
  * form and by the API, so both accept exactly the same answers.
  */
 export function buildAnswersSchema(questions: QuestionLike[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
+  /** Single-select questions with at least one option that asks for details. */
+  const withDetail: { id: string; values: string[] }[] = [];
   for (const q of questions) {
     const values = (q.options ?? []).map((o) => o.value);
     let s: z.ZodTypeAny;
@@ -59,6 +80,11 @@ export function buildAnswersSchema(questions: QuestionLike[]) {
       case 'SINGLE_SELECT': {
         const base = z.string().refine((v) => values.includes(v), 'Choose one of the options');
         s = q.required ? base : base.optional();
+        const detailValues = (q.options ?? []).filter((o) => o.requiresDetail).map((o) => o.value);
+        if (detailValues.length) {
+          withDetail.push({ id: q.id, values: detailValues });
+          shape[answerDetailKey(q.id)] = z.string().trim().max(ANSWER_DETAIL_MAX).optional();
+        }
         break;
       }
       case 'MULTI_SELECT': {
@@ -73,7 +99,23 @@ export function buildAnswersSchema(questions: QuestionLike[]) {
     shape[q.id] = s;
   }
   // Unknown keys are dropped: only answers to this course's questions are stored.
-  return z.object(shape).strip();
+  // The description check runs alongside the per-question ones, so all errors show on the first submit.
+  return withCrossChecks(z.object(shape).strip(), (raw, addIssue) => {
+    for (const q of withDetail) {
+      const detail = raw[answerDetailKey(q.id)];
+      if (q.values.includes(raw[q.id] as string) && !(typeof detail === 'string' && detail.trim())) {
+        addIssue([answerDetailKey(q.id)], ANSWER_DETAIL_MESSAGE);
+      }
+    }
+  }).transform((a) => {
+    // A description is only kept with the option that asked for it.
+    const out: Record<string, unknown> = { ...a };
+    for (const q of withDetail) {
+      const key = answerDetailKey(q.id);
+      if (!q.values.includes(a[q.id] as string) || !out[key]) delete out[key];
+    }
+    return out;
+  });
 }
 
 export const applySchema = z.object({

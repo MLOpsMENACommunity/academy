@@ -109,10 +109,20 @@ export function QuestionsEditor({ courseId, initial, onChange }: { courseId: str
                   empty={{ value: '', labelEn: '', labelAr: '' }}
                   addLabel={c('addOption')}
                   render={(o, ch) => (
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <TextField label={c('optionValue')} required dir="ltr" value={o.value} onChange={(x) => ch({ ...o, value: x })} />
-                      <TextField label="EN" required value={o.labelEn} onChange={(x) => ch({ ...o, labelEn: x })} />
-                      <TextField label="AR" required dir="rtl" value={o.labelAr} onChange={(x) => ch({ ...o, labelAr: x })} />
+                    <div className="space-y-2">
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <TextField label={c('optionValue')} required dir="ltr" value={o.value} onChange={(x) => ch({ ...o, value: x })} />
+                        <TextField label="EN" required value={o.labelEn} onChange={(x) => ch({ ...o, labelEn: x })} />
+                        <TextField label="AR" required dir="rtl" value={o.labelAr} onChange={(x) => ch({ ...o, labelAr: x })} />
+                      </div>
+                      {/* e.g. "My own domain (to be approved)": applicants who pick it must describe it. */}
+                      {q.type === 'SINGLE_SELECT' && (
+                        <CheckboxField
+                          label={c('optionDetail')}
+                          checked={Boolean(o.requiresDetail)}
+                          onChange={(x) => ch({ ...o, requiresDetail: x || undefined })}
+                        />
+                      )}
                     </div>
                   )}
                 />
