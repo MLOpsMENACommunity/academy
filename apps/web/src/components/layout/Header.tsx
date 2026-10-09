@@ -2,6 +2,7 @@ import type { CourseSummaryDto, Locale } from '@academy/shared';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createTranslator } from '@/i18n/translator';
+import { getRoadmaps, localizeRoadmap } from '@/lib/roadmaps';
 import { serverGetOr } from '@/lib/server-api';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { MegaNav } from './MegaNav';
@@ -21,7 +22,11 @@ import { UserNav } from './UserNav';
 export async function Header({ locale }: { locale: Locale }) {
   const t = createTranslator(locale);
   const courses = await serverGetOr<CourseSummaryDto[] | null>('/courses', null, 300);
-  const data = buildMenuData(courses, locale);
+  const data = buildMenuData(
+    courses,
+    locale,
+    getRoadmaps().map((r) => localizeRoadmap(r, locale)),
+  );
   return (
     <header className="relative z-40 border-b border-line bg-card">
       <div className="mx-auto flex min-h-16 w-full max-w-[75rem] items-center gap-2 px-4 sm:px-6 lg:min-h-[4.25rem] lg:gap-8 lg:px-10">

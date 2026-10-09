@@ -21,7 +21,7 @@ export function PathCard({ path, steps, locale, headingLevel = 'h3' }: { path: L
       bar="green"
       badge={{ tone: 'success', label: t('paths.stepCount', { count: steps.length }) }}
       description={path.tagline[locale]}
-      meta={[steps.map((s) => s.title).join(sep)]}
+      meta={[steps.slice(0, 3).map((s) => s.title).join(sep) + (steps.length > 3 ? `${sep}…` : '')]}
       cta={t('paths.seePath')}
     />
   );

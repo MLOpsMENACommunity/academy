@@ -275,5 +275,83 @@ html[lang='ar'] {
   .prose-academy strong {
     color: var(--text);
   }
+
+  /*
+   * The open-source roadmaps (Markdown from mlopsmena.com): long reading lists, so a
+   * comfortable measure, roomy lists of links, and each phase opened by a rule.
+   * --roadmap-rule is the roadmap's logo tint (components/roadmaps/accent.ts).
+   */
+  .prose-roadmap {
+    max-width: 70ch;
+    font-size: 1.0625rem;
+  }
+  .prose-roadmap h2 {
+    font-size: 1.5rem;
+    margin-block: 2.75rem 0.75rem;
+    padding-top: 2.25rem;
+    border-top: 1px solid var(--border);
+    scroll-margin-top: 1.5rem;
+  }
+  .prose-roadmap h3 {
+    font-size: 1.125rem;
+    margin-block: 1.75em 0.4em;
+    scroll-margin-top: 1.5rem;
+  }
+  /* The Markdown separates phases with '---'; the h2 rule already does. */
+  .prose-roadmap hr {
+    display: none;
+  }
+  .prose-roadmap ul {
+    padding-inline-start: 1.35rem;
+  }
+  .prose-roadmap li {
+    padding-inline-start: 0.2rem;
+  }
+  .prose-roadmap li + li {
+    margin-top: 0.5em;
+  }
+  .prose-roadmap li::marker {
+    color: var(--text-muted);
+  }
+  .prose-roadmap a {
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in srgb, var(--brand-primary) 45%, transparent);
+  }
+  .prose-roadmap a:hover {
+    color: var(--brand-primary-hover);
+    text-decoration-color: currentColor;
+  }
+  .prose-roadmap blockquote {
+    margin-block: 1.5em;
+    padding: 0.9rem 1.15rem;
+    border-inline-start: 3px solid var(--roadmap-rule, var(--logo-cyan));
+    border-radius: 0 10px 10px 0;
+    background: var(--surface-muted);
+  }
+  .prose-roadmap blockquote > :first-child {
+    margin-top: 0;
+  }
+  .prose-roadmap blockquote > :last-child {
+    margin-bottom: 0;
+  }
+  .prose-roadmap table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    margin-block: 1.25em;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  .prose-roadmap th,
+  .prose-roadmap td {
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--border);
+    text-align: start;
+    vertical-align: top;
+  }
+  .prose-roadmap th {
+    background: var(--surface-muted);
+    color: var(--text);
+  }
 }
 

@@ -65,6 +65,13 @@ export const IconArticle = (p: P) => (
     <path d="M9 10h6M9 14h6M9 18h4" />
   </Svg>
 );
+/** A folded map: the open-source roadmaps. */
+export const IconMap = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
+    <path d="M9 4v14M15 6v14" />
+  </Svg>
+);
 export const IconCheck = (p: P) => (
   <Svg strokeWidth={2.6} {...p}>
     <path d="M5 12l5 5L20 7" />

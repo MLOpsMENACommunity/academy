@@ -5,12 +5,13 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { buttonClass } from '@/components/ui/Button';
 import { IconCheck } from '@/components/ui/Icons';
 import { useI18n } from '@/i18n/client';
+import type { ResolvedStep } from '@/lib/paths';
 import { isCompleted, useMyCourses, type CourseProgress } from '@/lib/use-progress';
 
 /**
  * The signed-in student's progress on a learning path, added in the browser on top of
  * the cached page. Only course steps can be tracked (enrolment and sessions marked
- * done); recordings aren't, so a path shows no overall percentage and nothing personal
+ * done); recordings, course lessons and videos aren't, so a path shows no overall percentage and nothing personal
  * at all for visitors or students who haven't enrolled in any of its courses.
  */
 const Ctx = createContext<Map<string, CourseProgress> | null>(null);
@@ -30,13 +31,13 @@ export function PathProgressFrom({ items, courseSlugs, children }: { items: Cour
   return <Ctx.Provider value={mine?.size ? mine : null}>{children}</Ctx.Provider>;
 }
 
-function useStep(kind: 'course' | 'recording', slug: string): CourseProgress | null {
+function useStep(kind: ResolvedStep['kind'], slug: string): CourseProgress | null {
   const mine = useContext(Ctx);
   return kind === 'course' ? (mine?.get(slug) ?? null) : null;
 }
 
 /** The stepper's circle: a green check when done, a cyan ring while in progress, otherwise the step number. */
-export function StepMarker({ kind, slug, n, size = 'md' }: { kind: 'course' | 'recording'; slug: string; n: number; size?: 'sm' | 'md' }) {
+export function StepMarker({ kind, slug, n, size = 'md' }: { kind: ResolvedStep['kind']; slug: string; n: number; size?: 'sm' | 'md' }) {
   const p = useStep(kind, slug);
   const dim = size === 'sm' ? 'size-7 text-[0.8125rem]' : 'size-9 text-[0.9375rem]';
   if (p && isCompleted(p)) {
@@ -51,7 +52,7 @@ export function StepMarker({ kind, slug, n, size = 'md' }: { kind: 'course' | 'r
 }
 
 /** "Done" / "In progress · 3 of 6 sessions" for a course step the student is enrolled in; nothing otherwise. */
-export function StepPersonal({ kind, slug, detailed }: { kind: 'course' | 'recording'; slug: string; detailed?: boolean }) {
+export function StepPersonal({ kind, slug, detailed }: { kind: ResolvedStep['kind']; slug: string; detailed?: boolean }) {
   const { locale, t } = useI18n();
   const p = useStep(kind, slug);
   if (!p) return null;
@@ -88,7 +89,7 @@ export function StepPersonal({ kind, slug, detailed }: { kind: 'course' | 'recor
 }
 
 /** Status text under a stepper circle: the student's own state when known, else the public one (server-rendered). */
-export function StepStatusText({ kind, slug, children }: { kind: 'course' | 'recording'; slug: string; children: ReactNode }) {
+export function StepStatusText({ kind, slug, children }: { kind: ResolvedStep['kind']; slug: string; children: ReactNode }) {
   const { t } = useI18n();
   const p = useStep(kind, slug);
   if (p && isCompleted(p)) return <span className="text-success">{t('paths.done')}</span>;

@@ -4,8 +4,8 @@ import { LEARNING_PATHS } from '@/lib/paths';
 import { blogUrl, community } from '@/lib/site';
 import type { MenuData } from './menu';
 
-export type MenuIcon = 'courses' | 'path' | 'play' | 'calendar' | 'users' | 'chat' | 'article';
-/** Soft logo tints, each with one meaning: cyan = learning, green = open/done, amber = recordings and "soon", orange = community. */
+export type MenuIcon = 'courses' | 'path' | 'map' | 'play' | 'calendar' | 'users' | 'chat' | 'article';
+/** Soft logo tints, each with one meaning: cyan = learning, green = open/done, amber = recordings and "soon", orange = community and free open-source material. */
 export type MenuTint = 'cyan' | 'green' | 'amber' | 'orange';
 
 export interface MenuLink {
@@ -13,6 +13,8 @@ export interface MenuLink {
   label: string;
   desc?: string;
   descTone?: 'success' | 'accent' | 'muted';
+  /** A second, smaller line under the description (e.g. a roadmap's level and duration). */
+  meta?: string;
   icon?: MenuIcon;
   tint?: MenuTint;
   external?: boolean;
@@ -46,14 +48,24 @@ export function menuSections(t: Translate, locale: Locale, data: MenuData): Menu
           links: [
             { href: l('/courses'), label: t('nav.courses'), desc: data.coursesLine ?? t('menu.coursesDesc'), icon: 'courses', tint: 'cyan' },
             { href: l('/learning-paths'), label: t('menu.paths'), desc: t('menu.pathsDesc'), icon: 'path', tint: 'green' },
+            { href: l('/roadmaps'), label: t('menu.roadmaps'), desc: t('menu.roadmapsDesc'), icon: 'map', tint: 'orange' },
             { href: l('/sessions/recordings'), label: t('menu.recordings'), desc: t('menu.recordingsDesc'), icon: 'play', tint: 'amber' },
           ],
         },
         {
-          heading: t('menu.pathsByTopic'),
+          heading: t('menu.paths'),
           links: LEARNING_PATHS.map((p) => ({ href: l(`/learning-paths/${p.slug}`), label: p.title[locale], desc: p.tagline[locale] })),
           more: { href: l('/learning-paths'), label: t('menu.allPaths') },
         },
+        ...(data.roadmaps.length
+          ? [
+              {
+                heading: t('menu.roadmaps'),
+                links: data.roadmaps.map((r) => ({ href: r.href, label: r.title, desc: r.tagline, meta: r.line })),
+                more: { href: l('/roadmaps'), label: t('menu.allRoadmaps') },
+              },
+            ]
+          : []),
         ...(data.featured.length
           ? [
               {

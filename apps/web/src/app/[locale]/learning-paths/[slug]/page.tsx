@@ -5,13 +5,13 @@ import { notFound } from 'next/navigation';
 import { PathProgressCard, PathProgressProvider, StepPersonal } from '@/components/paths/PathProgress';
 import { Stepper } from '@/components/paths/Stepper';
 import { Container } from '@/components/ui/Container';
-import { Arrow } from '@/components/ui/Icons';
+import { Arrow, IconExternal } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { durationLabel } from '@/lib/archive';
 import { formatDate } from '@/lib/format';
 import { jsonLd } from '@/lib/jsonld';
-import { findPath, LEARNING_PATHS, resolveSteps, type ResolvedStep } from '@/lib/paths';
+import { findPath, LEARNING_PATHS, resolveSteps, stepHref, type ResolvedStep } from '@/lib/paths';
 import { alternates } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl } from '@/lib/site';
@@ -70,21 +70,46 @@ export default async function LearningPathPage({ params }: Props) {
     name: path.title[locale],
     description: path.summary[locale],
     itemListOrder: 'https://schema.org/ItemListOrderAscending',
-    itemListElement: steps.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s.title, url: absoluteUrl(`/${locale}${s.path}`) })),
+    itemListElement: steps.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s.title, url: s.external ? s.path : absoluteUrl(`/${locale}${s.path}`) })),
   };
 
   function line(s: ResolvedStep): string {
-    if (s.kind === 'course') return [t('paths.kindCourse'), s.people.join(sep), s.description].filter(Boolean).join(' · ');
-    return [t('paths.kindRecording'), s.people.join(sep), s.date && formatDate(s.date, loc), s.durationMin && durationLabel(s.durationMin, loc)]
+    if (s.kind === 'course') return [t('paths.kindCourse'), s.description].filter(Boolean).join(' · ');
+    // Steps with their own badge (Live / Video) and description don't repeat the kind here.
+    return [!s.format && t('paths.kindRecording'), s.date && formatDate(s.date, loc), s.durationMin && durationLabel(s.durationMin, loc)]
       .filter(Boolean)
       .join(' · ');
   }
+  /** Speakers first, each linked to their speaker page when they have one, then the rest of the line. */
+  function meta(s: ResolvedStep) {
+    const rest = line(s);
+    const people = s.speakers.flatMap((sp, i) => [
+      ...(i > 0 ? [sep] : []),
+      sp.slug ? (
+        <Link key={sp.slug} href={`/${loc}/speakers/${sp.slug}`} className="text-body hover:text-primary hover:underline">
+          {sp.name}
+        </Link>
+      ) : (
+        <span key={`${sp.name}-${i}`}>{sp.name}</span>
+      ),
+    ]);
+    return (
+      <>
+        {people}
+        {people.length > 0 && rest && ' · '}
+        {rest}
+      </>
+    );
+  }
   function action(s: ResolvedStep): string {
-    if (s.kind === 'recording') return t('paths.watch');
+    if (s.kind === 'video') return t('paths.watchYoutube');
+    if (s.kind !== 'course') return t('paths.watch');
     if (s.status === 'open') return t('paths.apply');
     if (s.status === 'upcoming') return t('paths.notify');
     return t('catalog.viewCourse');
   }
+  /** A link that leaves the site: new tab, announced to screen readers. */
+  const out = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
   return (
     <PathProgressProvider courseSlugs={courseSlugs}>
@@ -130,24 +155,64 @@ export default async function LearningPathPage({ params }: Props) {
                     <span className="w-14 shrink-0 text-sm text-muted">{t('paths.stepN', { n: i + 1 })}</span>
                     <div className="min-w-0 flex-[1_1_18rem]">
                       <h3 className="text-base font-medium">
-                        <Link href={`/${locale}${s.path}`} className="hover:text-primary hover:underline">
-                          {s.title}
-                        </Link>
+                        {s.external ? (
+                          <a href={s.path} {...out} className="hover:text-primary hover:underline">
+                            {s.title}
+                            <span className="sr-only"> ({t('common.newTab')})</span>
+                          </a>
+                        ) : (
+                          <Link href={stepHref(s, loc)} className="hover:text-primary hover:underline">
+                            {s.title}
+                          </Link>
+                        )}
                       </h3>
-                      <p className="line-clamp-2 text-sm text-muted">{line(s)}</p>
+                      <p className="line-clamp-2 text-sm text-muted">{meta(s)}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`rounded-md px-2.5 py-0.5 text-[0.8125rem] font-medium ${chip[s.status]}`}>{t(`paths.status.${s.status}`)}</span>
+                      {s.format ? (
+                        <span className={`rounded-md px-2.5 py-0.5 text-[0.8125rem] font-medium ${s.format === 'live' ? 'bg-success-soft text-success' : 'bg-info-soft text-info'}`}>
+                          {t(`paths.format.${s.format}`)}
+                        </span>
+                      ) : (
+                        <span className={`rounded-md px-2.5 py-0.5 text-[0.8125rem] font-medium ${chip[s.status]}`}>{t(`paths.status.${s.status}`)}</span>
+                      )}
                       <StepPersonal kind={s.kind} slug={s.slug} />
-                      <Link
-                        href={`/${locale}${s.path}`}
-                        className="inline-flex min-h-11 items-center gap-1 text-[0.9375rem] font-medium text-primary hover:underline"
-                        aria-label={`${action(s)}: ${s.title}`}
-                      >
-                        {action(s)} <Arrow />
-                      </Link>
+                      {s.external ? (
+                        <a
+                          href={s.path}
+                          {...out}
+                          className="inline-flex min-h-11 items-center gap-1 text-[0.9375rem] font-medium text-primary hover:underline"
+                          aria-label={`${action(s)}: ${s.title} (${t('common.newTab')})`}
+                        >
+                          {action(s)} <IconExternal />
+                        </a>
+                      ) : (
+                        <Link
+                          href={stepHref(s, loc)}
+                          className="inline-flex min-h-11 items-center gap-1 text-[0.9375rem] font-medium text-primary hover:underline"
+                          aria-label={`${action(s)}: ${s.title}`}
+                        >
+                          {action(s)} <Arrow />
+                        </Link>
+                      )}
                     </div>
                   </div>
+                  {s.format && s.description && <p className="text-[0.9375rem] leading-relaxed text-body sm:ps-[4.75rem]">{s.description}</p>}
+                  {s.links.length > 0 && (
+                    <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm sm:ps-[4.75rem]">
+                      {s.links.map((l) => (
+                        <li key={l.url + l.kind}>
+                          <a href={l.url} {...out} className="inline-flex min-h-11 items-center gap-1.5 font-medium text-primary hover:underline sm:min-h-8">
+                            {t(`paths.links.${l.kind}`)} <IconExternal />
+                            <span className="sr-only">
+                              {' '}
+                              ({s.title}, {t('common.newTab')})
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <StepPersonal kind={s.kind} slug={s.slug} detailed />
                 </article>
               </li>
