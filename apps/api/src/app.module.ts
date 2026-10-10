@@ -5,6 +5,7 @@ import { SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { ArchiveModule } from './archive/archive.module';
+import { AssessmentsModule } from './assessments/assessments.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -52,6 +53,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     ApplicationsModule,
     PaymentsModule,
     LearnModule,
+    AssessmentsModule,
     EventsModule,
     SpeakerPortalModule,
     AdminModule,

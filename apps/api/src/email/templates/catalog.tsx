@@ -65,7 +65,11 @@ export type EmailTemplate =
   | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string }
   /** Waiting list ("Notify me"): may go to people without an account, so every one has a leave link. */
   | { name: 'waitlistJoined'; courseTitle: string; courseUrl: string; leaveUrl: string }
-  | { name: 'waitlistOpen'; courseTitle: string; subject: string; body: string; url: string; leaveUrl: string };
+  | { name: 'waitlistOpen'; courseTitle: string; subject: string; body: string; url: string; leaveUrl: string }
+  /** Assessments: a lab or assignment was graded (the feedback stays on the site). */
+  | { name: 'assessmentGraded'; courseTitle: string; title: string; score: number; maxScore: number; url: string }
+  /** 24 hours before an assessment is due, to students who haven't submitted. */
+  | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -584,6 +588,45 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                   ? "If you made this change, you don't need to do anything. If you didn't, reset your password right away with the button above."
                   : "If you made this change, you don't need to do anything. If you didn't, contact us right away."
             }
+          />
+        ),
+      };
+    }
+    case 'assessmentGraded': {
+      const subject = ar ? `تم تقييم ${t.title}` : `Graded: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? `درجتك: ${t.score} من ${t.maxScore}` : `Your score: ${t.score}/${t.maxScore}`, tone: 'info' }}
+            heading={t.title}
+            paragraphs={[
+              ar
+                ? `قيّم فريق ${t.courseTitle} عملك. افتح الصفحة لقراءة الملاحظات.`
+                : `The ${t.courseTitle} team has graded your work. Open it to read their feedback.`,
+            ]}
+            cta={{ label: ar ? 'اقرأ الملاحظات' : 'Read the feedback', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'assessmentDue': {
+      const subject = ar ? `موعد التسليم غدًا: ${t.title}` : `Due in 24 hours: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={t.title}
+            paragraphs={[
+              ar ? `موعد تسليم «${t.title}» في ${t.courseTitle} هو ${t.dueAt}.` : `"${t.title}" in ${t.courseTitle} is due ${t.dueAt}.`,
+              ar ? 'لم تسلّمه بعد. سلّمه قبل الموعد ليُحتسب في وقته.' : "You haven't submitted it yet. Hand it in before then so it counts as on time.",
+            ]}
+            cta={{ label: ar ? 'افتح التقييم' : 'Open the assessment', url: t.url }}
+            note={ar ? `لإيقاف تذكيرات هذه الدورة: ${t.unsubscribeUrl}` : `To stop reminders for this course: ${t.unsubscribeUrl}`}
           />
         ),
       };

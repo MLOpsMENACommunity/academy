@@ -312,3 +312,33 @@ export type EventSpeakerRole = (typeof EVENT_SPEAKER_ROLES)[number];
 export const EVENT_CATEGORIES = ['HANDS_ON', 'INDUSTRY', 'COURSE_RECORDING', 'TALK'] as const;
 export const EventCategory = defineEnum(EVENT_CATEGORIES);
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
+
+// ---------------------------------------------------------------- Assessments
+
+export const ASSESSMENT_TYPES = ['QUIZ', 'LAB', 'ASSIGNMENT'] as const;
+export const AssessmentType = defineEnum(ASSESSMENT_TYPES);
+export type AssessmentType = (typeof ASSESSMENT_TYPES)[number];
+
+export const ASSESSMENT_STATUSES = ['DRAFT', 'PUBLISHED'] as const;
+export const AssessmentStatus = defineEnum(ASSESSMENT_STATUSES);
+export type AssessmentStatus = (typeof ASSESSMENT_STATUSES)[number];
+
+export const SUBMISSION_KINDS = ['GITHUB_REPO', 'DRIVE_LINK', 'PDF', 'LINK'] as const;
+export const SubmissionKind = defineEnum(SUBMISSION_KINDS);
+export type SubmissionKind = (typeof SUBMISSION_KINDS)[number];
+
+export const SCORING_POLICIES = ['BEST', 'LAST'] as const;
+export const ScoringPolicy = defineEnum(SCORING_POLICIES);
+export type ScoringPolicy = (typeof SCORING_POLICIES)[number];
+
+export const REVEAL_POLICIES = ['NEVER', 'AFTER_SUBMIT', 'AFTER_DUE'] as const;
+export const RevealPolicy = defineEnum(REVEAL_POLICIES);
+export type RevealPolicy = (typeof REVEAL_POLICIES)[number];
+
+export const QUIZ_QUESTION_KINDS = ['SINGLE', 'MULTIPLE', 'TRUE_FALSE'] as const;
+export const QuizQuestionKind = defineEnum(QUIZ_QUESTION_KINDS);
+export type QuizQuestionKind = (typeof QUIZ_QUESTION_KINDS)[number];
+
+export const REPO_CHECKS = ['PUBLIC', 'NOT_PUBLIC', 'UNVERIFIED'] as const;
+export const RepoCheck = defineEnum(REPO_CHECKS);
+export type RepoCheck = (typeof REPO_CHECKS)[number];

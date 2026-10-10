@@ -197,11 +197,12 @@ export class AccountService {
   async anonymize(userId: string): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      include: { profile: true, applications: { include: { payments: true } } },
+      include: { profile: true, applications: { include: { payments: true } }, submissions: { select: { fileKey: true } } },
     });
     const keys = [
       user.profile?.cvKey,
       ...user.applications.flatMap((a) => a.payments.map((p) => p.screenshotKey)),
+      ...user.submissions.map((s) => s.fileKey),
     ].filter((k): k is string => Boolean(k));
     // If any file can't be deleted, stop: keys stay referenced and tomorrow's run retries.
     for (const key of keys) {
@@ -253,6 +254,9 @@ export class AccountService {
         where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} } },
       }),
       this.prisma.instructor.updateMany({ where: { userId }, data: { userId: null } }),
+      // Grades stay (course statistics); links, files and notes go.
+      this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null } }),
+      this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {

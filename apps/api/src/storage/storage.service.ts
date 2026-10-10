@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 
-/** Signed URLs for payment screenshots and CVs expire within 5 minutes. */
+/** Signed URLs for payment screenshots, CVs and submitted files expire within 5 minutes. */
 export const SIGNED_URL_TTL_SECONDS = 300;
 
 const EXT: Record<string, string> = {
@@ -61,7 +61,7 @@ export class StorageService implements OnModuleInit {
   }
 
   /** Stores a file under `<prefix>/<random>.<ext>` and returns the key. */
-  async put(prefix: 'payments' | 'cvs', body: Buffer, contentType: string): Promise<string> {
+  async put(prefix: 'payments' | 'cvs' | 'submissions', body: Buffer, contentType: string): Promise<string> {
     const key = `${prefix}/${randomUUID()}.${EXT[contentType] ?? 'bin'}`;
     await this.s3.send(
       new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }),
