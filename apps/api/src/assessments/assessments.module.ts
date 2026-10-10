@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PointsModule } from '../points/points.module';
 import { AdminAssessmentsController } from './admin-assessments.controller';
 import { AdminAssessmentsService } from './admin-assessments.service';
 import { AssessmentReminderJobs } from './assessment-reminders.jobs';
@@ -7,6 +8,7 @@ import { AssessmentsService } from './assessments.service';
 import { GITHUB_FETCH, GithubRepoChecker, type FetchLike } from './github-repo-check';
 
 @Module({
+  imports: [PointsModule],
   controllers: [AssessmentsController, AdminAssessmentsController],
   providers: [
     AssessmentsService,

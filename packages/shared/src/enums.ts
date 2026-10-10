@@ -342,3 +342,13 @@ export type QuizQuestionKind = (typeof QUIZ_QUESTION_KINDS)[number];
 export const REPO_CHECKS = ['PUBLIC', 'NOT_PUBLIC', 'UNVERIFIED'] as const;
 export const RepoCheck = defineEnum(REPO_CHECKS);
 export type RepoCheck = (typeof REPO_CHECKS)[number];
+
+// ---------------------------------------------------------------- Points and badges
+
+export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT'] as const;
+export const PointsReason = defineEnum(POINTS_REASONS);
+export type PointsReason = (typeof POINTS_REASONS)[number];
+
+export const BADGE_KINDS = ['AUTO', 'MANUAL'] as const;
+export const BadgeKind = defineEnum(BADGE_KINDS);
+export type BadgeKind = (typeof BADGE_KINDS)[number];

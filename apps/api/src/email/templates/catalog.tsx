@@ -69,7 +69,9 @@ export type EmailTemplate =
   /** Assessments: a lab or assignment was graded (the feedback stays on the site). */
   | { name: 'assessmentGraded'; courseTitle: string; title: string; score: number; maxScore: number; url: string }
   /** 24 hours before an assessment is due, to students who haven't submitted. */
-  | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string };
+  | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string }
+  /** Points and badges: a badge was awarded (automatically or by the team). */
+  | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -627,6 +629,30 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             ]}
             cta={{ label: ar ? 'افتح التقييم' : 'Open the assessment', url: t.url }}
             note={ar ? `لإيقاف تذكيرات هذه الدورة: ${t.unsubscribeUrl}` : `To stop reminders for this course: ${t.unsubscribeUrl}`}
+          />
+        ),
+      };
+    }
+    case 'badgeAwarded': {
+      const subject = ar ? `شارة جديدة: ${t.badgeName}` : `You earned a badge: ${t.badgeName}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={`${t.icon} ${t.badgeName}`}
+            paragraphs={[
+              t.description,
+              t.courseTitle
+                ? ar
+                  ? `في ${t.courseTitle}. أحسنت!`
+                  : `In ${t.courseTitle}. Well done!`
+                : ar
+                  ? 'أحسنت!'
+                  : 'Well done!',
+            ].filter(Boolean)}
+            cta={{ label: ar ? 'شاهد نقاطك وشاراتك' : 'See your points and badges', url: t.url }}
           />
         ),
       };

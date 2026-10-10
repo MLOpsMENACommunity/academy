@@ -24,6 +24,7 @@ import { EventsModule } from './events/events.module';
 import { LearnModule } from './learn/learn.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
 import { SpeakerPortalModule } from './speaker-portal/speaker-portal.module';
@@ -54,6 +55,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     PaymentsModule,
     LearnModule,
     AssessmentsModule,
+    PointsModule,
     EventsModule,
     SpeakerPortalModule,
     AdminModule,

@@ -7,6 +7,7 @@ import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { AnnouncementDelivery } from '../announcements/announcement-delivery.service';
 import { AssessmentReminderJobs } from '../assessments/assessment-reminders.jobs';
+import { PointsJobs } from '../points/points.jobs';
 import { AccountJobs } from './account.jobs';
 import { EventReminderJobs } from './event-reminders.jobs';
 import { ReminderJobs } from './reminders.jobs';
@@ -29,6 +30,7 @@ export class JobsController {
     private readonly eventReminders: EventReminderJobs,
     private readonly assessmentReminders: AssessmentReminderJobs,
     private readonly announcements: AnnouncementDelivery,
+    private readonly pointsJobs: PointsJobs,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -62,6 +64,7 @@ export class JobsController {
     await run('remindersSent', () => this.reminders.run());
     await run('eventRemindersSent', () => this.eventReminders.run());
     await run('assessmentRemindersSent', () => this.assessmentReminders.run());
+    await run('points', () => this.pointsJobs.run());
     // Resume any announcement emails left pending (e.g. by a restart); runs after the response.
     await run('announcementEmailsPending', async () => {
       const pending = await this.announcements.pending();
