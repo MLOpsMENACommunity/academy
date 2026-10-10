@@ -5,6 +5,12 @@
   "entryFile": "src/main",
   "compilerOptions": {
     "deleteOutDir": true,
-    "tsConfigPath": "tsconfig.build.json"
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [
+      {
+        "include": "certificates/assets/*",
+        "outDir": "dist/src"
+      }
+    ]
   }
 }

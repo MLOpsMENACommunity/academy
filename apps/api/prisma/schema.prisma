@@ -323,6 +323,7 @@ model User {
   badges                  UserBadge[]              @relation("BadgeHolder")
   badgesAwarded           UserBadge[]              @relation("BadgeAwarder")
   leaderboardOptIns       LeaderboardOptIn[]
+  certificatesIssued      Certificate[]            @relation("CertificateIssuer")
   reminderPreferences     ReminderPreference[]
   savedFilters            SavedFilter[]
   auditLogs               AuditLog[]               @relation("AuditActor")
@@ -592,6 +593,13 @@ model Course {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   archivedAt          DateTime?
+  /// Certificate rule: minimum share of sessions completed (0–100), null for none.
+  certMinSessionsPercent Int?
+  /// Certificate rule: every published assessment marked "counts toward certificate" must be passed.
+  certRequireAssessments Boolean       @default(true)
+  /// Optional wording of the rule shown to students (otherwise generated from the fields above).
+  certRuleEn             String        @default("")
+  certRuleAr             String        @default("")
 
   instructors        CourseInstructor[]
   screeningQuestions ScreeningQuestion[]
@@ -787,13 +795,35 @@ model ProjectSubmission {
   passed       Boolean?
 }
 
-/// Reserved for v2 (no UI yet).
+/// One completion certificate per enrolment. Snapshots (name, course title, instructors) are taken at
+/// issue time so later edits don't change an issued certificate; re-issuing refreshes them.
+/// Restrict: an issued certificate is never deleted with its enrolment (accounts are soft-deleted,
+/// and anonymisation clears the name instead).
 model Certificate {
-  id           String     @id @default(cuid())
-  enrollmentId String     @unique
-  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  serial       String     @unique
-  issuedAt     DateTime   @default(now())
+  id                  String     @id @default(cuid())
+  enrollmentId        String     @unique
+  enrollment          Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  /// MMA-<year>-<8 random Crockford base32 chars>: printed on the PDF and in the public link.
+  serial              String     @unique
+  issuedAt            DateTime   @default(now())
+  issuedById          String?
+  issuedBy            User?      @relation("CertificateIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  revokedAt           DateTime?
+  revokeReason        String?
+  /// e.g. "Distinction".
+  grade               String?
+  /// The student's English name when issued; emptied when the account is anonymised.
+  nameOnCertificate   String
+  nameOnCertificateAr String?
+  courseTitleEn       String
+  courseTitleAr       String
+  /// [{ name, nameAr }] in course order.
+  instructorNames     Json       @default("[]")
+  /// The generated PDF in the private bucket (certificates/<random>.pdf); null until first downloaded.
+  pdfKey              String?
+  updatedAt           DateTime   @updatedAt
+
+  @@index([issuedAt])
 }
 
 // ======================================================================= Learning experience

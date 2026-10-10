@@ -1335,6 +1335,98 @@
         "sessionCompletedPoints": "Points for each completed session",
         "certificatePoints": "Bonus points for a certificate"
       }
+    },
+    "certificates": {
+      "tab": "Certificates",
+      "rule": {
+        "title": "Certificate rule",
+        "hint": "Students see this rule on the course page with their own progress against it. You can still issue a certificate to anyone.",
+        "minSessions": "Sessions completed (minimum %)",
+        "minSessionsHint": "Leave empty for no minimum.",
+        "requireAssessments": "Every assessment marked “counts toward certificate” must be passed",
+        "requireAssessmentsHint": "Set per assessment in the Assessments tab.",
+        "textEn": "Rule shown to students (English)",
+        "textAr": "Rule shown to students (Arabic)",
+        "textHint": "Leave empty to show a sentence generated from the settings above.",
+        "save": "Save rule",
+        "saved": "Rule saved."
+      },
+      "student": "Student",
+      "progress": "Sessions and assessments",
+      "average": "Average",
+      "capstone": "Capstone",
+      "certificate": "Certificate",
+      "capstoneState": {
+        "PASSED": "Passed",
+        "PENDING": "To grade",
+        "NOT_PASSED": "Not passed",
+        "MISSING": "Not submitted"
+      },
+      "sessionsValue": "Sessions: {completed}/{total} ({percent}%)",
+      "assessmentsValue": "Required passed: {passed}/{required}",
+      "pending": "{count} to grade",
+      "eligible": "Eligible",
+      "notEligible": "Not eligible yet",
+      "issued": "Issued",
+      "revoked": "Revoked",
+      "counts": {
+        "enrolled": "{count, plural, one {# student} other {# students}}",
+        "eligible": "{count} eligible",
+        "issued": "{count} issued",
+        "revoked": "{count} revoked"
+      },
+      "csv": "Export CSV",
+      "filter": {
+        "label": "Show",
+        "all": "All",
+        "eligible": "Eligible, not issued",
+        "notIssued": "Not issued",
+        "issued": "Issued",
+        "revoked": "Revoked"
+      },
+      "select": "Select",
+      "selectEligible": "Select all eligible",
+      "clear": "Clear selection",
+      "grade": "Grade",
+      "gradeHint": "Printed on the certificate, e.g. Distinction.",
+      "issueSelected": "{count, plural, =0 {Issue certificates} one {Issue # certificate} other {Issue # certificates}}",
+      "issueOne": "Issue",
+      "cancel": "Cancel",
+      "none": "No students match.",
+      "confirm": {
+        "title": "{count, plural, one {# student doesn't meet the certificate rule} other {# students don't meet the certificate rule}}",
+        "body": "Issue anyway? The certificate is valid like any other and the student is emailed.",
+        "yes": "Issue anyway"
+      },
+      "outcome": {
+        "ISSUED": "{count, plural, =0 {No certificates issued.} one {# certificate issued.} other {# certificates issued.}}",
+        "ALREADY_ISSUED": "{count} already had one.",
+        "REVOKED": "{count} revoked: re-issue them one by one.",
+        "NO_NAME": "{count} skipped: no name on their profile.",
+        "NOT_ENROLLED": "{count} not enrolled."
+      },
+      "revoke": {
+        "action": "Revoke",
+        "title": "Revoke the certificate of {name}",
+        "body": "The public page will say it's revoked and the PDF stops downloading. Serial:",
+        "reason": "Reason (kept in the record, shown to admins)",
+        "reasonRequired": "Give a reason (at least 3 characters).",
+        "confirm": "Revoke certificate",
+        "done": "Certificate of {name} revoked."
+      },
+      "reissue": {
+        "action": "Re-issue",
+        "title": "Re-issue the certificate of {name}",
+        "body": "Same serial, valid again if it was revoked, with today's date and the current name, course title and instructors. The student is emailed. Serial:",
+        "confirm": "Re-issue certificate",
+        "done": "Certificate of {name} re-issued."
+      },
+      "errors": {
+        "NOT_ELIGIBLE": "Some students don't meet the certificate rule. Reload and confirm to issue anyway.",
+        "ALREADY_REVOKED": "This certificate is already revoked.",
+        "NO_NAME": "This student has no name on their profile, so there is nothing to print.",
+        "ACCOUNT_DELETED": "This student deleted their account."
+      }
     }
   },
   "learn": {
@@ -1942,5 +2034,64 @@
     "optedIn": "You're on the leaderboard.",
     "optedOut": "You're hidden from the leaderboard.",
     "participants": "{count} of {total} students take part. Everyone else is counted but not named."
+  },
+  "certificates": {
+    "mine": "My certificates",
+    "download": "Download PDF",
+    "linkedin": "Add to LinkedIn",
+    "view": "View certificate",
+    "copy": "Copy link",
+    "copied": "Link copied.",
+    "issuedOn": "Issued {date}",
+    "grade": "Grade: {grade}",
+    "status": {
+      "VALID": "Valid",
+      "REVOKED": "Revoked"
+    },
+    "revokedNote": "This certificate was revoked. If you think this is a mistake, contact the academy team.",
+    "banner": {
+      "title": "Your certificate is ready",
+      "body": "Congratulations on completing {course}!"
+    },
+    "earn": {
+      "title": "How to earn the certificate",
+      "met": "Done",
+      "notYet": "Not yet",
+      "sessions": "Sessions completed: {completed} of {total} ({percent}%, at least {required}% needed)",
+      "assessments": "Required assessments passed: {passed} of {required}",
+      "pending": "{count, plural, one {# is waiting to be graded} other {# are waiting to be graded}}",
+      "capstone": {
+        "PASSED": "Capstone passed",
+        "PENDING": "Capstone submitted, waiting to be graded",
+        "NOT_PASSED": "Capstone not passed yet",
+        "MISSING": "Capstone not submitted yet"
+      },
+      "average": "Your average score so far: {percent}%",
+      "eligible": "You meet the requirements. The course team issues certificates after the course ends.",
+      "keepGoing": "Keep going: your status updates as you complete sessions and assessments are graded."
+    },
+    "verify": {
+      "metaTitle": "Certificate verification",
+      "metaNamed": "{name}: certificate for {course}",
+      "metaDescription": "{name} completed {course} at MLOps MENA Academy. Verify this certificate.",
+      "academy": "MLOps MENA Academy",
+      "heading": "Certificate of completion",
+      "valid": "Valid certificate",
+      "validBody": "Issued by MLOps MENA Academy and verified just now.",
+      "revoked": "This certificate has been revoked",
+      "revokedOn": "Revoked on {date}.",
+      "revokedBody": "It is no longer valid.",
+      "unavailable": "This certificate is no longer available",
+      "unavailableBody": "Its holder has closed their account, so its details are no longer shown.",
+      "limited": "Too many lookups from your connection. Please try again in a minute.",
+      "awardedTo": "Awarded to",
+      "course": "Course",
+      "issued": "Issued",
+      "instructors": "Instructors",
+      "grade": "Grade",
+      "serial": "Serial number",
+      "issuer": "Issued by",
+      "issuerValue": "MLOps MENA Community"
+    }
   }
 }

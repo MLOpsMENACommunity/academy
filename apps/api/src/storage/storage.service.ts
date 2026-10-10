@@ -61,7 +61,7 @@ export class StorageService implements OnModuleInit {
   }
 
   /** Stores a file under `<prefix>/<random>.<ext>` and returns the key. */
-  async put(prefix: 'payments' | 'cvs' | 'submissions', body: Buffer, contentType: string): Promise<string> {
+  async put(prefix: 'payments' | 'cvs' | 'submissions' | 'certificates', body: Buffer, contentType: string): Promise<string> {
     const key = `${prefix}/${randomUUID()}.${EXT[contentType] ?? 'bin'}`;
     await this.s3.send(
       new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }),
@@ -76,6 +76,18 @@ export class StorageService implements OnModuleInit {
       new GetObjectCommand({ Bucket: this.bucket, Key: key, ResponseContentDisposition: 'inline' }),
       { expiresIn: Math.min(ttlSeconds, SIGNED_URL_TTL_SECONDS) },
     );
+  }
+
+  /** The object's bytes, or null when it doesn't exist (e.g. a cached certificate PDF was removed). */
+  async get(key: string): Promise<Buffer | null> {
+    try {
+      const out = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      return out.Body ? Buffer.from(await out.Body.transformToByteArray()) : null;
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === 'NoSuchKey' || name === 'NotFound') return null;
+      throw err;
+    }
   }
 
   async delete(key: string): Promise<void> {

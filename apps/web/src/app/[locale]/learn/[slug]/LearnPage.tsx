@@ -1,10 +1,11 @@
 'use client';
 
-import type { AssessmentSummaryDto, LearnCourseDto, LearnSessionDto } from '@academy/shared';
+import type { AssessmentSummaryDto, LearnCertificateDto, LearnCourseDto, LearnSessionDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { CertificateBanner, CertificateRuleCard } from '@/components/certificates/LearnCertificate';
 import { LocalTime } from '@/components/course/LocalTime';
 import { CheckboxField } from '@/components/forms/fields';
 import { AssessmentList } from '@/components/learn/AssessmentList';
@@ -51,7 +52,15 @@ function Inner() {
   const [reminderMsg, setReminderMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [assessments, setAssessments] = useState<AssessmentSummaryDto[]>([]);
+  const [certificate, setCertificate] = useState<LearnCertificateDto | null>(null);
   const main = useRef<HTMLDivElement>(null);
+
+  // The certificate card is an optional extra too (it follows progress locally, see CertificateRuleCard).
+  const loadCertificate = useCallback(() => {
+    api<LearnCertificateDto>(`/learn/${slug}/certificate`)
+      .then(setCertificate)
+      .catch(() => undefined);
+  }, [slug]);
 
   const load = useCallback(() => {
     api<LearnCourseDto>(`/learn/${slug}`)
@@ -61,7 +70,8 @@ function Inner() {
     api<AssessmentSummaryDto[]>(`/learn/${slug}/assessments`)
       .then(setAssessments)
       .catch(() => undefined);
-  }, [slug]);
+    loadCertificate();
+  }, [slug, loadCertificate]);
   useEffect(load, [load]);
 
   // Live links unlock and sessions start/end over time: refresh at the next such moment,
@@ -127,13 +137,14 @@ function Inner() {
   const index = current ? sessions.indexOf(current) : -1;
   const prev = index > 0 ? sessions[index - 1] : null;
   const next = index >= 0 && index < sessions.length - 1 ? sessions[index + 1] : null;
-  const onProgress = (id: string, completed: boolean) =>
+  const onProgress = (id: string, completed: boolean) => {
     setCourse((c) => {
       if (!c) return c;
       const list = c.sessions.map((s) => (s.id === id ? { ...s, completed } : s));
       const done = list.filter((s) => s.completed).length;
       return { ...c, sessions: list, progress: { completed: done, total: list.length, percent: list.length ? Math.round((done / list.length) * 100) : 0 } };
     });
+  };
   const ended = sessions.length > 0 && sessions.every((s) => s.phase === 'ended');
   const dueCount = assessments.filter((a) => a.due).length;
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
@@ -282,6 +293,7 @@ function Inner() {
         </nav>
 
         <div ref={main} className="flex min-w-0 flex-1 scroll-mt-4 flex-col gap-8 px-5 py-8 sm:px-8 lg:max-w-[60rem] lg:px-10">
+          <CertificateBanner data={certificate} />
           {current ? (
             <SessionCard
               key={current.id}
@@ -331,6 +343,8 @@ function Inner() {
               <AssessmentList slug={course.slug} items={assessments} headingId="assessments-title" title={t('assessments.courseTitle')} level="h2" />
             </div>
           )}
+
+          <CertificateRuleCard data={certificate} progress={course.progress} />
 
           <div id="leaderboard" className="scroll-mt-6">
             <Leaderboard slug={course.slug} />

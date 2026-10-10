@@ -71,7 +71,9 @@ export type EmailTemplate =
   /** 24 hours before an assessment is due, to students who haven't submitted. */
   | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string }
   /** Points and badges: a badge was awarded (automatically or by the team). */
-  | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string };
+  | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string }
+  /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
+  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -610,6 +612,35 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 : `The ${t.courseTitle} team has graded your work. Open it to read their feedback.`,
             ]}
             cta={{ label: ar ? 'اقرأ الملاحظات' : 'Read the feedback', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'certificateIssued': {
+      const subject = ar ? `شهادتك في ${t.courseTitle} جاهزة` : `Your ${t.courseTitle} certificate is ready`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'مبروك!' : 'Congratulations!', tone: 'success' }}
+            heading={subject}
+            paragraphs={[
+              ar
+                ? `أصدر فريق الدورة شهادة إتمامك لدورة ${t.courseTitle}. رقمها التسلسلي ${t.serial}، ويمكن لأي شخص التحقق منها عبر الرابط العام.`
+                : `The course team has issued your certificate of completion for ${t.courseTitle}. Its serial number is ${t.serial}, and anyone can verify it at its public link.`,
+              <>
+                <Link href={t.downloadUrl} style={{ textDecoration: 'underline' }}>
+                  {ar ? 'نزّل الشهادة (PDF)' : 'Download the PDF'}
+                </Link>
+                {' · '}
+                <Link href={t.linkedInUrl} style={{ textDecoration: 'underline' }}>
+                  {ar ? 'أضفها إلى LinkedIn' : 'Add it to LinkedIn'}
+                </Link>
+              </>,
+            ]}
+            cta={{ label: ar ? 'اعرض الشهادة' : 'View your certificate', url: t.verifyUrl }}
           />
         ),
       };
