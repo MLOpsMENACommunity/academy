@@ -34,6 +34,7 @@ describe('internal jobs endpoint (e2e)', () => {
       pointsResynced: expect.any(Number),
       weeklyBadges: expect.any(Number),
       courseBadges: expect.any(Number),
+      speakerBadges: expect.any(Number),
       submissionFilesDeleted: expect.any(Number),
     });
   });

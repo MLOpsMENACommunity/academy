@@ -16,6 +16,9 @@ const AWARD_WINDOW_DAYS = 60;
  * - "Top of the week" for ranks 1–3 of each course week once it has closed;
  * - "Top of the course" for ranks 1–3 once the course has ended.
  *
+ * - "Speaker" (global, once) when a speaker account's first published live session has ended
+ *   (the speaker portal links an Instructor profile to a user).
+ *
  * Owner decision: these badges go to the top students whether or not they opted into the
  * public board. A badge is private (dashboard, notification, email) unless the student opts
  * in, so awarding it reveals nothing; opting in later simply shows it.
@@ -37,7 +40,7 @@ export class PointsJobs {
     await this.run();
   }
 
-  async run(now = new Date()): Promise<{ pointsResynced: number; weeklyBadges: number; courseBadges: number }> {
+  async run(now = new Date()): Promise<{ pointsResynced: number; weeklyBadges: number; courseBadges: number; speakerBadges: number }> {
     const pointsResynced = await this.points.sweepRecent(now);
     let weeklyBadges = 0;
     let courseBadges = 0;
@@ -65,7 +68,29 @@ export class PointsJobs {
         }
       }
     }
+    const speakerBadges = await this.speakerBadges(now);
     if (weeklyBadges || courseBadges) this.logger.log(`Awarded ${weeklyBadges} weekly and ${courseBadges} course leaderboard badge(s)`);
-    return { pointsResynced, weeklyBadges, courseBadges };
+    return { pointsResynced, weeklyBadges, courseBadges, speakerBadges };
+  }
+
+  /** "Speaker" for speakers with an account whose published session has ended (recent ones only). */
+  private async speakerBadges(now: Date): Promise<number> {
+    const events = await this.prisma.liveEvent.findMany({
+      where: {
+        status: 'PUBLISHED',
+        startsAt: { gte: new Date(now.getTime() - AWARD_WINDOW_DAYS * 86_400_000), lte: now },
+        speaker: { userId: { not: null }, user: { deletedAt: null } },
+      },
+      select: { startsAt: true, durationMin: true, speaker: { select: { userId: true } } },
+    });
+    let awarded = 0;
+    const done = new Set<string>();
+    for (const e of events) {
+      const userId = e.speaker?.userId;
+      if (!userId || done.has(userId) || e.startsAt.getTime() + e.durationMin * 60_000 > now.getTime()) continue;
+      done.add(userId);
+      if (await this.points.awardBadge(BADGE_CODES.SPEAKER, userId, { reason: 'First live session delivered' })) awarded++;
+    }
+    return awarded;
   }
 }

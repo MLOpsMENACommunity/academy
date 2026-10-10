@@ -315,6 +315,22 @@ describe('points, badges and leaderboards (e2e)', () => {
     expect(board.rows[0].badges.map((b: { code: string }) => b.code).sort()).toEqual(['top-course', 'top-week']);
   });
 
+  it('gives a speaker account "Speaker" once their published session has ended', async () => {
+    const speaker = await createUser(app, prisma, { prefix: 'speaker' });
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const profile = await prisma.instructor.create({ data: { name: 'Sam Speaker', titleEn: 'Engineer', bioEn: 'x', userId: speaker.id } });
+    const event = await prisma.liveEvent.create({
+      data: { slug: `talk-${stamp}`, titleEn: 'A talk', status: 'PUBLISHED', startsAt: new Date(Date.now() + DAY), durationMin: 60, speakerId: profile.id },
+    });
+    const jobs = app.get(PointsJobs);
+    await jobs.run();
+    expect(await prisma.userBadge.count({ where: { userId: speaker.id, badge: { code: 'speaker' } } })).toBe(0);
+    await prisma.liveEvent.update({ where: { id: event.id }, data: { startsAt: new Date(Date.now() - 2 * 3_600_000) } });
+    await jobs.run();
+    await jobs.run();
+    expect(await prisma.userBadge.count({ where: { userId: speaker.id, badge: { code: 'speaker' }, scopeKey: 'global' } })).toBe(1);
+  });
+
   it('gives the certificate bonus and "Certified" once (the hook for certificates)', async () => {
     const { course, students } = await setup();
     const [s] = students;
