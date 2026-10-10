@@ -12,6 +12,7 @@ import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SpeakerPortalService } from '../speaker-portal/speaker-portal.service';
 import { ProfileService, toProfileDto } from './profile.service';
 
 export const ANONYMIZE_AFTER_DAYS = 30;
@@ -28,6 +29,7 @@ export class AccountService {
     private readonly email: EmailService,
     private readonly profiles: ProfileService,
     private readonly audit: AuditService,
+    private readonly speakerPortal: SpeakerPortalService,
   ) {}
 
   /**
@@ -105,6 +107,14 @@ export class AccountService {
         calendarFeed: { select: { createdAt: true, rotatedAt: true, lastFetchedAt: true } },
         notifications: { select: { titleEn: true, bodyEn: true, createdAt: true, readAt: true } },
         eventRegistrations: { select: { createdAt: true, event: { select: { slug: true, titleEn: true, startsAt: true } } } },
+        speakerApplication: {
+          omit: { id: true, userId: true, reviewedById: true },
+        },
+        speakerProfile: { select: { slug: true, name: true, titleEn: true, bioEn: true, photoUrl: true, linkedinUrl: true } },
+        speakingSlots: {
+          select: { startsAt: true, durationMin: true, status: true, title: true, abstract: true, bookedAt: true, event: { select: { slug: true, status: true } } },
+          orderBy: { startsAt: 'asc' },
+        },
       },
     });
     // Waiting lists joined from this account, or with this address before signing in.
@@ -148,6 +158,9 @@ export class AccountService {
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
       liveSessionRegistrations: user.eventRegistrations.map((r) => ({ session: r.event, registeredAt: r.createdAt })),
+      speakerApplication: user.speakerApplication,
+      speakerProfile: user.speakerProfile,
+      speakerBookings: user.speakingSlots,
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
     };
   }
@@ -168,6 +181,8 @@ export class AccountService {
     await this.prisma.calendarFeed.deleteMany({ where: { userId } });
     // Off every waiting list: nobody should email a deleted account about new courses.
     await this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } });
+    // Upcoming speaker bookings: the slot opens again, the session is cancelled, the team is told.
+    await this.speakerPortal.releaseBookings(user);
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
     await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted' });
@@ -228,6 +243,11 @@ export class AccountService {
       this.prisma.calendarFeed.deleteMany({ where: { userId } }),
       this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
+      // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
+      // page about past sessions and stays, but no longer points at this account.
+      this.prisma.speakerApplication.deleteMany({ where: { userId } }),
+      this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null } }),
+      this.prisma.instructor.updateMany({ where: { userId }, data: { userId: null } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {

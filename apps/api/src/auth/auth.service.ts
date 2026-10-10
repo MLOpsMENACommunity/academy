@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import { safeReturnTo, type Locale, type LoginInput, type MeResponse, type RegisterInput } from '@academy/shared';
+import { safeReturnTo, type Locale, type LoginInput, type MeResponse, type RegisterInput, type SignupRole } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { randomToken, sha256 } from '../common/crypto';
@@ -44,6 +44,8 @@ export class AuthService {
         email: input.email,
         passwordHash: await this.hashPassword(input.password),
         locale: input.locale,
+        // Validated against STUDENT | SPEAKER: sign-up can never create an admin.
+        role: input.role === 'SPEAKER' ? 'SPEAKER' : 'STUDENT',
         profile: { create: { preferredLanguage: input.locale } },
       },
     });
@@ -74,7 +76,8 @@ export class AuthService {
     return this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   }
 
-  async loginWithGoogle(g: GoogleIdentity, locale: Locale): Promise<{ user: User; isNew: boolean }> {
+  /** `role` only applies to a new account: signing in never changes an existing account's role. */
+  async loginWithGoogle(g: GoogleIdentity, locale: Locale, role: SignupRole = 'STUDENT'): Promise<{ user: User; isNew: boolean }> {
     // An unverified Google address proves nothing about who owns the inbox.
     if (!g.emailVerified) throw new UnauthorizedException('Google email is not verified');
     const byGoogle = await this.prisma.user.findUnique({ where: { googleId: g.sub } });
@@ -130,6 +133,7 @@ export class AuthService {
         googleId: g.sub,
         emailVerifiedAt: new Date(),
         locale,
+        role: role === 'SPEAKER' ? 'SPEAKER' : 'STUDENT',
         lastLoginAt: new Date(),
         profile: { create: { fullNameEn: g.name, googleEmail: g.email, preferredLanguage: locale } },
       },

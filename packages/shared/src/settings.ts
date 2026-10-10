@@ -1,5 +1,19 @@
 import { z } from 'zod';
 
+export const DEFAULT_SESSION_TEAM_EMAILS = [
+  'aya@mlopsmena.com',
+  'mariam@mlopsmena.com',
+  'omarkhalil@mlopsmena.com',
+  'mahmoud@mlopsmena.com',
+] as const;
+export const SESSION_TEAM_EMAILS_MAX = 20;
+
+/** The session team's addresses: valid, lowercased, no duplicates, at most 20. */
+export const sessionTeamEmailsSchema = z
+  .array(z.string().trim().toLowerCase().email('Enter a valid email address').max(254))
+  .max(SESSION_TEAM_EMAILS_MAX, `At most ${SESSION_TEAM_EMAILS_MAX} addresses`)
+  .refine((list) => new Set(list).size === list.length, 'Each address can be listed once');
+
 /** Admin-editable platform settings (stored as one row per key in `Setting`). */
 export const settingsSchema = z.object({
   /** Empty = not offered. A payment method is shown to students only once its details are set. */
@@ -19,6 +33,15 @@ export const settingsSchema = z.object({
   liveLinkRevealMinutes: z.number().int().min(0).max(24 * 60).default(60),
   /** Payment screenshots and CVs older than this are deleted (records are kept). */
   screenshotRetentionDays: z.number().int().min(1).max(3650).default(180),
+  /**
+   * Who hears about speaker bookings and cancellations (one email each). Admin only:
+   * never part of the public settings.
+   */
+  sessionTeamEmails: sessionTeamEmailsSchema.default([...DEFAULT_SESSION_TEAM_EMAILS]),
+  /** How many upcoming booked slots one speaker can hold at a time. */
+  speakerMaxOpenBookings: z.number().int().min(1).max(10).default(2),
+  /** Speakers can cancel a booking until this many days before it starts. */
+  speakerCancelDays: z.number().int().min(0).max(60).default(3),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

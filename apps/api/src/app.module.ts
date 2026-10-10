@@ -25,6 +25,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
+import { SpeakerPortalModule } from './speaker-portal/speaker-portal.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
@@ -52,6 +53,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     PaymentsModule,
     LearnModule,
     EventsModule,
+    SpeakerPortalModule,
     AdminModule,
     JobsModule,
   ],

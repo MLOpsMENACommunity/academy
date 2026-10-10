@@ -3,11 +3,15 @@ import { ApiTags } from '@nestjs/swagger';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
   forgotPasswordSchema,
+  homePath,
   isLocaleValue,
+  isStudentOnlyPath,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
   safeReturnTo,
+  SIGNUP_ROLES,
+  signupRoleSchema,
   verifyEmailSchema,
   type LoginInput,
   type MeResponse,
@@ -33,7 +37,13 @@ import { GoogleService } from './google.service';
 import { TokensService, type SessionInfo } from './tokens.service';
 import { z } from 'zod';
 
-const oauthStateSchema = z.object({ nonce: z.string(), returnTo: z.string(), locale: z.enum(['en', 'ar']) });
+const oauthStateSchema = z.object({
+  nonce: z.string(),
+  returnTo: z.string(),
+  locale: z.enum(['en', 'ar']),
+  /** "I'm a student / I'm a speaker": used only if Google sign-in creates the account. Never ADMIN. */
+  role: z.enum(SIGNUP_ROLES).default('STUDENT'),
+});
 
 @ApiTags('auth')
 @Controller('auth')
@@ -188,15 +198,18 @@ export class AuthController {
   googleStart(
     @Query('returnTo') returnTo: string | undefined,
     @Query('locale') locale: string | undefined,
+    @Query('as') as: string | undefined,
     @Res() res: Response,
   ): void {
     const lang = isLocaleValue(locale) ? locale : 'en';
+    // Anything but a valid sign-up role (e.g. ADMIN) falls back to student.
+    const role = signupRoleSchema.catch('STUDENT').parse(as?.toUpperCase());
     if (!this.google.enabled) {
       res.redirect(`${this.env.WEB_URL}/${lang}/login?error=google_unavailable`);
       return;
     }
     const nonce = randomToken(16);
-    const state = { nonce, returnTo: safeReturnTo(returnTo, `/${lang}/dashboard`), locale: lang };
+    const state = { nonce, returnTo: safeReturnTo(returnTo, homePath(role, lang)), locale: lang, role };
     setOAuthStateCookie(res, this.env, Buffer.from(JSON.stringify(state)).toString('base64url'));
     res.redirect(this.google.authUrl(nonce));
   }
@@ -224,9 +237,12 @@ export class AuthController {
 
     try {
       const identity = await this.google.exchange(code);
-      const { user } = await this.auth.loginWithGoogle(identity, lang);
+      const { user } = await this.auth.loginWithGoogle(identity, lang, state.role);
       await this.startSession(res, user, req, 'google');
-      res.redirect(`${this.env.WEB_URL}${safeReturnTo(state.returnTo, `/${lang}/dashboard`)}`);
+      let to = safeReturnTo(state.returnTo, homePath(user.role, lang));
+      // Speakers skip the student pages (onboarding, dashboard, applying): their home is the portal.
+      if (user.role === 'SPEAKER' && isStudentOnlyPath(to, lang)) to = homePath('SPEAKER', lang);
+      res.redirect(`${this.env.WEB_URL}${to}`);
     } catch (err) {
       const e = err as Error;
       // Error type and Google's error string only; never the code, tokens or email.
