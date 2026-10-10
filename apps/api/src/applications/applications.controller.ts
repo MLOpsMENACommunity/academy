@@ -22,6 +22,8 @@ export class ApplicationsController {
     private readonly workflow: ApplicationWorkflow,
   ) {}
 
+  /** Students (and admins testing). One account, one role: a speaker asks the team to switch the account to study. */
+  @Roles('STUDENT', 'ADMIN')
   @Post('applications')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   apply(@CurrentUser() user: AuthUser, @Body(new ZodPipe(applySchema)) body: ApplyInput): Promise<MyApplicationDetailDto> {

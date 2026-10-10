@@ -160,7 +160,15 @@
       "QUESTION_ANSWERED": "Applicants already answered a question you removed. Put it back and make it optional instead."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
-    "googleHint": "If you signed up with Google, use “Continue with Google”."
+    "googleHint": "If you signed up with Google, use “Continue with Google”.",
+    "speakerChoice": {
+      "legend": "I'm joining as",
+      "student": "I'm a student",
+      "speaker": "I'm a speaker",
+      "studentHint": "Apply to courses and register for free live sessions.",
+      "speakerHint": "Apply to give a free live session for the community, then book a slot."
+    },
+    "speakerRegisterSubtitle": "Free. Create your account, then tell us about the session you'd like to give."
   },
   "account": {
     "title": "Account",
@@ -927,8 +935,19 @@
         "instapayHandle": "Leave empty to stop offering InstaPay.",
         "vodafoneCashNumber": "Leave empty to stop offering Vodafone Cash.",
         "supportEmail": "A real, monitored inbox. Shown on the contact and policy pages and in payment help. Empty: those pages point to the community channels.",
-        "supportWhatsapp": "International format, e.g. +20 100 123 4567. Shown in payment help and on the contact page. Empty: hidden."
-      }
+        "supportWhatsapp": "International format, e.g. +20 100 123 4567. Shown in payment help and on the contact page. Empty: hidden.",
+        "speakerCancelDays": "0 lets speakers cancel right up to the start.",
+        "sessionTeamEmails": "Each address gets its own email when a speaker books or cancels a slot. Never shown publicly."
+      },
+      "speakers": "Speaker bookings",
+      "speakerMaxOpenBookings": "Upcoming bookings one speaker can hold",
+      "speakerCancelDays": "Speakers can cancel until (days before)",
+      "sessionTeamEmails": "Session team emails",
+      "teamEmailRow": "Session team email {n}",
+      "teamEmailRemove": "Remove {email}",
+      "teamEmailAdd": "Add address",
+      "teamEmailsEmpty": "No addresses: nobody will be emailed about speaker bookings (admins still get an in-app notification).",
+      "teamEmailsCount": "{n} of {max} addresses"
     },
     "audit": {
       "title": "Audit log",
@@ -1026,6 +1045,76 @@
         "photoHint": "An https:// link, or an image on this site such as /speakers/name.webp (400px or smaller).",
         "bioHint": "Optional for a one-off speaker: the page then shows their name, title and sessions."
       }
+    },
+    "speakerApps": {
+      "tabs": {
+        "profiles": "Profiles",
+        "applications": "Applications",
+        "availability": "Availability"
+      },
+      "title": "Speaker applications",
+      "intro": "People who signed up as speakers. Approve to create or link their public speaker profile and let them book a slot; reject with a note they can act on. They're emailed either way.",
+      "filters": {
+        "status": "Status",
+        "area": "Area",
+        "search": "Search",
+        "searchHint": "Name, email, company or title",
+        "all": "All"
+      },
+      "resubmitted": "Sent {n} times",
+      "submitted": "Sent",
+      "reviewed": "Reviewed",
+      "note": "Note to the speaker",
+      "noteHint": "Required to reject. The speaker reads it in the email and on their page.",
+      "decide": "Decision",
+      "linkProfile": "Speaker profile",
+      "linkProfileHint": "Leave as is to create a new profile from this application, or link an existing one (e.g. a past speaker).",
+      "createProfile": "Create a new profile",
+      "approve": "Approve",
+      "reject": "Reject with note",
+      "approvedDone": "Approved. The speaker was emailed and can book a slot now.",
+      "rejectedDone": "Rejected. The speaker was emailed your note.",
+      "profile": "Public profile",
+      "profileHint": "Edit the bio, Arabic name and photo there. The page goes live with their first published session.",
+      "account": "Account type",
+      "accountHint": "One account, one role. Speakers use the speaker portal and can't apply to courses; switch the account if they'd rather study (or speak).",
+      "studentAccount": "Student account",
+      "toStudent": "Switch to a student account",
+      "toSpeaker": "Switch to a speaker account",
+      "toStudentConfirm": "Switch this account to a student account? They'll lose access to the speaker portal.",
+      "toSpeakerConfirm": "Switch this account to a speaker account? They'll use the speaker portal and can no longer apply to courses.",
+      "nowSpeaker": "This account is now a speaker account. They can apply to speak at /speaker."
+    },
+    "slots": {
+      "title": "Availability",
+      "intro": "Times speakers can book for a free live session. Times are Cairo time. A booking creates a draft session and emails the session team.",
+      "generator": "Generate monthly slots",
+      "weekdays": "Days",
+      "timeCairo": "Time (Cairo)",
+      "duration": "Duration (minutes)",
+      "months": "Months",
+      "preview": "{n, plural, one {# slot} other {# slots}}: {first} to {last}. Times that already have a slot are skipped.",
+      "previewNone": "No future times match. Choose days and months.",
+      "create": "{n, plural, one {Create # slot} other {Create # slots}}",
+      "generated": "Created {created}; {skipped} already existed.",
+      "single": "Add one slot",
+      "date": "Date",
+      "pickDate": "Choose a date and a time.",
+      "add": "Add slot",
+      "added": "Slot added.",
+      "list": "Slots",
+      "none": "No upcoming slots yet.",
+      "counts": "{open} open · {booked} booked",
+      "status": {
+        "OPEN": "Open",
+        "BOOKED": "Booked",
+        "CANCELLED": "Withdrawn"
+      },
+      "openSession": "Open the session",
+      "withdraw": "Withdraw",
+      "deleteConfirm": "Delete this slot?",
+      "release": "Release",
+      "releaseConfirm": "Release this booking? The slot opens again, a draft session is deleted (a published one is cancelled and its registrants are emailed), and the session team is told."
     }
   },
   "learn": {
@@ -1188,7 +1277,118 @@
     "metaDescription": "{name}: talks, workshops and courses at MLOps MENA Academy.",
     "title": "Speakers",
     "intro": "Instructors and speakers from the region who run ML and AI systems at work and teach at the academy.",
-    "empty": "Speaker pages will appear here soon."
+    "empty": "Speaker pages will appear here soon.",
+    "portal": {
+      "nav": "Speaker portal",
+      "title": "Speaker portal",
+      "intro": "Apply to speak, book a slot once the team approves you, and follow your sessions here.",
+      "sent": "Thank you! Your application is with the sessions team. We'll email you when they've reviewed it.",
+      "studentNotice": "This page is for speaker accounts. Your account is a student account. If you'd like to speak, contact the team and we can switch your account, or sign up with another email as a speaker.",
+      "adminNotice": "This page is for speaker accounts. Review applications and publish slots in Admin → Speakers.",
+      "toAdmin": "Open speaker applications",
+      "publicPage": "Your public speaker page",
+      "status": {
+        "SUBMITTED": "Under review",
+        "APPROVED": "Approved",
+        "REJECTED": "Not accepted"
+      },
+      "application": {
+        "title": "Your application",
+        "none": "Tell us who you are and what you'd like to talk about. It takes about five minutes.",
+        "apply": "Apply to speak",
+        "waiting": "Sent {date}. The team usually replies within a week.",
+        "rejectedTitle": "A note from the team",
+        "approved": "You're approved. Pick an open slot below to book your session.",
+        "edit": "Edit application",
+        "resend": "Update and send again"
+      },
+      "slots": {
+        "title": "Book a slot",
+        "rules": "You can hold up to {max} upcoming bookings, and cancel up to {days} days before a session. Times are shown in your time zone.",
+        "atLimit": "You have {max} upcoming bookings, the most you can hold at once. You can book again after one of them takes place or if you cancel one.",
+        "none": "No open slots right now. The team publishes new ones every month.",
+        "minutes": "{n} minutes",
+        "book": "Book this slot",
+        "confirm": "Confirm booking",
+        "back": "Back"
+      },
+      "booked": {
+        "title": "You're booked!",
+        "body": "“{title}” on {when}. We've emailed you the details. The team will add the meeting link and publish the session."
+      },
+      "calendar": {
+        "google": "Add to Google Calendar",
+        "ics": "Download the calendar file (.ics)"
+      },
+      "bookings": {
+        "title": "Your sessions",
+        "past": "Past sessions",
+        "event": {
+          "DRAFT": "Being prepared",
+          "PUBLISHED": "Published",
+          "CANCELLED": "Cancelled"
+        },
+        "cancel": "Cancel booking",
+        "cancelConfirm": "Cancel this booking? The slot opens for other speakers.",
+        "cancelYes": "Yes, cancel",
+        "cancelUntil": "You can cancel until {date}.",
+        "tooLate": "It's less than {days} days away, so it can't be cancelled here. Contact the team if something came up.",
+        "registered": "{n, plural, one {# person registered} other {# people registered}}",
+        "recording": "Watch the recording",
+        "noRecording": "The recording will appear here when the team adds it.",
+        "sessionPage": "Session page"
+      },
+      "form": {
+        "title": "Current title",
+        "intro": "MLOps MENA runs free live sessions by practitioners from the region. Tell us about you and the session you'd like to give.",
+        "aboutYou": "About you",
+        "yourSession": "Your session",
+        "fullName": "Full name",
+        "email": "Email",
+        "emailHint": "From your account.",
+        "phone": "Phone / WhatsApp",
+        "phoneHint": "With country code, e.g. +201001234567. Only the sessions team sees it.",
+        "linkedinUrl": "LinkedIn profile",
+        "company": "Company",
+        "country": "Country",
+        "mena": "Middle East & North Africa",
+        "photoUrl": "Photo link",
+        "photoHint": "A public https:// link to a square photo (your LinkedIn or GitHub picture works). Shown on your speaker page.",
+        "bio": "Short bio",
+        "bioHint": "30 to 1,500 characters ({n} so far). Shown on your speaker page.",
+        "areas": "Areas",
+        "sessionTitle": "Proposed session title",
+        "abstract": "Abstract",
+        "abstractHint": "50 to 2,000 characters ({n} so far): what attendees will learn and who it's for.",
+        "format": "Format",
+        "language": "Language",
+        "preferredMonths": "Preferred months",
+        "submit": "Send application",
+        "resubmit": "Send application",
+        "reviewNote": "The team reviews every application and emails you the decision.",
+        "rejectedTitle": "Why it wasn't accepted last time",
+        "heading": "Apply to speak"
+      },
+      "errors": {
+        "SLOT_TAKEN": "Someone just booked this slot. Please choose another one.",
+        "BOOKING_LIMIT": "You already hold the maximum number of upcoming bookings.",
+        "SPEAKER_NOT_APPROVED": "You can book a slot once the team approves your application.",
+        "CANCEL_WINDOW_CLOSED": "This booking is too close to cancel here. Please contact the team.",
+        "SPEAKER_ALREADY_APPROVED": "Your application is already approved.",
+        "ALREADY_REVIEWED": "This application was already reviewed. Reload the page.",
+        "NOT_A_SPEAKER_ACCOUNT": "This is a student account. Switch it to a speaker account first.",
+        "INSTRUCTOR_UNAVAILABLE": "That speaker profile belongs to another account.",
+        "HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Availability first.",
+        "ADMIN_ROLE": "An admin account can't be switched here.",
+        "SLOT_EXISTS": "There's already a slot at this time.",
+        "SLOT_IN_PAST": "Choose a time in the future.",
+        "SLOT_NOT_OPEN": "Only open slots can be changed.",
+        "TOO_MANY_SLOTS": "That's too many slots at once. Choose fewer days or months.",
+        "HAS_COURSES": "This student has course applications or enrolments, so the account stays a student account. They can sign up as a speaker with another email."
+      },
+      "cta": "Practitioner in the region? Give a free live session for the community.",
+      "ctaButton": "Apply to speak"
+    }
   },
   "policy": {
     "contactPage": "our contact page",

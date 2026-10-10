@@ -20,6 +20,7 @@ enum Locale {
 enum Role {
   STUDENT
   ADMIN
+  SPEAKER
 }
 
 enum EmploymentStatus {
@@ -323,6 +324,11 @@ model User {
   statusChanges           ApplicationStatusHistory[]
   calendarFeed            CalendarFeed?
   courseInterests         CourseInterest[]
+  speakerApplication      SpeakerApplication?      @relation("SpeakerApplicant")
+  speakerReviews          SpeakerApplication[]     @relation("SpeakerReviewer")
+  speakerProfile          Instructor?
+  speakingSlots           SpeakingSlot[]           @relation("SlotBooker")
+  speakingSlotsCreated    SpeakingSlot[]           @relation("SlotCreator")
 
   @@index([role])
   @@index([createdAt])
@@ -500,6 +506,9 @@ model Instructor {
   source     String?
   /// Hash of the imported entry: an unchanged entry is skipped on the next import.
   importHash String?
+  /// The speaker account behind this public profile (speaker portal), if any.
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -844,6 +853,93 @@ model ReminderLog {
   @@id([sessionId, userId, kind])
 }
 
+// ============================================================ Speaker portal
+
+enum SpeakerArea {
+  MLOPS
+  LLMOPS
+  KUBERNETES
+  CLOUD_DEVOPS
+  DATA_ENGINEERING
+  AI_ARCHITECTURE
+  OTHER
+}
+
+enum SpeakerFormat {
+  TALK
+  HANDS_ON
+  WORKSHOP
+  QA
+}
+
+enum SpeakerApplicationStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum SlotStatus {
+  OPEN
+  BOOKED
+  CANCELLED
+}
+
+/// One per speaker account: a rejected application is edited and sent again.
+model SpeakerApplication {
+  id              String                   @id @default(cuid())
+  userId          String                   @unique
+  user            User                     @relation("SpeakerApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  status          SpeakerApplicationStatus @default(SUBMITTED)
+  fullName        String
+  phone           String
+  linkedinUrl     String
+  title           String
+  company         String                   @default("")
+  country         String
+  bio             String
+  photoUrl        String?
+  areas           SpeakerArea[]
+  sessionTitle    String
+  abstract        String
+  format          SpeakerFormat
+  language        CourseLanguage
+  preferredMonths String[]
+  reviewNote      String?
+  reviewedById    String?
+  reviewedBy      User?                    @relation("SpeakerReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  submissions     Int                      @default(1)
+  submittedAt     DateTime                 @default(now())
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([status, submittedAt])
+}
+
+/// A time the team offers to speakers. Booking is a conditional update (OPEN -> BOOKED),
+/// so two speakers can never hold the same slot; eventId is unique too.
+model SpeakingSlot {
+  id          String     @id @default(cuid())
+  startsAt    DateTime
+  durationMin Int        @default(60)
+  status      SlotStatus @default(OPEN)
+  bookedById  String?
+  bookedBy    User?      @relation("SlotBooker", fields: [bookedById], references: [id], onDelete: SetNull)
+  bookedAt    DateTime?
+  title       String?
+  abstract    String?
+  eventId     String?    @unique
+  event       LiveEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?      @relation("SlotCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status, startsAt])
+  @@index([bookedById, status])
+  @@index([startsAt])
+}
+
 // ======================================================================= Platform
 
 model Notification {
@@ -1039,6 +1135,7 @@ model LiveEvent {
   confirmations     EventConfirmation[]
   /// Hosts and guests besides the main speaker, in display order.
   coSpeakers        LiveEventSpeaker[]
+  speakingSlot      SpeakingSlot?
 
   @@index([status, startsAt])
   @@index([speakerId])

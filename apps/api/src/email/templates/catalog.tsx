@@ -46,6 +46,21 @@ export type EmailTemplate =
   | { name: 'eventRescheduled'; title: string; when: string; url: string; calendarUrl: string; icsUrl: string }
   | { name: 'eventCancelled'; title: string; when: string; url: string }
   | { name: 'eventReminder'; title: string; when: string; hoursBefore: 24 | 1; url: string }
+  /** Speaker portal: the team's decision on a speaker application. */
+  | { name: 'speakerReviewed'; decision: 'APPROVED' | 'REJECTED'; note: string | null; url: string }
+  /** Speaker portal: to the speaker after booking a slot. Calendar links never hold a join link. */
+  | { name: 'speakerBookingConfirmed'; title: string; when: string; cancelUntil: string; url: string; calendarUrl: string; icsUrl: string }
+  /** Speaker portal: to every address in the sessionTeamEmails setting. */
+  | {
+      name: 'speakerBookingTeam';
+      kind: 'booked' | 'cancelled';
+      speakerName: string;
+      speakerEmail: string;
+      title: string;
+      abstract: string;
+      when: string;
+      url: string;
+    }
   /** Sent by an admin to a course's students. */
   | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string }
   /** Waiting list ("Notify me"): may go to people without an account, so every one has a leave link. */
@@ -365,6 +380,86 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             paragraphs={[t.when]}
             cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
             note={ar ? 'يظهر رابط الانضمام في صفحة الجلسة قبل بدايتها بوقت قصير.' : 'The join link appears on the session page shortly before it starts.'}
+          />
+        ),
+      };
+    }
+    case 'speakerReviewed': {
+      const approved = t.decision === 'APPROVED';
+      const subject = approved
+        ? ar
+          ? 'تمت الموافقة على طلبك للتحدث'
+          : "You're approved to speak at MLOps MENA"
+        : ar
+          ? 'بخصوص طلبك للتحدث'
+          : 'About your speaker application';
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={approved ? { text: ar ? 'أهلًا بك متحدثًا!' : 'Welcome aboard!', tone: 'success' } : undefined}
+            heading={subject}
+            paragraphs={[
+              approved
+                ? ar
+                  ? 'راجع فريق الجلسات طلبك ووافق عليه. يمكنك الآن اختيار موعد متاح وحجزه من صفحة المتحدث.'
+                  : 'The sessions team reviewed your application and approved it. You can now pick an open slot and book it from your speaker page.'
+                : ar
+                  ? 'شكرًا لاهتمامك بالتحدث في مجتمع MLOps MENA. لم نتمكن من قبول طلبك هذه المرة.'
+                  : "Thank you for offering to speak at MLOps MENA. We can't accept your application this time.",
+              ...(!approved
+                ? [ar ? 'يمكنك تعديل طلبك وإرساله مرة أخرى من صفحة المتحدث.' : 'You can update your application and send it again from your speaker page.']
+                : []),
+            ]}
+            callout={t.note ? { title: ar ? 'ملاحظة من الفريق' : 'A note from the team', body: t.note } : undefined}
+            cta={{ label: ar ? 'افتح صفحة المتحدث' : 'Open your speaker page', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'speakerBookingConfirmed': {
+      const subject = ar ? `تم حجز موعدك: ${t.title}` : `Your session is booked: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'تم الحجز!' : "You're booked!", tone: 'success' }}
+            heading={t.title}
+            paragraphs={[
+              ar ? `موعد جلستك: ${t.when}.` : `Your session is on ${t.when}.`,
+              ar
+                ? 'سيتواصل معك فريق الجلسات لتجهيز الجلسة ونشرها. يمكنك إلغاء الحجز من صفحة المتحدث حتى ' + t.cancelUntil + '.'
+                : `The sessions team will be in touch to prepare and publish it. You can cancel from your speaker page until ${t.cancelUntil}.`,
+              calendarLinks(t, ar),
+            ]}
+            cta={{ label: ar ? 'افتح صفحة المتحدث' : 'Open your speaker page', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'speakerBookingTeam': {
+      const booked = t.kind === 'booked';
+      const subject = booked ? `New speaker booking: ${t.title}` : `Speaker cancelled: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              `${t.speakerName} (${t.speakerEmail})`,
+              t.when,
+              booked
+                ? 'A draft session was created. Add the Meet link, the Arabic title and a cover, then publish it.'
+                : 'The slot is open again and the draft session was cancelled.',
+            ]}
+            callout={booked ? { title: 'Abstract', body: t.abstract } : undefined}
+            cta={{ label: booked ? 'Open the draft session' : 'Open availability', url: t.url }}
           />
         ),
       };

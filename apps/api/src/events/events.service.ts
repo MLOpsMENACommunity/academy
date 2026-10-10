@@ -365,6 +365,11 @@ export class EventsService {
     return saved;
   }
 
+  /** Tells registrants a session is cancelled (a speaker cancelling a booked, already published session). */
+  notifyCancelled(e: LiveEvent): Promise<number> {
+    return this.notifyRegistrants(e, 'eventCancelled');
+  }
+
   /** Queues one email per registrant on the bulk lane (they don't hold up sign-ins or resets). */
   private async notifyRegistrants(e: LiveEvent, kind: 'eventRescheduled' | 'eventCancelled'): Promise<number> {
     const regs = await this.prisma.eventRegistration.findMany({

@@ -9,11 +9,21 @@ export const passwordSchema = z
   .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters`)
   .max(128);
 
+/**
+ * What someone can sign up as. ADMIN is never one of them: admins are made by an admin
+ * (or the seed), so a crafted request can't create one.
+ */
+export const SIGNUP_ROLES = ['STUDENT', 'SPEAKER'] as const;
+export type SignupRole = (typeof SIGNUP_ROLES)[number];
+export const signupRoleSchema = z.enum(SIGNUP_ROLES);
+
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   locale: z.enum(LOCALES).default('en'),
   returnTo: z.string().max(512).optional(),
+  /** "I'm a student" (default) or "I'm a speaker". */
+  role: signupRoleSchema.default('STUDENT'),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

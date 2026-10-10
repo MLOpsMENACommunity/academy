@@ -6,7 +6,11 @@ export const LOCALES = ['en', 'ar'] as const;
 export const Locale = defineEnum(LOCALES);
 export type Locale = (typeof LOCALES)[number];
 
-export const ROLES = ['STUDENT', 'ADMIN'] as const;
+/**
+ * One account, one role. SPEAKER accounts use the speaker portal (apply, book a slot) and
+ * never apply to courses; an admin can switch a STUDENT and a SPEAKER account either way.
+ */
+export const ROLES = ['STUDENT', 'ADMIN', 'SPEAKER'] as const;
 export const Role = defineEnum(ROLES);
 export type Role = (typeof ROLES)[number];
 

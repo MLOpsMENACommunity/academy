@@ -16,6 +16,19 @@ import { PrismaService } from '../prisma/prisma.service';
 
 type Json = Prisma.InputJsonValue;
 
+/**
+ * A free speaker slug from the name: "aya-nasser-salama", then "aya-nasser-salama-2", ...
+ * (shared by the speaker editor and the speaker-application approval).
+ */
+export async function freeInstructorSlug(prisma: Prisma.TransactionClient, name: string, exceptId?: string): Promise<string> {
+  const base = slugify(name) || 'speaker';
+  for (let n = 1; ; n++) {
+    const candidate = n === 1 ? base : `${base}-${n}`;
+    const taken = await prisma.instructor.findFirst({ where: { slug: candidate, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true } });
+    if (!taken) return candidate;
+  }
+}
+
 @Injectable()
 export class AdminCoursesService {
   constructor(
@@ -385,14 +398,8 @@ export class AdminCoursesService {
     return { ...toInstructorDto(i), source: i.source, courses: i._count.courses, events: i._count.events };
   }
 
-  /** A free slug from the name: "aya-nasser-salama", then "aya-nasser-salama-2", ... */
-  private async freeSlug(name: string, exceptId?: string): Promise<string> {
-    const base = slugify(name) || 'speaker';
-    for (let n = 1; ; n++) {
-      const candidate = n === 1 ? base : `${base}-${n}`;
-      const taken = await this.prisma.instructor.findFirst({ where: { slug: candidate, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true } });
-      if (!taken) return candidate;
-    }
+  private freeSlug(name: string, exceptId?: string): Promise<string> {
+    return freeInstructorSlug(this.prisma, name, exceptId);
   }
 
   async saveInstructor(input: InstructorInput, admin: Actor, id?: string) {

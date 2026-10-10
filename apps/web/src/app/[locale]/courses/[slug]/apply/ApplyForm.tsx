@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { invalidateCourseStatus } from '@/components/course/ApplyCta';
 import { ChipGroup, focusFirstInvalid, RadioGroup, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -28,7 +29,8 @@ import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 export function ApplyForm() {
-  return <RequireAuth>{(user) => <Inner user={user} />}</RequireAuth>;
+  // Speaker accounts don't apply to courses (an admin can switch the account to a student one).
+  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <SpeakerRedirect /> : <Inner user={user} />)}</RequireAuth>;
 }
 
 type Answers = Record<string, unknown>;

@@ -1,7 +1,8 @@
 'use client';
 
-import { paymentsConfigured, settingsUpdateSchema, type Settings } from '@academy/shared';
+import { paymentsConfigured, SESSION_TEAM_EMAILS_MAX, settingsUpdateSchema, type Settings } from '@academy/shared';
 import { useEffect, useState, type FormEvent } from 'react';
+import { EmailListEditor } from '@/components/admin/EmailListEditor';
 import { TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -15,10 +16,11 @@ const GROUPS: { title: string; keys: (keyof Settings)[] }[] = [
   { title: 'payment', keys: ['instapayHandle', 'instapayName', 'vodafoneCashNumber', 'vodafoneCashName'] },
   { title: 'support', keys: ['supportEmail', 'supportWhatsapp'] },
   { title: 'windows', keys: ['liveLinkRevealMinutes', 'screenshotRetentionDays'] },
+  { title: 'speakers', keys: ['speakerMaxOpenBookings', 'speakerCancelDays'] },
 ];
-const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays']);
+const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays', 'speakerMaxOpenBookings', 'speakerCancelDays']);
 /** Fields that explain what an empty value does. */
-const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'supportEmail', 'supportWhatsapp']);
+const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'supportEmail', 'supportWhatsapp', 'speakerCancelDays']);
 
 export default function AdminSettings() {
   const { t } = useI18n();
@@ -86,6 +88,20 @@ export default function AdminSettings() {
           </fieldset>
         </Card>
       ))}
+      <Card>
+        <EmailListEditor
+          name="sessionTeamEmails"
+          legend={t('admin.settings.sessionTeamEmails')}
+          hint={t('admin.settings.hints.sessionTeamEmails')}
+          value={values.sessionTeamEmails}
+          max={SESSION_TEAM_EMAILS_MAX}
+          errors={errors}
+          onChange={(list) => {
+            setSaved(false);
+            setValues({ ...values, sessionTeamEmails: list });
+          }}
+        />
+      </Card>
       <div className="flex items-center gap-3">
         <Button type="submit" loading={busy}>
           {t('admin.common.save')}

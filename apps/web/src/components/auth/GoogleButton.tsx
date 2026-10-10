@@ -1,5 +1,6 @@
 'use client';
 
+import type { SignupRole } from '@academy/shared';
 import { useEffect, useState } from 'react';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
@@ -8,7 +9,7 @@ import { buttonClass } from '../ui/Button';
  * Full-page navigation to the API, which redirects to Google and back.
  * Pass `enabled` when the server already knows (no layout shift); otherwise it's fetched.
  */
-export function GoogleButton({ returnTo, enabled: known }: { returnTo: string; enabled?: boolean }) {
+export function GoogleButton({ returnTo, enabled: known, as }: { returnTo: string; enabled?: boolean; as?: SignupRole }) {
   const { locale, t } = useI18n();
   const [enabled, setEnabled] = useState<boolean | null>(known ?? null);
   useEffect(() => {
@@ -19,7 +20,8 @@ export function GoogleButton({ returnTo, enabled: known }: { returnTo: string; e
       .catch(() => setEnabled(false));
   }, [known]);
   if (enabled === false) return null;
-  const href = `/api/auth/google?locale=${locale}&returnTo=${encodeURIComponent(returnTo)}`;
+  // `as`: what a new account signs up as (the API accepts student or speaker, nothing else).
+  const href = `/api/auth/google?locale=${locale}&returnTo=${encodeURIComponent(returnTo)}${as === 'SPEAKER' ? '&as=speaker' : ''}`;
   return (
     <>
       <a href={href} className={buttonClass('secondary', 'lg', 'w-full')} aria-disabled={enabled === null}>

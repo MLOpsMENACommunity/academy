@@ -73,7 +73,7 @@ export function MobileMenu({ data }: { data: MenuData }) {
   const close = () => setOpen(false);
   const account: [string, string][] = user
     ? [
-        [`/${locale}/dashboard`, t('nav.dashboard')],
+        user.role === 'SPEAKER' ? [`/${locale}/speaker`, t('speakers.portal.nav')] : [`/${locale}/dashboard`, t('nav.dashboard')],
         [`/${locale}/profile`, t('nav.profile')],
         ...(user.role === 'ADMIN' ? ([[`/${locale}/admin`, t('nav.admin')]] as [string, string][]) : []),
       ]

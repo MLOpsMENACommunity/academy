@@ -194,6 +194,34 @@ not yet edited by an admin, they can instead go in `apps/api/prisma/archive-cura
 `archive:convert` as above. Eng. Sameh Amin (AI Architecture Design) comes from the seed, so edit
 him in the admin.
 
+## Speaker portal
+
+- **Sign-up:** login and register offer "I'm a student / I'm a speaker". The choice goes
+  through email registration and the Google sign-in state; the API accepts only STUDENT or
+  SPEAKER (never ADMIN), and Google only applies it when it creates a new account.
+- **One account, one role.** Speaker accounts skip student onboarding, land on `/speaker`
+  and can't apply to courses (the API returns 403). A speaker who wants to study (or a
+  student who wants to speak) asks the team: switch the account in Admin → Speakers →
+  Applications → (application) → Account type, or Admin → Students → (student). A speaker
+  with upcoming bookings must have them released first, and a student with course
+  applications or enrolments stays a student. Admin accounts can't be switched there.
+- **Review:** Admin → Speakers → Applications. Approving creates the public speaker profile
+  from the application (same slug rule as the speaker editor) or links an existing one, and
+  emails the speaker; rejecting needs a note, and the speaker can update and resend.
+- **Availability:** Admin → Speakers → Availability. Times are Cairo time; the generator
+  skips times that already have a slot. Only OPEN slots can be withdrawn or deleted.
+- **Booking:** only approved speakers can book; a slot is booked atomically (no double
+  booking) and a speaker holds at most `speakerMaxOpenBookings` upcoming bookings (Settings,
+  default 2). Each booking creates a DRAFT live session with the speaker linked, emails every
+  address in `sessionTeamEmails` (Settings → Session team emails, bulk lane) and notifies
+  admins in-app. Add the Meet link and Arabic title, then publish it as usual. Speakers can
+  cancel until `speakerCancelDays` before (default 3), and only slots further ahead than that
+  are bookable. Cancelling reopens the slot; a still-DRAFT session is deleted (so a speaker's
+  text never appears publicly), a published one is cancelled and its registrants emailed; the
+  team is emailed. Admins can **Release** any booked slot in Availability (same effect, any time).
+- **Photos:** the application takes an optional https photo link, not an upload: speaker
+  photos are public, and the private bucket only serves 5-minute signed links.
+
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included, plus the deployed `release`), then `wrangler tail` and `wrangler containers list`. 503s with `Retry-After` mean "busy or starting", not broken: the API logs a `shed_load` warning (every 10 s at most) saying why (`db_pool`, `in_flight`, `password_hash`, `db_unreachable`), and the Worker logs "container unavailable" or "no response within …". See DEPLOY.md, "Capacity and caching".
