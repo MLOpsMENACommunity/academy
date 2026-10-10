@@ -7,6 +7,7 @@ import { MyCourses, type CourseMeta } from '@/components/applications/MyCourses'
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
+import { MyCertificates } from '@/components/certificates/MyCertificates';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { PathProgressFrom } from '@/components/paths/PathProgress';
 import { PointsCard } from '@/components/points/PointsCard';
@@ -214,6 +215,8 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
           )}
 
           <Journey items={items} paths={paths} />
+
+          <MyCertificates />
 
           <MyCourses items={items} error={error} courses={courses} />
 
