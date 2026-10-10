@@ -35,6 +35,7 @@ export default async function OgImage({ params }: { params: Promise<{ serial: st
         </div>
       </div>
     ),
-    size,
+    // Not Next's default (a year, immutable): a revoked or deleted certificate's card must not linger.
+    { ...size, headers: { 'Cache-Control': 'public, max-age=300' } },
   );
 }

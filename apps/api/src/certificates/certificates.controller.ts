@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Header, HttpCode, Param, Post, Put, Res } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import {
   certificateRuleSchema,
@@ -51,11 +51,15 @@ export class CertificatesController {
 
   /**
    * The public verification page's data. Not edge-cached (not in PUBLIC_CACHE_ROUTES) and
-   * no-store, so a revocation shows at once. Serials are unguessable; lookups are rate-limited.
+   * no-store, so a revocation shows at once. Its caller is the web server, which reaches the
+   * API from one address for every visitor (the Worker sets X-Forwarded-For from the web
+   * container's own IP), so a per-IP limit here would be one quota for the whole site: lookups
+   * are rate-limited per visitor by the page instead (certificates/[serial]/data.ts). Guessing
+   * is not a practical attack anyway: a serial has 40 random bits.
    */
   @Public()
   @Get('certificates/:serial')
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @SkipThrottle()
   @Header('Cache-Control', 'no-store')
   view(@Param('serial') serial: string) {
     return this.certificates.publicView(serial);

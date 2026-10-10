@@ -71,17 +71,15 @@ export async function staticSlugs<T>(path: string, slugs: (data: T) => string[])
 
 /**
  * Uncached server-side GET for pages that must always be current (the certificate
- * verification page: a revocation shows at once). The visitor's IP is passed on, so the
- * API's per-IP rate limit applies to each visitor rather than to this server.
+ * verification page: a revocation shows at once).
  * Returns null for a 404; throws for anything else that isn't OK.
  */
-export async function serverGetFresh<T>(path: string, clientIp: string | null): Promise<T | null> {
+export async function serverGetFresh<T>(path: string): Promise<T | null> {
   let res: Response;
   try {
     res = await fetch(`${base()}/api${path}`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(8_000),
-      headers: clientIp ? { 'x-forwarded-for': clientIp } : {},
     });
   } catch (err) {
     console.error(`[server-api] GET ${path} failed: ${(err as Error).name}`);
@@ -99,7 +97,7 @@ export async function serverGetFresh<T>(path: string, clientIp: string | null): 
 /** The API's rate limit answered instead (too many lookups from this visitor). */
 export class RateLimitedError extends Error {}
 
-/** The visitor's IP as set by the entry Worker (one trusted hop: its last X-Forwarded-For entry). */
+/** The visitor's IP as the entry Worker set it (from cf-connecting-ip; the last X-Forwarded-For entry). */
 export function forwardedIp(h: Headers): string | null {
   const parts = (h.get('x-forwarded-for') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   return parts.at(-1) ?? null;

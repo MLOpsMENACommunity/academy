@@ -31,11 +31,13 @@ import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../points/points.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 
 /**
- * What other features get when a certificate is issued or re-issued (points and badges, PR D):
+ * What other features get when a certificate is issued or re-issued. Points and badges are
+ * called directly (PointsService.onCertificateIssued / onCertificateRevoked); anything else can
  * register with CertificatesService.onIssued(...) from a module's onModuleInit. Listeners run
  * after the certificate is saved and the student is told; a failing listener is logged, never
  * undoes the certificate. `reissued` is true when an existing certificate was re-issued
@@ -88,6 +90,7 @@ export class CertificatesService {
     private readonly notifications: NotificationsService,
     private readonly storage: StorageService,
     private readonly assessments: AssessmentsService,
+    private readonly points: PointsService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -337,7 +340,7 @@ export class CertificatesService {
           outcome = r.created ? 'ISSUED' : r.certificate.revokedAt ? 'REVOKED' : 'ALREADY_ISSUED';
           serial = r.certificate.serial;
         } catch (err) {
-          if (!(err instanceof ConflictException)) throw err;
+          if (!(err instanceof ConflictException) || (err.getResponse() as { code?: string }).code !== 'NO_NAME') throw err;
           outcome = 'NO_NAME';
         }
       }
@@ -346,19 +349,32 @@ export class CertificatesService {
     return { results, issued: results.filter((r) => r.outcome === 'ISSUED').length };
   }
 
+  /** The cached PDF's key, read under a row lock so a download caching a new copy can't slip in between. */
+  private async lockPdfKey(tx: Prisma.TransactionClient, id: string): Promise<string | null> {
+    const rows = await tx.$queryRaw<{ pdfKey: string | null }[]>`SELECT "pdfKey" FROM "Certificate" WHERE "id" = ${id} FOR UPDATE`;
+    return rows[0]?.pdfKey ?? null;
+  }
+
   async revoke(id: string, reason: string, admin: Actor): Promise<void> {
     const c = await this.prisma.certificate.findUnique({ where: { id }, include: certInclude });
     if (!c) throw new NotFoundException('Certificate not found');
-    if (c.revokedAt) throw new ConflictException({ code: 'ALREADY_REVOKED', message: 'This certificate is already revoked' });
-    await this.prisma.$transaction(async (tx) => {
-      await tx.certificate.update({ where: { id }, data: { revokedAt: new Date(), revokeReason: reason, pdfKey: null } });
+    const pdfKey = await this.prisma.$transaction(async (tx) => {
+      const key = await this.lockPdfKey(tx, id);
+      // Only a valid certificate can be revoked: two admins at once give one revocation, one reason.
+      const r = await tx.certificate.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date(), revokeReason: reason, pdfKey: null } });
+      if (r.count !== 1) throw new ConflictException({ code: 'ALREADY_REVOKED', message: 'This certificate is already revoked' });
       await this.audit.log(
         { actorId: admin.id, action: 'certificate.revoked', entityType: 'Certificate', entityId: id, metadata: { courseId: c.enrollment.courseId, userId: c.enrollment.userId, serial: c.serial } },
         tx,
       );
+      return key;
     });
     // The PDF can't be downloaded any more (checked on every download); remove the cached copy too.
-    if (c.pdfKey) await this.safeDelete(c.pdfKey);
+    if (pdfKey) await this.safeDelete(pdfKey);
+    // The certificate bonus and the "Certified" badge go with it.
+    await this.points
+      .onCertificateRevoked(c.enrollment.userId, c.enrollment.courseId, c.id)
+      .catch((err: unknown) => this.logger.error(`Points on revocation failed: ${(err as Error).message}`));
   }
 
   /**
@@ -371,7 +387,8 @@ export class CertificatesService {
     if (c.enrollment.user.deletedAt) throw new ConflictException({ code: 'ACCOUNT_DELETED', message: 'This student deleted their account' });
     const { enrollment, data } = await this.snapshot(c.enrollmentId);
     if (!data.nameOnCertificate) throw new ConflictException({ code: 'NO_NAME', message: 'The student has no name on their profile' });
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const { updated, pdfKey } = await this.prisma.$transaction(async (tx) => {
+      const key = await this.lockPdfKey(tx, id);
       const u = await tx.certificate.update({
         where: { id },
         data: { ...data, issuedAt: new Date(), issuedById: admin.id, revokedAt: null, revokeReason: null, pdfKey: null, grade: grade === undefined ? c.grade : grade },
@@ -386,9 +403,9 @@ export class CertificatesService {
         },
         tx,
       );
-      return u;
+      return { updated: u, pdfKey: key };
     });
-    if (c.pdfKey) await this.safeDelete(c.pdfKey);
+    if (pdfKey) await this.safeDelete(pdfKey);
     await this.announce(updated, enrollment, true);
   }
 
@@ -427,6 +444,10 @@ export class CertificatesService {
         { bulk: true },
       );
     }
+    // Points and badges: the certificate bonus and "Certified" (idempotent, also after a re-issue).
+    await this.points
+      .onCertificateIssued(e.userId, e.courseId, c.id)
+      .catch((err: unknown) => this.logger.error(`Points on issue failed: ${(err as Error).message}`));
     const event: CertificateIssuedEvent = {
       certificateId: c.id,
       serial: c.serial,

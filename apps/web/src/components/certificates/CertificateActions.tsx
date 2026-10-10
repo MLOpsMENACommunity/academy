@@ -14,7 +14,7 @@ import { absoluteUrl } from '@/lib/site';
 export function CertificateActions({ cert, compact = false }: { cert: MyCertificateDto; compact?: boolean }) {
   const { locale, t } = useI18n();
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; url?: boolean } | null>(null);
   const page = certificatePath(locale, cert.serial);
   // LinkedIn shows the English title and links to the English page (the profile's language varies).
   const linkedIn = linkedInAddUrl({ courseTitle: cert.courseTitleEn, issuedAt: cert.issuedAt, verifyUrl: absoluteUrl(certificatePath('en', cert.serial)), serial: cert.serial });
@@ -37,7 +37,8 @@ export function CertificateActions({ cert, compact = false }: { cert: MyCertific
       await navigator.clipboard.writeText(absoluteUrl(page));
       setMsg({ ok: true, text: t('certificates.copied') });
     } catch {
-      setMsg({ ok: false, text: absoluteUrl(page) });
+      // No clipboard access: show the link to copy by hand.
+      setMsg({ ok: true, text: absoluteUrl(page), url: true });
     }
   }
 
@@ -48,7 +49,7 @@ export function CertificateActions({ cert, compact = false }: { cert: MyCertific
           {t('certificates.download')}
         </Button>
         <a href={linkedIn} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary', size)}>
-          {t('certificates.linkedin')} <span aria-hidden>↗</span>
+          {t('certificates.linkedin')} <span aria-hidden className="inline-block rtl:-scale-x-100">↗</span>
         </a>
         <Link href={page} className={buttonClass('secondary', size)}>
           {t('certificates.view')}
@@ -57,7 +58,7 @@ export function CertificateActions({ cert, compact = false }: { cert: MyCertific
           {t('certificates.copy')}
         </Button>
       </div>
-      <p role="status" className={`text-sm ${msg?.ok ? 'text-success' : 'text-danger'}`}>
+      <p role="status" className={`text-sm ${msg?.url ? 'break-all text-body' : msg?.ok ? 'text-success' : 'text-danger'}`} dir={msg?.url ? 'ltr' : undefined}>
         {msg?.text}
       </p>
     </div>

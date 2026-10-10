@@ -100,7 +100,11 @@ describe('certificates (e2e)', () => {
     expect(c).toMatchObject({ nameOnCertificate: 'Ready Student', nameOnCertificateAr: 'طالب جاهز', courseTitleEn: 'Test course', issuedById: admin.id, revokedAt: null });
     expect(await prisma.auditLog.count({ where: { action: 'certificate.issued', entityId: c.id, actorId: admin.id } })).toBe(1);
     expect(await prisma.notification.count({ where: { userId: ready.id, type: 'certificate.issued' } })).toBe(1);
-    // The hook for points and badges ran once.
+    // Points and badges: the certificate bonus and the "Certified" badge for this course.
+    const bonus = await prisma.pointsEntry.aggregate({ where: { userId: ready.id, sourceType: 'CERTIFICATE', sourceId: c.id }, _sum: { points: true } });
+    expect(bonus._sum.points).toBeGreaterThan(0);
+    expect(await prisma.userBadge.count({ where: { userId: ready.id, badge: { code: 'certified' } } })).toBe(1);
+    // The onIssued hook ran once.
     expect(events.filter((e) => e.certificateId === c.id)).toEqual([expect.objectContaining({ userId: ready.id, courseId: course.id, serial: c.serial, reissued: false })]);
   });
 
@@ -160,6 +164,10 @@ describe('certificates (e2e)', () => {
     await http().get(`/api/me/certificates/${c.serial}/pdf`).set('Cookie', ready.cookie).expect(410);
     const after = (await certOf(ready.id))!;
     expect(after).toMatchObject({ revokeReason: 'Plagiarised capstone', pdfKey: null });
+    // The bonus and the badge are taken back.
+    const net = await prisma.pointsEntry.aggregate({ where: { userId: ready.id, sourceType: 'CERTIFICATE', sourceId: c.id }, _sum: { points: true } });
+    expect(net._sum.points).toBe(0);
+    expect(await prisma.userBadge.count({ where: { userId: ready.id, badge: { code: 'certified' } } })).toBe(0);
     expect(await prisma.auditLog.count({ where: { action: 'certificate.revoked', entityId: c.id } })).toBe(1);
     // Bulk issue doesn't silently undo a revocation.
     const bulk = await http().post(`/api/admin/courses/${course.id}/certificates`).set('Cookie', admin.cookie).send({ userIds: [ready.id] }).expect(201);
@@ -169,6 +177,7 @@ describe('certificates (e2e)', () => {
     const back = await http().get(`/api/certificates/${c.serial}`).expect(200);
     expect(back.body).toMatchObject({ status: 'VALID', serial: c.serial, revokedAt: null });
     expect(await prisma.auditLog.count({ where: { action: 'certificate.reissued', entityId: c.id } })).toBe(1);
+    expect(await prisma.userBadge.count({ where: { userId: ready.id, badge: { code: 'certified' } } })).toBe(1);
     expect(events.filter((e) => e.certificateId === c.id).map((e) => e.reissued)).toEqual([false, true]);
   });
 
@@ -188,6 +197,15 @@ describe('certificates (e2e)', () => {
     expect(body.certificates).toEqual([expect.objectContaining({ serial: c.serial, name: 'Ready Student', status: 'valid', course: expect.objectContaining({ slug: course.slug }) })]);
   });
 
+  it('two admins revoking at once: one revocation, one audit entry', async () => {
+    const c = (await certOf(behind.id))!;
+    const send = () => http().post(`/api/admin/certificates/${c.id}/revoke`).set('Cookie', admin.cookie).send({ reason: 'Duplicate account' });
+    const statuses = (await Promise.all([send(), send()])).map((r) => r.status).sort();
+    expect(statuses).toEqual([204, 409]);
+    expect(await prisma.auditLog.count({ where: { action: 'certificate.revoked', entityId: c.id } })).toBe(1);
+    await http().post(`/api/admin/certificates/${c.id}/reissue`).set('Cookie', admin.cookie).send({}).expect(204);
+  });
+
   it('account deletion keeps the certificate but hides the name; anonymisation removes it', async () => {
     const c = (await certOf(behind.id))!;
     await prisma.user.update({ where: { id: behind.id }, data: { deletedAt: new Date() } });
@@ -197,7 +215,7 @@ describe('certificates (e2e)', () => {
 
     await app.get(AccountService).anonymize(behind.id);
     const kept = (await certOf(behind.id))!;
-    expect(kept).toMatchObject({ id: c.id, serial: c.serial, nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null });
+    expect(kept).toMatchObject({ id: c.id, serial: c.serial, nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null, revokeReason: null });
     expect((await http().get(`/api/certificates/${c.serial}`).expect(200)).body).toEqual({ status: 'UNAVAILABLE', serial: c.serial });
     // The enrolment can't be deleted out from under an issued certificate.
     await expect(prisma.enrollment.delete({ where: { id: c.enrollmentId } })).rejects.toThrow();

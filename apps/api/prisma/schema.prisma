@@ -795,7 +795,6 @@ model ProjectSubmission {
   passed       Boolean?
 }
 
-/// Reserved for v2 (no UI yet).
 /// One completion certificate per enrolment. Snapshots (name, course title, instructors) are taken at
 /// issue time so later edits don't change an issued certificate; re-issuing refreshes them.
 /// Restrict: an issued certificate is never deleted with its enrolment (accounts are soft-deleted,

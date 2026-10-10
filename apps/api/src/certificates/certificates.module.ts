@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AssessmentsModule } from '../assessments/assessments.module';
+import { PointsModule } from '../points/points.module';
 import { AdminCertificatesController, CertificatesController } from './certificates.controller';
 import { CertificatesService } from './certificates.service';
 
 @Module({
-  imports: [AssessmentsModule],
+  imports: [AssessmentsModule, PointsModule],
   controllers: [CertificatesController, AdminCertificatesController],
   providers: [CertificatesService],
-  // CertificatesService.issue(...) and onIssued(...) are the hooks for points and badges.
+  // Points and badges are wired directly (PointsService.onCertificateIssued / onCertificateRevoked);
+  // onIssued(...) stays for any other feature that needs to react.
   exports: [CertificatesService],
 })
 export class CertificatesModule {}

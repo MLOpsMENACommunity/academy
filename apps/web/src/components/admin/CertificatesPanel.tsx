@@ -1,6 +1,6 @@
 'use client';
 
-import { certificatePath, describeRule, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
+import { certificatePath, describeRule, MAX_BULK_CERTIFICATES, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CheckboxField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -219,10 +219,16 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
     setNotice(null);
     setError(null);
     try {
-      const r = await api<IssueResultDto>(`/admin/courses/${courseId}/certificates`, {
-        method: 'POST',
-        json: { userIds: targets.map((x) => x.userId), grade: grade || null, force },
-      });
+      // In batches the API accepts (a large cohort selected at once).
+      const r: IssueResultDto = { results: [], issued: 0 };
+      for (let i = 0; i < targets.length; i += MAX_BULK_CERTIFICATES) {
+        const part = await api<IssueResultDto>(`/admin/courses/${courseId}/certificates`, {
+          method: 'POST',
+          json: { userIds: targets.slice(i, i + MAX_BULK_CERTIFICATES).map((x) => x.userId), grade: grade || null, force },
+        });
+        r.results.push(...part.results);
+        r.issued += part.issued;
+      }
       setNotice(summary(r));
       setSelected(new Set());
       load();
