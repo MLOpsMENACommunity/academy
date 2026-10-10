@@ -13,6 +13,7 @@ import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
+import { Leaderboard } from '@/components/points/Leaderboard';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
@@ -227,6 +228,19 @@ function Inner() {
             </a>
           )}
 
+          <a
+            href="#leaderboard"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById('leaderboard')?.scrollIntoView({ block: 'start' });
+              document.getElementById('leaderboard-title')?.focus({ preventScroll: true });
+            }}
+            className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] font-medium text-fg hover:bg-hover-bg"
+          >
+            {t('leaderboard.title')}
+            <span aria-hidden>🏆</span>
+          </a>
+
           <section aria-labelledby="course-tools" className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
             <h2 id="course-tools" className="text-sm font-medium text-muted">
               {t('learn.tools')}
@@ -317,6 +331,10 @@ function Inner() {
               <AssessmentList slug={course.slug} items={assessments} headingId="assessments-title" title={t('assessments.courseTitle')} level="h2" />
             </div>
           )}
+
+          <div id="leaderboard" className="scroll-mt-6">
+            <Leaderboard slug={course.slug} />
+          </div>
 
           <CourseAnnouncements items={course.announcements ?? []} />
 

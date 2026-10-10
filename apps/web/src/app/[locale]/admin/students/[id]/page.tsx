@@ -8,6 +8,7 @@ import { SpeakerRoleSwitch } from '@/components/admin/SpeakerRoleSwitch';
 import { CvCard } from '@/components/admin/CvCard';
 import { Notes, type Note } from '@/components/admin/Notes';
 import { ProfileView } from '@/components/admin/ProfileView';
+import { StudentPoints } from '@/components/admin/StudentPoints';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
@@ -58,6 +59,7 @@ export default function StudentDetail() {
         <div className="space-y-5">
           <CvCard studentId={s.id} hasCv={s.profile.hasCv} />
           <SpeakerRoleSwitch userId={s.id} />
+          <StudentPoints studentId={s.id} />
           <Card>
             <h2 className="text-lg">{t('admin.students.applications')}</h2>
             <ul className="mt-2 space-y-2 text-sm">

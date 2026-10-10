@@ -9,6 +9,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { PathProgressFrom } from '@/components/paths/PathProgress';
+import { PointsCard } from '@/components/points/PointsCard';
 import { Stepper } from '@/components/paths/Stepper';
 import { DateTile, DayTime } from '@/components/sessions/SessionDate';
 import { MySessionsList, useMySessions } from '@/components/sessions/MySessions';
@@ -142,6 +143,8 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
           </div>
 
           <NextUp />
+
+          <PointsCard className={card} />
 
           {!user.profile.coreComplete ? (
             <div className={`${card} flex flex-col gap-3 p-5`}>

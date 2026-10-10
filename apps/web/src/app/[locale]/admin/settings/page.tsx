@@ -17,8 +17,11 @@ const GROUPS: { title: string; keys: (keyof Settings)[] }[] = [
   { title: 'support', keys: ['supportEmail', 'supportWhatsapp'] },
   { title: 'windows', keys: ['liveLinkRevealMinutes', 'screenshotRetentionDays'] },
   { title: 'speakers', keys: ['speakerMaxOpenBookings', 'speakerCancelDays'] },
+  { title: 'points', keys: ['sessionCompletedPoints', 'certificatePoints'] },
 ];
-const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays', 'speakerMaxOpenBookings', 'speakerCancelDays']);
+const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays', 'speakerMaxOpenBookings', 'speakerCancelDays', 'sessionCompletedPoints', 'certificatePoints']);
+/** Points settings keep their strings with the rest of points (admin.points.settings.*). */
+const POINTS_KEYS = new Set<string>(['points', 'sessionCompletedPoints', 'certificatePoints']);
 /** Fields that explain what an empty value does. */
 const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'supportEmail', 'supportWhatsapp', 'speakerCancelDays']);
 
@@ -67,12 +70,12 @@ export default function AdminSettings() {
       {GROUPS.map((g) => (
         <Card key={g.title}>
           <fieldset>
-            <legend className="text-lg font-semibold text-fg">{t(`admin.settings.${g.title}`)}</legend>
+            <legend className="text-lg font-semibold text-fg">{t(POINTS_KEYS.has(g.title) ? `admin.points.settings.${g.title}` : `admin.settings.${g.title}`)}</legend>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {g.keys.map((k) => (
                 <TextField
                   key={k}
-                  label={t(`admin.settings.${k}`)}
+                  label={t(POINTS_KEYS.has(k) ? `admin.points.settings.${k}` : `admin.settings.${k}`)}
                   hint={HINTS.has(k) ? t(`admin.settings.hints.${k}`) : undefined}
                   type={NUMERIC.has(k) ? 'number' : k === 'supportEmail' ? 'email' : k === 'supportWhatsapp' ? 'tel' : 'text'}
                   dir={NUMERIC.has(k) ? undefined : 'ltr'}

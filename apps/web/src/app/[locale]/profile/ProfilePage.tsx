@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { PointsHistory } from '@/components/points/PointsHistory';
 import { AccountPanel } from '@/components/profile/AccountPanel';
 import { SectionForm } from '@/components/profile/SectionForm';
 import { Alert } from '@/components/ui/Alert';
@@ -15,7 +16,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 
-const TABS = [...PROFILE_SECTIONS, 'account'] as const;
+const TABS = [...PROFILE_SECTIONS, 'points', 'account'] as const;
 type Tab = (typeof TABS)[number];
 
 export function ProfilePage() {
@@ -103,8 +104,8 @@ function Tabs({ user }: { user: MeResponse }) {
               tab === s ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'
             }`}
           >
-            {t(`profile.sections.${s}`)}
-            {s !== 'account' && completeness.incompleteSections.includes(s) && (
+            {s === 'points' ? t('points.tab') : t(`profile.sections.${s}`)}
+            {s !== 'account' && s !== 'points' && completeness.incompleteSections.includes(s) && (
               <span className="ms-1.5 inline-block size-1.5 rounded-full bg-accent align-middle" aria-hidden />
             )}
             {missingSections.has(s) && (
@@ -117,6 +118,8 @@ function Tabs({ user }: { user: MeResponse }) {
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="pt-6" tabIndex={0}>
         {tab === 'account' ? (
           <AccountPanel user={user} />
+        ) : tab === 'points' ? (
+          <PointsHistory />
         ) : (
           <div className="rounded-card border border-line bg-card p-5 sm:p-8">
             <h2 className="text-xl">

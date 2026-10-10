@@ -7,7 +7,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { useI18n } from '@/i18n/client';
 
 /** Sections of the admin panel. */
-export const ADMIN_NAV = ['dashboard', 'payments', 'applications', 'students', 'courses', 'sessions', 'speakers', 'settings', 'audit'] as const;
+export const ADMIN_NAV = ['dashboard', 'payments', 'applications', 'students', 'points', 'courses', 'sessions', 'speakers', 'settings', 'audit'] as const;
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { locale, t } = useI18n();
@@ -31,7 +31,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         active ? 'bg-primary-soft font-medium text-primary' : 'text-body hover:bg-muted-bg'
                       }`}
                     >
-                      {t(`admin.nav.${key}`)}
+                      {key === 'points' ? t('admin.points.nav') : t(`admin.nav.${key}`)}
                     </Link>
                   </li>
                 );

@@ -62,6 +62,15 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           ],
         },
         {
+          heading: 'Points, badges and leaderboards',
+          body: [
+            'The academy keeps a record of the points you earn (from assessment scores, completed sessions, certificates, and community help that the team adds by hand) and the badges you receive. You see all of it on your dashboard and profile; academy administrators can see it too.',
+            "Each course has a leaderboard. You only appear on it if you choose \"Show me on the leaderboard\", and you can hide yourself again at any time. When you appear, other students in that course see only your first name, the first letter of your last name, your points and your badges, never your email or full name. If you don't opt in, you are counted in the number of participants but not named, and only you can see where you would rank.",
+            'Leaderboard badges (such as "Top of the week") are given to the top students whether or not they opted in. They stay private to you unless you choose to appear on the leaderboard.',
+            'Your points, badges and leaderboard choices are included in your data download and are deleted when your account is anonymised after deletion. A deleted account disappears from leaderboards straight away.',
+          ],
+        },
+        {
           heading: 'Live sessions and recordings',
           body: [
             'Live sessions are held on Google Meet and are usually recorded. Recordings of free courses are published on YouTube; recordings of paid courses are shared only with enrolled students. If you speak, turn on your camera or write in the chat during a recorded session, that may appear in the recording. You can take part with your camera and microphone off and ask questions in the chat under any display name.',
@@ -148,6 +157,15 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'لتشغيل الدورات التي تقدم عليها (مراجعة الطلبات، والتحقق من المدفوعات، وإتاحة روابط الجلسات للطلاب المسجلين، وإرسال رسائل الدورة والتذكيرات). وهذا ضروري لتقديم الخدمة التي طلبتها.',
             'لتخطيط الدورات المستقبلية للمجتمع باستخدام بيانات مجمّعة ومجهولة الهوية، وهذا في إطار مصلحتنا المشروعة ولا يحدد هويتك.',
             'فقط بموافقتك: مشاركة ملفك مع شركاء التوظيف لدى MLOps MENA، ومراسلتك بشأن الدورات والفعاليات الجديدة. كلاهما غير مفعّل افتراضيًا، ويمكنك سحب موافقتك في أي وقت من ملفك الشخصي.',
+          ],
+        },
+        {
+          heading: 'النقاط والشارات ولوحات الصدارة',
+          body: [
+            'تحتفظ الأكاديمية بسجل للنقاط التي تكسبها (من درجات التقييمات والجلسات المكتملة والشهادات، ومن مساعدة المجتمع التي يضيفها الفريق يدويًا) وبالشارات التي تحصل عليها. تراها كلها في لوحة التحكم وملفك الشخصي، ويمكن لمسؤولي الأكاديمية الاطلاع عليها أيضًا.',
+            'لكل دورة لوحة صدارة، ولا تظهر فيها إلا إذا اخترت «أظهرني في لوحة الصدارة»، ويمكنك إخفاء نفسك مرة أخرى في أي وقت. وعند ظهورك لا يرى طلاب الدورة الآخرون إلا اسمك الأول والحرف الأول من اسم العائلة ونقاطك وشاراتك، ولا يرون بريدك الإلكتروني أو اسمك الكامل أبدًا. وإن لم تختر الظهور فإنك تُحتسب ضمن عدد المشاركين دون ذكر اسمك، ولا يرى ترتيبك المحتمل غيرك.',
+            'تُمنح شارات لوحة الصدارة (مثل «الأفضل هذا الأسبوع») لأصحاب أعلى النقاط سواء اختاروا الظهور أم لا، وتبقى خاصة بك ما لم تختر الظهور في اللوحة.',
+            'تُضمَّن نقاطك وشاراتك واختياراتك للوحات الصدارة في ملف بياناتك عند تنزيله، وتُحذف عند تجهيل بيانات حسابك بعد حذفه. ويختفي الحساب المحذوف من لوحات الصدارة فورًا.',
           ],
         },
         {
