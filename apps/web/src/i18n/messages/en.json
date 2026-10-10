@@ -160,7 +160,9 @@
       "QUESTION_ANSWERED": "Applicants already answered a question you removed. Put it back and make it optional instead.",
       "PAYMENT_WAIVER_REQUIRED": "This is a paid course: tick \"Enrol them without payment\" to continue.",
       "INVITE_RECENTLY_SENT": "This invitation was emailed less than a minute ago. Try again shortly.",
-      "INVITE_NOT_PENDING": "This invitation was already used or revoked."
+      "INVITE_NOT_PENDING": "This invitation was already used or revoked.",
+      "INVITE_RESEND_LIMIT": "This invitation has already been emailed again as many times as allowed.",
+      "COURSE_NOT_INVITABLE": "Draft and archived courses can't take anyone. Publish or reopen the course first."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -662,7 +664,8 @@
       "cv": "CV",
       "hasCv": "Has CV",
       "cvNone": "No CV",
-      "cvHint": "CV uploads were removed from the profile, so only students who uploaded one before have a CV."
+      "cvHint": "CV uploads were removed from the profile, so only students who uploaded one before have a CV.",
+      "viaAdmin": "Enrolled directly by the course team"
     },
     "filters": {
       "country": "Country",
@@ -777,7 +780,8 @@
         "revoke": "Revoke",
         "revokeConfirm": "Revoke the invitation for {email}? They won't be enrolled when they sign up.",
         "revoked": "Invitation for {email} revoked.",
-        "retention": "Invitations that are never used are deleted after 180 days."
+        "retention": "Invitations that are never used are deleted after 180 days.",
+        "resendCount": "Resent {count} of {max}"
       },
       "feedback": "Feedback",
       "basics": "Basics",

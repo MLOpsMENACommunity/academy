@@ -19,6 +19,7 @@ import { Notes, type Note } from '@/components/admin/Notes';
 import { ProfileView } from '@/components/admin/ProfileView';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageSpinner } from '@/components/ui/Spinner';
@@ -194,9 +195,18 @@ export default function ApplicationDetailAdmin() {
                 </li>
               ))}
             </ol>
-            {Object.keys(a.source ?? {}).length > 0 && (
+            {a.source?.via === 'admin' && (
+              <p className="mt-3">
+                <Badge tone="info">{t('admin.apps.viaAdmin')}</Badge>
+              </p>
+            )}
+            {Object.keys(a.source ?? {}).some((k) => k !== 'via') && (
               <p className="mt-3 text-xs text-muted">
-                {t('admin.apps.source')}: {Object.entries(a.source).map(([k, v]) => `${k}=${v}`).join(' · ')}
+                {t('admin.apps.source')}:{' '}
+                {Object.entries(a.source)
+                  .filter(([k]) => k !== 'via')
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join(' · ')}
               </p>
             )}
           </Card>

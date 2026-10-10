@@ -16,6 +16,8 @@ export const MAX_INVITE_BATCH = 300;
 export const INVITE_RETENTION_DAYS = 180;
 /** A pending invite's email can be resent at most once a minute. */
 export const INVITE_RESEND_INTERVAL_MS = 60_000;
+/** An admin can email a pending invite again at most this many times (the privacy policy promises "a few times at most"). */
+export const INVITE_MAX_RESENDS = 3;
 
 /**
  * What enrolling an address would do (the preview), or did (the result).
@@ -101,6 +103,8 @@ export interface CourseInviteDto {
   createdAt: string;
   enrolledAt: string | null;
   lastEmailedAt: string | null;
+  /** Times it was emailed again by an admin (at most INVITE_MAX_RESENDS). */
+  resendCount: number;
   /** The enrolled student's name, when there is one. */
   name: string | null;
 }

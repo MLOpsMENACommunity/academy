@@ -77,7 +77,8 @@ export class AuthService {
     this.loginLimiter.reset(input.email);
     const updated = await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     // Safety net: a verified account picks up any invite still waiting (normally claimed at verification).
-    if (updated.emailVerifiedAt) await this.invites.claimFor(updated.id);
+    // Not awaited: signing in never waits on a course lock (claimFor never throws).
+    if (updated.emailVerifiedAt) void this.invites.claimFor(updated.id);
     return updated;
   }
 
@@ -89,7 +90,7 @@ export class AuthService {
     if (byGoogle) {
       if (byGoogle.deletedAt) throw new UnauthorizedException('Account deleted');
       const user = await this.touch(byGoogle.id);
-      await this.invites.claimFor(user.id);
+      void this.invites.claimFor(user.id); // not awaited: see login()
       return { user, isNew: false };
     }
     const byEmail = await this.prisma.user.findUnique({ where: { email: g.email } });
@@ -132,8 +133,8 @@ export class AuthService {
         where: { userId: user.id, googleEmail: null },
         data: { googleEmail: g.email },
       });
-      // Google verified the address: invites to it can be claimed now.
-      await this.invites.claimFor(user.id);
+      // Google verified the address: invites to it can be claimed now (not awaited: see login()).
+      void this.invites.claimFor(user.id);
       return { user, isNew: false };
     }
     const user = await this.prisma.user.create({
@@ -147,7 +148,7 @@ export class AuthService {
         profile: { create: { fullNameEn: g.name, googleEmail: g.email, preferredLanguage: locale } },
       },
     });
-    await this.invites.claimFor(user.id);
+    void this.invites.claimFor(user.id); // not awaited: see login()
     return { user, isNew: true };
   }
 
@@ -209,6 +210,7 @@ export class AuthService {
     });
     await this.prisma.emailVerificationToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
     // The address is proven now: enrol it in any course it was invited to ("Enrol by email").
+    // Awaited, unlike at sign-in: the page redirects to the course (returnTo) and it must be ready.
     await this.invites.claimFor(updated.id);
     return { returnTo: record.returnTo, user: updated };
   }

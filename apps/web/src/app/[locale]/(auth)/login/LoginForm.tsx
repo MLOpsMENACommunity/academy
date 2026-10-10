@@ -16,7 +16,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
-import { useSearchParam } from '@/lib/use-search-param';
+import { useHashParam, useSearchParam } from '@/lib/use-search-param';
 
 export { postLoginPath };
 
@@ -30,8 +30,8 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const [role, setRole] = useState<SignupRole>('STUDENT');
   useEffect(() => setRole(initialSignupRole(asParam)), [asParam]);
   const [email, setEmail] = useState('');
-  // Prefilled from an "Enrol by email" invitation link (?email=…); never overwrites typing.
-  const emailParam = useSearchParam('email');
+  // Prefilled from an "Enrol by email" invitation link (#email=…, kept out of server logs); never overwrites typing.
+  const emailParam = useHashParam('email');
   useEffect(() => {
     if (emailParam) setEmail((current) => current || emailParam);
   }, [emailParam]);

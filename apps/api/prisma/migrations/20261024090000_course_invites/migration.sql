@@ -15,6 +15,7 @@ CREATE TABLE "CourseInvite" (
     "enrolledUserId" TEXT,
     "enrolledAt" TIMESTAMP(3),
     "lastEmailedAt" TIMESTAMP(3),
+    "resendCount" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

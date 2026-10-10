@@ -16,7 +16,7 @@ import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
-import { useSearchParam } from '@/lib/use-search-param';
+import { useHashParam, useSearchParam } from '@/lib/use-search-param';
 import { postLoginPath } from '../login/LoginForm';
 
 export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
@@ -25,8 +25,8 @@ export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const returnTo = useReturnTo();
   const [email, setEmail] = useState('');
-  // Prefilled from an "Enrol by email" invitation link (?email=…); never overwrites typing.
-  const emailParam = useSearchParam('email');
+  // Prefilled from an "Enrol by email" invitation link (#email=…, kept out of server logs); never overwrites typing.
+  const emailParam = useHashParam('email');
   useEffect(() => {
     if (emailParam) setEmail((current) => current || emailParam);
   }, [emailParam]);

@@ -1291,6 +1291,8 @@ model CourseInvite {
   enrolledUser   User?              @relation("CourseInviteEnrolled", fields: [enrolledUserId], references: [id], onDelete: SetNull)
   enrolledAt     DateTime?
   lastEmailedAt  DateTime?
+  /// Times an admin emailed the invitation again (capped at INVITE_MAX_RESENDS).
+  resendCount    Int                @default(0)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 

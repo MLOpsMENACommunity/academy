@@ -3,6 +3,7 @@ import {
   classifyInvite,
   countOutcomes,
   COURSE_INVITE_STATUSES,
+  INVITE_MAX_RESENDS,
   INVITE_RESEND_INTERVAL_MS,
   INVITE_RETENTION_DAYS,
   normaliseInviteEntries,
@@ -24,6 +25,7 @@ import { capRows, EXPORT_LIMIT } from '../admin/export';
 import { ApplicationWorkflow, formatStart, hasText, type Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
+import { FunnelService } from '../funnel/funnel.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -34,6 +36,11 @@ const HISTORY_REASON = 'Enrolled directly by the course team';
 
 /** One batch is one transaction holding the course lock; a few hundred enrolments fit well inside this. */
 const BATCH_TX = { timeout: 60_000, maxWait: 10_000 };
+/** One claim is one enrolment; waiting on a busy course lock must not hold a sign-in for long. */
+const CLAIM_TX = { timeout: 15_000, maxWait: 5_000 };
+
+/** Courses nobody can be added to: apply refuses them, and their pending invites wait (claimFor). */
+const CLOSED_TO_INVITES = new Set(['DRAFT', 'ARCHIVED']);
 
 interface Fact {
   user: { id: string; role: Role; verified: boolean; deleted: boolean } | null;
@@ -45,6 +52,7 @@ interface CourseRow {
   id: string;
   slug: string;
   type: 'FREE' | 'PAID';
+  status: string;
   capacity: number | null;
   titleEn: string;
   titleAr: string;
@@ -68,15 +76,26 @@ export class InvitesService {
     private readonly audit: AuditService,
     private readonly email: EmailService,
     private readonly notifications: NotificationsService,
+    private readonly funnel: FunnelService,
   ) {}
 
   private async course(courseId: string): Promise<CourseRow> {
     const c = await this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { id: true, slug: true, type: true, capacity: true, titleEn: true, titleAr: true },
+      select: { id: true, slug: true, type: true, status: true, capacity: true, titleEn: true, titleAr: true },
     });
     if (!c) throw new NotFoundException('Course not found');
     return c;
+  }
+
+  /** Drafts and archived courses take nobody: refused before anything is written. */
+  private assertOpenToInvites(course: CourseRow): void {
+    if (CLOSED_TO_INVITES.has(course.status)) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_INVITABLE',
+        message: course.status === 'DRAFT' ? 'Publish this course before adding people to it' : 'This course is archived: nobody can be added to it',
+      });
+    }
   }
 
   private seatsTaken(courseId: string, tx: Tx = this.prisma): Promise<number> {
@@ -130,6 +149,7 @@ export class InvitesService {
 
   async preview(courseId: string, input: { entries: InviteEntryInput[] }): Promise<InvitePreviewDto> {
     const course = await this.course(courseId);
+    this.assertOpenToInvites(course);
     const { entries } = normaliseInviteEntries(input.entries);
     const facts = await this.facts(this.prisma, courseId, this.validEmails(entries));
     const rows = this.classify(entries, facts);
@@ -139,6 +159,7 @@ export class InvitesService {
   /** Applies a batch in one transaction (holding the course lock), then emails and notifies. */
   async apply(courseId: string, input: InviteApplyInput, admin: Actor): Promise<InviteApplyResultDto> {
     const course = await this.course(courseId);
+    this.assertOpenToInvites(course);
     if (course.type === 'PAID' && !input.skipPayment) {
       throw new BadRequestException({
         code: 'PAYMENT_WAIVER_REQUIRED',
@@ -158,6 +179,8 @@ export class InvitesService {
         const f = facts.get(row.email);
         if (row.outcome === 'ENROL' && f?.user) {
           const res = await this.workflow.enrolDirectly(tx, locked, f.user.id, admin, HISTORY_REASON);
+          // Already enrolled after all (the facts saw no Enrollment): nothing happened, nothing to record.
+          if (!res) continue;
           const invite = await tx.courseInvite.upsert({
             where: { courseId_email: { courseId, email: row.email } },
             // lastEmailedAt: the "You've been added" email goes out right after the commit.
@@ -171,17 +194,20 @@ export class InvitesService {
               action: 'course.enrolled_by_admin',
               entityType: 'Course',
               entityId: courseId,
-              metadata: { inviteId: invite.id, applicationId: res?.app.id ?? null, fromStatus: res?.from ?? null, trigger: 'direct', skipPayment: course.type === 'PAID' },
+              metadata: { inviteId: invite.id, applicationId: res.app.id, fromStatus: res.from, trigger: 'direct', skipPayment: course.type === 'PAID' },
             },
             tx,
           );
-          if (res) enrolled.push({ userId: f.user.id, applicationId: res.app.id });
+          enrolled.push({ userId: f.user.id, applicationId: res.app.id });
         } else if (row.outcome === 'INVITE' || row.outcome === 'INVITE_UNVERIFIED') {
-          // A revoked invite is reused: same row, new date (the retention clock restarts).
+          // One row per course and address. INVITE is only classified for an address with no
+          // pending invite, so an existing row here is REVOKED, or ENROLLED from an enrolment that
+          // was since undone (the student is no longer enrolled). Either way it is spent and starts
+          // over as a new invite: new date (the retention clock restarts), resends from zero.
           const invite = await tx.courseInvite.upsert({
             where: { courseId_email: { courseId, email: row.email } },
             create: { courseId, email: row.email, invitedById: admin.id, note: row.note, locale: input.locale, status: 'PENDING' },
-            update: { status: 'PENDING', invitedById: admin.id, note: row.note, locale: input.locale, enrolledUserId: null, enrolledAt: null, lastEmailedAt: null, createdAt: now },
+            update: { status: 'PENDING', invitedById: admin.id, note: row.note, locale: input.locale, enrolledUserId: null, enrolledAt: null, lastEmailedAt: null, resendCount: 0, createdAt: now },
             select: { id: true },
           });
           await this.audit.log(
@@ -201,7 +227,10 @@ export class InvitesService {
     }, BATCH_TX);
 
     // After the commit: tell people. Never fails the request (sends are queued; errors logged).
-    for (const e of enrolled) await this.tellEnrolled(e.userId, courseId, input.sendEmail);
+    for (const e of enrolled) {
+      await this.funnel.record({ id: courseId }, 'ENROLLED', { userId: e.userId });
+      await this.tellEnrolled(e.userId, courseId, input.sendEmail);
+    }
     let emailed = 0;
     if (input.sendEmail) {
       for (const id of invited) if (await this.sendInvite(id)) emailed++;
@@ -252,9 +281,17 @@ export class InvitesService {
     const invite = await this.prisma.courseInvite.findFirst({ where: { id: inviteId, courseId } });
     if (!invite) throw new NotFoundException('Invite not found');
     if (invite.status !== 'PENDING') throw new ConflictException({ code: 'INVITE_NOT_PENDING', message: 'Only a pending invite can be emailed again' });
+    const limit = () => new ConflictException({ code: 'INVITE_RESEND_LIMIT', message: `This invite was already emailed again ${INVITE_MAX_RESENDS} times` });
+    if (invite.resendCount >= INVITE_MAX_RESENDS) throw limit();
     if (invite.lastEmailedAt && Date.now() - invite.lastEmailedAt.getTime() < INVITE_RESEND_INTERVAL_MS) {
       throw new ConflictException({ code: 'INVITE_RECENTLY_SENT', message: 'This invite was emailed less than a minute ago' });
     }
+    // Counted with a conditional update, so two quick clicks can't go past the cap.
+    const counted = await this.prisma.courseInvite.updateMany({
+      where: { id: invite.id, status: 'PENDING', resendCount: { lt: INVITE_MAX_RESENDS } },
+      data: { resendCount: { increment: 1 } },
+    });
+    if (!counted.count) throw limit();
     await this.sendInvite(invite.id);
     await this.audit.log({ actorId: admin.id, action: 'course.invite_resent', entityType: 'Course', entityId: courseId, metadata: { inviteId } });
     return toDto(await this.oneRow(invite.id));
@@ -297,11 +334,13 @@ export class InvitesService {
       if (!user || !user.emailVerifiedAt || user.deletedAt || user.role !== 'STUDENT') return [];
       const pending = await this.prisma.courseInvite.findMany({
         where: { email: user.email.toLowerCase(), status: 'PENDING' },
-        select: { id: true, courseId: true, invitedById: true, course: { select: { slug: true } } },
+        select: { id: true, courseId: true, invitedById: true, course: { select: { slug: true, status: true } } },
         orderBy: { createdAt: 'asc' },
       });
       const slugs: string[] = [];
       for (const inv of pending) {
+        // A draft or archived course takes nobody: the invite waits (and expires with retention).
+        if (CLOSED_TO_INVITES.has(inv.course.status)) continue;
         try {
           const res = await this.prisma.$transaction(async (tx) => {
             const locked = await this.workflow.lockCourse(tx, inv.courseId);
@@ -312,19 +351,23 @@ export class InvitesService {
             if (!claimed.count) return { claimed: false, enrolled: null };
             const actor: Actor | null = inv.invitedById ? { id: inv.invitedById, role: 'ADMIN' } : null;
             const enrolled = await this.workflow.enrolDirectly(tx, locked, user.id, actor, HISTORY_REASON);
+            // Already enrolled (e.g. through an application): the invite is spent, but nothing
+            // was enrolled by it, so there is no audit entry and nobody is told.
+            if (!enrolled) return { claimed: true, enrolled: null };
             await this.audit.log(
               {
                 actorId: inv.invitedById,
                 action: 'course.enrolled_by_admin',
                 entityType: 'Course',
                 entityId: inv.courseId,
-                metadata: { inviteId: inv.id, applicationId: enrolled?.app.id ?? null, fromStatus: enrolled?.from ?? null, trigger: 'invite_claimed' },
+                metadata: { inviteId: inv.id, applicationId: enrolled.app.id, fromStatus: enrolled.from, trigger: 'invite_claimed' },
               },
               tx,
             );
             return { claimed: true, enrolled };
-          });
+          }, CLAIM_TX);
           if (res.enrolled) {
+            await this.funnel.record({ id: inv.courseId }, 'ENROLLED', { userId: user.id });
             await this.tellEnrolled(user.id, inv.courseId, true);
             slugs.push(inv.course.slug);
           }
@@ -407,7 +450,8 @@ export class InvitesService {
     });
     const locale: Locale = account?.locale ?? invite.locale;
     const learn = `/${locale}/learn/${invite.course.slug}`;
-    const q = `email=${encodeURIComponent(invite.email)}&returnTo=${encodeURIComponent(learn)}`;
+    // The address goes in the fragment: browsers never send it, so it stays out of access logs and Referer headers.
+    const q = `returnTo=${encodeURIComponent(learn)}#email=${encodeURIComponent(invite.email)}`;
     void this.email.send(invite.email, locale, {
       name: 'courseInvite',
       courseTitle: locale === 'ar' ? invite.course.titleAr || invite.course.titleEn : invite.course.titleEn,
@@ -436,6 +480,7 @@ function toDto(r: InviteRow): CourseInviteDto {
     createdAt: r.createdAt.toISOString(),
     enrolledAt: r.enrolledAt?.toISOString() ?? null,
     lastEmailedAt: r.lastEmailedAt?.toISOString() ?? null,
+    resendCount: r.resendCount,
     name: r.enrolledUser?.profile?.fullNameEn ?? null,
   };
 }

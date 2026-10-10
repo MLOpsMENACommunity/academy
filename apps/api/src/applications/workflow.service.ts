@@ -26,6 +26,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toProfileDto } from '../users/profile.service';
 
+/** Stored on a pending payment closed because the student was enrolled directly (no payment needed). */
+export const PAYMENT_WAIVED_REASON = 'Waived: enrolled by the course team';
+
 export interface Actor {
   id: string;
   role: Role;
@@ -185,6 +188,20 @@ export class ApplicationWorkflow {
     }
     const app = await tx.application.update({ where: { id: existing.id }, data: { status: result.status, rejectionReason: null } });
     await this.recordChange(tx, app, existing.status, result.status, actor, reason);
+    // A payment still waiting for review (from PAYMENT_SUBMITTED) is settled by the waiver: left
+    // PENDING_REVIEW, approving it later would fail (the application is no longer PAYMENT_SUBMITTED)
+    // and the retention job would never delete its screenshot.
+    const waiting = await tx.payment.findMany({ where: { applicationId: existing.id, status: 'PENDING_REVIEW' }, select: { id: true } });
+    for (const p of waiting) {
+      await tx.payment.update({
+        where: { id: p.id },
+        data: { status: 'REJECTED', rejectionReason: PAYMENT_WAIVED_REASON, reviewedById: actor?.id ?? null, reviewedAt: new Date() },
+      });
+      await this.audit.log(
+        { actorId: actor?.id ?? null, action: 'payment.waived', entityType: 'Payment', entityId: p.id, metadata: { applicationId: existing.id } },
+        tx,
+      );
+    }
     return { app, from: existing.status };
   }
 

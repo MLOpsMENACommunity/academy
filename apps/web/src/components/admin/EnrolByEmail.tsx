@@ -2,6 +2,7 @@
 
 import {
   ACTIONABLE_INVITE_OUTCOMES,
+  INVITE_MAX_RESENDS,
   MAX_INVITE_BATCH,
   parseEmailList,
   parseInviteCsv,
@@ -338,18 +339,24 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
                     {formatDate(i.createdAt, locale)}
                     {i.invitedBy && <p className="text-xs text-muted ltr-embed">{v('by', { email: i.invitedBy })}</p>}
                   </td>
-                  <td className="p-3 align-top whitespace-nowrap">{i.lastEmailedAt ? formatDate(i.lastEmailedAt, locale) : <span className="text-muted">{v('never')}</span>}</td>
+                  <td className="p-3 align-top whitespace-nowrap">
+                    {i.lastEmailedAt ? formatDate(i.lastEmailedAt, locale) : <span className="text-muted">{v('never')}</span>}
+                    {i.resendCount > 0 && <p className="text-xs text-muted">{v('resendCount', { count: i.resendCount, max: INVITE_MAX_RESENDS })}</p>}
+                  </td>
                   <td className="p-3 text-end align-top">
                     {i.status === 'PENDING' && (
                       <span className="inline-flex flex-wrap justify-end gap-1">
-                        <button
-                          type="button"
-                          disabled={rowBusy === i.id}
-                          onClick={() => void act(i, 'resend')}
-                          className="inline-flex min-h-11 items-center rounded px-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50 sm:min-h-9"
-                        >
-                          {v('resend')}
-                        </button>
+                        {/* At most INVITE_MAX_RESENDS: the button goes once they're used up. */}
+                        {i.resendCount < INVITE_MAX_RESENDS && (
+                          <button
+                            type="button"
+                            disabled={rowBusy === i.id}
+                            onClick={() => void act(i, 'resend')}
+                            className="inline-flex min-h-11 items-center rounded px-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50 sm:min-h-9"
+                          >
+                            {v('resend')}
+                          </button>
+                        )}
                         <button
                           type="button"
                           disabled={rowBusy === i.id}

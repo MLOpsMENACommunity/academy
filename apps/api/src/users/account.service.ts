@@ -224,9 +224,12 @@ export class AccountService {
       // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
       assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
+      // The inviting admin is named as the team, not by their address; the admin's note is an
+      // internal remark about the student (like application review notes) and stays admin-only.
       courseInvites: courseInvites.map((i) => ({
         course: i.course,
         email: i.email,
+        invitedBy: 'academy team',
         status: i.status,
         language: i.locale,
         invitedAt: i.createdAt,

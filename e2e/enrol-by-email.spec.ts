@@ -101,8 +101,15 @@ test('the admin enrols one student and invites one new address; the student sees
   await expect(page.getByRole('row', { name: new RegExp(fresh) })).toContainText('Invited');
   // The new address got an invitation with a sign-up link for this address and course.
   const invite = await latestEmail(admin, fresh);
-  expect(invite).toContain(`/en/register?email=${encodeURIComponent(fresh)}`);
+  // The address is in the fragment (never sent to a server), and prefills the sign-up form.
+  const link = `/en/register?returnTo=${encodeURIComponent(`/en/learn/${slug}`)}#email=${encodeURIComponent(fresh)}`;
+  expect(invite).toContain(link);
   expect(errors).toEqual([]);
+  const visitor = await browser.newContext();
+  const vp = await visitor.newPage();
+  await vp.goto(link);
+  await expect(vp.locator('input[type="email"]')).toHaveValue(fresh);
+  await visitor.close();
 
   // The existing student: the course is on the dashboard, and the course page opens.
   const ctx = await browser.newContext({ storageState: await student.storageState() });

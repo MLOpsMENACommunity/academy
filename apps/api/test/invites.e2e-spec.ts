@@ -3,6 +3,7 @@ import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service';
 import { randomToken, sha256 } from '../src/common/crypto';
 import { EmailService } from '../src/email/email.service';
+import { InvitesService } from '../src/invites/invites.service';
 import { RetentionJobs } from '../src/jobs/retention.jobs';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AccountService } from '../src/users/account.service';
@@ -12,6 +13,7 @@ describe('enrol by email (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
   let sendSpy: jest.SpyInstance;
+  let claimSpy: jest.SpyInstance;
   let admin: { id: string; email: string; cookie: string };
   const http = () => request(app.getHttpServer());
   const password = 'correct-horse-battery';
@@ -19,14 +21,17 @@ describe('enrol by email (e2e)', () => {
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
     sendSpy = jest.spyOn(app.get(EmailService), 'send');
+    claimSpy = jest.spyOn(app.get(InvitesService), 'claimFor');
   });
   afterAll(async () => {
     sendSpy.mockRestore();
+    claimSpy.mockRestore();
     await app.close();
   });
   // A fresh admin per test: enrolling is rate-limited per account (10 a minute).
   beforeEach(async () => {
     sendSpy.mockClear();
+    claimSpy.mockClear();
     admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'inv-admin' });
   });
 
@@ -50,6 +55,10 @@ describe('enrol by email (e2e)', () => {
     await http().post('/api/auth/verify-email').set('Cookie', cookie).send({ token }).expect(200);
   }
 
+  /** Sign-in claims run in the background (not awaited by login): wait for the ones started so far. */
+  const claimsSettled = () => Promise.all(claimSpy.mock.results.map((r) => r.value as Promise<unknown>));
+  const funnelEnrolled = (courseId: string, userId: string) => prisma.funnelEventLog.count({ where: { courseId, userId, event: 'ENROLLED' } });
+
   const enrolled = (userId: string, courseId: string) => prisma.enrollment.count({ where: { userId, courseId } });
 
   it('enrols an existing student at once, with an application history entry, an email, a notification and audit', async () => {
@@ -66,7 +75,9 @@ describe('enrol by email (e2e)', () => {
       include: { history: true, enrollment: true },
     });
     expect(application.status).toBe('ENROLLED');
+    expect(application.source).toEqual({ via: 'admin' });
     expect(application.enrollment).not.toBeNull();
+    expect(await funnelEnrolled(course.id, student.id)).toBe(1);
     expect(application.history).toEqual([
       expect.objectContaining({ fromStatus: null, toStatus: 'ENROLLED', actorId: admin.id, reason: 'Enrolled directly by the course team' }),
     ]);
@@ -121,7 +132,8 @@ describe('enrol by email (e2e)', () => {
     expect(mail[0]![2]).toMatchObject({
       email,
       hasAccount: false,
-      url: expect.stringContaining(`/ar/register?email=${encodeURIComponent(email)}&returnTo=${encodeURIComponent(`/ar/learn/${course.slug}`)}`),
+      // The address rides in the fragment, never in the query string (server logs, Referer).
+      url: expect.stringContaining(`/ar/register?returnTo=${encodeURIComponent(`/ar/learn/${course.slug}`)}#email=${encodeURIComponent(email)}`),
     });
     expect(await prisma.courseInvite.findUniqueOrThrow({ where: { courseId_email: { courseId: course.id, email } } })).toMatchObject({ status: 'PENDING', lastEmailedAt: expect.any(Date) });
     expect(await prisma.auditLog.count({ where: { entityId: course.id, action: 'course.invited' } })).toBe(1);
@@ -132,6 +144,7 @@ describe('enrol by email (e2e)', () => {
     await http().get(`/api/learn/${course.slug}`).set('Cookie', user.cookie).expect(403);
     // Signing in again while unverified doesn't claim it either.
     await http().post('/api/auth/login').send({ email, password }).expect(200);
+    await claimsSettled();
     expect(await enrolled(user.id, course.id)).toBe(0);
 
     sendSpy.mockClear();
@@ -142,13 +155,16 @@ describe('enrol by email (e2e)', () => {
     const history = await prisma.applicationStatusHistory.findMany({ where: { application: { userId: user.id, courseId: course.id } } });
     expect(history).toEqual([expect.objectContaining({ toStatus: 'ENROLLED', actorId: admin.id })]);
     expect(sent('courseAdded')).toHaveLength(1);
+    expect(await funnelEnrolled(course.id, user.id)).toBe(1);
     expect(await prisma.auditLog.count({ where: { entityId: course.id, action: 'course.enrolled_by_admin', metadata: { path: ['trigger'], equals: 'invite_claimed' } } })).toBe(1);
     await http().get(`/api/learn/${course.slug}`).set('Cookie', user.cookie).expect(200);
 
     // Idempotent: signing in again claims nothing more.
     sendSpy.mockClear();
     await http().post('/api/auth/login').send({ email, password }).expect(200);
+    await claimsSettled();
     expect(sent('courseAdded')).toHaveLength(0);
+    expect(await funnelEnrolled(course.id, user.id)).toBe(1);
     expect(await prisma.application.count({ where: { userId: user.id } })).toBe(1);
   });
 
@@ -159,6 +175,7 @@ describe('enrol by email (e2e)', () => {
     await enrol(b.id, [email], { skipPayment: true, sendEmail: false }).expect(200);
 
     const { user } = await app.get(AuthService).loginWithGoogle({ sub: `g-${Date.now()}`, email, emailVerified: true, name: 'Google Person' }, 'en');
+    await claimsSettled();
     expect(await enrolled(user.id, a.id)).toBe(1);
     expect(await enrolled(user.id, b.id)).toBe(1);
     expect(await prisma.courseInvite.count({ where: { email, status: 'ENROLLED' } })).toBe(2);
@@ -175,7 +192,7 @@ describe('enrol by email (e2e)', () => {
     const preview = await http().post(`/api/admin/courses/${course.id}/invites/preview`).set('Cookie', admin.cookie).send({ entries: [{ email }] }).expect(200);
     expect(preview.body.rows[0].outcome).toBe('INVITE_UNVERIFIED');
     await enrol(course.id, [email]).expect(200);
-    expect(sent('courseInvite')[0]![2]).toMatchObject({ hasAccount: true, url: expect.stringContaining('/en/login?email=') });
+    expect(sent('courseInvite')[0]![2]).toMatchObject({ hasAccount: true, url: expect.stringMatching(/\/en\/login\?returnTo=[^#]+#email=/) });
     expect(await enrolled(user.id, course.id)).toBe(0);
 
     await verify(user.id, email, user.cookie);
@@ -212,6 +229,87 @@ describe('enrol by email (e2e)', () => {
     expect(res.body.rows[0].outcome).toBe('ENROL');
     expect(await enrolled(user.id, course.id)).toBe(1);
     expect(await prisma.courseInvite.count({ where: { courseId: course.id } })).toBe(1);
+  });
+
+  it('closes a payment waiting for review when the student is enrolled without paying', async () => {
+    const course = await createCourse(prisma, { type: 'PAID', price: 800 });
+    const student = await createUser(app, prisma, { prefix: 'inv-waive' });
+    await http().post('/api/applications').set('Cookie', student.cookie).send({ courseSlug: course.slug, answers: { [course.questionId]: true } }).expect(201);
+    const application = await prisma.application.update({
+      where: { userId_courseId: { userId: student.id, courseId: course.id } },
+      data: { status: 'PAYMENT_SUBMITTED' },
+    });
+    const payment = await prisma.payment.create({
+      data: { applicationId: application.id, method: 'INSTAPAY', amount: 800, transactionRef: `TX${Date.now()}`, senderName: 'Sender', senderPhone: '+201000000000', paidAt: new Date(), screenshotKey: `payments/${Date.now()}.png` },
+    });
+
+    await enrol(course.id, [student.email], { skipPayment: true }).expect(200);
+    expect(await enrolled(student.id, course.id)).toBe(1);
+    expect(await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({
+      status: 'REJECTED',
+      rejectionReason: 'Waived: enrolled by the course team',
+      reviewedById: admin.id,
+      reviewedAt: expect.any(Date),
+    });
+    expect(await prisma.auditLog.count({ where: { entityType: 'Payment', entityId: payment.id, action: 'payment.waived', actorId: admin.id } })).toBe(1);
+    // Nothing is left for a reviewer: approving it now says it was already reviewed.
+    const approve = await http().post(`/api/admin/payments/${payment.id}/approve`).set('Cookie', admin.cookie).send({ verifiedInHistory: true }).expect(409);
+    expect(approve.body.code).toBe('ALREADY_REVIEWED');
+  });
+
+  it('caps resends at three per invite', async () => {
+    const course = await createCourse(prisma);
+    const email = uniqueEmail('inv-cap');
+    await enrol(course.id, [email]).expect(200);
+    const invite = await prisma.courseInvite.findUniqueOrThrow({ where: { courseId_email: { courseId: course.id, email } } });
+    const resend = () => http().post(`/api/admin/courses/${course.id}/invites/${invite.id}/resend`).set('Cookie', admin.cookie);
+    const aMinuteAgo = () => prisma.courseInvite.update({ where: { id: invite.id }, data: { lastEmailedAt: new Date(Date.now() - 61_000) } });
+    for (let i = 1; i <= 3; i++) {
+      await aMinuteAgo();
+      expect((await resend().expect(200)).body.resendCount).toBe(i);
+    }
+    await aMinuteAgo();
+    expect((await resend().expect(409)).body.code).toBe('INVITE_RESEND_LIMIT');
+    // The first email plus three resends.
+    expect(sent('courseInvite')).toHaveLength(4);
+  });
+
+  it('refuses draft and archived courses, and an archived course leaves the invite pending', async () => {
+    for (const status of ['DRAFT', 'ARCHIVED'] as const) {
+      const course = await createCourse(prisma);
+      await prisma.course.update({ where: { id: course.id }, data: { status } });
+      const email = uniqueEmail('inv-closed-course');
+      expect((await enrol(course.id, [email]).expect(409)).body.code).toBe('COURSE_NOT_INVITABLE');
+      await http().post(`/api/admin/courses/${course.id}/invites/preview`).set('Cookie', admin.cookie).send({ entries: [{ email }] }).expect(409);
+      expect(await prisma.courseInvite.count({ where: { courseId: course.id } })).toBe(0);
+    }
+
+    const course = await createCourse(prisma);
+    const email = uniqueEmail('inv-archived');
+    await enrol(course.id, [email]).expect(200);
+    await prisma.course.update({ where: { id: course.id }, data: { status: 'ARCHIVED' } });
+    const user = await register(email);
+    await verify(user.id, email, user.cookie);
+    expect(await enrolled(user.id, course.id)).toBe(0);
+    expect(await prisma.courseInvite.findUniqueOrThrow({ where: { courseId_email: { courseId: course.id, email } } })).toMatchObject({ status: 'PENDING' });
+  });
+
+  it('spends the invite without a second audit entry when the account is already enrolled', async () => {
+    const course = await createCourse(prisma);
+    const email = uniqueEmail('inv-already');
+    await enrol(course.id, [email]).expect(200);
+    const user = await register(email);
+    // Enrolled some other way before confirming the address (here: directly, as the workflow would).
+    await prisma.application.create({ data: { userId: user.id, courseId: course.id, status: 'ENROLLED', answers: {}, profileSnapshot: {}, source: {} } });
+    const a = await prisma.application.findUniqueOrThrow({ where: { userId_courseId: { userId: user.id, courseId: course.id } } });
+    await prisma.enrollment.create({ data: { userId: user.id, courseId: course.id, applicationId: a.id } });
+    sendSpy.mockClear();
+
+    await verify(user.id, email, user.cookie);
+    expect(await prisma.courseInvite.findUniqueOrThrow({ where: { courseId_email: { courseId: course.id, email } } })).toMatchObject({ status: 'ENROLLED' });
+    expect(await prisma.auditLog.count({ where: { entityId: course.id, action: 'course.enrolled_by_admin' } })).toBe(0);
+    expect(sent('courseAdded')).toHaveLength(0);
+    expect(await funnelEnrolled(course.id, user.id)).toBe(0);
   });
 
   it('is idempotent: duplicates in a list and a repeated list change nothing more', async () => {
@@ -327,7 +425,9 @@ describe('enrol by email (e2e)', () => {
     await enrol(course.id, [email]).expect(200);
     const user = await register(email);
     const exported = await app.get(AccountService).export(user.id);
-    expect(exported.courseInvites).toEqual([expect.objectContaining({ email, status: 'PENDING', course: expect.objectContaining({ slug: course.slug }) })]);
+    expect(exported.courseInvites).toEqual([expect.objectContaining({ email, status: 'PENDING', invitedBy: 'academy team', course: expect.objectContaining({ slug: course.slug }) })]);
+    // The admin's note is internal and never in the student's export.
+    expect((exported.courseInvites as unknown[])[0]).not.toHaveProperty('note');
 
     // Deleting the account drops the unused invite at once (before it could be claimed).
     await app.get(AccountService).deleteAccount({ id: user.id, role: 'STUDENT', amr: 'pwd', authTime: new Date() }, password);

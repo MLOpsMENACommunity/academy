@@ -20,7 +20,10 @@ export const SOURCE_PARAMS = [
   'utm_term',
   'utm_content',
 ] as const;
-export type SourceParams = Partial<Record<(typeof SOURCE_PARAMS)[number], string>>;
+export type SourceParams = Partial<Record<(typeof SOURCE_PARAMS)[number], string>> & {
+  /** Set by the server, never copied from a URL: 'admin' = enrolled directly by the course team ("Enrol by email"). */
+  via?: 'admin';
+};
 
 export function pickSourceParams(params: Record<string, unknown>): SourceParams {
   const out: SourceParams = {};
