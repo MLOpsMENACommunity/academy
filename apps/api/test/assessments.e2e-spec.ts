@@ -317,6 +317,9 @@ describe('assessments (e2e)', () => {
     await http().get(`/api/admin/submissions/${ok.body.id}`).set('Cookie', other.cookie).expect(403);
     const theirs = (await http().get(`/api/learn/${course.slug}/assessments/${lab.id}`).set('Cookie', other.cookie).expect(200)).body;
     expect(theirs.submissions).toEqual([]);
+    // The student's data export includes their work, grade and feedback.
+    const exported = (await http().get('/api/me/export').set('Cookie', student.cookie).expect(200)).body;
+    expect(exported.assessmentSubmissions).toEqual([expect.objectContaining({ assessment: 'Lab 1', type: 'LAB', score: 9, feedback: 'Better.' })]);
   });
 
   it('checks Drive links and the sharing box, and takes PDFs', async () => {

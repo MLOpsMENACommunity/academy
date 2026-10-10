@@ -115,6 +115,24 @@ export class AccountService {
           select: { startsAt: true, durationMin: true, status: true, title: true, abstract: true, bookedAt: true, event: { select: { slug: true, status: true } } },
           orderBy: { startsAt: 'asc' },
         },
+        submissions: {
+          select: {
+            attempt: true,
+            answers: true,
+            url: true,
+            fileName: true,
+            note: true,
+            submittedAt: true,
+            late: true,
+            score: true,
+            maxScore: true,
+            gradedAt: true,
+            feedback: true,
+            rubricNotes: true,
+            assessment: { select: { titleEn: true, type: true, course: { select: { slug: true } } } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     // Waiting lists joined from this account, or with this address before signing in.
@@ -161,6 +179,8 @@ export class AccountService {
       speakerApplication: user.speakerApplication,
       speakerProfile: user.speakerProfile,
       speakerBookings: user.speakingSlots,
+      // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
+      assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
     };
   }
