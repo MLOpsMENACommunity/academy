@@ -118,7 +118,7 @@ test('admin issues a certificate; the student sees it; the public page verifies 
   expect(linkedIn.origin + linkedIn.pathname).toBe('https://www.linkedin.com/profile/add');
   expect(linkedIn.searchParams.get('startTask')).toBe('CERTIFICATION_NAME');
   expect(linkedIn.searchParams.get('certId')).toBe(serial);
-  expect(linkedIn.searchParams.get('organizationName')).toBe('MLOps MENA Community');
+  expect(linkedIn.searchParams.get('organizationId')).toBe('130374975');
 
   // The learn page shows the banner instead of the rule.
   await page.goto(`/en/learn/${slug}`);

@@ -66,19 +66,25 @@ describe('linkedInAddUrl', () => {
     expect(Object.fromEntries(u.searchParams)).toEqual({
       startTask: 'CERTIFICATION_NAME',
       name: 'AI Architecture Design',
-      organizationName: 'MLOps MENA Community',
+      organizationId: '130374975',
       issueYear: '2026',
       issueMonth: '12',
       certUrl: 'https://academy.mlopsmena.com/en/certificates/MMA-2026-7KQ4XM2P',
       certId: 'MMA-2026-7KQ4XM2P',
     });
-    expect(url).toContain('organizationName=MLOps%20MENA%20Community');
+    expect(url).toContain('name=AI%20Architecture%20Design');
+    expect(url).not.toContain('organizationName');
     expect(url).not.toContain('+');
   });
 
-  it('uses the UTC month (1–12) and encodes Arabic titles', () => {
+  it('uses the Cairo month (1–12) and encodes Arabic titles', () => {
     const u = new URL(linkedInAddUrl({ courseTitle: 'تصميم & بنية', issuedAt: new Date(Date.UTC(2027, 0, 1)), verifyUrl: 'https://x.test/a?b=1', serial: 'S' }));
     expect(u.searchParams.get('issueMonth')).toBe('1');
+    // 23:30 UTC on 30 November is already 1 December in Cairo.
+    const late = new URL(linkedInAddUrl({ courseTitle: 'x', issuedAt: '2026-11-30T23:30:00Z', verifyUrl: 'https://x.test', serial: 'S' }));
+    expect([late.searchParams.get('issueYear'), late.searchParams.get('issueMonth')]).toEqual(['2026', '12']);
+    const newYear = new URL(linkedInAddUrl({ courseTitle: 'x', issuedAt: '2026-12-31T23:00:00Z', verifyUrl: 'https://x.test', serial: 'S' }));
+    expect([newYear.searchParams.get('issueYear'), newYear.searchParams.get('issueMonth')]).toEqual(['2027', '1']);
     expect(u.searchParams.get('name')).toBe('تصميم & بنية');
     expect(u.searchParams.get('certUrl')).toBe('https://x.test/a?b=1');
   });

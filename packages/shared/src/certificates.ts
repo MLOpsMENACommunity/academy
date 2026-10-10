@@ -224,20 +224,34 @@ export type PublicCertificateDto =
 // ------------------------------------------------------------------ LinkedIn
 
 export const CERTIFICATE_ORGANIZATION = 'MLOps MENA Community';
+/**
+ * The MLOps MENA Company Page on LinkedIn (the number in its admin URL). With the id, the
+ * certificate on a profile shows the community's logo and links to the page; LinkedIn takes
+ * either organizationId or organizationName, never both. Same id as mlopsmena.com uses.
+ */
+export const CERTIFICATE_LINKEDIN_ORG_ID = '130374975';
+
+/** Year and month (1–12) of a date in Cairo time, the academy's calendar. */
+function cairoYearMonth(d: Date): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', year: 'numeric', month: 'numeric' }).formatToParts(d);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return { year: get('year'), month: get('month') };
+}
 
 /**
- * LinkedIn's "Add licence or certification" link (the Add to Profile generator):
- * https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=…&organizationName=…
- * &issueYear=…&issueMonth=…&certUrl=…&certId=…  (issueMonth is 1–12).
+ * LinkedIn's "Add licence or certification" link (the Add to Profile generator,
+ * addtoprofile.linkedin.com): https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME
+ * &name=…&organizationId=…&issueYear=…&issueMonth=…&certUrl=…&certId=…  (issueMonth is 1–12,
+ * in Cairo time like every other date the academy shows).
  */
 export function linkedInAddUrl(c: { courseTitle: string; issuedAt: string | Date; verifyUrl: string; serial: string }): string {
-  const d = new Date(c.issuedAt);
+  const { year, month } = cairoYearMonth(new Date(c.issuedAt));
   const params = new URLSearchParams({
     startTask: 'CERTIFICATION_NAME',
     name: c.courseTitle,
-    organizationName: CERTIFICATE_ORGANIZATION,
-    issueYear: String(d.getUTCFullYear()),
-    issueMonth: String(d.getUTCMonth() + 1),
+    organizationId: CERTIFICATE_LINKEDIN_ORG_ID,
+    issueYear: String(year),
+    issueMonth: String(month),
     certUrl: c.verifyUrl,
     certId: c.serial,
   });
