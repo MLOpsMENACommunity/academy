@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
 import { Announcements } from '@/components/admin/Announcements';
+import { AssessmentsEditor } from '@/components/admin/AssessmentsEditor';
 import { CourseApplications } from '@/components/admin/CourseApplications';
 import { Waitlist } from '@/components/admin/Waitlist';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
@@ -16,7 +17,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'applications', 'sessions', 'enrolled', 'announcements', 'waitlist', 'feedback'] as const;
+const TABS = ['details', 'questions', 'applications', 'sessions', 'assessments', 'enrolled', 'announcements', 'waitlist', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
@@ -187,7 +188,7 @@ function CourseEditor() {
             onClick={() => go(k)}
             className={`min-h-10 border-b-2 px-3 text-sm font-semibold whitespace-nowrap ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'}`}
           >
-            {t(`admin.courses.${k}`)}
+            {k === 'assessments' ? t('admin.assessments.tab') : t(`admin.courses.${k}`)}
             {k === 'sessions' && ` (${course.sessions.length})`}
             {k === 'questions' && ` (${course.questions.length})`}
             {k === 'waitlist' && waiting && ` (${waiting.count})`}
@@ -201,6 +202,7 @@ function CourseEditor() {
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
         {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
+        {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
         {tab === 'announcements' && <Announcements courseId={course.id} />}
         {tab === 'waitlist' && <Waitlist courseId={course.id} status={course.status} titleEn={course.titleEn} titleAr={course.titleAr} />}

@@ -115,6 +115,24 @@ export class AccountService {
           select: { startsAt: true, durationMin: true, status: true, title: true, abstract: true, bookedAt: true, event: { select: { slug: true, status: true } } },
           orderBy: { startsAt: 'asc' },
         },
+        submissions: {
+          select: {
+            attempt: true,
+            answers: true,
+            url: true,
+            fileName: true,
+            note: true,
+            submittedAt: true,
+            late: true,
+            score: true,
+            maxScore: true,
+            gradedAt: true,
+            feedback: true,
+            rubricNotes: true,
+            assessment: { select: { titleEn: true, type: true, course: { select: { slug: true } } } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     // Waiting lists joined from this account, or with this address before signing in.
@@ -161,6 +179,8 @@ export class AccountService {
       speakerApplication: user.speakerApplication,
       speakerProfile: user.speakerProfile,
       speakerBookings: user.speakingSlots,
+      // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
+      assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
     };
   }
@@ -197,11 +217,12 @@ export class AccountService {
   async anonymize(userId: string): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      include: { profile: true, applications: { include: { payments: true } } },
+      include: { profile: true, applications: { include: { payments: true } }, submissions: { select: { fileKey: true } } },
     });
     const keys = [
       user.profile?.cvKey,
       ...user.applications.flatMap((a) => a.payments.map((p) => p.screenshotKey)),
+      ...user.submissions.map((s) => s.fileKey),
     ].filter((k): k is string => Boolean(k));
     // If any file can't be deleted, stop: keys stay referenced and tomorrow's run retries.
     for (const key of keys) {
@@ -253,6 +274,9 @@ export class AccountService {
         where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} } },
       }),
       this.prisma.instructor.updateMany({ where: { userId }, data: { userId: null } }),
+      // Grades stay (course statistics); links, files and notes go.
+      this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null, feedback: null, rubricNotes: null } }),
+      this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {

@@ -1,5 +1,6 @@
 import { EventReminderJobs } from './event-reminders.jobs';
 import { AnnouncementsModule } from '../announcements/announcements.module';
+import { AssessmentsModule } from '../assessments/assessments.module';
 import { Module } from '@nestjs/common';
 import { UsersModule } from '../users/users.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -8,5 +9,5 @@ import { ReminderJobs } from './reminders.jobs';
 import { RetentionJobs } from './retention.jobs';
 import { JobsController } from './jobs.controller';
 
-@Module({ imports: [UsersModule, PaymentsModule, AnnouncementsModule], controllers: [JobsController], providers: [AccountJobs, RetentionJobs, ReminderJobs, EventReminderJobs] })
+@Module({ imports: [UsersModule, PaymentsModule, AnnouncementsModule, AssessmentsModule], controllers: [JobsController], providers: [AccountJobs, RetentionJobs, ReminderJobs, EventReminderJobs] })
 export class JobsModule {}

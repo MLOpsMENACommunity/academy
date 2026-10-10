@@ -42,6 +42,14 @@ const pairs: Record<string, readonly string[]> = {
   EventStatus: shared.EVENT_STATUSES,
   EventSpeakerRole: shared.EVENT_SPEAKER_ROLES,
   EventCategory: shared.EVENT_CATEGORIES,
+  // Assessments
+  AssessmentType: shared.ASSESSMENT_TYPES,
+  AssessmentStatus: shared.ASSESSMENT_STATUSES,
+  SubmissionKind: shared.SUBMISSION_KINDS,
+  ScoringPolicy: shared.SCORING_POLICIES,
+  RevealPolicy: shared.REVEAL_POLICIES,
+  QuizQuestionKind: shared.QUIZ_QUESTION_KINDS,
+  RepoCheck: shared.REPO_CHECKS,
 };
 
 describe('Prisma enums match @academy/shared', () => {

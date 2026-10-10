@@ -315,6 +315,9 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   sessionProgress         SessionProgress[]
   sessionFeedback         SessionFeedback[]
+  submissions             Submission[]             @relation("SubmissionStudent")
+  submissionsGraded       Submission[]             @relation("SubmissionGrader")
+  assessmentReminders     AssessmentReminderLog[]
   reminderPreferences     ReminderPreference[]
   savedFilters            SavedFilter[]
   auditLogs               AuditLog[]               @relation("AuditActor")
@@ -593,6 +596,7 @@ model Course {
   feedback           SessionFeedback[]
   funnelEvents       FunnelEventLog[]
   reminderPreferences ReminderPreference[]
+  assessments         Assessment[]
 
   @@index([status])
   announcements       Announcement[]
@@ -650,9 +654,10 @@ model CourseSession {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  progress  SessionProgress[]
-  feedback  SessionFeedback[]
-  reminders ReminderLog[]
+  progress    SessionProgress[]
+  feedback    SessionFeedback[]
+  reminders   ReminderLog[]
+  assessments Assessment[]
 
   @@index([courseId, order])
   @@index([startsAt])
@@ -1214,4 +1219,169 @@ model CourseInterest {
   @@index([userId])
   @@index([email])
   @@index([deliveryStatus])
+}
+
+// ================================================================= Assessments
+// Quizzes (auto-graded), labs and assignments (graded by the course team).
+// The answer key (QuizOption.correct, explanations) never leaves the API to a
+// student before the assessment's reveal rule allows it.
+
+enum AssessmentType {
+  QUIZ
+  LAB
+  ASSIGNMENT
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SubmissionKind {
+  GITHUB_REPO
+  DRIVE_LINK
+  PDF
+  LINK
+}
+
+enum ScoringPolicy {
+  BEST
+  LAST
+}
+
+enum RevealPolicy {
+  NEVER
+  AFTER_SUBMIT
+  AFTER_DUE
+}
+
+enum QuizQuestionKind {
+  SINGLE
+  MULTIPLE
+  TRUE_FALSE
+}
+
+/// Result of the unauthenticated "is this GitHub repository public?" check.
+enum RepoCheck {
+  PUBLIC
+  NOT_PUBLIC
+  UNVERIFIED
+}
+
+model Assessment {
+  id                   String           @id @default(cuid())
+  courseId             String
+  course               Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Null: a course-level assessment (e.g. the midpoint quiz or the capstone).
+  sessionId            String?
+  session              CourseSession?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  type                 AssessmentType
+  status               AssessmentStatus @default(DRAFT)
+  order                Int              @default(0)
+  titleEn              String
+  titleAr              String
+  instructionsEn       String           @default("")
+  instructionsAr       String           @default("")
+  dueAt                DateTime?
+  /// Late work is accepted (and flagged) unless this is off.
+  allowLate            Boolean          @default(true)
+  maxPoints            Int              @default(100)
+  passPercent          Int              @default(70)
+  countsForCertificate Boolean          @default(false)
+  /// Labs and assignments only.
+  submissionKind       SubmissionKind?
+  /// Quizzes only. 0 = unlimited.
+  attemptsAllowed      Int              @default(1)
+  scoring              ScoringPolicy    @default(BEST)
+  revealAnswers        RevealPolicy     @default(AFTER_SUBMIT)
+  timeLimitMin         Int?
+  shuffle              Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  questions   QuizQuestion[]
+  submissions Submission[]
+  reminders   AssessmentReminderLog[]
+
+  @@index([courseId, status, order])
+  @@index([sessionId])
+  @@index([status, dueAt])
+}
+
+model QuizQuestion {
+  id            String           @id @default(cuid())
+  assessmentId  String
+  assessment    Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  order         Int
+  kind          QuizQuestionKind
+  promptEn      String
+  promptAr      String
+  weight        Int              @default(1)
+  explanationEn String?
+  explanationAr String?
+  options       QuizOption[]
+
+  @@index([assessmentId, order])
+}
+
+model QuizOption {
+  id         String       @id @default(cuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  order      Int
+  labelEn    String
+  labelAr    String
+  correct    Boolean      @default(false)
+
+  @@index([questionId, order])
+}
+
+model Submission {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade)
+  /// 1, 2, 3… per student. Labs and assignments keep one row that resubmissions update.
+  attempt      Int        @default(1)
+  /// Quiz answers: { [questionId]: optionId[] }.
+  answers      Json?
+  url          String?
+  fileKey      String?
+  fileName     String?
+  fileDeletedAt DateTime?
+  note         String?
+  /// The student ticked "My repository is public" / "Anyone with the link can view".
+  attested     Boolean    @default(false)
+  repoCheck    RepoCheck?
+  /// Quizzes: when the attempt was opened (the time limit runs from here).
+  startedAt    DateTime   @default(now())
+  /// Null while a quiz attempt is in progress.
+  submittedAt  DateTime?
+  late         Boolean    @default(false)
+  score        Float?
+  maxScore     Int
+  gradedAt     DateTime?
+  gradedById   String?
+  gradedBy     User?      @relation("SubmissionGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+  feedback     String?
+  rubricNotes  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([assessmentId, userId, attempt])
+  @@index([userId])
+  @@index([assessmentId, submittedAt])
+}
+
+/// One "due in 24 hours" email per assessment and student.
+model AssessmentReminderLog {
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentAt       DateTime   @default(now())
+
+  @@id([assessmentId, userId])
+  @@index([userId])
 }
