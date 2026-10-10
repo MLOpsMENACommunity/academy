@@ -260,6 +260,11 @@ export const PAYMENT_STATUSES = ['PENDING_REVIEW', 'APPROVED', 'REJECTED'] as co
 export const PaymentStatus = defineEnum(PAYMENT_STATUSES);
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
+/** "Enrol by email" invites (see invites.ts). */
+export const COURSE_INVITE_STATUSES = ['PENDING', 'ENROLLED', 'REVOKED'] as const;
+export const CourseInviteStatus = defineEnum(COURSE_INVITE_STATUSES);
+export type CourseInviteStatus = (typeof COURSE_INVITE_STATUSES)[number];
+
 // ---------------------------------------------------------------- Misc
 
 export const SAVED_FILTER_SCOPES = ['APPLICATIONS', 'STUDENTS'] as const;

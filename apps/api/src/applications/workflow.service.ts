@@ -24,6 +24,7 @@ import { EmailService } from '../email/email.service';
 import { FunnelService } from '../funnel/funnel.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { toProfileDto } from '../users/profile.service';
 
 export interface Actor {
   id: string;
@@ -138,6 +139,53 @@ export class ApplicationWorkflow {
       );
     }
     return history;
+  }
+
+  /**
+   * "Enrol by email": enrols a student directly, inside the caller's transaction, which must
+   * already hold the course lock (lockCourse). With no application yet, one is created at
+   * ENROLLED with no answers (there was no form); an existing one moves with ADMIN_ENROL
+   * (the shared state machine). Either way history, the Enrollment and the audit entry are
+   * written by recordChange, as for every other enrolment. Returns null when already enrolled.
+   * The student is told by the caller (InvitesService), not by afterChange: the message differs.
+   */
+  async enrolDirectly(
+    tx: Tx,
+    course: LockedCourse,
+    userId: string,
+    actor: Actor | null,
+    reason: string,
+  ): Promise<{ app: Application; from: ApplicationStatus | null } | null> {
+    const existing = await tx.application.findUnique({ where: { userId_courseId: { userId, courseId: course.id } } });
+    if (!existing) {
+      const profile = await tx.profile.findUnique({ where: { userId }, include: { skills: true } });
+      const app = await tx.application.create({
+        data: {
+          userId,
+          courseId: course.id,
+          status: 'ENROLLED',
+          answers: {},
+          profileSnapshot: toProfileDto(profile) as unknown as Prisma.InputJsonValue,
+          source: { via: 'admin' },
+        },
+      });
+      await this.recordChange(tx, app, null, 'ENROLLED', actor, reason);
+      return { app, from: null };
+    }
+    // Same seats rule as everywhere (ADMIN_ENROL ignores capacity, but the context stays honest).
+    const result = transition(existing.status, 'ADMIN_ENROL', await this.context(tx, course, existing.id));
+    if (!result.ok) {
+      // Already enrolled: make sure the enrolment row exists (it always should) and stop.
+      await tx.enrollment.upsert({
+        where: { userId_courseId: { userId, courseId: course.id } },
+        update: {},
+        create: { userId, courseId: course.id, applicationId: existing.id },
+      });
+      return null;
+    }
+    const app = await tx.application.update({ where: { id: existing.id }, data: { status: result.status, rejectionReason: null } });
+    await this.recordChange(tx, app, existing.status, result.status, actor, reason);
+    return { app, from: existing.status };
   }
 
   /**
@@ -282,7 +330,7 @@ export class ApplicationWorkflow {
 }
 
 /** "on Sunday 18 October, 19:00 EEST" in the student's language and time zone (Cairo if unknown). */
-function formatStart(at: Date | null, locale: 'en' | 'ar', timezone: string | null | undefined): string | null {
+export function formatStart(at: Date | null, locale: 'en' | 'ar', timezone: string | null | undefined): string | null {
   // Nothing to announce for a course that already started (late enrolment).
   if (!at || at.getTime() < Date.now()) return null;
   const timeZone = timezone && isValidTimezone(timezone) ? timezone : DEFAULT_TIMEZONE;
@@ -302,7 +350,7 @@ function formatStart(at: Date | null, locale: 'en' | 'ar', timezone: string | nu
   }
 }
 
-function hasText(v: Prisma.JsonValue): boolean {
+export function hasText(v: Prisma.JsonValue): boolean {
   const o = v as { en?: string; ar?: string } | null;
   return Boolean(o?.en?.trim() || o?.ar?.trim());
 }

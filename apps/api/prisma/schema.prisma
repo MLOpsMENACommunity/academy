@@ -259,6 +259,13 @@ enum PaymentStatus {
   REJECTED
 }
 
+/// "Enrol by email" (see packages/shared/src/invites.ts).
+enum CourseInviteStatus {
+  PENDING
+  ENROLLED
+  REVOKED
+}
+
 enum SavedFilterScope {
   APPLICATIONS
   STUDENTS
@@ -333,6 +340,8 @@ model User {
   statusChanges           ApplicationStatusHistory[]
   calendarFeed            CalendarFeed?
   courseInterests         CourseInterest[]
+  courseInvitesSent       CourseInvite[]           @relation("CourseInviteInviter")
+  courseInvitesClaimed    CourseInvite[]           @relation("CourseInviteEnrolled")
   speakerApplication      SpeakerApplication?      @relation("SpeakerApplicant")
   speakerReviews          SpeakerApplication[]     @relation("SpeakerReviewer")
   speakerProfile          Instructor?
@@ -617,6 +626,7 @@ model Course {
   @@index([status])
   announcements       Announcement[]
   interests           CourseInterest[]
+  invites             CourseInvite[]
 }
 
 model CourseInstructor {
@@ -1257,6 +1267,37 @@ model CourseInterest {
   @@index([userId])
   @@index([email])
   @@index([deliveryStatus])
+}
+
+/// "Enrol by email": an admin added this address to the course without the application form.
+/// A verified student account is enrolled at once (status ENROLLED). Any other address stays
+/// PENDING until an account with that address has a verified email (confirmation link or
+/// Google sign-in), and is enrolled then. Personal data: in the student's export, deleted with
+/// the account, and PENDING/REVOKED rows are deleted after INVITE_RETENTION_DAYS (180).
+model CourseInvite {
+  id             String             @id @default(cuid())
+  courseId       String
+  course         Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Lower-cased and trimmed.
+  email          String
+  /// Language of the invitation email (an account's own language wins once it exists).
+  locale         Locale             @default(en)
+  invitedById    String?
+  invitedBy      User?              @relation("CourseInviteInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  /// Admin-only note (from the CSV or the form).
+  note           String?
+  status         CourseInviteStatus @default(PENDING)
+  enrolledUserId String?
+  enrolledUser   User?              @relation("CourseInviteEnrolled", fields: [enrolledUserId], references: [id], onDelete: SetNull)
+  enrolledAt     DateTime?
+  lastEmailedAt  DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([courseId, email])
+  @@index([email, status])
+  @@index([status, createdAt])
+  @@index([enrolledUserId])
 }
 
 // ================================================================= Assessments

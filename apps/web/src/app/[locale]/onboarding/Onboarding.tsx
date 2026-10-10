@@ -118,6 +118,16 @@ function Stepper() {
         ))}
       </ol>
 
+      {/* Invited by email ("Enrol by email"): the course doesn't need a complete profile, so they can go now. */}
+      {returnTo.startsWith(`/${locale}/learn/`) && (
+        <Alert tone="info" className="mt-6">
+          {t('onboarding.invitedNote')}{' '}
+          <Link href={returnTo} className="font-semibold underline">
+            {t('onboarding.invitedGo')}
+          </Link>
+        </Alert>
+      )}
+
       <section className="mt-8 rounded-card border border-line bg-card p-5 sm:p-8">
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-xl">

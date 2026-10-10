@@ -12,6 +12,7 @@ import { CourseLeaderboard } from '@/components/admin/CourseLeaderboard';
 import { Waitlist } from '@/components/admin/Waitlist';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
+import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
 import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor, type QuestionRow, type SessionRow } from '@/components/admin/CourseTabs';
 import { Alert } from '@/components/ui/Alert';
@@ -19,7 +20,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'applications', 'sessions', 'assessments', 'leaderboard', 'enrolled', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
+const TABS = ['details', 'questions', 'applications', 'sessions', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
@@ -207,6 +208,7 @@ function CourseEditor() {
         {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} />}
         {tab === 'leaderboard' && <CourseLeaderboard courseId={course.id} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
+        {tab === 'invites' && <EnrolByEmail courseId={course.id} paid={course.type === 'PAID'} onChange={refresh} />}
         {tab === 'certificates' && <CertificatesPanel courseId={course.id} />}
         {tab === 'announcements' && <Announcements courseId={course.id} />}
         {tab === 'waitlist' && <Waitlist courseId={course.id} status={course.status} titleEn={course.titleEn} titleAr={course.titleAr} />}

@@ -9,6 +9,9 @@ import { ApplicationStatus, CourseType } from './enums';
  *              ├─ REJECT ─▶ REJECTED                                         APPROVE_PAYMENT ◀────────┤
  *              └─ WAITLIST ─▶ WAITLISTED  (also automatic when capacity is full)   REJECT_PAYMENT ─▶ PAYMENT_REJECTED
  *                                                                                  (student resubmits ─▶ PAYMENT_SUBMITTED)
+ *
+ *   ADMIN_ENROL ("Enrol by email"): any status except ENROLLED ─▶ ENROLLED, with no payment and
+ *   regardless of capacity. Only the invites service sends it, never the applications table.
  */
 
 export const APPLICATION_EVENTS = [
@@ -19,6 +22,7 @@ export const APPLICATION_EVENTS = [
   'SUBMIT_PAYMENT',
   'APPROVE_PAYMENT',
   'REJECT_PAYMENT',
+  'ADMIN_ENROL',
 ] as const;
 export type ApplicationEvent = (typeof APPLICATION_EVENTS)[number];
 
@@ -124,6 +128,11 @@ function nextStatus(
 
     case 'REJECT_PAYMENT':
       if (current === S.PAYMENT_SUBMITTED) return to(S.PAYMENT_REJECTED);
+      break;
+
+    case 'ADMIN_ENROL':
+      // The admin decided: no payment step and no capacity check (the preview warns about capacity).
+      if (current !== S.ENROLLED) return to(S.ENROLLED);
       break;
   }
   return fail(`Cannot ${event} an application in status ${current}`);

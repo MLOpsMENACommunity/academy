@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ENV } from '../config/config.module';
+import { InvitesModule } from '../invites/invites.module';
 import type { Env } from '../config/env';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -9,6 +10,7 @@ import { TokensService } from './tokens.service';
 
 @Module({
   imports: [
+    InvitesModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ENV],

@@ -6,6 +6,7 @@ import { StorageService } from '../storage/storage.service';
 import { randomToken, sha256 } from '../common/crypto';
 import { EmailService } from '../email/email.service';
 import { courseSlugFromPath, FunnelService } from '../funnel/funnel.service';
+import { InvitesService } from '../invites/invites.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { GoogleIdentity } from './google.service';
 import { FailureLimiter } from './failure-limiter';
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly funnel: FunnelService,
     private readonly audit: AuditService,
     private readonly storage: StorageService,
+    private readonly invites: InvitesService,
   ) {}
 
   hashPassword(password: string): Promise<string> {
@@ -73,7 +75,10 @@ export class AuthService {
       throw fail;
     }
     this.loginLimiter.reset(input.email);
-    return this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    const updated = await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    // Safety net: a verified account picks up any invite still waiting (normally claimed at verification).
+    if (updated.emailVerifiedAt) await this.invites.claimFor(updated.id);
+    return updated;
   }
 
   /** `role` only applies to a new account: signing in never changes an existing account's role. */
@@ -83,7 +88,9 @@ export class AuthService {
     const byGoogle = await this.prisma.user.findUnique({ where: { googleId: g.sub } });
     if (byGoogle) {
       if (byGoogle.deletedAt) throw new UnauthorizedException('Account deleted');
-      return { user: await this.touch(byGoogle.id), isNew: false };
+      const user = await this.touch(byGoogle.id);
+      await this.invites.claimFor(user.id);
+      return { user, isNew: false };
     }
     const byEmail = await this.prisma.user.findUnique({ where: { email: g.email } });
     if (byEmail) {
@@ -125,6 +132,8 @@ export class AuthService {
         where: { userId: user.id, googleEmail: null },
         data: { googleEmail: g.email },
       });
+      // Google verified the address: invites to it can be claimed now.
+      await this.invites.claimFor(user.id);
       return { user, isNew: false };
     }
     const user = await this.prisma.user.create({
@@ -138,6 +147,7 @@ export class AuthService {
         profile: { create: { fullNameEn: g.name, googleEmail: g.email, preferredLanguage: locale } },
       },
     });
+    await this.invites.claimFor(user.id);
     return { user, isNew: true };
   }
 
@@ -198,6 +208,8 @@ export class AuthService {
       data: { emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
     });
     await this.prisma.emailVerificationToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+    // The address is proven now: enrol it in any course it was invited to ("Enrol by email").
+    await this.invites.claimFor(updated.id);
     return { returnTo: record.returnTo, user: updated };
   }
 
@@ -237,6 +249,8 @@ export class AuthService {
     await this.tokens.revokeAllForUser(record.userId);
     // The lockout message tells people to reset their password, so a reset unlocks.
     this.loginLimiter.reset(record.user.email);
+    // The reset link proved the address too (see above): pending invites can be claimed.
+    await this.invites.claimFor(record.userId);
   }
 
   // ------------------------------------------------------------------ me

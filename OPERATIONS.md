@@ -222,6 +222,36 @@ him in the admin.
 - **Photos:** the application takes an optional https photo link, not an upload: speaker
   photos are public, and the private bucket only serves 5-minute signed links.
 
+## Enrol by email
+
+Admin → Courses → (course) → **Enrol by email** adds people to a course without the
+application form, the profile gate or (for paid courses) payment.
+
+- **Paste or upload:** addresses separated by commas, spaces or new lines, or a CSV
+  (`email[, name, note]`, header optional). At most 300 per batch. **Preview** shows what will
+  happen to each address; nothing changes until you confirm. A batch is one transaction.
+- **Verified student account:** enrolled at once through the same workflow as an accepted
+  application (application at ENROLLED or moved there with the `ADMIN_ENROL` event, a history
+  entry "Enrolled directly by the course team", the Enrollment), so it gets the learn page,
+  calendar, reminders, Drive tracking, points and certificates. Email "You've been added" and
+  an in-app notification.
+- **No account, or an account that hasn't confirmed its email:** a PENDING invite and an
+  invitation email linking to `/{locale}/register?email=…&returnTo=/{locale}/learn/{slug}`
+  (or `/login` for an existing account). It is enrolled only once an account with that
+  address proves it owns the inbox: email confirmation, a password-reset link or Google
+  sign-in (each claims pending invites; signing in again is a no-op). Registering with
+  someone else's address claims nothing.
+- **Skipped:** speaker and admin accounts, deleted accounts, invalid addresses, duplicates,
+  already enrolled or already invited. Direct enrolment does not check capacity (the preview
+  warns when it goes over). Paid courses need "Enrol them without payment" ticked; no Payment
+  row is created.
+- **List:** status, dates, who invited, resend (once a minute) and revoke for pending invites,
+  CSV export. Audited: `course.invited`, `course.enrolled_by_admin` (with `trigger: direct` or
+  `invite_claimed`), `course.invite_revoked`, `course.invite_resent`, `course.invites_exported`.
+- **Privacy:** invites are in the student's data export. Deleting an account deletes its
+  unused invites at once; anonymisation deletes the rest. The daily retention job deletes
+  PENDING and REVOKED invites older than 180 days (`INVITE_RETENTION_DAYS`).
+
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included, plus the deployed `release`), then `wrangler tail` and `wrangler containers list`. 503s with `Retry-After` mean "busy or starting", not broken: the API logs a `shed_load` warning (every 10 s at most) saying why (`db_pool`, `in_flight`, `password_hash`, `db_unreachable`), and the Worker logs "container unavailable" or "no response within …". See DEPLOY.md, "Capacity and caching".

@@ -25,6 +25,11 @@ export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const returnTo = useReturnTo();
   const [email, setEmail] = useState('');
+  // Prefilled from an "Enrol by email" invitation link (?email=…); never overwrites typing.
+  const emailParam = useSearchParam('email');
+  useEffect(() => {
+    if (emailParam) setEmail((current) => current || emailParam);
+  }, [emailParam]);
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);

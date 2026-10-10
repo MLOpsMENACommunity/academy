@@ -72,6 +72,27 @@ export type EmailTemplate =
   | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string }
   /** Points and badges: a badge was awarded (automatically or by the team). */
   | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string }
+  /** Enrol by email: an admin enrolled this account directly (no application, no payment). */
+  | {
+      name: 'courseAdded';
+      courseTitle: string;
+      courseUrl: string;
+      /** First session, already formatted in the student's time zone. */
+      startsAt?: string | null;
+      hasPreparation?: boolean;
+      /** Set when the profile isn't complete yet: a gentle nudge, never a requirement. */
+      profileUrl?: string | null;
+    }
+  /** Enrol by email: an address without a (verified) account. It may belong to someone with no account, so the footer says why. */
+  | {
+      name: 'courseInvite';
+      courseTitle: string;
+      email: string;
+      /** Sign-up (no account yet) or sign-in (an account that hasn't confirmed its email). */
+      url: string;
+      hasAccount: boolean;
+      courseUrl: string;
+    }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
   | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string };
 
@@ -612,6 +633,89 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 : `The ${t.courseTitle} team has graded your work. Open it to read their feedback.`,
             ]}
             cta={{ label: ar ? 'اقرأ الملاحظات' : 'Read the feedback', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'courseAdded': {
+      const c = t.courseTitle;
+      const subject = ar ? `تمت إضافتك إلى ${c}` : `You've been added to ${c}`;
+      const items = ar
+        ? [
+            'افتح صفحة الدورة لترى الجدول وأضف كل الجلسات إلى تقويمك. يظهر رابط الجلسة المباشرة هناك قبل بدايتها بوقت قصير.',
+            ...(t.hasPreparation ? ['اقرأ قسم «قبل بدء الدورة» في صفحة الدورة وأنجز ما يطلبه من تحضير.'] : []),
+            'تابع بريدك: سنرسل لك تذكيرًا قبل كل جلسة بـ 24 ساعة وبساعة واحدة، إضافة إلى إعلانات فريق الدورة.',
+          ]
+        : [
+            'Open your course page to see the schedule and add every session to your calendar. The live link appears there shortly before each session.',
+            ...(t.hasPreparation ? ['Read "Before the course starts" on the course page and do the setup it asks for.'] : []),
+            'Watch your inbox: we send reminders 24 hours and 1 hour before each session, plus announcements from the course team.',
+          ];
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'أنت مسجّل في الدورة!' : "You're enrolled!", tone: 'success' }}
+            heading={c}
+            paragraphs={[
+              ar
+                ? `أضافك فريق أكاديمية MLOps MENA إلى ${c}. لا تحتاج إلى التقديم أو الدفع: أنت مسجّل الآن.`
+                : `The MLOps MENA Academy team has added you to ${c}. There's no application or payment to do: you're enrolled.`,
+              ...(t.startsAt ? [ar ? `تبدأ الدورة ${t.startsAt}.` : `The course starts ${t.startsAt}.`] : []),
+            ]}
+            list={{ title: ar ? 'قبل الجلسة الأولى:' : 'Before the first session:', items }}
+            after={
+              t.profileUrl
+                ? [
+                    ar
+                      ? `ساعدنا على التعرف إليك: أكمل ملفك الشخصي في دقيقتين (اختياري، ولا يمنعك من حضور الدورة): ${t.profileUrl}`
+                      : `Help the course team get to know you: complete your profile in two minutes (optional, and it never blocks the course): ${t.profileUrl}`,
+                  ]
+                : []
+            }
+            cta={{ label: ar ? 'افتح صفحة الدورة' : 'Open your course page', url: t.courseUrl }}
+          />
+        ),
+      };
+    }
+    case 'courseInvite': {
+      const c = t.courseTitle;
+      const subject = ar ? `تمت إضافتك إلى ${c}` : `You've been added to ${c}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            locale={locale}
+            footer={
+              ar
+                ? `أكاديمية MLOps MENA · وصلتك هذه الرسالة لأن فريق الأكاديمية أضاف هذا العنوان إلى ${c}. إن لم تكن مهتمًا، تجاهلها: نحذف الدعوات غير المستخدمة بعد 180 يومًا.`
+                : `MLOps MENA Academy · You're receiving this because the academy team added this address to ${c}. Not interested? Ignore it: unused invitations are deleted after 180 days.`
+            }
+            preview={subject}
+            banner={{ text: ar ? 'لديك مقعد محجوز' : 'A seat is waiting for you', tone: 'success' }}
+            heading={c}
+            paragraphs={[
+              ar
+                ? `أضافك فريق أكاديمية MLOps MENA إلى ${c}. لا تحتاج إلى التقديم أو الدفع.`
+                : `The MLOps MENA Academy team has added you to ${c}. There's no application or payment to do.`,
+              t.hasAccount
+                ? ar
+                  ? 'لديك حساب بهذا العنوان، لكن لم يُؤكَّد بريده بعد. سجّل الدخول وأكّد بريدك الإلكتروني، وسنسجّلك في الدورة فورًا.'
+                  : "You have an account with this address, but its email isn't confirmed yet. Sign in and confirm your email, and you'll be enrolled right away."
+                : ar
+                  ? 'أنشئ حسابك المجاني وأكّد بريدك الإلكتروني (أو سجّل الدخول باستخدام Google)، وسنسجّلك في الدورة تلقائيًا.'
+                  : "Create your free account and confirm your email (or sign in with Google), and you'll be enrolled automatically.",
+            ]}
+            callout={{
+              title: ar ? 'استخدم هذا العنوان نفسه' : 'Use this same email address',
+              body: ar
+                ? `المقعد مرتبط بالعنوان ${t.email}. إذا سجّلت بعنوان آخر فلن نتمكن من ربطه بالدورة.`
+                : `Your seat is tied to ${t.email}. If you sign up with a different address, we can't match it to the course.`,
+            }}
+            cta={{ label: t.hasAccount ? (ar ? 'سجّل الدخول' : 'Sign in') : ar ? 'أنشئ حسابك' : 'Create your account', url: t.url }}
+            note={ar ? `عن الدورة: ${t.courseUrl}` : `About the course: ${t.courseUrl}`}
           />
         ),
       };

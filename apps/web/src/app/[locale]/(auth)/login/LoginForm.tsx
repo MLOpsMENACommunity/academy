@@ -30,6 +30,11 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const [role, setRole] = useState<SignupRole>('STUDENT');
   useEffect(() => setRole(initialSignupRole(asParam)), [asParam]);
   const [email, setEmail] = useState('');
+  // Prefilled from an "Enrol by email" invitation link (?email=…); never overwrites typing.
+  const emailParam = useSearchParam('email');
+  useEffect(() => {
+    if (emailParam) setEmail((current) => current || emailParam);
+  }, [emailParam]);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

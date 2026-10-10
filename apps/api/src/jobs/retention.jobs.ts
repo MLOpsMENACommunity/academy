@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AssessmentsService } from '../assessments/assessments.service';
 import { ENV } from '../config/config.module';
+import { InvitesService } from '../invites/invites.service';
 import type { Env } from '../config/env';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -12,7 +13,8 @@ import { StorageService } from '../storage/storage.service';
 /**
  * Risk 3: payment screenshots, CVs and uploaded assignment PDFs are personal data. They are
  * deleted after the retention period set in Settings (default 180 days). Payment records and
- * grades stay.
+ * grades stay. Unused "Enrol by email" invites (pending or revoked) are deleted after
+ * INVITE_RETENTION_DAYS (180), whatever the setting: they may name people with no account.
  */
 @Injectable()
 export class RetentionJobs {
@@ -25,6 +27,7 @@ export class RetentionJobs {
     private readonly storage: StorageService,
     private readonly notifications: NotificationsService,
     private readonly assessments: AssessmentsService,
+    private readonly invites: InvitesService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -34,15 +37,16 @@ export class RetentionJobs {
     await this.run();
   }
 
-  async run(now = new Date()): Promise<{ screenshots: number; cvs: number; submissionFiles: number }> {
+  async run(now = new Date()): Promise<{ screenshots: number; cvs: number; submissionFiles: number; invites: number }> {
     const { screenshotRetentionDays } = await this.settings.get();
     const screenshots = await this.payments.purgeOldScreenshots(screenshotRetentionDays, now);
     const cvs = await this.purgeOldCvs(screenshotRetentionDays, now);
     const submissionFiles = await this.assessments.purgeOldFiles(screenshotRetentionDays, now);
-    if (screenshots || cvs || submissionFiles) {
-      this.logger.log(`Retention: deleted ${screenshots} screenshot(s), ${cvs} CV(s), ${submissionFiles} submission file(s)`);
+    const invites = await this.invites.purgeStale(now);
+    if (screenshots || cvs || submissionFiles || invites) {
+      this.logger.log(`Retention: deleted ${screenshots} screenshot(s), ${cvs} CV(s), ${submissionFiles} submission file(s), ${invites} unused invite(s)`);
     }
-    return { screenshots, cvs, submissionFiles };
+    return { screenshots, cvs, submissionFiles, invites };
   }
 
   private async purgeOldCvs(retentionDays: number, now: Date): Promise<number> {
