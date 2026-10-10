@@ -1321,7 +1321,7 @@
       "awardBadge": "منح شارة",
       "badge": "الشارة",
       "noCourse": "بدون دورة (عام)",
-      "reason": "السبب (اختياري)",
+      "reason": "السبب",
       "awardBadgeButton": "منح الشارة",
       "awardPoints": "منح نقاط أو تعديلها",
       "pointsHint": "عدد صحيح؛ سالب لخصم نقاط.",

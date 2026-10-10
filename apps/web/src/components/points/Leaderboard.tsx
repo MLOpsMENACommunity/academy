@@ -55,11 +55,14 @@ export function Leaderboard({ slug }: { slug: string }) {
   const toggle = async (optedIn: boolean) => {
     setSaving(true);
     setMsg(null);
+    // Optimistic: the switch moves at once; the board reloads after the save.
+    setData((d) => (d?.me ? { ...d, me: { ...d.me, optedIn } } : d));
     try {
       await api(`/learn/${slug}/leaderboard/opt-in`, { method: 'PUT', json: { optedIn } });
       setMsg({ ok: true, text: t(optedIn ? 'leaderboard.optedIn' : 'leaderboard.optedOut') });
       load();
     } catch {
+      setData((d) => (d?.me ? { ...d, me: { ...d.me, optedIn: !optedIn } } : d));
       setMsg({ ok: false, text: t('errors.generic') });
     } finally {
       setSaving(false);
@@ -120,7 +123,7 @@ export function Leaderboard({ slug }: { slug: string }) {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-fg">
-                  {r.name}
+                  <bdi>{r.name}</bdi>
                   {r.me && <span className="ms-2 text-xs font-normal text-primary">{t('leaderboard.you')}</span>}
                 </span>
                 {r.badges.length > 0 && (

@@ -117,7 +117,7 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
                   <td className="px-3 py-2 font-semibold tabular-nums">{r.rank ?? '–'}</td>
                   <td className="px-3 py-2">
                     <Link href={`/${locale}/admin/students/${r.userId}`} className="text-primary underline">
-                      {r.name ?? r.email}
+                      <bdi>{r.name ?? r.email}</bdi>
                     </Link>
                     <span className="block text-xs text-muted ltr-embed">{r.email}</span>
                   </td>

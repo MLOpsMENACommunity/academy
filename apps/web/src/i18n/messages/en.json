@@ -1321,7 +1321,7 @@
       "awardBadge": "Award a badge",
       "badge": "Badge",
       "noCourse": "No course (overall)",
-      "reason": "Reason (optional)",
+      "reason": "Reason",
       "awardBadgeButton": "Award badge",
       "awardPoints": "Award or adjust points",
       "pointsHint": "A whole number; negative to take points away.",

@@ -142,6 +142,7 @@ export function StudentPoints({ studentId }: { studentId: string }) {
         {awardError && <Alert tone="danger">{awardError}</Alert>}
         <SelectField
           label={a('badge')}
+          required
           value={award.badgeId}
           onChange={(v) => setAward({ ...award, badgeId: v ?? '' })}
           options={manualBadges.map((b) => ({ value: b.id, label: `${b.icon} ${badgeName(b, locale)}` }))}
