@@ -59,7 +59,8 @@ jobs:
         run: |
           set -euo pipefail
           passed=false
-          # Up to 30 minutes for a CI run on main that is still in progress.
+          # CI no longer runs on pushes to main (to save Actions minutes), so this normally
+          # finds nothing and CI runs below on the tag. It still reuses a run if one exists.
           for _ in $(seq 1 60); do
             runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&per_page=20" --jq '.workflow_runs')
             if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then passed=true; break; fi
