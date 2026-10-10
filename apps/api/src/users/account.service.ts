@@ -11,6 +11,7 @@ import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
 import { EmailService } from '../email/email.service';
+import { InvitesService } from '../invites/invites.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpeakerPortalService } from '../speaker-portal/speaker-portal.service';
 import { ProfileService, toProfileDto } from './profile.service';
@@ -30,6 +31,7 @@ export class AccountService {
     private readonly profiles: ProfileService,
     private readonly audit: AuditService,
     private readonly speakerPortal: SpeakerPortalService,
+    private readonly invites: InvitesService,
   ) {}
 
   /**
@@ -146,6 +148,12 @@ export class AccountService {
       select: { email: true, locale: true, createdAt: true, notifiedAt: true, course: { select: { slug: true, titleEn: true } } },
       orderBy: { createdAt: 'asc' },
     });
+    // "Enrol by email": invites sent to this address, and the one this account enrolled through.
+    const courseInvites = await this.prisma.courseInvite.findMany({
+      where: { OR: [{ email: user.email.toLowerCase() }, { enrolledUserId: userId }] },
+      select: { email: true, status: true, locale: true, createdAt: true, enrolledAt: true, lastEmailedAt: true, course: { select: { slug: true, titleEn: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
     const [points, badges, leaderboards] = await Promise.all([
       this.prisma.pointsEntry.findMany({
         where: { userId },
@@ -216,6 +224,18 @@ export class AccountService {
       // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
       assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
+      // The inviting admin is named as the team, not by their address; the admin's note is an
+      // internal remark about the student (like application review notes) and stays admin-only.
+      courseInvites: courseInvites.map((i) => ({
+        course: i.course,
+        email: i.email,
+        invitedBy: 'academy team',
+        status: i.status,
+        language: i.locale,
+        invitedAt: i.createdAt,
+        enrolledAt: i.enrolledAt,
+        lastEmailedAt: i.lastEmailedAt,
+      })),
       points: { total: points.reduce((n, p) => n + p.points, 0), entries: points },
       badges: badges.map((b) => ({ badge: b.badge, course: b.course, week: b.period, reason: b.reason, awardedAt: b.awardedAt })),
       leaderboards: leaderboards.map((l) => ({ course: l.course, shownOnLeaderboard: l.optedIn, changedAt: l.updatedAt })),
@@ -240,6 +260,8 @@ export class AccountService {
     await this.prisma.leaderboardOptIn.deleteMany({ where: { userId } });
     // Off every waiting list: nobody should email a deleted account about new courses.
     await this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } });
+    // Invites to this address that were never used: nobody should be enrolled or emailed with it now.
+    await this.invites.forgetPending(user.email);
     // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
     // cancelled), the team is told. Never fails the deletion (errors are logged).
     await this.speakerPortal.releaseBookings(user);
@@ -310,6 +332,8 @@ export class AccountService {
       this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
       this.prisma.calendarFeed.deleteMany({ where: { userId } }),
       this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } }),
+      // Every invite for the address goes, including the one they enrolled through (the audit log keeps ids only).
+      this.prisma.courseInvite.deleteMany({ where: { OR: [{ enrolledUserId: userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.

@@ -28,13 +28,16 @@ interface Policy {
 
 const UPDATED_EN = 'Last updated: 10 October 2026';
 const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
+/** The privacy policy changed later (course invitations). */
+const PRIVACY_UPDATED_EN = 'Last updated: 11 October 2026';
+const PRIVACY_UPDATED_AR = 'آخر تحديث: 11 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
     en: {
       title: 'Privacy Policy',
       description: 'How MLOps MENA Academy collects, uses and protects your personal data.',
-      updated: UPDATED_EN,
+      updated: PRIVACY_UPDATED_EN,
       sections: [
         {
           heading: 'Who we are',
@@ -50,6 +53,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'Course data: your applications and answers to screening questions, your enrolment, session progress and the feedback you submit through the academy. Quizzes and assignment forms linked from a course are run on the services they are hosted on (for example Google Forms).',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
             'Waiting lists: if you ask to be told when a course opens ("Notify me"), your email address and language, with or without an account.',
+            'Course invitations: if the academy team adds you to a course by your email address, that address, the course, who added you and when, and whether you joined. If you have no account yet, we email you to invite you, a few times at most; you are enrolled only after you sign up and confirm that same address.',
             'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Our own logs do not contain your email address, IP address or the content you submit. Our hosting provider (Cloudflare) processes IP addresses to deliver and protect the site.',
           ],
         },
@@ -103,6 +107,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: [
             'Your account and profile are kept until you delete your account (an uploaded CV is deleted after 180 days). Applications and enrolments are kept for course records and certificates. Deleted accounts are blocked immediately and anonymised after 30 days; payment records are kept in anonymised form for accounting.',
             'You stay on a waiting list until you leave it (every waiting-list email has a link to leave) or delete your account. We email you about that course only.',
+            'A course invitation that is never used is deleted after 180 days, or when you delete your account. Once you join through it, it is kept with your enrolment and deleted when your account is anonymised.',
             'Encrypted database backups are kept for up to 30 days, so deleted data disappears from them within 30 days after anonymisation.',
           ],
         },
@@ -132,7 +137,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     ar: {
       title: 'سياسة الخصوصية',
       description: 'كيف تجمع أكاديمية MLOps MENA بياناتك الشخصية وتستخدمها وتحميها.',
-      updated: UPDATED_AR,
+      updated: PRIVACY_UPDATED_AR,
       sections: [
         {
           heading: 'من نحن',
@@ -148,6 +153,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية. أما الاختبارات ونماذج الواجبات المرتبطة بالدورة فتعمل على الخدمات المستضافة عليها (مثل Google Forms).',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
             'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريدك الإلكتروني ولغتك، سواء كان لديك حساب أم لا.',
+            'دعوات الدورات: إذا أضافك فريق الأكاديمية إلى دورة بعنوان بريدك الإلكتروني، نحفظ هذا العنوان والدورة ومن أضافك ومتى، وهل انضممت. إن لم يكن لديك حساب بعد، نراسلك لدعوتك بضع مرات على الأكثر، ولا نسجّلك إلا بعد أن تنشئ حسابًا وتؤكد العنوان نفسه.',
             'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن سجلاتنا بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله. ويعالج مزود الاستضافة لدينا (Cloudflare) عناوين IP لتقديم الموقع وحمايته.',
           ],
         },
@@ -201,6 +207,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: [
             'نحتفظ بحسابك وملفك الشخصي حتى تحذف حسابك (وتُحذف السيرة الذاتية المرفوعة بعد 180 يومًا). ونحتفظ بالطلبات والتسجيلات لسجلات الدورات والشهادات. تُوقف الحسابات المحذوفة فورًا وتُجهَّل بياناتها بعد 30 يومًا، مع الاحتفاظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.',
             'تبقى في قائمة الانتظار حتى تغادرها (كل رسالة من قائمة الانتظار فيها رابط للمغادرة) أو تحذف حسابك. ولا نراسلك إلا بخصوص تلك الدورة.',
+            'تُحذف دعوة الدورة التي لا تُستخدم بعد 180 يومًا أو عند حذف حسابك. وإذا انضممت من خلالها، تُحفظ مع تسجيلك وتُحذف عند تجهيل بيانات حسابك.',
             'نحتفظ بنسخ احتياطية مشفرة من قاعدة البيانات لمدة أقصاها 30 يومًا، لذا تختفي البيانات المحذوفة منها خلال 30 يومًا بعد التجهيل.',
           ],
         },

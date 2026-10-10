@@ -59,7 +59,7 @@ export class JobsController {
     await run('profileReviewEmails', () => this.accountJobs.runProfileReview());
     await run('retention', async () => {
       const r = await this.retention.run();
-      return { screenshotsDeleted: r.screenshots, cvsDeleted: r.cvs, submissionFilesDeleted: r.submissionFiles };
+      return { screenshotsDeleted: r.screenshots, cvsDeleted: r.cvs, submissionFilesDeleted: r.submissionFiles, invitesDeleted: r.invites };
     });
     await run('remindersSent', () => this.reminders.run());
     await run('eventRemindersSent', () => this.eventReminders.run());

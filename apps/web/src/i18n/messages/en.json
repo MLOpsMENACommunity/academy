@@ -157,7 +157,12 @@
       "TOO_MANY_ATTEMPTS": "Too many failed attempts. Wait 15 minutes or reset your password.",
       "CROSS_SITE": "This request was blocked for your security. Reload the page and try again.",
       "WRONG_ACCOUNT": "This link was sent to a different account. Sign out, then sign in to the account you're confirming.",
-      "QUESTION_ANSWERED": "Applicants already answered a question you removed. Put it back and make it optional instead."
+      "QUESTION_ANSWERED": "Applicants already answered a question you removed. Put it back and make it optional instead.",
+      "PAYMENT_WAIVER_REQUIRED": "This is a paid course: tick \"Enrol them without payment\" to continue.",
+      "INVITE_RECENTLY_SENT": "This invitation was emailed less than a minute ago. Try again shortly.",
+      "INVITE_NOT_PENDING": "This invitation was already used or revoked.",
+      "INVITE_RESEND_LIMIT": "This invitation has already been emailed again as many times as allowed.",
+      "COURSE_NOT_INVITABLE": "Draft and archived courses can't take anyone. Publish or reopen the course first."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -209,7 +214,9 @@
     "doneBody": "Your profile is ready. Next, browse courses and apply.",
     "toCourses": "Browse courses",
     "backToCourse": "Continue to the course",
-    "continue": "Continue"
+    "continue": "Continue",
+    "invitedNote": "You were added to a course: you don't need a complete profile to join it. Finish these steps now or later.",
+    "invitedGo": "Go to the course"
   },
   "profile": {
     "title": "My profile",
@@ -657,7 +664,8 @@
       "cv": "CV",
       "hasCv": "Has CV",
       "cvNone": "No CV",
-      "cvHint": "CV uploads were removed from the profile, so only students who uploaded one before have a CV."
+      "cvHint": "CV uploads were removed from the profile, so only students who uploaded one before have a CV.",
+      "viaAdmin": "Enrolled directly by the course team"
     },
     "filters": {
       "country": "Country",
@@ -695,6 +703,86 @@
       "questions": "Screening questions",
       "sessions": "Sessions",
       "enrolled": "Enrolled students",
+      "invites": "Enrol by email",
+      "inv": {
+        "title": "Enrol by email",
+        "help": "Add people to this course directly, without the application form or a complete profile. Accounts that already exist are enrolled now; anyone else is invited and enrolled automatically once they sign up and confirm the same address (or sign in with Google).",
+        "emails": "Email addresses",
+        "emailsHint": "Separate them with commas, spaces or new lines. \"Name <email>\" works too.",
+        "orCsv": "Or upload a CSV file: email, then optionally name and note.",
+        "chooseFile": "Choose a CSV file",
+        "removeFile": "Use the text box instead",
+        "fileTooLarge": "That file is too large (500 KB at most).",
+        "fileEntries": "{count, plural, one {# row} other {# rows}} in {name}",
+        "nothing": "Add at least one email address.",
+        "tooMany": "At most {max} addresses at a time. Split the list.",
+        "language": "Language of the invitation email",
+        "languageHint": "For addresses without an account. People with an account get emails in their own language.",
+        "preview": "Preview",
+        "previewTitle": "Check before you enrol",
+        "edit": "Edit the list",
+        "sendEmail": "Email them",
+        "sendEmailHint": "Enrolled students get a \"You've been added\" email and invited addresses get an invitation with a sign-up link. Everyone enrolled also gets an in-app notification.",
+        "paidTitle": "This is a paid course",
+        "paidBody": "Enrolling by email skips the application and the payment: these people get a seat without paying, and nothing is recorded under Payments.",
+        "skipPayment": "Enrol them without payment",
+        "skipPaymentRequired": "Tick \"Enrol them without payment\" to continue.",
+        "capacity": "Seats: {taken} of {capacity} taken. Enrolling {count, plural, one {# more person} other {# more people}} goes over capacity: direct enrolment doesn't check it.",
+        "confirm": "Enrol {enrol} now and invite {invite}",
+        "confirmNothing": "Nothing to do",
+        "done": "Done: {enrolled} enrolled, {invited} invited.",
+        "doneEmailed": "{count, plural, one {# email} other {# emails}} queued.",
+        "col": {
+          "email": "Email",
+          "name": "Name",
+          "result": "What happens",
+          "status": "Status",
+          "invited": "Added",
+          "emailed": "Last emailed",
+          "actions": "Actions"
+        },
+        "outcome": {
+          "ENROL": "Enrol now",
+          "INVITE": "Invite",
+          "INVITE_UNVERIFIED": "Invite",
+          "ALREADY_ENROLLED": "Already enrolled",
+          "ALREADY_INVITED": "Already invited",
+          "SPEAKER": "Speaker account, not enrolled",
+          "ADMIN": "Admin account, skipped",
+          "CLOSED": "Closed account, skipped",
+          "INVALID": "Not a valid email",
+          "DUPLICATE": "Listed twice"
+        },
+        "outcomeHint": {
+          "ENROL": "Has an account: enrolled straight away.",
+          "INVITE": "No account yet: enrolled once they sign up and confirm this address.",
+          "INVITE_UNVERIFIED": "Has an account that hasn't confirmed its email: enrolled once it does.",
+          "ALREADY_ENROLLED": "Nothing to do.",
+          "ALREADY_INVITED": "Waiting for them to sign up. Resend the invitation from the list below.",
+          "SPEAKER": "Speaker accounts can't be students. Switch the account to student first (Speakers page).",
+          "ADMIN": "Admins aren't enrolled as students.",
+          "CLOSED": "The account was deleted.",
+          "INVALID": "Check the spelling.",
+          "DUPLICATE": "Counted once."
+        },
+        "listTitle": "Added by email",
+        "listEmpty": "Nobody has been added by email yet.",
+        "status": {
+          "PENDING": "Invited",
+          "ENROLLED": "Enrolled",
+          "REVOKED": "Revoked"
+        },
+        "counts": "{pending} invited · {enrolled} enrolled · {revoked} revoked",
+        "by": "by {email}",
+        "never": "Not emailed",
+        "resend": "Resend",
+        "resent": "Invitation sent again to {email}.",
+        "revoke": "Revoke",
+        "revokeConfirm": "Revoke the invitation for {email}? They won't be enrolled when they sign up.",
+        "revoked": "Invitation for {email} revoked.",
+        "retention": "Invitations that are never used are deleted after 180 days.",
+        "resendCount": "Resent {count} of {max}"
+      },
       "feedback": "Feedback",
       "basics": "Basics",
       "content": "Course page content",
@@ -1498,7 +1586,9 @@
     "tools": "Course tools",
     "noSessions": "The sessions of this course will appear here.",
     "sessionNav": "Previous and next session",
-    "nextSession": "Next: {n}. {title}"
+    "nextSession": "Next: {n}. {title}",
+    "confirmEmailFirst": "Were you added to this course by email? Confirm your email address first (we sent you a link) and you'll be enrolled automatically.",
+    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way."
   },
   "sessions": {
     "title": "Live sessions",

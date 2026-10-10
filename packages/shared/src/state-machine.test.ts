@@ -81,8 +81,14 @@ describe('transition', () => {
   });
 
   it('never lets an enrolled application change', () => {
-    for (const e of ['SHORTLIST', 'ACCEPT', 'REJECT', 'WAITLIST', 'SUBMIT_PAYMENT', 'APPROVE_PAYMENT', 'REJECT_PAYMENT'] as const) {
+    for (const e of ['SHORTLIST', 'ACCEPT', 'REJECT', 'WAITLIST', 'SUBMIT_PAYMENT', 'APPROVE_PAYMENT', 'REJECT_PAYMENT', 'ADMIN_ENROL'] as const) {
       expect(transition(S.ENROLLED, e, paid).ok).toBe(false);
+    }
+  });
+
+  it('enrols directly from any other status with ADMIN_ENROL, without payment and even when full', () => {
+    for (const s of [S.SUBMITTED, S.SHORTLISTED, S.WAITLISTED, S.REJECTED, S.AWAITING_PAYMENT, S.PAYMENT_SUBMITTED, S.PAYMENT_REJECTED]) {
+      expect(transition(s, 'ADMIN_ENROL', full(paid))).toEqual(ok(S.ENROLLED));
     }
   });
 });

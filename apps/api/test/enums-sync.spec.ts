@@ -33,6 +33,7 @@ const pairs: Record<string, readonly string[]> = {
   RecordingsPlatform: shared.RECORDINGS_PLATFORMS,
   QuestionType: shared.QUESTION_TYPES,
   ApplicationStatus: shared.APPLICATION_STATUSES,
+  CourseInviteStatus: shared.COURSE_INVITE_STATUSES,
   PaymentMethod: shared.PAYMENT_METHODS,
   PaymentStatus: shared.PAYMENT_STATUSES,
   SavedFilterScope: shared.SAVED_FILTER_SCOPES,

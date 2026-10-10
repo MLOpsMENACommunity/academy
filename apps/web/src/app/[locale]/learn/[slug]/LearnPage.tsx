@@ -1,6 +1,6 @@
 'use client';
 
-import type { AssessmentSummaryDto, LearnCertificateDto, LearnCourseDto, LearnSessionDto } from '@academy/shared';
+import type { AssessmentSummaryDto, LearnCertificateDto, LearnCourseDto, LearnSessionDto, MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -24,7 +24,7 @@ import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
 export function LearnPage() {
-  return <RequireAuth>{() => <Inner />}</RequireAuth>;
+  return <RequireAuth>{(user) => <Inner user={user} />}</RequireAuth>;
 }
 
 /** Where a student lands: a live session, then one whose join link is open, then the first unwatched recording, then the next upcoming one. */
@@ -44,7 +44,7 @@ const hashOrder = () => {
   return m ? Number(m[1]) : null;
 };
 
-function Inner() {
+function Inner({ user }: { user: MeResponse }) {
   const { locale, t } = useI18n();
   const { slug } = useParams<{ slug: string }>();
   const [course, setCourse] = useState<LearnCourseDto | null>(null);
@@ -121,6 +121,8 @@ function Inner() {
       <Container className="py-12">
         <Alert tone={error === 'forbidden' ? 'info' : 'danger'}>
           {error === 'forbidden' ? t('learn.notEnrolled') : t('errors.generic')}{' '}
+          {/* "Enrol by email": an invited student is enrolled once their address is confirmed. */}
+          {error === 'forbidden' && !user.emailVerified && <>{t('learn.confirmEmailFirst')} </>}
           <Link href={`/${locale}/courses/${slug}`} className="font-semibold underline">
             {t('applications.viewCourse')}
           </Link>
@@ -177,6 +179,18 @@ function Inner() {
           </Link>
         </Container>
       </div>
+
+      {/* Students enrolled by email may not have filled in their profile: a nudge, never a gate. */}
+      {user.role === 'STUDENT' && !user.profile.coreComplete && (
+        <Container className="pt-4">
+          <Alert tone="info">
+            {t('learn.profileNudge')}{' '}
+            <Link href={`/${locale}/profile`} className="font-semibold underline">
+              {t('dashboard.completeProfile')}
+            </Link>
+          </Alert>
+        </Container>
+      )}
 
       <div className="mx-auto flex w-full max-w-[90rem] flex-col lg:min-h-[calc(100dvh-8rem)] lg:flex-row">
         <nav aria-labelledby="curriculum" className="order-last flex flex-col gap-4 border-t border-line bg-muted-bg px-4 py-6 sm:px-6 lg:order-first lg:w-[22rem] lg:shrink-0 lg:border-e lg:border-t-0 lg:px-4 lg:py-6">

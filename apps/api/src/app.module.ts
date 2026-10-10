@@ -20,6 +20,7 @@ import { CoursesModule } from './courses/courses.module';
 import { EmailModule } from './email/email.module';
 import { FunnelModule } from './funnel/funnel.module';
 import { HealthController } from './health/health.controller';
+import { InvitesModule } from './invites/invites.module';
 import { JobsModule } from './jobs/jobs.module';
 import { EventsModule } from './events/events.module';
 import { LearnModule } from './learn/learn.module';
@@ -53,6 +54,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     WaitlistModule,
     ArchiveModule,
     ApplicationsModule,
+    InvitesModule,
     PaymentsModule,
     LearnModule,
     AssessmentsModule,
