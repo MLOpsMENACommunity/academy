@@ -35,6 +35,7 @@ import type { AuthUser } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { detectFileType, MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
+import { PointsService } from '../points/points.service';
 import { GithubRepoChecker } from './github-repo-check';
 
 type QuestionWithOptions = QuizQuestion & { options: QuizOption[] };
@@ -136,6 +137,7 @@ export class AssessmentsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly github: GithubRepoChecker,
+    private readonly points: PointsService,
   ) {}
 
   /** Same rule as the course player: admins may read (preview); writes need an enrolment. */
@@ -331,6 +333,8 @@ export class AssessmentsService {
       data: { answers, submittedAt: now, late, score: grade.score, maxScore: a.maxPoints, gradedAt: now, gradedById: null },
     });
     if (done.count !== 1) throw new ConflictException({ code: 'ALREADY_SUBMITTED', message: 'This attempt was already submitted' });
+    // Points follow the counted score (a better attempt adds the difference).
+    await this.points.syncAssessmentSafe(a.id, user.id);
     const submitted = await this.prisma.submission.count({ where: { assessmentId: a.id, userId: user.id, submittedAt: { not: null } } });
     const started = await this.prisma.submission.count({ where: { assessmentId: a.id, userId: user.id } });
     const revealed = answersRevealed({ ...a, submitted, inProgress: false, now });

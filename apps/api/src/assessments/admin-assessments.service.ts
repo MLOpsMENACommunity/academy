@@ -19,6 +19,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
 import { capRows } from '../admin/export';
+import { PointsService } from '../points/points.service';
 import { AssessmentsService, buildReview } from './assessments.service';
 
 const questionsInclude = { questions: { orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } } } as const;
@@ -61,6 +62,7 @@ export class AdminAssessmentsService {
     private readonly notifications: NotificationsService,
     private readonly storage: StorageService,
     private readonly assessments: AssessmentsService,
+    private readonly points: PointsService,
   ) {}
 
   private async course(courseId: string) {
@@ -166,6 +168,10 @@ export class AdminAssessmentsService {
         tx,
       );
     });
+    // Publishing counts its scores as points; unpublishing takes them back.
+    if (current.status !== input.status) {
+      await this.points.syncAssessmentForAll(id).catch((err: unknown) => this.logger.error(`Points sync failed: ${(err as Error).name}`));
+    }
     return this.get(id);
   }
 
@@ -374,6 +380,8 @@ export class AdminAssessmentsService {
         tx,
       );
     });
+    // Points follow the counted score: a regrade appends the difference.
+    await this.points.syncAssessmentSafe(s.assessmentId, s.userId);
     if (!s.user.deletedAt) this.tellStudent(s, input.score);
     return this.submission(id);
   }

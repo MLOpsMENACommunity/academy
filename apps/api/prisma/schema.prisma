@@ -318,6 +318,11 @@ model User {
   submissions             Submission[]             @relation("SubmissionStudent")
   submissionsGraded       Submission[]             @relation("SubmissionGrader")
   assessmentReminders     AssessmentReminderLog[]
+  pointsEntries           PointsEntry[]            @relation("PointsStudent")
+  pointsAwarded           PointsEntry[]            @relation("PointsAwarder")
+  badges                  UserBadge[]              @relation("BadgeHolder")
+  badgesAwarded           UserBadge[]              @relation("BadgeAwarder")
+  leaderboardOptIns       LeaderboardOptIn[]
   reminderPreferences     ReminderPreference[]
   savedFilters            SavedFilter[]
   auditLogs               AuditLog[]               @relation("AuditActor")
@@ -597,6 +602,9 @@ model Course {
   funnelEvents       FunnelEventLog[]
   reminderPreferences ReminderPreference[]
   assessments         Assessment[]
+  pointsEntries       PointsEntry[]
+  userBadges          UserBadge[]
+  leaderboardOptIns   LeaderboardOptIn[]
 
   @@index([status])
   announcements       Announcement[]
@@ -1384,4 +1392,102 @@ model AssessmentReminderLog {
 
   @@id([assessmentId, userId])
   @@index([userId])
+}
+
+// ================================================================= Points, badges and leaderboards
+// Points are an append-only ledger: every change (a regrade, an unmarked session, an admin
+// correction) is a new row, so totals are always SUM(points) and every change is explainable.
+
+enum PointsReason {
+  ASSESSMENT
+  SESSION_COMPLETED
+  CERTIFICATE
+  MANUAL_COMMUNITY
+  MANUAL_OTHER
+  ADJUSTMENT
+}
+
+enum BadgeKind {
+  AUTO
+  MANUAL
+}
+
+model PointsEntry {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation("PointsStudent", fields: [userId], references: [id], onDelete: Cascade)
+  /// Null: community points that count toward the student's total only.
+  courseId    String?
+  course      Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  /// Can be negative (a lower regrade, an unmarked session, a correction).
+  points      Int
+  reason      PointsReason
+  /// Automatic entries: what earned them ("ASSESSMENT" + assessment id, "SESSION" + session id,
+  /// "CERTIFICATE" + certificate id). Null for manual and imported points.
+  sourceType  String?
+  sourceId    String?
+  /// 0 for the first award from a source, then 1, 2… for each later delta. With the unique key
+  /// below this makes automatic awards idempotent: two concurrent syncs can't both append.
+  sourceSeq   Int          @default(0)
+  note        String?
+  awardedById String?
+  awardedBy   User?        @relation("PointsAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+
+  @@unique([userId, sourceType, sourceId, sourceSeq])
+  @@index([userId, createdAt])
+  @@index([courseId, createdAt])
+}
+
+model Badge {
+  id            String    @id @default(cuid())
+  /// Stable key, e.g. "top-week". Automatic badges are looked up by code.
+  code          String    @unique
+  nameEn        String
+  nameAr        String
+  descriptionEn String    @default("")
+  descriptionAr String    @default("")
+  /// An emoji (or a short icon key).
+  icon          String
+  kind          BadgeKind @default(MANUAL)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  awards UserBadge[]
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("BadgeHolder", fields: [userId], references: [id], onDelete: Cascade)
+  badgeId     String
+  badge       Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  courseId    String?
+  course      Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Course week number for weekly badges ("Top of the week"); null otherwise.
+  period      Int?
+  /// The uniqueness scope: "<courseId>:w<week>" for weekly badges, "<courseId>" for per-course
+  /// badges, "global" for badges not tied to a course. One award per (student, badge, scope).
+  scopeKey    String
+  awardedAt   DateTime @default(now())
+  awardedById String?
+  awardedBy   User?    @relation("BadgeAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
+  reason      String?
+
+  @@unique([userId, badgeId, scopeKey])
+  @@index([courseId])
+  @@index([userId, awardedAt])
+}
+
+/// A student chose to appear (by first name + last initial) on a course leaderboard. Off by default.
+model LeaderboardOptIn {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  optedIn   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, courseId])
+  @@index([courseId, optedIn])
 }

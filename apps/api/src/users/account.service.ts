@@ -141,6 +141,19 @@ export class AccountService {
       select: { email: true, locale: true, createdAt: true, notifiedAt: true, course: { select: { slug: true, titleEn: true } } },
       orderBy: { createdAt: 'asc' },
     });
+    const [points, badges, leaderboards] = await Promise.all([
+      this.prisma.pointsEntry.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        select: { points: true, reason: true, note: true, createdAt: true, course: { select: { slug: true, titleEn: true } } },
+      }),
+      this.prisma.userBadge.findMany({
+        where: { userId },
+        orderBy: { awardedAt: 'asc' },
+        select: { awardedAt: true, period: true, reason: true, badge: { select: { code: true, nameEn: true } }, course: { select: { slug: true, titleEn: true } } },
+      }),
+      this.prisma.leaderboardOptIn.findMany({ where: { userId }, select: { optedIn: true, updatedAt: true, course: { select: { slug: true, titleEn: true } } } }),
+    ]);
     return {
       exportedAt: new Date().toISOString(),
       account: {
@@ -182,6 +195,9 @@ export class AccountService {
       // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
       assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
+      points: { total: points.reduce((n, p) => n + p.points, 0), entries: points },
+      badges: badges.map((b) => ({ badge: b.badge, course: b.course, week: b.period, reason: b.reason, awardedAt: b.awardedAt })),
+      leaderboards: leaderboards.map((l) => ({ course: l.course, shownOnLeaderboard: l.optedIn, changedAt: l.updatedAt })),
     };
   }
 
@@ -199,6 +215,8 @@ export class AccountService {
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
     // The private calendar link stops working at once (calendar apps poll without signing in).
     await this.prisma.calendarFeed.deleteMany({ where: { userId } });
+    // Off every leaderboard at once (boards also skip deleted accounts).
+    await this.prisma.leaderboardOptIn.deleteMany({ where: { userId } });
     // Off every waiting list: nobody should email a deleted account about new courses.
     await this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } });
     // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
@@ -277,6 +295,10 @@ export class AccountService {
       // Grades stay (course statistics); links, files and notes go.
       this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null, feedback: null, rubricNotes: null } }),
       this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
+      // Points, badges and leaderboard choices are personal: removed (boards never showed deleted accounts).
+      this.prisma.pointsEntry.deleteMany({ where: { userId } }),
+      this.prisma.userBadge.deleteMany({ where: { userId } }),
+      this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {

@@ -50,6 +50,9 @@ const pairs: Record<string, readonly string[]> = {
   RevealPolicy: shared.REVEAL_POLICIES,
   QuizQuestionKind: shared.QUIZ_QUESTION_KINDS,
   RepoCheck: shared.REPO_CHECKS,
+  // Points and badges
+  PointsReason: shared.POINTS_REASONS,
+  BadgeKind: shared.BADGE_KINDS,
 };
 
 describe('Prisma enums match @academy/shared', () => {

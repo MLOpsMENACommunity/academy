@@ -33,6 +33,10 @@ export const settingsSchema = z.object({
   liveLinkRevealMinutes: z.number().int().min(0).max(24 * 60).default(60),
   /** Payment screenshots and CVs older than this are deleted (records are kept). */
   screenshotRetentionDays: z.number().int().min(1).max(3650).default(180),
+  /** Points for marking a course session as done (taken back if it's unmarked). */
+  sessionCompletedPoints: z.number().int().min(0).max(1000).default(5),
+  /** Bonus points when a course certificate is issued. */
+  certificatePoints: z.number().int().min(0).max(10000).default(50),
   /**
    * Who hears about speaker bookings and cancellations (one email each). Admin only:
    * never part of the public settings.

@@ -12,6 +12,7 @@ import {
 import type { Course } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
+import { PointsService } from '../points/points.service';
 import { SettingsService } from '../settings/settings.service';
 import { buildIcs } from './ics';
 import { courseSessionEvent } from './session-event';
@@ -26,6 +27,7 @@ export class LearnService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly points: PointsService,
   ) {}
 
   /**
@@ -144,6 +146,8 @@ export class LearnService {
     } else {
       await this.prisma.sessionProgress.deleteMany({ where: { userId: user.id, sessionId } });
     }
+    // Session points (and "Finisher"); unmarking takes the points back.
+    await this.points.syncSession(user.id, sessionId, completed);
   }
 
   async setFeedback(user: AuthUser, slug: string, input: FeedbackInput, now = new Date()): Promise<void> {
