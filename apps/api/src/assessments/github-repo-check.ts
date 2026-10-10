@@ -3,7 +3,7 @@ import type { RepoCheck } from '@academy/shared';
 
 /** The fetch used for GitHub checks; tests replace it (no network in CI). */
 export const GITHUB_FETCH = Symbol('GITHUB_FETCH');
-export type FetchLike = (url: string, init?: RequestInit) => Promise<Pick<Response, 'status' | 'headers'>>;
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Pick<Response, 'status' | 'headers' | 'body'>>;
 
 export const GITHUB_CHECK_TIMEOUT_MS = 4_000;
 
@@ -28,6 +28,8 @@ export class GithubRepoChecker {
         redirect: 'follow',
         signal: AbortSignal.timeout(GITHUB_CHECK_TIMEOUT_MS),
       });
+      // Only the status matters: release the connection.
+      await res.body?.cancel().catch(() => undefined);
       if (res.status === 200) return 'PUBLIC';
       // 404: private or missing. 451: blocked for legal reasons. Either way graders can't open it.
       if (res.status === 404 || res.status === 451 || res.status === 410) return 'NOT_PUBLIC';

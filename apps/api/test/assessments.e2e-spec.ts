@@ -18,7 +18,7 @@ const fakeFetch: FetchLike = async (url) => {
   const m = /repos\/([^/]+)\/([^/?]+)/.exec(url);
   const v = github.get(`${m?.[1]}/${m?.[2]}`) ?? 404;
   if (v === 'down') throw Object.assign(new Error('timeout'), { name: 'TimeoutError' });
-  return { status: v, headers: new Headers() };
+  return { status: v, headers: new Headers(), body: null };
 };
 
 /** Two single-choice questions (weights 1 and 2) and one multiple-choice (weight 3). */
@@ -202,6 +202,16 @@ describe('assessments (e2e)', () => {
     expect(after).toMatchObject({ state: 'GRADED', score: 60, passed: true, attemptsUsed: 2, attemptsLeft: 0, due: false });
     expect(after.submissions).toHaveLength(2);
 
+    // Once students have submitted, scoring can't change under them; wording still can.
+    const full = (await http().get(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).expect(200)).body;
+    expect((await http().put(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).send({ ...full, maxPoints: 10 }).expect(409)).body.code).toBe('HAS_SUBMISSIONS');
+    const reweighted = structuredClone(full);
+    reweighted.questions[0].weight = 5;
+    await http().put(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).send(reweighted).expect(409);
+    const reworded = structuredClone(full);
+    reworded.questions[0].promptEn = 'Which tool tracks ML experiments?';
+    await http().put(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).send(reworded).expect(200);
+
     // The shared score rule for certificates and points.
     const results = await app.get(AssessmentsService).courseResults(student.id, course.id);
     expect(results.assessments[0]).toMatchObject({ attempts: 2, best: 60, last: 60, score: 60, passed: true });
@@ -211,15 +221,19 @@ describe('assessments (e2e)', () => {
 
   it('keeps answers hidden until the due date with AFTER_DUE, and applies NEVER', async () => {
     const { course, admin, student } = await setup();
-    const quiz = await createAssessment(course.id, admin.cookie, quizInput({ revealAnswers: 'AFTER_DUE', dueAt: new Date(Date.now() + HOUR).toISOString(), attemptsAllowed: 0 }));
+    const quiz = await createAssessment(course.id, admin.cookie, quizInput({ revealAnswers: 'AFTER_DUE', allowLate: false, dueAt: new Date(Date.now() + HOUR).toISOString(), attemptsAllowed: 3 }));
     const base = `/api/learn/${course.slug}/assessments/${quiz.id}`;
     await http().post(`${base}/start`).set('Cookie', student.cookie).expect(200);
     const r = await http().post(`${base}/submit`).set('Cookie', student.cookie).send({ answers: {} }).expect(200);
-    expect(r.body).toMatchObject({ score: 0, review: null, attemptsLeft: null });
+    expect(r.body).toMatchObject({ score: 0, review: null, attemptsLeft: 2 });
     await prisma.assessment.update({ where: { id: quiz.id }, data: { dueAt: new Date(Date.now() - HOUR) } });
     const detail = (await http().get(base).set('Cookie', student.cookie).expect(200)).body;
     expect(detail.review.questions).toHaveLength(3);
-    expect(detail.closed).toBe('ANSWERS_REVEALED');
+    expect(detail.closed).toBe('PAST_DUE');
+    // Late work can't be combined with answers after the due date, nor practice quizzes with the certificate.
+    const bad = await http().put(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).send({ ...quizInput(), revealAnswers: 'AFTER_DUE', allowLate: true, dueAt: new Date().toISOString() }).expect(400);
+    expect(bad.body.errors[0].path).toBe('allowLate');
+    await http().post(`/api/admin/courses/${course.id}/assessments`).set('Cookie', admin.cookie).send(quizInput({ attemptsAllowed: 0, countsForCertificate: true })).expect(400);
 
     await prisma.assessment.update({ where: { id: quiz.id }, data: { revealAnswers: 'NEVER' } });
     expect((await http().get(base).set('Cookie', student.cookie).expect(200)).body.review).toBeNull();
@@ -282,6 +296,8 @@ describe('assessments (e2e)', () => {
     expect((await http().get(`/api/admin/assessments/${lab.id}/submissions?filter=missing`).set('Cookie', admin.cookie).expect(200)).body.rows.map((r: { userId: string }) => r.userId)).toEqual([other.id]);
     await http().put(`/api/admin/submissions/${ok.body.id}/grade`).set('Cookie', admin.cookie).send({ score: 11 }).expect(400);
     await http().put(`/api/admin/submissions/${ok.body.id}/grade`).set('Cookie', student.cookie).send({ score: 5 }).expect(403);
+    // Grading the version the grader saw: a resubmission in between is refused.
+    await http().put(`/api/admin/submissions/${ok.body.id}/grade`).set('Cookie', admin.cookie).send({ score: 5, submittedAt: ok.body.submittedAt }).expect(409);
     const graded = await http().put(`/api/admin/submissions/${ok.body.id}/grade`).set('Cookie', admin.cookie).send({ score: 8, feedback: 'Good tests.', rubricNotes: 'Code 4/5, docs 4/5' }).expect(200);
     expect(graded.body).toMatchObject({ score: 8, feedback: 'Good tests.', gradedAt: expect.any(String) });
     await http().put(`/api/admin/submissions/${ok.body.id}/grade`).set('Cookie', admin.cookie).send({ score: 9, feedback: 'Better.' }).expect(200);

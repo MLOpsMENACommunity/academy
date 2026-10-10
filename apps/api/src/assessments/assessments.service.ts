@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import {
   answersRevealed,
   assessmentResult,
+  attemptEnd,
   attemptsLeft,
   countedAttempt,
   githubRepoUrl,
@@ -41,9 +42,9 @@ type FullAssessment = Assessment & { questions: QuestionWithOptions[] };
 
 const questionsInclude = { questions: { orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } } } as const;
 
-/** The attempt's time limit ends here (null = no limit). */
-function deadlineOf(a: Pick<Assessment, 'timeLimitMin'>, s: Pick<Submission, 'startedAt'>): Date | null {
-  return a.timeLimitMin ? new Date(s.startedAt.getTime() + a.timeLimitMin * 60_000) : null;
+/** The attempt ends here: its time limit, or a due date that takes no late work (null = open). */
+function deadlineOf(a: Pick<Assessment, 'timeLimitMin' | 'dueAt' | 'allowLate'>, s: Pick<Submission, 'startedAt'>): Date | null {
+  return attemptEnd(a, s.startedAt);
 }
 
 function closed(code: ClosedReason): ConflictException {
@@ -279,6 +280,7 @@ export class AssessmentsService {
       attempt: s.attempt,
       startedAt: s.startedAt.toISOString(),
       deadline: deadlineOf(a, s)?.toISOString() ?? null,
+      serverNow: new Date().toISOString(),
       questions: seed ? seededShuffle(questions, seed) : questions,
     };
   }
@@ -319,7 +321,7 @@ export class AssessmentsService {
     const deadline = deadlineOf(a, open);
     if (deadline && now.getTime() > deadline.getTime() + QUIZ_GRACE_SECONDS * 1000) {
       await this.closeExpired(a, [open], now);
-      throw new ConflictException({ code: 'TIME_UP', message: 'The time limit for this attempt has passed' });
+      throw new ConflictException({ code: 'TIME_UP', message: 'The time for this attempt has passed' });
     }
     const answers = sanitizeAnswers(a.questions, raw);
     const grade = gradeQuiz(a.questions, answers, a.maxPoints);
@@ -365,8 +367,14 @@ export class AssessmentsService {
   ): Promise<Submission> {
     const fields = { ...data, submittedAt: now, startedAt: now, late: isLate(a.dueAt, now), maxScore: a.maxPoints, fileDeletedAt: null };
     if (existing) {
-      const r = await this.prisma.submission.updateMany({ where: { id: existing.id, gradedAt: null }, data: fields });
-      if (r.count !== 1) throw closed('GRADED');
+      // Only the version this request read: a concurrent resubmission (or a grade) makes this one fail,
+      // so the file it replaced is always the one deleted.
+      const r = await this.prisma.submission.updateMany({ where: { id: existing.id, gradedAt: null, updatedAt: existing.updatedAt }, data: fields });
+      if (r.count !== 1) {
+        const now = await this.prisma.submission.findUnique({ where: { id: existing.id }, select: { gradedAt: true } });
+        if (now?.gradedAt) throw closed('GRADED');
+        throw new ConflictException({ code: 'ALREADY_SUBMITTED', message: 'Your work was just submitted: reload the page' });
+      }
       return this.prisma.submission.findUniqueOrThrow({ where: { id: existing.id } });
     }
     try {
@@ -487,11 +495,25 @@ export class AssessmentsService {
   /** Uploaded PDFs follow the same retention as CVs and payment screenshots; grades stay. */
   async purgeOldFiles(retentionDays: number, now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - retentionDays * 86_400_000);
-    const due = await this.prisma.submission.findMany({
-      where: { fileKey: { not: null }, submittedAt: { lt: cutoff } },
-      select: { id: true, fileKey: true },
-      take: 500,
-    });
+    let removed = 0;
+    let cursor: string | undefined;
+    // Oldest first, paging past any file that can't be deleted now (retried on the next run).
+    for (let page = 0; page < 10; page++) {
+      const due = await this.prisma.submission.findMany({
+        where: { fileKey: { not: null }, submittedAt: { lt: cutoff } },
+        select: { id: true, fileKey: true },
+        orderBy: { id: 'asc' },
+        take: 200,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      if (!due.length) break;
+      cursor = due[due.length - 1]!.id;
+      removed += await this.purgeFiles(due, now);
+    }
+    return removed;
+  }
+
+  private async purgeFiles(due: { id: string; fileKey: string | null }[], now: Date): Promise<number> {
     let removed = 0;
     for (const s of due) {
       try {

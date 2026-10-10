@@ -255,7 +255,7 @@ export class AccountService {
       }),
       this.prisma.instructor.updateMany({ where: { userId }, data: { userId: null } }),
       // Grades stay (course statistics); links, files and notes go.
-      this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null } }),
+      this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null, feedback: null, rubricNotes: null } }),
       this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
       this.prisma.user.update({
         where: { id: userId },

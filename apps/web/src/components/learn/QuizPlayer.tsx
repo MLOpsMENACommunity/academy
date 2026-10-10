@@ -138,7 +138,10 @@ export function QuizPlayer({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  // Server time minus this device's time: the countdown follows the server's clock.
+  const [skew] = useState(() => new Date(attempt.serverNow).getTime() - Date.now());
+  const [now, setNow] = useState(() => Date.now() + skew);
+  const autoTried = useRef(false);
   const headings = useRef(new Map<string, HTMLElement>());
   const confirmHeading = useRef<HTMLHeadingElement>(null);
   const submitted = useRef(false);
@@ -192,11 +195,15 @@ export function QuizPlayer({
   // The countdown, and an automatic submit when it reaches zero.
   useEffect(() => {
     if (!deadline) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(Date.now() + skew), 1000);
     return () => clearInterval(id);
-  }, [deadline]);
+  }, [deadline, skew]);
+  // Once, when time is up; if that fails the student can still press Submit (within the grace period).
   useEffect(() => {
-    if (remaining !== null && remaining <= 0 && !submitted.current) void submit();
+    if (remaining !== null && remaining <= 0 && !submitted.current && !autoTried.current) {
+      autoTried.current = true;
+      void submit();
+    }
   }, [remaining, submit]);
 
   // One question per screen: move focus to the new question's text.
@@ -235,7 +242,7 @@ export function QuizPlayer({
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="font-medium text-fg">{t('assessments.player.answered', { answered, total })}</span>
           {remaining !== null && (
-            <span role="timer" aria-live={lowTime ? 'assertive' : 'off'} className={`rounded-md px-2.5 py-0.5 font-semibold tabular-nums ${lowTime ? 'bg-danger-soft text-danger' : 'bg-muted-bg text-fg'}`}>
+            <span role="timer" aria-live="off" className={`rounded-md px-2.5 py-0.5 font-semibold tabular-nums ${lowTime ? 'bg-danger-soft text-danger' : 'bg-muted-bg text-fg'}`}>
               {t('assessments.player.timeLeft')}: <span dir="ltr">{clock(remaining)}</span>
             </span>
           )}
@@ -275,6 +282,12 @@ export function QuizPlayer({
         )}
       </div>
 
+      {/* Screen readers hear the time at a few points, not every second. */}
+      <p className="sr-only" aria-live="polite">
+        {remaining !== null && remaining > 0 && [60_000, 30_000, 10_000].some((m) => remaining <= m && remaining > m - 5_000)
+          ? t('assessments.player.secondsLeft', { seconds: Math.ceil(remaining / 1000 / 10) * 10 })
+          : ''}
+      </p>
       {remaining !== null && remaining <= 0 && <Alert tone="warning">{t('assessments.player.timeUp')}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
 

@@ -144,10 +144,17 @@ export class AdminAssessmentsService {
   }
 
   async update(id: string, input: AssessmentInput, admin: Actor): Promise<AdminAssessmentDto> {
-    const current = await this.prisma.assessment.findUnique({ where: { id }, include: { _count: { select: { submissions: true } } } });
+    const current = await this.prisma.assessment.findUnique({ where: { id }, include: { ...questionsInclude, _count: { select: { submissions: true } } } });
     if (!current) throw new NotFoundException('Assessment not found');
-    if (current.type !== input.type && current._count.submissions > 0) {
-      throw new ConflictException({ code: 'HAS_SUBMISSIONS', message: 'Students have submitted work: the type can no longer change' });
+    if (current._count.submissions > 0) {
+      const locked = this.lockedChange(current, input);
+      if (locked) {
+        throw new ConflictException({
+          code: 'HAS_SUBMISSIONS',
+          field: locked,
+          message: `Students have submitted work: ${locked} can no longer change (wording can). Create a new assessment instead.`,
+        });
+      }
     }
     await this.checkSession(current.courseId, input.sessionId);
     await this.prisma.$transaction(async (tx) => {
@@ -160,6 +167,23 @@ export class AdminAssessmentsService {
       );
     });
     return this.get(id);
+  }
+
+  /**
+   * What can't change once students have submitted, because stored scores and reviews
+   * depend on it: the type, max points, and the questions' set, kinds, weights and key.
+   * Wording (prompts, options, explanations) and everything else stays editable.
+   */
+  private lockedChange(
+    current: { type: string; maxPoints: number; questions: { id: string; kind: string; weight: number; options: { id: string; correct: boolean }[] }[] },
+    input: AssessmentInput,
+  ): string | null {
+    if (current.type !== input.type) return 'the type';
+    if (current.maxPoints !== input.maxPoints) return 'the max points';
+    if (input.type !== 'QUIZ') return null;
+    const sig = (qs: { id?: string; kind: string; weight: number; options: { id?: string; correct: boolean }[] }[]) =>
+      JSON.stringify(qs.map((q) => [q.id ?? null, q.kind, q.weight, q.options.map((o) => [o.id ?? null, o.correct])]));
+    return sig(current.questions) === sig(input.questions) ? null : 'the questions, weights or answer key';
   }
 
   /**
@@ -325,15 +349,20 @@ export class AdminAssessmentsService {
     });
     if (!s) throw new NotFoundException('Submission not found');
     if (!s.submittedAt) throw new ConflictException({ code: 'NOT_SUBMITTED', message: 'This attempt has not been submitted yet' });
+    if (input.submittedAt && new Date(input.submittedAt).getTime() !== s.submittedAt.getTime()) {
+      throw new ConflictException({ code: 'RESUBMITTED', message: 'The student resubmitted since you opened this: reload it before grading' });
+    }
     if (input.score > s.maxScore) {
       throw new BadRequestException({ statusCode: 400, message: 'Validation failed', errors: [{ path: 'score', message: `At most ${s.maxScore}` }] });
     }
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
-      await tx.submission.update({
-        where: { id },
+      // Same version as checked above, even if the student resubmits at this very moment.
+      const r = await tx.submission.updateMany({
+        where: { id, submittedAt: s.submittedAt },
         data: { score: input.score, feedback: input.feedback, rubricNotes: input.rubricNotes, gradedAt: now, gradedById: admin.id },
       });
+      if (r.count !== 1) throw new ConflictException({ code: 'RESUBMITTED', message: 'The student resubmitted since you opened this: reload it before grading' });
       await this.audit.log(
         {
           actorId: admin.id,

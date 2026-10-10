@@ -76,7 +76,7 @@ function GradePanel({ id, onSaved, onClose }: { id: string; onSaved: () => void;
     setScoreError(undefined);
     setBusy(true);
     try {
-      setS(await api<AdminSubmissionDto>(`/admin/submissions/${current}/grade`, { method: 'PUT', json: { score: n, feedback: feedback || null, rubricNotes: rubric || null } }));
+      setS(await api<AdminSubmissionDto>(`/admin/submissions/${current}/grade`, { method: 'PUT', json: { score: n, feedback: feedback || null, rubricNotes: rubric || null, submittedAt: s.submittedAt ?? undefined } }));
       setNotice(g('saved'));
       onSaved();
     } catch (err) {

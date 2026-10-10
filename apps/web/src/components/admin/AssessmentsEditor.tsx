@@ -141,6 +141,8 @@ function draftErrors(issues: ZodIssue[], t: Translate): Record<string, string> {
     else if (i.message.startsWith('Mark exactly one')) out[key] = e('oneCorrect');
     else if (i.message.startsWith('Mark at least one')) out[key] = e('someCorrect');
     else if (i.message.startsWith('A true/false')) out[key] = e('twoOptions');
+    else if (i.message.startsWith('Late work cannot')) out[key] = e('lateWithReveal');
+    else if (i.message.startsWith('A practice quiz')) out[key] = e('practiceCertificate');
   }
   return out;
 }
@@ -370,8 +372,8 @@ function AssessmentForm({
           <TextField label={f('order')} type="number" min={0} max={999} value={String(draft.order)} onChange={(v) => set('order')(Number(v || 0))} error={errors.order} />
         </div>
         <div className="flex flex-col gap-2">
-          <CheckboxField label={f('allowLate')} checked={draft.allowLate} onChange={set('allowLate')} />
-          <CheckboxField label={f('certificate')} checked={draft.countsForCertificate} onChange={set('countsForCertificate')} />
+          <CheckboxField label={f('allowLate')} checked={draft.allowLate} onChange={set('allowLate')} error={errors.allowLate} />
+          <CheckboxField label={f('certificate')} checked={draft.countsForCertificate} onChange={set('countsForCertificate')} error={errors.countsForCertificate} />
         </div>
 
         {quiz ? (

@@ -3,6 +3,7 @@ import {
   answersRevealed,
   assessmentInputSchema,
   assessmentResult,
+  attemptEnd,
   attemptsLeft,
   countedAttempt,
   gradeQuiz,
@@ -123,6 +124,16 @@ describe('reveal rules', () => {
   });
 });
 
+describe('attemptEnd', () => {
+  const start = new Date('2026-11-10T10:00:00Z');
+  it('ends at the time limit or a hard due date, whichever is first', () => {
+    expect(attemptEnd({ timeLimitMin: 20, dueAt: null, allowLate: true }, start)?.toISOString()).toBe('2026-11-10T10:20:00.000Z');
+    expect(attemptEnd({ timeLimitMin: 20, dueAt: '2026-11-10T10:05:00Z', allowLate: false }, start)?.toISOString()).toBe('2026-11-10T10:05:00.000Z');
+    expect(attemptEnd({ timeLimitMin: null, dueAt: '2026-11-10T10:05:00Z', allowLate: true }, start)).toBeNull();
+    expect(attemptEnd({ timeLimitMin: null, dueAt: '2026-11-10T11:00:00Z', allowLate: false }, start)?.toISOString()).toBe('2026-11-10T11:00:00.000Z');
+  });
+});
+
 describe('URLs', () => {
   it('parses GitHub repository links', () => {
     expect(parseGithubRepoUrl('https://github.com/mlops-mena/academy')).toEqual({ owner: 'mlops-mena', repo: 'academy' });
@@ -203,6 +214,10 @@ describe('assessment input', () => {
   it('needs questions to publish, a due date to reveal after it, and a submission type for labs', () => {
     expect(assessmentInputSchema.safeParse({ ...quiz, questions: [], status: 'PUBLISHED' }).success).toBe(false);
     expect(assessmentInputSchema.safeParse({ ...quiz, revealAnswers: 'AFTER_DUE' }).success).toBe(false);
+    expect(assessmentInputSchema.safeParse({ ...quiz, revealAnswers: 'AFTER_DUE', dueAt: '2026-11-10T10:00:00Z' }).success).toBe(false);
+    expect(assessmentInputSchema.safeParse({ ...quiz, revealAnswers: 'AFTER_DUE', dueAt: '2026-11-10T10:00:00Z', allowLate: false }).success).toBe(true);
+    expect(assessmentInputSchema.safeParse({ ...quiz, attemptsAllowed: 0, countsForCertificate: true }).success).toBe(false);
+    expect(assessmentInputSchema.safeParse({ ...quiz, attemptsAllowed: 0, countsForCertificate: true, revealAnswers: 'NEVER' }).success).toBe(true);
     expect(assessmentInputSchema.safeParse({ ...quiz, type: 'LAB', questions: [] }).success).toBe(false);
     expect(assessmentInputSchema.safeParse({ ...quiz, type: 'LAB', questions: [], submissionKind: 'GITHUB_REPO' }).success).toBe(true);
   });

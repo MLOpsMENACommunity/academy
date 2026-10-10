@@ -26,7 +26,7 @@ import {
 export const MAX_QUESTIONS = 100;
 export const MAX_OPTIONS = 10;
 /** Seconds a quiz answer may arrive after the time limit (network, clock drift). */
-export const QUIZ_GRACE_SECONDS = 30;
+export const QUIZ_GRACE_SECONDS = 60;
 
 // ------------------------------------------------------------------ URLs
 
@@ -174,6 +174,18 @@ export function answersRevealed(a: {
     case 'AFTER_DUE':
       return Boolean(a.dueAt) && now.getTime() > new Date(a.dueAt!).getTime();
   }
+}
+
+/**
+ * When a quiz attempt must end: the time limit from its start, or the due date when late
+ * work isn't accepted, whichever comes first. Null = no end.
+ */
+export function attemptEnd(a: { timeLimitMin: number | null; dueAt: Date | string | null; allowLate: boolean }, startedAt: Date): Date | null {
+  const ends = [
+    a.timeLimitMin ? startedAt.getTime() + a.timeLimitMin * 60_000 : null,
+    a.dueAt && !a.allowLate ? new Date(a.dueAt).getTime() : null,
+  ].filter((x): x is number => x !== null);
+  return ends.length ? new Date(Math.min(...ends)) : null;
 }
 
 /** Why a student can't start (or submit) now; null = they can. */
@@ -407,6 +419,14 @@ export const assessmentInputSchema = z
       if (a.revealAnswers === 'AFTER_DUE' && !a.dueAt) {
         ctx.addIssue({ code: 'custom', path: ['dueAt'], message: 'Set a due date to reveal answers after it' });
       }
+      // Answers go out at the due date: late attempts would be taken with the key in hand.
+      if (a.revealAnswers === 'AFTER_DUE' && a.allowLate) {
+        ctx.addIssue({ code: 'custom', path: ['allowLate'], message: 'Late work cannot be accepted when answers are shown after the due date' });
+      }
+      // Unlimited attempts with the key after each one is practice: it can't count toward a certificate.
+      if (a.attemptsAllowed === 0 && a.revealAnswers === 'AFTER_SUBMIT' && a.countsForCertificate) {
+        ctx.addIssue({ code: 'custom', path: ['countsForCertificate'], message: 'A practice quiz (unlimited attempts, answers after each) cannot count toward the certificate' });
+      }
     } else if (!a.submissionKind) {
       ctx.addIssue({ code: 'custom', path: ['submissionKind'], message: 'Choose how students submit' });
     }
@@ -418,6 +438,8 @@ export const gradeInputSchema = z.object({
   score: z.coerce.number().min(0).max(1000),
   feedback: optionalText(5000),
   rubricNotes: optionalText(5000),
+  /** The version being graded (its submittedAt): a resubmission in between makes the grade fail instead of landing on new work. */
+  submittedAt: z.string().max(40).optional(),
 });
 export type GradeInput = z.infer<typeof gradeInputSchema>;
 
@@ -503,8 +525,10 @@ export interface QuizAttemptDto {
   submissionId: string;
   attempt: number;
   startedAt: string;
-  /** When the time limit ends (ISO), or null. */
+  /** When the attempt ends (ISO): the time limit, or a due date that takes no late work; null = open. */
   deadline: string | null;
+  /** The server's clock when this was sent (ISO), so the countdown ignores a wrong device clock. */
+  serverNow: string;
   questions: QuizQuestionDto[];
 }
 
