@@ -1,6 +1,6 @@
 import { Container } from '@cloudflare/containers';
 import { fetchContainer, timeoutFor } from './container-fetch';
-import { cacheKind, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
+import { browserCacheControl, cacheKind, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
 import { isManualJobsTick, tokenMatches } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 import { disallowAllRobots, isProduction, withNoindex } from './robots';
@@ -192,9 +192,9 @@ async function fromContainer(stub: { fetch(request: Request): Promise<Response> 
   return response;
 }
 
-function withHeaders(response: Response, set: Record<string, string>, append: Record<string, string | null> = {}): Response {
+function withHeaders(response: Response, set: Record<string, string | null>, append: Record<string, string | null> = {}): Response {
   const out = new Response(response.body, response);
-  for (const [k, v] of Object.entries(set)) out.headers.set(k, v);
+  for (const [k, v] of Object.entries(set)) if (v !== null) out.headers.set(k, v);
   for (const [k, v] of Object.entries(append)) if (v) out.headers.append(k, v);
   return out;
 }
@@ -231,7 +231,13 @@ async function throughEdgeCache(
   // Only the URL: never the visitor's cookies or other headers.
   const key = new Request(request.url, { method: 'GET' });
   const hit = await cache.match(key);
-  if (hit) return withHeaders(hit, { 'x-edge-cache': 'HIT' }, { 'set-cookie': kind === 'page' ? localeCookie(request) : null });
+  if (hit) {
+    return withHeaders(
+      hit,
+      { 'x-edge-cache': 'HIT', 'cache-control': browserCacheControl(kind, hit.headers.get('cache-control')) },
+      { 'set-cookie': kind === 'page' ? localeCookie(request) : null },
+    );
+  }
 
   const response = await origin(kind);
   const cacheControl = storableCacheControl(kind, response);
@@ -239,7 +245,7 @@ async function throughEdgeCache(
   // Stored without Set-Cookie; the visitor still gets the response as the container sent it.
   const stored = storedCopy(response.clone(), cacheControl);
   ctx.waitUntil(cache.put(key, stored));
-  return withHeaders(response, { 'x-edge-cache': 'MISS' });
+  return withHeaders(response, { 'x-edge-cache': 'MISS', 'cache-control': browserCacheControl(kind, response.headers.get('cache-control')) });
 }
 
 /** Web requests, through the edge cache where edge-cache.ts allows it. */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { API_TTL, cacheKind, localeCookie, PAGE_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
+import { API_TTL, browserCacheControl, cacheKind, localeCookie, PAGE_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
 
 const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
   new Request(`https://academy.mlopsmena.com${path}`, init);
@@ -166,4 +166,10 @@ test('only what the API marked public is stored, capped at API_TTL', () => {
   // Errors, busy answers, non-JSON.
   for (const status of [404, 429, 500, 503]) assert.equal(storableCacheControl('api', json(apiPublic, status)), null, String(status));
   assert.equal(storableCacheControl('api', new Response('x', { headers: { ...apiPublic, 'content-type': 'text/calendar' } })), null);
+});
+
+test('browsers always revalidate cached pages and API answers; assets keep their header', () => {
+  assert.equal(browserCacheControl('page', 'public, max-age=14400, s-maxage=60'), 'public, max-age=0, must-revalidate');
+  assert.equal(browserCacheControl('api', 'public, max-age=14400, s-maxage=60'), 'public, max-age=0, must-revalidate');
+  assert.equal(browserCacheControl('asset', 'public, max-age=31536000, immutable'), 'public, max-age=31536000, immutable');
 });

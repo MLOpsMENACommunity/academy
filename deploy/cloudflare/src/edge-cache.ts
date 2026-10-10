@@ -144,6 +144,18 @@ export function storableCacheControl(kind: CacheKind, response: Response): strin
 }
 
 /**
+ * The Cache-Control a visitor's browser gets for a page or API answer that went through the
+ * edge cache. Cloudflare's zone-wide "Browser Cache TTL" (4 h by default, shared with
+ * mlopsmena.com) rewrites max-age on cache hits, which would let a browser keep an old page
+ * for hours after a release. Browsers must always revalidate; the edge keeps its own short TTL.
+ * Hashed static assets keep their own (immutable) header.
+ */
+export function browserCacheControl(kind: CacheKind, current: string | null): string | null {
+  if (kind === 'asset') return current;
+  return 'public, max-age=0, must-revalidate';
+}
+
+/**
  * The web middleware remembers the visitor's language in a cookie on every page view;
  * a page served from the edge never reaches it, so the Worker sets the same cookie
  * (on the outgoing response only, never in the cache).
