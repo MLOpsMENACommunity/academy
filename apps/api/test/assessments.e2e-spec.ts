@@ -334,7 +334,7 @@ describe('assessments (e2e)', () => {
     await http().get(`/api/admin/courses/${course.id}/gradebook.csv`).set('Cookie', student.cookie).expect(403);
     const res = await http().get(`/api/admin/courses/${course.id}/gradebook.csv`).set('Cookie', admin.cookie).expect(200);
     expect(res.headers['content-type']).toContain('text/csv');
-    const lines = res.text.replace(/^﻿/, '').trim().split('\r\n');
+    const lines = res.text.replace(/^\uFEFF/, '').trim().split('\r\n');
     expect(lines[0]).toBe('"Name","Email","Quiz =1+1 (/60)","Lab (/40)","Total","Possible","Percent","Certificate assessments passed"');
     expect(lines.find((l) => l.includes(student.email))).toContain('"0","missing","0","100","0","0/1"');
     expect(lines).toHaveLength(3);

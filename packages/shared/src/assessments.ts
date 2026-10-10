@@ -510,7 +510,7 @@ export interface QuizAttemptDto {
 
 export interface QuizReviewDto {
   attempt: number;
-  questions: (QuizQuestionDto & {
+  questions: (Omit<QuizQuestionDto, 'options'> & {
     explanationEn: string | null;
     explanationAr: string | null;
     correct: boolean;

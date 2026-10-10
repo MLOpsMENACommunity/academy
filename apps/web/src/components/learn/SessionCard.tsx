@@ -1,6 +1,6 @@
 'use client';
 
-import { googleCalendarLink, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
+import { googleCalendarLink, type AssessmentSummaryDto, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
 import { useState } from 'react';
 import { LocalTime } from '@/components/course/LocalTime';
 import { Badge } from '@/components/ui/Badge';
@@ -10,6 +10,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
+import { AssessmentList } from './AssessmentList';
 import { DriveNote } from './DriveNote';
 import { FeedbackForm } from './FeedbackForm';
 import { YouTubeFacade } from './YouTubeFacade';
@@ -18,19 +19,22 @@ const rowLink = 'flex min-h-14 items-center justify-between gap-4 px-5 py-3.5 ho
 
 /**
  * One session in the course player: the recording (or the live link), then the
- * title, "Mark as done", materials, what it covers and the feedback form.
+ * title, "Mark as done", materials, the session's assessments, what it covers and the feedback form.
  */
 export function SessionCard({
   course,
   session: s,
   onProgress,
   total,
+  assessments = [],
 }: {
   course: LearnCourseDto;
   session: LearnSessionDto;
   onProgress: (sessionId: string, completed: boolean) => void;
   /** Number of sessions in the course ("Session 2 of 6"). */
   total?: number;
+  /** Published assessments attached to this session. */
+  assessments?: AssessmentSummaryDto[];
 }) {
   const { locale, t } = useI18n();
   const [completed, setCompleted] = useState(s.completed);
@@ -190,6 +194,8 @@ export function SessionCard({
           </ul>
         </section>
       )}
+
+      <AssessmentList slug={course.slug} items={assessments} headingId={`session-${s.id}-assessments`} title={t('assessments.sessionTitle')} />
 
       {desc && (
         <section aria-labelledby={`session-${s.id}-about`} className="flex flex-col gap-2">

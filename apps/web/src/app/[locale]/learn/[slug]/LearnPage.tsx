@@ -1,12 +1,13 @@
 'use client';
 
-import type { LearnCourseDto, LearnSessionDto } from '@academy/shared';
+import type { AssessmentSummaryDto, LearnCourseDto, LearnSessionDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { LocalTime } from '@/components/course/LocalTime';
 import { CheckboxField } from '@/components/forms/fields';
+import { AssessmentList } from '@/components/learn/AssessmentList';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements } from '@/components/learn/Announcements';
@@ -48,12 +49,17 @@ function Inner() {
   const [error, setError] = useState<'forbidden' | 'generic' | null>(null);
   const [reminderMsg, setReminderMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [assessments, setAssessments] = useState<AssessmentSummaryDto[]>([]);
   const main = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     api<LearnCourseDto>(`/learn/${slug}`)
       .then(setCourse)
       .catch((e: unknown) => setError(e instanceof ApiError && (e.status === 403 || e.status === 404) ? 'forbidden' : 'generic'));
+    // Assessments are optional extras on this page: if they fail to load, the course still shows.
+    api<AssessmentSummaryDto[]>(`/learn/${slug}/assessments`)
+      .then(setAssessments)
+      .catch(() => undefined);
   }, [slug]);
   useEffect(load, [load]);
 
@@ -128,6 +134,7 @@ function Inner() {
       return { ...c, sessions: list, progress: { completed: done, total: list.length, percent: list.length ? Math.round((done / list.length) * 100) : 0 } };
     });
   const ended = sessions.length > 0 && sessions.every((s) => s.phase === 'ended');
+  const dueCount = assessments.filter((a) => a.due).length;
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
   const go = (s: LearnSessionDto) => {
     setSelected(s.order);
@@ -203,6 +210,23 @@ function Inner() {
             })}
           </ol>
 
+          {assessments.length > 0 && (
+            <a
+              href="#assessments"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('assessments')?.scrollIntoView({ block: 'start' });
+                document.getElementById('assessments-title')?.focus({ preventScroll: true });
+              }}
+              className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] font-medium text-fg hover:bg-hover-bg"
+            >
+              {t('assessments.title')}
+              {dueCount > 0 && (
+                <span className="rounded-full bg-cta px-2.5 py-0.5 text-[0.8125rem] font-semibold text-cta-text">{t('assessments.dueCount', { count: dueCount })}</span>
+              )}
+            </a>
+          )}
+
           <section aria-labelledby="course-tools" className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
             <h2 id="course-tools" className="text-sm font-medium text-muted">
               {t('learn.tools')}
@@ -245,7 +269,14 @@ function Inner() {
 
         <div ref={main} className="flex min-w-0 flex-1 scroll-mt-4 flex-col gap-8 px-5 py-8 sm:px-8 lg:max-w-[60rem] lg:px-10">
           {current ? (
-            <SessionCard key={current.id} course={course} session={current} onProgress={onProgress} total={sessions.length} />
+            <SessionCard
+              key={current.id}
+              course={course}
+              session={current}
+              onProgress={onProgress}
+              total={sessions.length}
+              assessments={assessments.filter((a) => a.sessionId === current.id)}
+            />
           ) : (
             <p className="text-muted">{t('learn.noSessions')}</p>
           )}
@@ -279,6 +310,12 @@ function Inner() {
                 </a>
               )}
             </nav>
+          )}
+
+          {assessments.length > 0 && (
+            <div id="assessments" className="scroll-mt-6">
+              <AssessmentList slug={course.slug} items={assessments} headingId="assessments-title" title={t('assessments.courseTitle')} level="h2" />
+            </div>
           )}
 
           <CourseAnnouncements items={course.announcements ?? []} />
