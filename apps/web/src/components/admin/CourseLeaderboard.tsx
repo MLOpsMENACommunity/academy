@@ -28,9 +28,14 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
     return q.toString();
   };
   useEffect(() => {
+    let current = true;
+    setError(null);
     api<AdminLeaderboardDto>(`/admin/courses/${courseId}/leaderboard?${query()}`)
-      .then(setData)
-      .catch((e: unknown) => setError(errorMessage(e, t)));
+      .then((d) => current && setData(d))
+      .catch((e: unknown) => current && setError(errorMessage(e, t)));
+    return () => {
+      current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, scope, week, t]);
 

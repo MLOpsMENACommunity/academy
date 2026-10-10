@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { formatDateTime } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 const emptyBadge = { code: '', nameEn: '', nameAr: '', descriptionEn: '', descriptionAr: '', icon: '' };
@@ -43,8 +44,13 @@ function ImportCard() {
 
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
+    // Reset so choosing the same file again (after editing it) fires onChange.
+    e.target.value = '';
     setPreview(null);
     setDone(null);
+    setError(null);
+    setCsv('');
+    setFileName(null);
     if (!f) return;
     if (f.size > 500_000) {
       setError(a('fileTooLarge'));
@@ -54,12 +60,12 @@ function ImportCard() {
     setCsv(await f.text());
   }
 
-  async function send(dryRun: boolean) {
+  async function send(dryRun: boolean, allowRepeat = false) {
     setError(null);
     setDone(null);
     setBusy(true);
     try {
-      const r = await api<PointsImportResultDto>('/admin/points/import', { method: 'POST', json: { csv, dryRun } });
+      const r = await api<PointsImportResultDto>('/admin/points/import', { method: 'POST', json: { csv, dryRun, allowRepeat } });
       if (dryRun) setPreview(r);
       else {
         setPreview(null);
@@ -130,11 +136,12 @@ function ImportCard() {
               </tbody>
             </table>
           </div>
+          {preview.importedBefore && preview.errors === 0 && <Alert tone="warning">{a('importedBefore', { date: formatDateTime(preview.importedBefore, locale) })}</Alert>}
           {preview.errors > 0 ? (
             <Alert tone="warning">{a('fixErrors')}</Alert>
           ) : (
-            <Button size="sm" className="self-start" loading={busy} onClick={() => void send(false)}>
-              {a('apply', { count: preview.ok, points: new Intl.NumberFormat(locale === 'ar' ? 'ar-EG-u-nu-latn' : 'en').format(preview.totalPoints) })}
+            <Button size="sm" className="self-start" loading={busy} onClick={() => void send(false, Boolean(preview.importedBefore))}>
+              {a(preview.importedBefore ? 'applyAgain' : 'apply', { count: preview.ok, points: new Intl.NumberFormat(locale === 'ar' ? 'ar-EG-u-nu-latn' : 'en').format(preview.totalPoints) })}
             </Button>
           )}
         </div>

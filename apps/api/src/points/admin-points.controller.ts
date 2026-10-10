@@ -56,7 +56,7 @@ export class AdminPointsController {
   @Post('points/import')
   @HttpCode(200)
   importCsv(@CurrentUser() user: AuthUser, @Body(new ZodPipe(pointsImportSchema)) body: PointsImportInput) {
-    return this.points.importCsv(body.csv, body.dryRun, user);
+    return this.points.importCsv(body.csv, body.dryRun, user, body.allowRepeat);
   }
 
   @Get('badges')

@@ -1380,6 +1380,8 @@ model Submission {
   @@unique([assessmentId, userId, attempt])
   @@index([userId])
   @@index([assessmentId, submittedAt])
+  /// The hourly points sweep looks for recently changed work.
+  @@index([updatedAt])
 }
 
 /// One "due in 24 hours" email per assessment and student.

@@ -1334,7 +1334,9 @@
         "points": "النقاط",
         "sessionCompletedPoints": "نقاط كل جلسة مكتملة",
         "certificatePoints": "نقاط إضافية للشهادة"
-      }
+      },
+      "importedBefore": "سبق استيراد هذا الملف نفسه في {date}. استيراده مرة أخرى يضيف النقاط مرة ثانية.",
+      "applyAgain": "استيراد مرة أخرى على أي حال ({count} صفًا، {points} نقطة)"
     }
   },
   "learn": {
