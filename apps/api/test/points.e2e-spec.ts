@@ -229,6 +229,11 @@ describe('points, badges and leaderboards (e2e)', () => {
     expect(await sum(a!.id)).toBe(10);
     await http().post('/api/admin/points/import').set('Cookie', admin.cookie).send({ csv: fixed, dryRun: false, allowRepeat: true }).expect(200);
     expect(await sum(a!.id)).toBe(20);
+    // Two applies of a new file at the same moment: only one goes through.
+    const once = `email,points,note\n${a!.email},1,Race ${Date.now()}\n`;
+    const codes = (await Promise.all([0, 1].map(() => http().post('/api/admin/points/import').set('Cookie', admin.cookie).send({ csv: once, dryRun: false })))).map((r) => r.status).sort();
+    expect(codes).toEqual([200, 409]);
+    expect(await sum(a!.id)).toBe(21);
     await http().post('/api/admin/points/import').set('Cookie', a!.cookie).send({ csv: fixed, dryRun: true }).expect(403);
   });
 

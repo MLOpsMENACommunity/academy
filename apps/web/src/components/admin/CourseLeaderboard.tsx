@@ -40,12 +40,13 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
   }, [courseId, scope, week, t]);
 
   const a = (k: string, v?: Record<string, string | number>) => t(`admin.points.${k}`, v);
-  if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <p className="text-muted">{t('admin.common.loading')}</p>;
+  // Before anything loaded, the error is all there is; afterwards it shows above the controls.
+  if (!data) return error ? <Alert tone="danger">{error}</Alert> : <p className="text-muted">{t('admin.common.loading')}</p>;
   const weekLabel = (n: number) => t('leaderboard.weekN', { n });
 
   return (
     <div className="flex flex-col gap-4">
+      {error && <Alert tone="danger">{error}</Alert>}
       <p className="max-w-3xl text-sm text-muted">{a('boardHint')}</p>
       <div className="flex flex-wrap items-center gap-3">
         <div role="group" aria-label={t('leaderboard.view')} className="inline-flex rounded-lg border border-line-button p-0.5">

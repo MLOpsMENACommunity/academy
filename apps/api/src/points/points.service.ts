@@ -217,7 +217,7 @@ export class PointsService {
   async awardBadge(
     codeOrBadge: string | Badge,
     userId: string,
-    opts: { courseId?: string | null; period?: number | null; awardedById?: string | null; reason?: string | null; now?: Date } = {},
+    opts: { courseId?: string | null; period?: number | null; awardedById?: string | null; reason?: string | null; now?: Date; notify?: boolean } = {},
   ): Promise<UserBadge | null> {
     const badge = typeof codeOrBadge === 'string' ? await this.prisma.badge.findUnique({ where: { code: codeOrBadge } }) : codeOrBadge;
     if (!badge?.active || !(await this.active(userId))) return null;
@@ -240,8 +240,13 @@ export class PointsService {
       if (isUniqueViolation(err)) return null;
       throw err;
     }
-    void this.tellBadge(badge, award).catch((err: unknown) => this.logger.error(`Badge notification failed: ${(err as Error).name}`));
+    if (opts.notify !== false) this.notify(badge, award);
     return award;
+  }
+
+  /** In-app + email for an award (fire and forget). */
+  notify(badge: Badge, award: UserBadge): void {
+    void this.tellBadge(badge, award).catch((err: unknown) => this.logger.error(`Badge notification failed: ${(err as Error).name}`));
   }
 
   private async tellBadge(badge: Badge, award: UserBadge): Promise<void> {
@@ -359,6 +364,16 @@ export class PointsService {
     if (!ready.length) throw new BadRequestException({ code: 'IMPORT_EMPTY', message: 'The file has no rows to import' });
     if (before && !allowRepeat) throw new ConflictException({ code: 'IMPORT_REPEATED', message: 'This exact file was already imported. Confirm to import it again.' });
     await this.prisma.$transaction(async (tx) => {
+      // Two applies of the same file at once (two tabs, a retry): the second waits here, then sees the first.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sha256}))`;
+      const latest = await tx.auditLog.findFirst({
+        where: { action: 'points.imported', metadata: { path: ['sha256'], equals: sha256 } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      });
+      if (latest && latest.createdAt.getTime() > (before?.createdAt.getTime() ?? 0)) {
+        throw new ConflictException({ code: 'IMPORT_REPEATED', message: 'This exact file was just imported. Preview it again before importing it a second time.' });
+      }
       await tx.pointsEntry.createMany({ data: ready });
       await this.audit.log({ actorId: admin.id, action: 'points.imported', entityType: 'PointsEntry', metadata: { rows: ready.length, totalPoints: result.totalPoints, sha256, repeat: Boolean(before), userIds: [...new Set(ready.map((r) => r.userId))] } }, tx);
     });

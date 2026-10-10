@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { BADGE_CODES, courseWeekRange, TOP_AWARD_RANK } from '@academy/shared';
+import { BADGE_CODES, courseWeekRange, TOP_AWARD_RANK, type Ranked } from '@academy/shared';
+import type { Badge, UserBadge } from '@prisma/client';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
@@ -55,15 +56,30 @@ export class PointsJobs {
    */
   async launchedAt(now = new Date()): Promise<Date> {
     const row = await this.prisma.setting.findUnique({ where: { key: POINTS_LAUNCH_KEY } });
-    if (row && typeof row.value === 'string' && !Number.isNaN(Date.parse(row.value))) return new Date(row.value);
-    const first = await this.prisma.pointsEntry.findFirst({ orderBy: { createdAt: 'asc' }, select: { createdAt: true } });
+    if (row && typeof row.value === 'string' && !Number.isNaN(Date.parse(row.value)))
+      return new Date(row.value);
+    const first = await this.prisma.pointsEntry.findFirst({
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true },
+    });
     const at = first && first.createdAt < now ? first.createdAt : now;
-    await this.prisma.setting.upsert({ where: { key: POINTS_LAUNCH_KEY }, update: {}, create: { key: POINTS_LAUNCH_KEY, value: at.toISOString() } });
-    const stored = await this.prisma.setting.findUniqueOrThrow({ where: { key: POINTS_LAUNCH_KEY } });
+    await this.prisma.setting.upsert({
+      where: { key: POINTS_LAUNCH_KEY },
+      update: {},
+      create: { key: POINTS_LAUNCH_KEY, value: at.toISOString() },
+    });
+    const stored = await this.prisma.setting.findUniqueOrThrow({
+      where: { key: POINTS_LAUNCH_KEY },
+    });
     return new Date(stored.value as string);
   }
 
-  async run(now = new Date()): Promise<{ pointsResynced: number; weeklyBadges: number; courseBadges: number; speakerBadges: number }> {
+  async run(now = new Date()): Promise<{
+    pointsResynced: number;
+    weeklyBadges: number;
+    courseBadges: number;
+    speakerBadges: number;
+  }> {
     const pointsResynced = await this.points.sweepRecent(now);
     const launched = await this.launchedAt(now);
     const [topWeek, topCourse] = await Promise.all([
@@ -77,39 +93,112 @@ export class PointsJobs {
       select: { id: true, endDate: true },
     });
     for (const course of courses) {
-      const clock = await this.boards.clock(course.id, course.endDate, now);
-      if (!clock.firstSessionAt || !clock.currentWeek) continue;
-      // Weeks and course awards already given (any award settles that week or course).
-      const settled = await this.prisma.userBadge.findMany({
-        where: { courseId: course.id, badgeId: { in: [topWeek?.id, topCourse?.id].filter((x): x is string => Boolean(x)) } },
-        select: { badgeId: true, period: true },
-        distinct: ['badgeId', 'period'],
-      });
-      const settledWeeks = new Set(settled.filter((b) => b.badgeId === topWeek?.id).map((b) => b.period));
-      const lastWeek = clock.totalWeeks ?? clock.currentWeek;
-      if (topWeek?.active) {
-        for (let week = 1; week <= lastWeek; week++) {
-          const range = courseWeekRange(clock.firstSessionAt, week);
-          if (range.end > now) break;
-          if (range.start < launched || settledWeeks.has(week) || now.getTime() - range.end.getTime() > AWARD_WINDOW_DAYS * DAY_MS) continue;
-          const top = (await this.boards.ranked(course, 'week', week, now, clock)).filter((r) => r.rank <= TOP_AWARD_RANK);
-          for (const r of top) {
-            if (await this.points.awardBadge(topWeek, r.userId, { courseId: course.id, period: week, reason: `${r.points} points, rank ${r.rank}` })) weeklyBadges++;
-          }
-        }
-      }
-      const courseStart = courseWeekRange(clock.firstSessionAt, 1).start;
-      const courseSettled = settled.some((b) => b.badgeId === topCourse?.id);
-      if (topCourse?.active && clock.ended && clock.endsAt && !courseSettled && courseStart >= launched && now.getTime() - clock.endsAt.getTime() <= AWARD_WINDOW_DAYS * DAY_MS) {
-        const top = (await this.boards.ranked(course, 'course', null, now, clock)).filter((r) => r.rank <= TOP_AWARD_RANK);
-        for (const r of top) {
-          if (await this.points.awardBadge(topCourse, r.userId, { courseId: course.id, reason: `${r.points} points, rank ${r.rank}` })) courseBadges++;
-        }
+      try {
+        const r = await this.awardCourse(course, now, launched, topWeek, topCourse);
+        weeklyBadges += r.weekly;
+        courseBadges += r.course;
+      } catch (err) {
+        // One course failing must not stop the others; its awards are retried next hour.
+        this.logger.error(`Leaderboard awards failed for a course: ${(err as Error).name}`);
       }
     }
     const speakerBadges = await this.speakerBadges(now, launched);
-    if (weeklyBadges || courseBadges || speakerBadges) this.logger.log(`Awarded ${weeklyBadges} weekly, ${courseBadges} course and ${speakerBadges} speaker badge(s)`);
+    if (weeklyBadges || courseBadges || speakerBadges)
+      this.logger.log(
+        `Awarded ${weeklyBadges} weekly, ${courseBadges} course and ${speakerBadges} speaker badge(s)`,
+      );
     return { pointsResynced, weeklyBadges, courseBadges, speakerBadges };
+  }
+
+  private async awardCourse(
+    course: { id: string; endDate: Date | null },
+    now: Date,
+    launched: Date,
+    topWeek: Badge | null,
+    topCourse: Badge | null,
+  ): Promise<{ weekly: number; course: number }> {
+    let weeklyBadges = 0;
+    let courseBadges = 0;
+    const clock = await this.boards.clock(course.id, course.endDate, now);
+    if (!clock.firstSessionAt || !clock.currentWeek) return { weekly: 0, course: 0 };
+    // Long over (its last week closed more than the award window ago): nothing left to award.
+    if (clock.endsAt && now.getTime() - clock.endsAt.getTime() > (AWARD_WINDOW_DAYS + 7) * DAY_MS)
+      return { weekly: 0, course: 0 };
+    // Weeks and course awards already given (any award settles that week or course).
+    const settled = await this.prisma.userBadge.findMany({
+      where: {
+        courseId: course.id,
+        badgeId: { in: [topWeek?.id, topCourse?.id].filter((x): x is string => Boolean(x)) },
+      },
+      select: { badgeId: true, period: true },
+      distinct: ['badgeId', 'period'],
+    });
+    const settledWeeks = new Set(
+      settled.filter((b) => b.badgeId === topWeek?.id).map((b) => b.period),
+    );
+    const lastWeek = clock.totalWeeks ?? clock.currentWeek;
+    if (topWeek?.active) {
+      for (let week = 1; week <= lastWeek; week++) {
+        const range = courseWeekRange(clock.firstSessionAt, week);
+        if (range.end > now) break;
+        if (
+          range.start < launched ||
+          settledWeeks.has(week) ||
+          now.getTime() - range.end.getTime() > AWARD_WINDOW_DAYS * DAY_MS
+        )
+          continue;
+        const top = (await this.boards.ranked(course, 'week', week, now, clock)).filter(
+          (r) => r.rank <= TOP_AWARD_RANK,
+        );
+        weeklyBadges += await this.awardAll(topWeek, top, course.id, week);
+      }
+    }
+    const courseStart = courseWeekRange(clock.firstSessionAt, 1).start;
+    const courseSettled = settled.some((b) => b.badgeId === topCourse?.id);
+    if (
+      topCourse?.active &&
+      clock.ended &&
+      clock.endsAt &&
+      !courseSettled &&
+      courseStart >= launched &&
+      now.getTime() - clock.endsAt.getTime() <= AWARD_WINDOW_DAYS * DAY_MS
+    ) {
+      const top = (await this.boards.ranked(course, 'course', null, now, clock)).filter(
+        (r) => r.rank <= TOP_AWARD_RANK,
+      );
+      courseBadges += await this.awardAll(topCourse, top, course.id, null);
+    }
+    return { weekly: weeklyBadges, course: courseBadges };
+  }
+
+  /**
+   * Gives one week's (or the course's) top students their badge all together: if any award
+   * fails, the ones just created are removed again, so the week stays unsettled and is
+   * retried next hour instead of being left half-awarded. Notifications go out at the end.
+   */
+  private async awardAll(
+    badge: Badge,
+    top: Ranked[],
+    courseId: string,
+    week: number | null,
+  ): Promise<number> {
+    const created: UserBadge[] = [];
+    try {
+      for (const r of top) {
+        const award = await this.points.awardBadge(badge, r.userId, {
+          courseId,
+          period: week,
+          reason: `${r.points} points, rank ${r.rank}`,
+          notify: false,
+        });
+        if (award) created.push(award);
+      }
+    } catch (err) {
+      await this.prisma.userBadge.deleteMany({ where: { id: { in: created.map((c) => c.id) } } });
+      throw err;
+    }
+    for (const award of created) this.points.notify(badge, award);
+    return created.length;
   }
 
   /**
@@ -118,7 +207,9 @@ export class PointsJobs {
    * an account, and a revoked one isn't given back unless a new session ends.
    */
   private async speakerBadges(now: Date, launched: Date): Promise<number> {
-    const since = new Date(Math.max(now.getTime() - SPEAKER_WINDOW_DAYS * DAY_MS, launched.getTime()));
+    const since = new Date(
+      Math.max(now.getTime() - SPEAKER_WINDOW_DAYS * DAY_MS, launched.getTime()),
+    );
     const events = await this.prisma.liveEvent.findMany({
       where: {
         status: 'PUBLISHED',
@@ -132,7 +223,11 @@ export class PointsJobs {
     if (!speaker?.active) return 0;
     // An admin's revocation after a session ended wins over that session.
     const revoked = await this.prisma.auditLog.findMany({
-      where: { action: 'badge.revoked', entityId: { in: events.map((e) => e.speaker!.userId!) }, metadata: { path: ['code'], equals: BADGE_CODES.SPEAKER } },
+      where: {
+        action: 'badge.revoked',
+        entityId: { in: events.map((e) => e.speaker!.userId!) },
+        metadata: { path: ['code'], equals: BADGE_CODES.SPEAKER },
+      },
       select: { entityId: true, createdAt: true },
     });
     let awarded = 0;
@@ -143,9 +238,9 @@ export class PointsJobs {
       if (!userId || done.has(userId) || end > now.getTime() || end < since.getTime()) continue;
       if (revoked.some((r) => r.entityId === userId && r.createdAt.getTime() >= end)) continue;
       done.add(userId);
-      if (await this.points.awardBadge(speaker, userId, { reason: 'Live session delivered' })) awarded++;
+      if (await this.points.awardBadge(speaker, userId, { reason: 'Live session delivered' }))
+        awarded++;
     }
     return awarded;
   }
 }
-
