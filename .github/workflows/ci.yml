@@ -1,9 +1,16 @@
 name: CI
 
+# GitHub Actions minutes are limited (free plan, 2,000/month), so CI runs:
+#  - on pull requests that are ready for review (draft PRs run nothing: test locally,
+#    then mark the PR ready), skipping changes that only touch docs;
+#  - from release-staging.yml on the release tag (workflow_call below).
+# It no longer runs again on every merge to main: the release tag is the gate.
 on:
   pull_request:
-  push:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   # release-staging.yml runs CI on a tag whose commit has no passing CI run yet.
   workflow_call:
     inputs:
@@ -23,6 +30,8 @@ concurrency:
 
 jobs:
   check:
+    # Draft pull requests don't spend minutes; marking the PR ready runs CI.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
     services:
       postgres:
