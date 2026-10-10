@@ -1,6 +1,6 @@
 'use client';
 
-import { certificatePath, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
+import { certificatePath, describeRule, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CheckboxField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -36,7 +36,7 @@ const matches = (r: CertificateRosterRow, f: Filter) =>
 
 /** The course's certificate rule: minimum sessions, required assessments, optional wording. */
 function RuleForm({ courseId, rule, onSaved }: { courseId: string; rule: CertificateRule; onSaved: () => void }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const r = (k: string, v?: Record<string, string | number>) => t(`admin.certificates.rule.${k}`, v);
   const [min, setMin] = useState(rule.minSessionsPercent === null ? '' : String(rule.minSessionsPercent));
   const [requireAssessments, setRequire] = useState(rule.requireAssessments);
@@ -70,8 +70,11 @@ function RuleForm({ courseId, rule, onSaved }: { courseId: string; rule: Certifi
   }
 
   return (
-    <details className="rounded-card border border-line bg-card p-4 sm:p-5" open={rule.minSessionsPercent === null && !rule.textEn}>
-      <summary className="min-h-11 cursor-pointer content-center font-semibold">{r('title')}</summary>
+    <details className="rounded-card border border-line bg-card p-4 sm:p-5">
+      <summary className="min-h-11 cursor-pointer content-center">
+        <span className="font-semibold">{r('title')}</span>
+        <span className="mt-0.5 block text-sm text-muted">{describeRule(rule, locale)}</span>
+      </summary>
       <form onSubmit={save} noValidate className="mt-3 flex flex-col gap-4">
         <p className="text-sm text-muted">{r('hint')}</p>
         <TextField
@@ -395,8 +398,8 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
                   {r.email}
                 </p>
               </div>
-              {status(r)}
             </div>
+            <div className="flex">{status(r)}</div>
             <div className="flex flex-col gap-0.5 text-sm text-body">
               {signals(r)}
               <span>

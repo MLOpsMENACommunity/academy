@@ -32,7 +32,7 @@ export function MyCertificates() {
                   {t('certificates.issuedOn', { date: formatDate(c.issuedAt, locale) })}
                   {c.grade && ` · ${t('certificates.grade', { grade: c.grade })}`}
                   {' · '}
-                  <span dir="ltr">{c.serial}</span>
+                  <span dir="ltr" className="whitespace-nowrap">{c.serial}</span>
                 </p>
               </div>
               <Badge tone={c.status === 'VALID' ? 'success' : 'danger'}>{t(`certificates.status.${c.status}`)}</Badge>

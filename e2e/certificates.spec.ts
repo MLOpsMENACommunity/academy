@@ -100,9 +100,9 @@ test('admin issues a certificate; the student sees it; the public page verifies 
   await adminContext.request.post('/api/auth/login', { headers: JSON_HEADERS, data: { email: ADMIN.email, password: ADMIN.password } });
   await ap.goto(`/en/admin/courses/${courseId}?tab=certificates`);
   await expect(ap.getByRole('tab', { name: 'Certificates' })).toHaveAttribute('aria-selected', 'true');
-  await expect(ap.getByText(student.name).first()).toBeVisible();
+  await expect(ap.getByRole('table').getByText(student.name)).toBeVisible();
   await ap.getByRole('button', { name: 'Select all eligible' }).click();
-  await ap.getByLabel('Grade (optional)').fill('Distinction');
+  await ap.getByLabel(/^Grade/).fill('Distinction');
   await ap.getByRole('button', { name: 'Issue 1 certificate' }).click();
   await expect(ap.getByText('1 certificate issued.')).toBeVisible();
   const serial = (await ap.getByRole('link', { name: /^MMA-\d{4}-/ }).first().textContent())!.trim();

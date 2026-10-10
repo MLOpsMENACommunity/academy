@@ -21,7 +21,7 @@ export function CertificateBanner({ data }: { data: LearnCertificateDto | null }
       <p className="text-body">
         {t('certificates.banner.body', { course: pick(locale, c.courseTitleEn, c.courseTitleAr) })}{' '}
         <span className="text-sm text-muted">
-          {t('certificates.issuedOn', { date: formatDate(c.issuedAt, locale) })} · <span dir="ltr">{c.serial}</span>
+          {t('certificates.issuedOn', { date: formatDate(c.issuedAt, locale) })} · <span dir="ltr" className="whitespace-nowrap">{c.serial}</span>
         </span>
       </p>
       <CertificateActions cert={c} compact />
