@@ -171,7 +171,7 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
         {!preview && (
           <div className="mt-4 space-y-4">
             {source.kind === 'text' ? (
-              <TextAreaField label={v('emails')} hint={v('emailsHint')} value={text} onChange={setText} rows={6} maxLength={60_000} dir="ltr" />
+              <TextAreaField label={v('emails')} hint={v('emailsHint')} required value={text} onChange={setText} rows={6} maxLength={60_000} dir="ltr" />
             ) : (
               <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted-bg p-3 text-sm">
                 <span className="ltr-embed">{v('fileEntries', { count: source.entries.length, name: source.name })}</span>
@@ -191,6 +191,7 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
               <SelectField
                 label={v('language')}
                 hint={v('languageHint')}
+                required
                 value={inviteLocale}
                 onChange={(l) => setInviteLocale(l === 'ar' ? 'ar' : 'en')}
                 placeholder="—"

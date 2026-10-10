@@ -160,8 +160,9 @@ export class InvitesService {
           const res = await this.workflow.enrolDirectly(tx, locked, f.user.id, admin, HISTORY_REASON);
           const invite = await tx.courseInvite.upsert({
             where: { courseId_email: { courseId, email: row.email } },
-            create: { courseId, email: row.email, invitedById: admin.id, note: row.note, status: 'ENROLLED', enrolledUserId: f.user.id, enrolledAt: now },
-            update: { status: 'ENROLLED', enrolledUserId: f.user.id, enrolledAt: now, invitedById: admin.id, ...(row.note ? { note: row.note } : {}) },
+            // lastEmailedAt: the "You've been added" email goes out right after the commit.
+            create: { courseId, email: row.email, invitedById: admin.id, note: row.note, status: 'ENROLLED', enrolledUserId: f.user.id, enrolledAt: now, lastEmailedAt: input.sendEmail ? now : null },
+            update: { status: 'ENROLLED', enrolledUserId: f.user.id, enrolledAt: now, invitedById: admin.id, ...(input.sendEmail ? { lastEmailedAt: now } : {}), ...(row.note ? { note: row.note } : {}) },
             select: { id: true },
           });
           await this.audit.log(
