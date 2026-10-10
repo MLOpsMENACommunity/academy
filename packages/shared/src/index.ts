@@ -24,3 +24,4 @@ export * from './waitlist';
 export * from './speakers';
 export * from './assessments';
 export * from './points';
+export * from './certificates';

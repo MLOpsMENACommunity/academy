@@ -13,6 +13,7 @@ import { AuthGuard } from './common/auth.guard';
 import { ApiExceptionFilter } from './common/exception.filter';
 import { PublicCache, PublicCacheInterceptor } from './common/public-cache';
 import { CalendarModule } from './calendar/calendar.module';
+import { CertificatesModule } from './certificates/certificates.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { CoursesModule } from './courses/courses.module';
@@ -56,6 +57,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     LearnModule,
     AssessmentsModule,
     PointsModule,
+    CertificatesModule,
     EventsModule,
     SpeakerPortalModule,
     AdminModule,

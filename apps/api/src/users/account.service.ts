@@ -99,7 +99,12 @@ export class AccountService {
             },
           },
         },
-        enrollments: { include: { course: { select: { slug: true, titleEn: true } } } },
+        enrollments: {
+          include: {
+            course: { select: { slug: true, titleEn: true } },
+            certificate: { select: { serial: true, issuedAt: true, grade: true, revokedAt: true, revokeReason: true, nameOnCertificate: true, nameOnCertificateAr: true, courseTitleEn: true } },
+          },
+        },
         sessionProgress: true,
         sessionFeedback: true,
         reminderPreferences: true,
@@ -183,6 +188,22 @@ export class AccountService {
         payments: a.payments,
       })),
       enrollments: user.enrollments.map((e) => ({ course: e.course, enrolledAt: e.enrolledAt })),
+      // The PDF itself is downloadable from the dashboard (signed in) or the public link.
+      certificates: user.enrollments
+        .filter((e) => e.certificate)
+        .map(({ course, certificate: c }) => ({
+          course,
+          serial: c!.serial,
+          name: c!.nameOnCertificate,
+          nameAr: c!.nameOnCertificateAr,
+          courseTitle: c!.courseTitleEn,
+          issuedAt: c!.issuedAt,
+          grade: c!.grade,
+          status: c!.revokedAt ? 'revoked' : 'valid',
+          revokedAt: c!.revokedAt,
+          revokeReason: c!.revokeReason,
+          verify: this.email.url(user.locale, `/certificates/${c!.serial}`),
+        })),
       sessionProgress: user.sessionProgress,
       feedback: user.sessionFeedback,
       reminderPreferences: user.reminderPreferences,
@@ -235,12 +256,19 @@ export class AccountService {
   async anonymize(userId: string): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      include: { profile: true, applications: { include: { payments: true } }, submissions: { select: { fileKey: true } } },
+      include: {
+        profile: true,
+        applications: { include: { payments: true } },
+        submissions: { select: { fileKey: true } },
+        enrollments: { select: { certificate: { select: { pdfKey: true } } } },
+      },
     });
     const keys = [
       user.profile?.cvKey,
       ...user.applications.flatMap((a) => a.payments.map((p) => p.screenshotKey)),
       ...user.submissions.map((s) => s.fileKey),
+      // Certificate PDFs print the name.
+      ...user.enrollments.map((e) => e.certificate?.pdfKey),
     ].filter((k): k is string => Boolean(k));
     // If any file can't be deleted, stop: keys stay referenced and tomorrow's run retries.
     for (const key of keys) {
@@ -299,6 +327,9 @@ export class AccountService {
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
+      // Certificates stay on record (serial, course, dates: the public page says "no longer
+      // available"); the printed name and the PDF go.
+      this.prisma.certificate.updateMany({ where: { enrollment: { userId } }, data: { nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null, revokeReason: null } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {
