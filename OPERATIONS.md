@@ -203,7 +203,8 @@ him in the admin.
   and can't apply to courses (the API returns 403). A speaker who wants to study (or a
   student who wants to speak) asks the team: switch the account in Admin → Speakers →
   Applications → (application) → Account type, or Admin → Students → (student). A speaker
-  with upcoming bookings must cancel them first. Admin accounts can't be switched there.
+  with upcoming bookings must have them released first, and a student with course
+  applications or enrolments stays a student. Admin accounts can't be switched there.
 - **Review:** Admin → Speakers → Applications. Approving creates the public speaker profile
   from the application (same slug rule as the speaker editor) or links an existing one, and
   emails the speaker; rejecting needs a note, and the speaker can update and resend.
@@ -214,8 +215,10 @@ him in the admin.
   default 2). Each booking creates a DRAFT live session with the speaker linked, emails every
   address in `sessionTeamEmails` (Settings → Session team emails, bulk lane) and notifies
   admins in-app. Add the Meet link and Arabic title, then publish it as usual. Speakers can
-  cancel until `speakerCancelDays` before (default 3): the slot reopens, the session is
-  cancelled (registrants are emailed if it was published) and the team is emailed.
+  cancel until `speakerCancelDays` before (default 3), and only slots further ahead than that
+  are bookable. Cancelling reopens the slot; a still-DRAFT session is deleted (so a speaker's
+  text never appears publicly), a published one is cancelled and its registrants emailed; the
+  team is emailed. Admins can **Release** any booked slot in Availability (same effect, any time).
 - **Photos:** the application takes an optional https photo link, not an upload: speaker
   photos are public, and the private bucket only serves 5-minute signed links.
 

@@ -181,7 +181,8 @@ export class AccountService {
     await this.prisma.calendarFeed.deleteMany({ where: { userId } });
     // Off every waiting list: nobody should email a deleted account about new courses.
     await this.prisma.courseInterest.deleteMany({ where: { OR: [{ userId }, { email: user.email.toLowerCase() }] } });
-    // Upcoming speaker bookings: the slot opens again, the session is cancelled, the team is told.
+    // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
+    // cancelled), the team is told. Never fails the deletion (errors are logged).
     await this.speakerPortal.releaseBookings(user);
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
     await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
@@ -247,6 +248,10 @@ export class AccountService {
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),
       this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null } }),
+      // A profile the portal created that never spoke anywhere has no history to keep: delete it.
+      this.prisma.instructor.deleteMany({
+        where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} } },
+      }),
       this.prisma.instructor.updateMany({ where: { userId }, data: { userId: null } }),
       this.prisma.user.update({
         where: { id: userId },

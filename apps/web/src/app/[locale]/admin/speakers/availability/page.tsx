@@ -38,11 +38,13 @@ export default function AdminAvailability() {
   }, [t]);
   useEffect(load, [load]);
 
-  async function act(slot: AdminSlotDto, action: 'withdraw' | 'delete') {
+  async function act(slot: AdminSlotDto, action: 'withdraw' | 'delete' | 'release') {
     if (action === 'delete' && !window.confirm(t('admin.slots.deleteConfirm'))) return;
+    if (action === 'release' && !window.confirm(t('admin.slots.releaseConfirm'))) return;
     setError(null);
     try {
-      await api(action === 'delete' ? `/admin/speaking-slots/${slot.id}` : `/admin/speaking-slots/${slot.id}/cancel`, { method: action === 'delete' ? 'DELETE' : 'POST' });
+      const path = { delete: `/admin/speaking-slots/${slot.id}`, withdraw: `/admin/speaking-slots/${slot.id}/cancel`, release: `/admin/speaking-slots/${slot.id}/release` }[action];
+      await api(path, { method: action === 'delete' ? 'DELETE' : 'POST' });
       load();
     } catch (err) {
       setError(speakerError(err, t));
@@ -113,6 +115,11 @@ export default function AdminAvailability() {
                     {s.status === 'OPEN' && (
                       <Button variant="ghost" size="sm" onClick={() => act(s, 'withdraw')}>
                         {t('admin.slots.withdraw')}
+                      </Button>
+                    )}
+                    {s.status === 'BOOKED' && (
+                      <Button variant="ghost" size="sm" onClick={() => act(s, 'release')}>
+                        {t('admin.slots.release')}
                       </Button>
                     )}
                     {s.status !== 'BOOKED' && (

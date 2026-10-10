@@ -5,7 +5,7 @@ import { EmailService } from '../src/email/email.service';
 import type { EmailTemplate } from '../src/email/templates/catalog';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AccountService } from '../src/users/account.service';
-import { cookieHeader, createTestApp, createUser, uniqueEmail } from './helpers';
+import { cookieHeader, createCourse, createTestApp, createUser, uniqueEmail } from './helpers';
 
 const TEAM = ['team-a@example.test', 'team-b@example.test', 'team-c@example.test'];
 const DAY = 86_400_000;
@@ -263,11 +263,21 @@ describe('speaker portal (e2e)', () => {
       expect(portal.body.rules).toEqual({ maxOpenBookings: 2, cancelDays: 3 });
     });
 
-    it('lets the speaker cancel until N days before: the slot reopens, the draft is cancelled, the team is told', async () => {
-      const s = await approvedSpeaker('Canceller');
+    it('only offers slots outside the cancel window', async () => {
+      const s = await approvedSpeaker('Too soon');
       const soon = await slotAt(new Date(Date.now() + 2 * DAY));
+      const listed = await http().get('/api/speaker/slots').set('Cookie', s.cookie).expect(200);
+      expect(listed.body.map((x: { id: string }) => x.id)).not.toContain(soon.id);
+      const res = await http().post(`/api/speaker/slots/${soon.id}/booking`).set('Cookie', s.cookie).send(booking).expect(409);
+      expect(res.body.code).toBe('SLOT_TAKEN');
+      expect((await prisma.speakingSlot.findUniqueOrThrow({ where: { id: soon.id } })).status).toBe('OPEN');
+    });
+
+    it('lets the speaker cancel until N days before: the slot reopens, the draft goes (never public), the team is told', async () => {
+      const s = await approvedSpeaker('Canceller');
+      // Booked earlier, now inside the window (e.g. the team moved it).
+      const soon = await prisma.speakingSlot.create({ data: { startsAt: new Date(Date.now() + 2 * DAY), durationMin: 60, status: 'BOOKED', bookedById: s.id, title: 'Soon' } });
       const later = await slotAt(new Date(Date.now() + 10 * DAY));
-      await http().post(`/api/speaker/slots/${soon.id}/booking`).set('Cookie', s.cookie).send(booking).expect(201);
       const booked = await http().post(`/api/speaker/slots/${later.id}/booking`).set('Cookie', s.cookie).send(booking).expect(201);
       expect(booked.body.canCancel).toBe(true);
 
@@ -276,17 +286,37 @@ describe('speaker portal (e2e)', () => {
       const other = await approvedSpeaker('Not the booker');
       await http().delete(`/api/speaker/slots/${later.id}/booking`).set('Cookie', other.cookie).expect(404);
 
-      const eventId = (await prisma.speakingSlot.findUniqueOrThrow({ where: { id: later.id } })).eventId!;
+      const event = (await prisma.speakingSlot.findUniqueOrThrow({ where: { id: later.id }, include: { event: true } })).event!;
       sent = [];
       await http().delete(`/api/speaker/slots/${later.id}/booking`).set('Cookie', s.cookie).expect(204);
       expect(await prisma.speakingSlot.findUniqueOrThrow({ where: { id: later.id } })).toMatchObject({ status: 'OPEN', bookedById: null, eventId: null });
-      expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: eventId } })).status).toBe('CANCELLED');
+      // A draft never reaches the public pages: it is deleted, not cancelled.
+      expect(await prisma.liveEvent.findUnique({ where: { id: event.id } })).toBeNull();
+      await http().get(`/api/events/${event.slug}`).expect(404);
       await new Promise((r) => setTimeout(r, 50));
       const team = mails('speakerBookingTeam');
       expect(team.map((m) => m.to).sort()).toEqual([...TEAM].sort());
       expect(team.every((m) => m.template.name === 'speakerBookingTeam' && m.template.kind === 'cancelled')).toBe(true);
       // The open slot can be booked again.
       await http().post(`/api/speaker/slots/${later.id}/booking`).set('Cookie', other.cookie).send(booking).expect(201);
+    });
+
+    it('cancels a session the team already published, and lets admins release any booking', async () => {
+      const s = await approvedSpeaker('Published');
+      const slot = await slotAt(new Date(Date.now() + 12 * DAY));
+      await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(booking).expect(201);
+      const eventId = (await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id } })).eventId!;
+      await prisma.liveEvent.update({ where: { id: eventId }, data: { status: 'PUBLISHED', titleAr: 'جلسة', liveUrl: 'https://meet.google.com/x' } });
+      await http().delete(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).expect(204);
+      expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: eventId } })).status).toBe('CANCELLED');
+
+      // Inside the window the speaker can't cancel, but the team can release it.
+      const late = await prisma.speakingSlot.create({ data: { startsAt: new Date(Date.now() + DAY), durationMin: 60, status: 'BOOKED', bookedById: s.id, title: 'Late' } });
+      await http().delete(`/api/speaker/slots/${late.id}/booking`).set('Cookie', s.cookie).expect(409);
+      await http().post(`/api/admin/speaking-slots/${late.id}/release`).set('Cookie', s.cookie).expect(403);
+      await http().post(`/api/admin/speaking-slots/${late.id}/release`).set('Cookie', admin.cookie).expect(204);
+      expect((await prisma.speakingSlot.findUniqueOrThrow({ where: { id: late.id } })).status).toBe('OPEN');
+      await http().post(`/api/admin/speaking-slots/${late.id}/release`).set('Cookie', admin.cookie).expect(404);
     });
 
     it('shows the recording and the number registered after the session', async () => {
@@ -329,6 +359,13 @@ describe('speaker portal (e2e)', () => {
       expect((await prisma.user.findUniqueOrThrow({ where: { id: s.id } })).role).toBe('STUDENT');
       // The role is read from the database: the old session is now a student's.
       await http().get('/api/speaker').set('Cookie', s.cookie).expect(403);
+      // A student with course applications stays a student (their dashboard holds them).
+      const student = await createUser(app, prisma, { prefix: 'switch-stu' });
+      const course = await createCourse(prisma);
+      await prisma.application.create({ data: { userId: student.id, courseId: course.id, answers: {}, profileSnapshot: {} } });
+      const busy = await http().put(`/api/admin/users/${student.id}/role`).set('Cookie', admin.cookie).send({ role: 'SPEAKER' }).expect(409);
+      expect(busy.body.code).toBe('HAS_COURSES');
+      await http().put(`/api/admin/users/${s.id}/role`).set('Cookie', admin.cookie).send({ role: 'SPEAKER' }).expect(200);
       const other = await createUser(app, prisma, { role: 'ADMIN', prefix: 'switch-adm' });
       await http().put(`/api/admin/users/${other.id}/role`).set('Cookie', admin.cookie).send({ role: 'STUDENT' }).expect(403);
     });
@@ -348,12 +385,13 @@ describe('speaker portal (e2e)', () => {
       sent = [];
       await accounts.deleteAccount({ id: s.id, role: 'SPEAKER', amr: 'google', authTime: new Date() }, undefined);
       expect(await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id } })).toMatchObject({ status: 'OPEN', bookedById: null });
-      expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: eventId } })).status).toBe('CANCELLED');
+      expect(await prisma.liveEvent.findUnique({ where: { id: eventId } })).toBeNull();
       expect(mails('speakerBookingTeam').map((m) => m.to).sort()).toEqual([...TEAM].sort());
 
       await accounts.anonymize(s.id);
       expect(await prisma.speakerApplication.findUnique({ where: { userId: s.id } })).toBeNull();
-      expect((await prisma.instructor.findUniqueOrThrow({ where: { id: s.instructorId } })).userId).toBeNull();
+      // The profile the portal created, with no session anywhere, is gone with the account.
+      expect(await prisma.instructor.findUnique({ where: { id: s.instructorId } })).toBeNull();
     });
   });
 

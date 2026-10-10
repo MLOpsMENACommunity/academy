@@ -1112,7 +1112,9 @@
       },
       "openSession": "Open the session",
       "withdraw": "Withdraw",
-      "deleteConfirm": "Delete this slot?"
+      "deleteConfirm": "Delete this slot?",
+      "release": "Release",
+      "releaseConfirm": "Release this booking? The slot opens again, a draft session is deleted (a published one is cancelled and its registrants are emailed), and the session team is told."
     }
   },
   "learn": {
@@ -1376,12 +1378,13 @@
         "ALREADY_REVIEWED": "This application was already reviewed. Reload the page.",
         "NOT_A_SPEAKER_ACCOUNT": "This is a student account. Switch it to a speaker account first.",
         "INSTRUCTOR_UNAVAILABLE": "That speaker profile belongs to another account.",
-        "HAS_BOOKINGS": "This speaker has upcoming bookings. They need to be cancelled first.",
+        "HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Availability first.",
         "ADMIN_ROLE": "An admin account can't be switched here.",
         "SLOT_EXISTS": "There's already a slot at this time.",
         "SLOT_IN_PAST": "Choose a time in the future.",
         "SLOT_NOT_OPEN": "Only open slots can be changed.",
-        "TOO_MANY_SLOTS": "That's too many slots at once. Choose fewer days or months."
+        "TOO_MANY_SLOTS": "That's too many slots at once. Choose fewer days or months.",
+        "HAS_COURSES": "This student has course applications or enrolments, so the account stays a student account. They can sign up as a speaker with another email."
       },
       "cta": "Practitioner in the region? Give a free live session for the community.",
       "ctaButton": "Apply to speak"

@@ -36,6 +36,11 @@ import { SettingsService } from '../settings/settings.service';
 /** Open slots a speaker sees: from now until this far ahead. */
 const SLOT_HORIZON_DAYS = 180;
 
+/** The earliest start a speaker can book: at least the cancel window ahead (and never in the past). */
+function bookableFrom(now: Date, cancelDays: number): Date {
+  return new Date(now.getTime() + cancelDays * 86_400_000);
+}
+
 type SlotWithEvent = SpeakingSlot & {
   event: (Pick<LiveEvent, 'id' | 'slug' | 'status' | 'recordingUrl' | 'startsAt' | 'durationMin'> & { _count: { registrations: number } }) | null;
 };
@@ -203,8 +208,10 @@ export class SpeakerPortalService {
   /** Open slots from now on, soonest first. Only approved speakers see them. */
   async openSlots(userId: string, now = new Date()): Promise<SpeakingSlotDto[]> {
     await this.assertApproved(userId);
+    const { speakerCancelDays } = await this.settings.get();
     const rows = await this.prisma.speakingSlot.findMany({
-      where: { status: 'OPEN', startsAt: { gt: now, lt: new Date(now.getTime() + SLOT_HORIZON_DAYS * 86_400_000) } },
+      // Bookable only while it could still be cancelled: never a session the team can't prepare.
+      where: { status: 'OPEN', startsAt: { gt: bookableFrom(now, speakerCancelDays), lt: new Date(now.getTime() + SLOT_HORIZON_DAYS * 86_400_000) } },
       orderBy: { startsAt: 'asc' },
       take: 300,
     });
@@ -227,6 +234,24 @@ export class SpeakerPortalService {
    */
   async book(userId: string, slotId: string, input: SlotBookingInput, now = new Date()): Promise<SpeakerBookingDto> {
     const settings = await this.settings.get();
+    // Two bookings with the same title on the same day can race for one slug: try again.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.bookOnce(userId, slotId, input, settings, now);
+      } catch (err) {
+        if (attempt < 2 && err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') continue;
+        throw err;
+      }
+    }
+  }
+
+  private async bookOnce(
+    userId: string,
+    slotId: string,
+    input: SlotBookingInput,
+    settings: Awaited<ReturnType<SettingsService['get']>>,
+    now: Date,
+  ): Promise<SpeakerBookingDto> {
     const { slot, event, user } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
       const [account, app] = await Promise.all([
@@ -244,7 +269,7 @@ export class SpeakerPortalService {
         });
       }
       const claimed = await tx.speakingSlot.updateMany({
-        where: { id: slotId, status: 'OPEN', startsAt: { gt: now } },
+        where: { id: slotId, status: 'OPEN', startsAt: { gt: bookableFrom(now, settings.speakerCancelDays) } },
         data: { status: 'BOOKED', bookedById: userId, bookedAt: now, title: input.title, abstract: input.abstract },
       });
       if (claimed.count !== 1) {
@@ -316,60 +341,85 @@ export class SpeakerPortalService {
     }
   }
 
-  /** The speaker cancels until N days before: the slot opens again and the session is cancelled. */
-  async cancel(userId: string, slotId: string, now = new Date()): Promise<void> {
-    const settings = await this.settings.get();
-    const result = await this.prisma.$transaction(async (tx) => {
+  /**
+   * Frees a booked slot in one transaction: the slot is OPEN again, and its session goes
+   * with it. A DRAFT (never public) is deleted, so the speaker's text never reaches the
+   * public pages; a session the team already published is CANCELLED, so registrants hear.
+   */
+  private async release(
+    slotId: string,
+    actorId: string | null,
+    action: string,
+    check: (locked: { bookedById: string | null; startsAt: Date }, event: LiveEvent | null) => void,
+  ): Promise<{ slot: SpeakingSlot; event: LiveEvent | null; bookedById: string | null; cancelled: LiveEvent | null }> {
+    return this.prisma.$transaction(async (tx) => {
       const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; eventId: string | null }[]>`
         SELECT status::text AS status, "bookedById", "startsAt", "eventId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
-      if (!locked || locked.status !== 'BOOKED' || locked.bookedById !== userId) throw new NotFoundException('Booking not found');
+      if (!locked || locked.status !== 'BOOKED') throw new NotFoundException('Booking not found');
       const event = locked.eventId ? await tx.liveEvent.findUnique({ where: { id: locked.eventId } }) : null;
-      const startsAt = event?.startsAt ?? locked.startsAt;
-      if (!canCancelBooking(startsAt, settings.speakerCancelDays, now)) {
+      check(locked, event);
+      const slot = await tx.speakingSlot.update({
+        where: { id: slotId },
+        data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, eventId: null },
+      });
+      let cancelled: LiveEvent | null = null;
+      if (event?.status === 'DRAFT') {
+        await tx.liveEvent.delete({ where: { id: event.id } });
+        await this.audit.log({ actorId, action: 'event.deleted', entityType: 'LiveEvent', entityId: event.id, metadata: { slug: event.slug, status: 'DRAFT', source: 'speaker-booking' } }, tx);
+      } else if (event?.status === 'PUBLISHED') {
+        cancelled = await tx.liveEvent.update({ where: { id: event.id }, data: { status: 'CANCELLED' } });
+        await this.audit.log({ actorId, action: 'event.updated', entityType: 'LiveEvent', entityId: event.id, metadata: { slug: event.slug, status: { from: 'PUBLISHED', to: 'CANCELLED' } } }, tx);
+      }
+      await this.audit.log({ actorId, action, entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: event?.id ?? null, bookedById: locked.bookedById } }, tx);
+      return { slot, event, bookedById: locked.bookedById, cancelled };
+    });
+  }
+
+  /** After a release: registrants of a published session, the session team and admins hear about it. */
+  private async afterRelease(r: { slot: SpeakingSlot; event: LiveEvent | null; bookedById: string | null; cancelled: LiveEvent | null; title?: string | null }, speakerName?: string): Promise<void> {
+    if (r.cancelled) await this.events.notifyCancelled(r.cancelled);
+    const settings = await this.settings.get();
+    const user = r.bookedById ? await this.prisma.user.findUnique({ where: { id: r.bookedById }, select: { email: true, speakerApplication: { select: { fullName: true } } } }) : null;
+    const name = speakerName ?? user?.speakerApplication?.fullName ?? user?.email ?? 'Speaker';
+    const title = r.event?.titleEn ?? r.title ?? 'Speaker session';
+    await this.tellTeam(settings.sessionTeamEmails, {
+      kind: 'cancelled',
+      speakerName: name,
+      speakerEmail: user?.email ?? '',
+      title,
+      abstract: '',
+      when: formatWhen(r.slot.startsAt, 'en'),
+      url: this.email.url('en', '/admin/speakers/availability'),
+    });
+    await this.notifications.notifyAdmins({
+      type: 'speaker_booking_cancelled',
+      titleEn: 'A speaker booking was cancelled',
+      titleAr: 'أُلغي حجز متحدث',
+      bodyEn: `${name}: ${title}`,
+      bodyAr: `${name}: ${title}`,
+      link: '/admin/speakers/availability',
+    });
+  }
+
+  /** The speaker cancels until N days before: the slot opens again and the session goes. */
+  async cancel(userId: string, slotId: string, now = new Date()): Promise<void> {
+    const settings = await this.settings.get();
+    const r = await this.release(slotId, userId, 'speaking_slot.cancelled_by_speaker', (locked, event) => {
+      if (locked.bookedById !== userId) throw new NotFoundException('Booking not found');
+      if (!canCancelBooking(event?.startsAt ?? locked.startsAt, settings.speakerCancelDays, now)) {
         throw new ConflictException({
           code: 'CANCEL_WINDOW_CLOSED',
           message: `Bookings can be cancelled until ${settings.speakerCancelDays} days before the session. Contact the team instead.`,
         });
       }
-      const slot = await tx.speakingSlot.update({
-        where: { id: slotId },
-        data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, eventId: null },
-      });
-      const cancelled = event && event.status !== 'CANCELLED' ? await tx.liveEvent.update({ where: { id: event.id }, data: { status: 'CANCELLED' } }) : null;
-      await this.audit.log({ actorId: userId, action: 'speaking_slot.cancelled_by_speaker', entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: event?.id ?? null } }, tx);
-      if (cancelled) {
-        await this.audit.log(
-          { actorId: userId, action: 'event.updated', entityType: 'LiveEvent', entityId: cancelled.id, metadata: { slug: cancelled.slug, status: { from: event!.status, to: 'CANCELLED' } } },
-          tx,
-        );
-      }
-      return { slot, event, cancelled };
     });
+    await this.afterRelease(r);
+  }
 
-    // A session the team already published: its registrants are told, as for any cancellation.
-    if (result.event?.status === 'PUBLISHED' && result.cancelled) await this.events.notifyCancelled(result.cancelled);
-    const [user, app] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } }),
-      this.prisma.speakerApplication.findUnique({ where: { userId }, select: { fullName: true } }),
-    ]);
-    const title = result.event?.titleEn ?? 'Speaker session';
-    await this.tellTeam(settings.sessionTeamEmails, {
-      kind: 'cancelled',
-      speakerName: app?.fullName ?? user.email,
-      speakerEmail: user.email,
-      title,
-      abstract: '',
-      when: formatWhen(result.slot.startsAt, 'en'),
-      url: this.email.url('en', '/admin/speakers/availability'),
-    });
-    await this.notifications.notifyAdmins({
-      type: 'speaker_booking_cancelled',
-      titleEn: 'A speaker cancelled a booking',
-      titleAr: 'ألغى متحدث حجزه',
-      bodyEn: `${app?.fullName ?? user.email}: ${title}`,
-      bodyAr: `${app?.fullName ?? user.email}: ${title}`,
-      link: '/admin/speakers/availability',
-    });
+  /** The team frees a booked slot at any time (speaker unavailable, session moved or deleted). */
+  async adminRelease(slotId: string, actorId: string): Promise<void> {
+    const r = await this.release(slotId, actorId, 'speaking_slot.released_by_admin', () => undefined);
+    await this.afterRelease(r);
   }
 
   /** A calendar file for the speaker's own booking (signed in; the session may still be a draft). */
@@ -524,9 +574,19 @@ export class SpeakerPortalService {
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
     if (user.role === 'ADMIN') throw new ForbiddenException({ code: 'ADMIN_ROLE', message: "An admin account's role can't be changed here" });
     if (user.role === role) return { id: userId, role };
+    if (role === 'SPEAKER') {
+      // Their course applications and enrolments live on the student dashboard, which speakers don't see.
+      const [applications, enrollments] = await Promise.all([
+        this.prisma.application.count({ where: { userId, status: { not: 'REJECTED' } } }),
+        this.prisma.enrollment.count({ where: { userId } }),
+      ]);
+      if (applications || enrollments) {
+        throw new ConflictException({ code: 'HAS_COURSES', message: 'This student has course applications or enrolments. Keep them a student, or ask them to sign up as a speaker with another email.' });
+      }
+    }
     if (role === 'STUDENT') {
       const upcoming = await this.prisma.speakingSlot.count({ where: { bookedById: userId, status: 'BOOKED', startsAt: { gt: new Date() } } });
-      if (upcoming) throw new ConflictException({ code: 'HAS_BOOKINGS', message: 'This speaker has upcoming bookings. Cancel them first.' });
+      if (upcoming) throw new ConflictException({ code: 'HAS_BOOKINGS', message: 'This speaker has upcoming bookings. Release them in Availability first.' });
     }
     await this.prisma.user.update({ where: { id: userId }, data: { role } });
     await this.audit.log({ actorId, action: 'user.role_changed', entityType: 'User', entityId: userId, metadata: { from: user.role, to: role } });
@@ -613,26 +673,19 @@ export class SpeakerPortalService {
    * cancelled) and the team is told. Past bookings stay with the session history.
    */
   async releaseBookings(user: Pick<User, 'id' | 'email'>, now = new Date()): Promise<number> {
-    const slots = await this.prisma.speakingSlot.findMany({ where: { bookedById: user.id, status: 'BOOKED', startsAt: { gt: now } }, include: { event: true } });
-    if (!slots.length) return 0;
-    const settings = await this.settings.get();
+    const slots = await this.prisma.speakingSlot.findMany({ where: { bookedById: user.id, status: 'BOOKED', startsAt: { gt: now } }, select: { id: true, title: true } });
+    let released = 0;
     for (const s of slots) {
-      await this.prisma.$transaction([
-        this.prisma.speakingSlot.update({ where: { id: s.id }, data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, eventId: null } }),
-        ...(s.event && s.event.status !== 'CANCELLED' ? [this.prisma.liveEvent.update({ where: { id: s.event.id }, data: { status: 'CANCELLED' } })] : []),
-      ]);
-      if (s.event?.status === 'PUBLISHED') await this.events.notifyCancelled({ ...s.event, status: 'CANCELLED' });
-      await this.tellTeam(settings.sessionTeamEmails, {
-        kind: 'cancelled',
-        speakerName: '(deleted account)',
-        speakerEmail: user.email,
-        title: s.title ?? s.event?.titleEn ?? 'Speaker session',
-        abstract: '',
-        when: formatWhen(s.startsAt, 'en'),
-        url: this.email.url('en', '/admin/speakers/availability'),
-      });
+      // One booking failing must not stop the account deletion or the other releases.
+      try {
+        const r = await this.release(s.id, user.id, 'speaking_slot.released_account_deleted', () => undefined);
+        await this.afterRelease({ ...r, title: s.title }, '(deleted account)');
+        released++;
+      } catch (err) {
+        this.logger.error(`Could not release a speaker booking of a deleted account: ${(err as Error).message}`);
+      }
     }
-    this.logger.log(`Released ${slots.length} speaker booking(s) of a deleted account`);
-    return slots.length;
+    if (released) this.logger.log(`Released ${released} speaker booking(s) of a deleted account`);
+    return released;
   }
 }

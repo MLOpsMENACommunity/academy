@@ -48,9 +48,10 @@ export const PUBLIC_CACHE_ROUTES: ReadonlyMap<string, readonly string[]> = new M
 
 /**
  * Writes (besides admin ones) that change public data: registering for a live session changes
- * its seat count, and a speaker cancelling a booking can cancel a published session.
+ * its seat count, and a speaker cancelling a booking (or deleting their account, which
+ * releases their bookings) can cancel a published session.
  */
-const PUBLIC_DATA_WRITES = /^\/api\/(events\/[^/]+\/registration|speaker\/slots\/[^/]+\/booking)$/;
+const PUBLIC_DATA_WRITES = /^\/api\/(events\/[^/]+\/registration|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
 
 /** Cache key: the path plus only the allowed query parameters, sorted. */
 export function cacheKey(originalUrl: string, allowed: readonly string[]): string {

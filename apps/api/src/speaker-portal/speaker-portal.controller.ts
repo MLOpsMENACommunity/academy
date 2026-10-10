@@ -119,6 +119,13 @@ export class AdminSpeakerPortalController {
     return this.portal.generate(body, user.id);
   }
 
+  /** Frees a booked slot (the draft session is deleted; a published one is cancelled). */
+  @Post('speaking-slots/:id/release')
+  @HttpCode(204)
+  async release(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<void> {
+    await this.portal.adminRelease(id, user.id);
+  }
+
   @Post('speaking-slots/:id/cancel')
   @HttpCode(204)
   async cancelSlot(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<void> {
