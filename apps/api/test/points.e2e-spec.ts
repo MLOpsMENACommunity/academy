@@ -1,7 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { courseWeekRange } from '@academy/shared';
 import request from 'supertest';
-import { PointsJobs } from '../src/points/points.jobs';
+import { POINTS_LAUNCH_KEY, PointsJobs } from '../src/points/points.jobs';
 import { PointsService } from '../src/points/points.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AccountService } from '../src/users/account.service';
@@ -51,7 +51,12 @@ describe('points, badges and leaderboards (e2e)', () => {
 
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
+    // Points "launched" long ago, so the courses these tests backdate are fully covered.
+    await setLaunch(new Date('2000-01-01T00:00:00Z'));
   });
+
+  const setLaunch = (at: Date) =>
+    prisma.setting.upsert({ where: { key: POINTS_LAUNCH_KEY }, update: { value: at.toISOString() }, create: { key: POINTS_LAUNCH_KEY, value: at.toISOString() } });
   afterAll(async () => {
     await app.close();
   });
@@ -127,6 +132,11 @@ describe('points, badges and leaderboards (e2e)', () => {
     expect(await sum(s!.id, course.id)).toBe(0);
     await http().put(`/api/admin/assessments/${q.id}`).set('Cookie', admin.cookie).send({ ...full, status: 'PUBLISHED' }).expect(200);
     expect(await sum(s!.id, course.id)).toBe(10);
+    // Switching to "last attempt counts" re-syncs: the last attempt scored 10 too; make it a 0 first.
+    await takeQuiz(course.slug, q.id, s!.cookie, 0);
+    expect(await sum(s!.id, course.id)).toBe(10); // BEST: still 10
+    await http().put(`/api/admin/assessments/${q.id}`).set('Cookie', admin.cookie).send({ ...full, status: 'PUBLISHED', scoring: 'LAST' }).expect(200);
+    expect(await sum(s!.id, course.id)).toBe(0);
   });
 
   it('follows regrades with delta entries, up and down', async () => {
@@ -212,6 +222,18 @@ describe('points, badges and leaderboards (e2e)', () => {
     expect(await sum(a!.id, course.id)).toBe(10);
     expect(await sum(b!.id)).toBe(5);
     expect((await prisma.pointsEntry.findFirst({ where: { userId: b!.id } }))!).toMatchObject({ courseId: null, reason: 'MANUAL_COMMUNITY', note: 'Active on WhatsApp' });
+    // The same file again would double the points: refused unless confirmed.
+    const again = (await http().post('/api/admin/points/import').set('Cookie', admin.cookie).send({ csv: fixed, dryRun: true }).expect(200)).body;
+    expect(again.importedBefore).toEqual(expect.any(String));
+    expect((await http().post('/api/admin/points/import').set('Cookie', admin.cookie).send({ csv: fixed, dryRun: false }).expect(409)).body.code).toBe('IMPORT_REPEATED');
+    expect(await sum(a!.id)).toBe(10);
+    await http().post('/api/admin/points/import').set('Cookie', admin.cookie).send({ csv: fixed, dryRun: false, allowRepeat: true }).expect(200);
+    expect(await sum(a!.id)).toBe(20);
+    // Two applies of a new file at the same moment: only one goes through.
+    const once = `email,points,note\n${a!.email},1,Race ${Date.now()}\n`;
+    const codes = (await Promise.all([0, 1].map(() => http().post('/api/admin/points/import').set('Cookie', admin.cookie).send({ csv: once, dryRun: false })))).map((r) => r.status).sort();
+    expect(codes).toEqual([200, 409]);
+    expect(await sum(a!.id)).toBe(21);
     await http().post('/api/admin/points/import').set('Cookie', a!.cookie).send({ csv: fixed, dryRun: true }).expect(403);
   });
 
@@ -313,6 +335,23 @@ describe('points, badges and leaderboards (e2e)', () => {
     const board = (await http().get(`/api/learn/${course.slug}/leaderboard?scope=course`).set('Cookie', students[3]!.cookie).expect(200)).body;
     expect(board).toMatchObject({ courseEnded: true, weeks: { current: null } });
     expect(board.rows[0].badges.map((b: { code: string }) => b.code).sort()).toEqual(['top-course', 'top-week']);
+    // A settled week isn't re-ranked: removing a winner doesn't hand the badge to the next student.
+    await prisma.userBadge.deleteMany({ where: { userId: students[0]!.id, courseId: course.id } });
+    await prisma.pointsEntry.deleteMany({ where: { userId: students[0]!.id } });
+    await jobs.run();
+    expect(await prisma.userBadge.count({ where: { userId: students[3]!.id } })).toBe(0);
+  });
+
+  it('never ranks weeks or courses that started before points launched', async () => {
+    const { course, first, students } = await setup({ startedDaysAgo: 15, students: 2, endDate: new Date(Date.now() - 2 * DAY) });
+    await prisma.pointsEntry.create({ data: { userId: students[0]!.id, courseId: course.id, points: 5, reason: 'SESSION_COMPLETED', createdAt: new Date(courseWeekRange(first, 1).start.getTime() + DAY) } });
+    await setLaunch(new Date(Date.now() - 3 * DAY)); // after the course started
+    try {
+      await app.get(PointsJobs).run();
+      expect(await prisma.userBadge.count({ where: { courseId: course.id } })).toBe(0);
+    } finally {
+      await setLaunch(new Date('2000-01-01T00:00:00Z'));
+    }
   });
 
   it('gives a speaker account "Speaker" once their published session has ended', async () => {
@@ -329,6 +368,12 @@ describe('points, badges and leaderboards (e2e)', () => {
     await jobs.run();
     await jobs.run();
     expect(await prisma.userBadge.count({ where: { userId: speaker.id, badge: { code: 'speaker' }, scopeKey: 'global' } })).toBe(1);
+    // Revoked by an admin: not given back for the same session.
+    const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin' });
+    const award = await prisma.userBadge.findFirstOrThrow({ where: { userId: speaker.id } });
+    await http().delete(`/api/admin/badge-awards/${award.id}`).set('Cookie', admin.cookie).expect(204);
+    await jobs.run();
+    expect(await prisma.userBadge.count({ where: { userId: speaker.id } })).toBe(0);
   });
 
   it('gives the certificate bonus and "Certified" once (the hook for certificates)', async () => {
@@ -349,12 +394,19 @@ describe('points, badges and leaderboards (e2e)', () => {
     const [s] = students;
     await http().post(`/api/admin/students/${s!.id}/points`).set('Cookie', admin.cookie).send({ points: 7, reason: 'MANUAL_OTHER', note: 'Demo day' }).expect(201);
     await app.get(PointsService).awardBadge('top-performer', s!.id, { courseId: course.id });
+    // Graded work too (anonymisation keeps grades and touches the submission).
+    const lab = (await http().post(`/api/admin/courses/${course.id}/assessments`).set('Cookie', admin.cookie).send({ type: 'LAB', status: 'PUBLISHED', titleEn: 'Lab', titleAr: 'مختبر', submissionKind: 'LINK', maxPoints: 10 }).expect(201)).body;
+    const sub = (await http().post(`/api/learn/${course.slug}/assessments/${lab.id}/submission`).set('Cookie', s!.cookie).send({ url: 'https://example.com/w' }).expect(200)).body;
+    await http().put(`/api/admin/submissions/${sub.id}/grade`).set('Cookie', admin.cookie).send({ score: 3 }).expect(200);
     await http().put(`/api/learn/${course.slug}/leaderboard/opt-in`).set('Cookie', s!.cookie).send({ optedIn: true }).expect(200);
     const account = app.get(AccountService);
     const data = await account.export(s!.id);
-    expect(data).toMatchObject({ points: { total: 7 }, badges: [{ badge: { code: 'top-performer' } }], leaderboards: [{ shownOnLeaderboard: true }] });
+    expect(data).toMatchObject({ points: { total: 10 }, badges: [{ badge: { code: 'top-performer' } }], leaderboards: [{ shownOnLeaderboard: true }] });
     await prisma.user.update({ where: { id: s!.id }, data: { deletedAt: new Date() } });
     await account.anonymize(s!.id);
+    // The hourly sweep and the hooks never bring them back.
+    await app.get(PointsJobs).run();
+    await app.get(PointsService).syncSession(s!.id, (await prisma.courseSession.findFirst({ where: { courseId: course.id } }))!.id, true);
     expect(await prisma.pointsEntry.count({ where: { userId: s!.id } })).toBe(0);
     expect(await prisma.userBadge.count({ where: { userId: s!.id } })).toBe(0);
     expect(await prisma.leaderboardOptIn.count({ where: { userId: s!.id } })).toBe(0);

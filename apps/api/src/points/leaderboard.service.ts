@@ -78,8 +78,8 @@ export class LeaderboardService {
   }
 
   /** Top students of a course week or the whole course, for awards (opt-in doesn't matter: badges are private). */
-  async ranked(course: Pick<Course, 'id' | 'endDate'>, scope: 'week' | 'course', week: number | null, now = new Date()): Promise<Ranked[]> {
-    const clock = await this.clock(course.id, course.endDate, now);
+  async ranked(course: Pick<Course, 'id' | 'endDate'>, scope: 'week' | 'course', week: number | null, now = new Date(), known?: CourseClock): Promise<Ranked[]> {
+    const clock = known ?? (await this.clock(course.id, course.endDate, now));
     if (scope === 'week') {
       if (!clock.firstSessionAt || !week) return [];
       return rankStandings(await this.standings(course.id, courseWeekRange(clock.firstSessionAt, week)));

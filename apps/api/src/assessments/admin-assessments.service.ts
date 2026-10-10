@@ -168,8 +168,9 @@ export class AdminAssessmentsService {
         tx,
       );
     });
-    // Publishing counts its scores as points; unpublishing takes them back.
-    if (current.status !== input.status) {
+    // Publishing counts its scores as points, unpublishing takes them back, and a new
+    // scoring rule (best or last attempt) changes which score counts.
+    if (current.status !== input.status || current.scoring !== input.scoring) {
       await this.points.syncAssessmentForAll(id).catch((err: unknown) => this.logger.error(`Points sync failed: ${(err as Error).name}`));
     }
     return this.get(id);

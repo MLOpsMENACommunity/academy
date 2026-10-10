@@ -1334,7 +1334,9 @@
         "points": "Points",
         "sessionCompletedPoints": "Points for each completed session",
         "certificatePoints": "Bonus points for a certificate"
-      }
+      },
+      "importedBefore": "This exact file was already imported on {date}. Importing it again adds the points a second time.",
+      "applyAgain": "Import again anyway ({count} rows, {points} points)"
     },
     "certificates": {
       "tab": "Certificates",

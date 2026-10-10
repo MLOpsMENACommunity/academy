@@ -28,19 +28,25 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
     return q.toString();
   };
   useEffect(() => {
+    let current = true;
+    setError(null);
     api<AdminLeaderboardDto>(`/admin/courses/${courseId}/leaderboard?${query()}`)
-      .then(setData)
-      .catch((e: unknown) => setError(errorMessage(e, t)));
+      .then((d) => current && setData(d))
+      .catch((e: unknown) => current && setError(errorMessage(e, t)));
+    return () => {
+      current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, scope, week, t]);
 
   const a = (k: string, v?: Record<string, string | number>) => t(`admin.points.${k}`, v);
-  if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <p className="text-muted">{t('admin.common.loading')}</p>;
+  // Before anything loaded, the error is all there is; afterwards it shows above the controls.
+  if (!data) return error ? <Alert tone="danger">{error}</Alert> : <p className="text-muted">{t('admin.common.loading')}</p>;
   const weekLabel = (n: number) => t('leaderboard.weekN', { n });
 
   return (
     <div className="flex flex-col gap-4">
+      {error && <Alert tone="danger">{error}</Alert>}
       <p className="max-w-3xl text-sm text-muted">{a('boardHint')}</p>
       <div className="flex flex-wrap items-center gap-3">
         <div role="group" aria-label={t('leaderboard.view')} className="inline-flex rounded-lg border border-line-button p-0.5">

@@ -284,6 +284,8 @@ export type ManualPointsInput = z.infer<typeof manualPointsSchema>;
 export const pointsImportSchema = z.object({
   csv: z.string().max(500_000),
   dryRun: z.boolean().default(true),
+  /** Apply a file that was already imported (same content), on purpose. */
+  allowRepeat: z.boolean().default(false),
 });
 export type PointsImportInput = z.infer<typeof pointsImportSchema>;
 
@@ -434,4 +436,6 @@ export interface PointsImportResultDto {
   errors: number;
   totalPoints: number;
   applied: number;
+  /** When this exact file was imported before, if it was. */
+  importedBefore: string | null;
 }

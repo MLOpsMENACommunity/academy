@@ -15,6 +15,7 @@ import {
   type PointsReason,
   type UserBadgeDto,
 } from '@academy/shared';
+import { createHash } from 'node:crypto';
 import { Prisma, type Badge, type PointsEntry, type UserBadge } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
@@ -69,7 +70,7 @@ export class PointsService {
   /** Appends whatever makes this source's entries add up to `target`. Returns the delta (0 = already right). */
   private async syncSource(
     s: { userId: string; courseId: string | null; sourceType: string; sourceId: string; reason: PointsReason },
-    target: number | ((current: number) => number),
+    target: number | ((current: number) => number | Promise<number>),
     now = new Date(),
   ): Promise<number> {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -78,7 +79,8 @@ export class PointsService {
         select: { points: true, sourceSeq: true },
       });
       const current = entries.reduce((n, e) => n + e.points, 0);
-      const delta = ledgerDelta(entries, typeof target === 'function' ? target(current) : target);
+      // The target is worked out again on every attempt, so a retry never writes a stale one.
+      const delta = ledgerDelta(entries, typeof target === 'function' ? await target(current) : target);
       if (!delta) return 0;
       try {
         await this.prisma.pointsEntry.create({
@@ -93,6 +95,12 @@ export class PointsService {
     return 0;
   }
 
+  /** Deleted (or anonymised) accounts never gain points or badges again. */
+  private async active(userId: string): Promise<boolean> {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } });
+    return Boolean(u && !u.deletedAt);
+  }
+
   /**
    * An assessment's points for one student = its counted score (best or last attempt, per the
    * assessment's rule), as whole points; 0 while unpublished. A regrade or a better attempt
@@ -103,16 +111,17 @@ export class PointsService {
       where: { id: assessmentId },
       select: { id: true, courseId: true, type: true, status: true, scoring: true, maxPoints: true },
     });
-    if (!a) return 0;
-    const subs = await this.prisma.submission.findMany({
-      where: { assessmentId, userId, submittedAt: { not: null } },
-      select: { attempt: true, submittedAt: true, score: true, maxScore: true },
-    });
-    const counted = countedAttempt(subs, a.scoring);
-    const target = a.status === 'PUBLISHED' ? assessmentPoints(counted?.score) : 0;
+    if (!a || !(await this.active(userId))) return 0;
+    let subs: { attempt: number; submittedAt: Date | null; score: number | null; maxScore: number }[] = [];
     const delta = await this.syncSource(
       { userId, courseId: a.courseId, sourceType: POINTS_SOURCES.ASSESSMENT, sourceId: a.id, reason: 'ASSESSMENT' },
-      target,
+      async () => {
+        subs = await this.prisma.submission.findMany({
+          where: { assessmentId, userId, submittedAt: { not: null } },
+          select: { attempt: true, submittedAt: true, score: true, maxScore: true },
+        });
+        return a.status === 'PUBLISHED' ? assessmentPoints(countedAttempt(subs, a.scoring)?.score) : 0;
+      },
       now,
     );
     if (a.type === 'QUIZ' && a.status === 'PUBLISHED' && subs.some((s) => s.score !== null && s.maxScore > 0 && s.score >= s.maxScore)) {
@@ -143,7 +152,7 @@ export class PointsService {
   async syncSession(userId: string, sessionId: string, completed: boolean): Promise<void> {
     try {
       const session = await this.prisma.courseSession.findUnique({ where: { id: sessionId }, select: { courseId: true } });
-      if (!session) return;
+      if (!session || !(await this.active(userId))) return;
       const { sessionCompletedPoints } = await this.settings.get();
       await this.syncSource(
         { userId, courseId: session.courseId, sourceType: POINTS_SOURCES.SESSION, sourceId: sessionId, reason: 'SESSION_COMPLETED' },
@@ -170,6 +179,7 @@ export class PointsService {
    * and the "Certified" badge. Idempotent, so calling it twice is harmless.
    */
   async onCertificateIssued(userId: string, courseId: string, certificateId: string): Promise<void> {
+    if (!(await this.active(userId))) return;
     const { certificatePoints } = await this.settings.get();
     await this.syncSource(
       { userId, courseId, sourceType: POINTS_SOURCES.CERTIFICATE, sourceId: certificateId, reason: 'CERTIFICATE' },
@@ -187,7 +197,8 @@ export class PointsService {
   /** Hourly safety net: re-syncs work graded or changed recently (a missed hook, a crash). */
   async sweepRecent(now = new Date(), hours = 26): Promise<number> {
     const recent = await this.prisma.submission.findMany({
-      where: { submittedAt: { not: null }, updatedAt: { gte: new Date(now.getTime() - hours * 3_600_000) } },
+      // Deleted accounts are skipped: anonymisation touches their submissions but must not bring points back.
+      where: { submittedAt: { not: null }, updatedAt: { gte: new Date(now.getTime() - hours * 3_600_000) }, user: { deletedAt: null } },
       distinct: ['assessmentId', 'userId'],
       select: { assessmentId: true, userId: true },
       take: 5000,
@@ -206,10 +217,10 @@ export class PointsService {
   async awardBadge(
     codeOrBadge: string | Badge,
     userId: string,
-    opts: { courseId?: string | null; period?: number | null; awardedById?: string | null; reason?: string | null; now?: Date } = {},
+    opts: { courseId?: string | null; period?: number | null; awardedById?: string | null; reason?: string | null; now?: Date; notify?: boolean } = {},
   ): Promise<UserBadge | null> {
     const badge = typeof codeOrBadge === 'string' ? await this.prisma.badge.findUnique({ where: { code: codeOrBadge } }) : codeOrBadge;
-    if (!badge?.active) return null;
+    if (!badge?.active || !(await this.active(userId))) return null;
     const courseId = opts.courseId ?? null;
     let award: UserBadge;
     try {
@@ -229,8 +240,13 @@ export class PointsService {
       if (isUniqueViolation(err)) return null;
       throw err;
     }
-    void this.tellBadge(badge, award).catch((err: unknown) => this.logger.error(`Badge notification failed: ${(err as Error).name}`));
+    if (opts.notify !== false) this.notify(badge, award);
     return award;
+  }
+
+  /** In-app + email for an award (fire and forget). */
+  notify(badge: Badge, award: UserBadge): void {
+    void this.tellBadge(badge, award).catch((err: unknown) => this.logger.error(`Badge notification failed: ${(err as Error).name}`));
   }
 
   private async tellBadge(badge: Badge, award: UserBadge): Promise<void> {
@@ -310,8 +326,15 @@ export class PointsService {
    * Community points from a CSV (email, points, note, course slug). A dry run validates every
    * row and shows what would happen; applying needs a file without errors and is audited.
    */
-  async importCsv(csv: string, dryRun: boolean, admin: Actor): Promise<PointsImportResultDto> {
+  async importCsv(csv: string, dryRun: boolean, admin: Actor, allowRepeat = false): Promise<PointsImportResultDto> {
     const parsed = parsePointsCsv(csv);
+    // The same file applied twice would double everyone's points: remember each file by its hash.
+    const sha256 = createHash('sha256').update(csv.replace(/\r\n/g, '\n').trim()).digest('hex');
+    const before = await this.prisma.auditLog.findFirst({
+      where: { action: 'points.imported', metadata: { path: ['sha256'], equals: sha256 } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
     const emails = [...new Set(parsed.rows.map((r) => r.email))];
     const slugs = [...new Set(parsed.rows.map((r) => r.courseSlug).filter((s): s is string => Boolean(s)))];
     const [users, courses] = await Promise.all([
@@ -335,13 +358,24 @@ export class PointsService {
     }
     rows.sort((a, b) => a.line - b.line);
     const errors = rows.filter((r) => r.status === 'error').length;
-    const result = { dryRun, rows, ok: ready.length, errors, totalPoints: ready.reduce((n, r) => n + r.points, 0), applied: 0 };
+    const result = { dryRun, rows, ok: ready.length, errors, totalPoints: ready.reduce((n, r) => n + r.points, 0), applied: 0, importedBefore: before?.createdAt.toISOString() ?? null };
     if (dryRun) return result;
     if (errors) throw new ConflictException({ code: 'IMPORT_HAS_ERRORS', message: 'Fix the rows with errors (see the preview) and import again' });
     if (!ready.length) throw new BadRequestException({ code: 'IMPORT_EMPTY', message: 'The file has no rows to import' });
+    if (before && !allowRepeat) throw new ConflictException({ code: 'IMPORT_REPEATED', message: 'This exact file was already imported. Confirm to import it again.' });
     await this.prisma.$transaction(async (tx) => {
+      // Two applies of the same file at once (two tabs, a retry): the second waits here, then sees the first.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sha256}))`;
+      const latest = await tx.auditLog.findFirst({
+        where: { action: 'points.imported', metadata: { path: ['sha256'], equals: sha256 } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      });
+      if (latest && latest.createdAt.getTime() > (before?.createdAt.getTime() ?? 0)) {
+        throw new ConflictException({ code: 'IMPORT_REPEATED', message: 'This exact file was just imported. Preview it again before importing it a second time.' });
+      }
       await tx.pointsEntry.createMany({ data: ready });
-      await this.audit.log({ actorId: admin.id, action: 'points.imported', entityType: 'PointsEntry', metadata: { rows: ready.length, totalPoints: result.totalPoints } }, tx);
+      await this.audit.log({ actorId: admin.id, action: 'points.imported', entityType: 'PointsEntry', metadata: { rows: ready.length, totalPoints: result.totalPoints, sha256, repeat: Boolean(before), userIds: [...new Set(ready.map((r) => r.userId))] } }, tx);
     });
     return { ...result, applied: ready.length };
   }

@@ -25,19 +25,23 @@ export function Leaderboard({ slug }: { slug: string }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const firstLoad = useRef(true);
+  /** Only the newest request may update the board (quick scope or week switches). */
+  const latest = useRef(0);
 
   const load = useCallback(() => {
     const q = new URLSearchParams({ scope });
     if (scope === 'week' && week) q.set('week', String(week));
+    const id = ++latest.current;
     api<LeaderboardDto>(`/learn/${slug}/leaderboard?${q}`)
       .then((d) => {
+        if (id !== latest.current) return;
         setData(d);
         setError(false);
         // After the course, open on the course board ("Best of the course").
         if (firstLoad.current && d.courseEnded) setScope('course');
         firstLoad.current = false;
       })
-      .catch(() => setError(true));
+      .catch(() => id === latest.current && setError(true));
   }, [slug, scope, week]);
   useEffect(load, [load]);
 
