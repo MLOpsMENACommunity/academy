@@ -68,3 +68,37 @@ export async function staticSlugs<T>(path: string, slugs: (data: T) => string[])
     return [];
   }
 }
+
+/**
+ * Uncached server-side GET for pages that must always be current (the certificate
+ * verification page: a revocation shows at once).
+ * Returns null for a 404; throws for anything else that isn't OK.
+ */
+export async function serverGetFresh<T>(path: string): Promise<T | null> {
+  let res: Response;
+  try {
+    res = await fetch(`${base()}/api${path}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch (err) {
+    console.error(`[server-api] GET ${path} failed: ${(err as Error).name}`);
+    throw new ApiUnavailableError(path);
+  }
+  if (res.status === 404) return null;
+  if (res.status === 429) throw new RateLimitedError(path);
+  if (!res.ok) {
+    console.error(`[server-api] GET ${path} returned ${res.status}`);
+    throw new ApiUnavailableError(path);
+  }
+  return (await res.json()) as T;
+}
+
+/** The API's rate limit answered instead (too many lookups from this visitor). */
+export class RateLimitedError extends Error {}
+
+/** The visitor's IP as the entry Worker set it (from cf-connecting-ip; the last X-Forwarded-For entry). */
+export function forwardedIp(h: Headers): string | null {
+  const parts = (h.get('x-forwarded-for') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  return parts.at(-1) ?? null;
+}
