@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { SpeakersTabs } from '@/components/admin/SpeakersTabs';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
@@ -23,6 +24,7 @@ export default function AdminSpeakers() {
 
   return (
     <div>
+      <SpeakersTabs />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.speakers.title')}</h1>
         <Link href={`/${locale}/admin/speakers/new`} className={buttonClass('primary', 'md')}>

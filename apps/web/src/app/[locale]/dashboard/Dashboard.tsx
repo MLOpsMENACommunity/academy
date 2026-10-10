@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { MyCourses, type CourseMeta } from '@/components/applications/MyCourses';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { PathProgressFrom } from '@/components/paths/PathProgress';
 import { Stepper } from '@/components/paths/Stepper';
@@ -33,7 +34,7 @@ export interface DashboardPath {
 const card = 'rounded-card border border-line bg-card';
 
 export function Dashboard({ courses, paths }: { courses: Record<string, CourseMeta>; paths: DashboardPath[] }) {
-  return <RequireAuth>{(user) => <Home user={user} courses={courses} paths={paths} />}</RequireAuth>;
+  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <SpeakerRedirect /> : <Home user={user} courses={courses} paths={paths} />)}</RequireAuth>;
 }
 
 /** The soonest of my course sessions and my registered live sessions. */

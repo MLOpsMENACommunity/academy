@@ -4,6 +4,7 @@ import type { ApplicationStatus, ProfileDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { SpeakerRoleSwitch } from '@/components/admin/SpeakerRoleSwitch';
 import { CvCard } from '@/components/admin/CvCard';
 import { Notes, type Note } from '@/components/admin/Notes';
 import { ProfileView } from '@/components/admin/ProfileView';
@@ -56,6 +57,7 @@ export default function StudentDetail() {
         </Card>
         <div className="space-y-5">
           <CvCard studentId={s.id} hasCv={s.profile.hasCv} />
+          <SpeakerRoleSwitch userId={s.id} />
           <Card>
             <h2 className="text-lg">{t('admin.students.applications')}</h2>
             <ul className="mt-2 space-y-2 text-sm">

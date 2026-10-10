@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SpeakerTile } from '@/components/catalog/cards';
+import { buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
@@ -38,6 +40,12 @@ export default async function SpeakersPage({ params }: Props) {
         <Container className="py-10 sm:py-14">
           <h1 className="text-[2rem] sm:text-[2.5rem]">{t('speakers.title')}</h1>
           <p className="mt-3 max-w-2xl text-lg leading-relaxed text-muted">{t('speakers.intro')}</p>
+          <p className="mt-5 flex flex-wrap items-center gap-3 text-muted">
+            {t('speakers.portal.cta')}
+            <Link href={`/${locale}/register?as=speaker`} className={buttonClass('secondary', 'md')}>
+              {t('speakers.portal.ctaButton')}
+            </Link>
+          </p>
         </Container>
       </section>
       <Container className="py-10 sm:py-14">

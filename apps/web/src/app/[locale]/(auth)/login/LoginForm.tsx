@@ -1,12 +1,14 @@
 'use client';
 
-import type { MeResponse } from '@academy/shared';
+import { homePath, isStudentOnlyPath, type MeResponse, type SignupRole } from '@academy/shared';
+import { postLoginPath } from '@/lib/post-login';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { GoogleButton } from '@/components/auth/GoogleButton';
+import { initialSignupRole, RoleChooser } from '@/components/auth/RoleChooser';
 import { TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -16,17 +18,7 @@ import { errorMessage } from '@/lib/errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
 import { useSearchParam } from '@/lib/use-search-param';
 
-/**
- * Where to go after sign-in. An incomplete profile goes to onboarding first, unless the
- * student was on their way somewhere that doesn't need it (a payment, a lesson): only
- * applying requires the complete profile, and losing their place there costs more.
- */
-export function postLoginPath(me: MeResponse, locale: string, returnTo: string, newAccount = false): string {
-  if (me.role === 'ADMIN' || me.profile.coreComplete) return returnTo;
-  const needsProfile =
-    newAccount || returnTo === `/${locale}/dashboard` || /\/courses\/[^/]+\/apply(?:$|[?#])/.test(returnTo);
-  return needsProfile ? withReturnTo(`/${locale}/onboarding`, returnTo) : returnTo;
-}
+export { postLoginPath };
 
 export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const { locale, t } = useI18n();
@@ -34,6 +26,9 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const returnTo = useReturnTo();
   const errorCode = useSearchParam('error');
+  const asParam = useSearchParam('as');
+  const [role, setRole] = useState<SignupRole>('STUDENT');
+  useEffect(() => setRole(initialSignupRole(asParam)), [asParam]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +60,8 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
 
   return (
     <AuthCard title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
-      <GoogleButton returnTo={returnTo} enabled={googleEnabled} />
+      <RoleChooser value={role} onChange={setRole} />
+      <GoogleButton returnTo={role === 'SPEAKER' && isStudentOnlyPath(returnTo, locale) ? homePath('SPEAKER', locale) : returnTo} enabled={googleEnabled} as={role} />
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {error && (
           <Alert tone="danger">
@@ -93,7 +89,10 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
       </form>
       <p className="mt-6 text-center text-sm text-muted">
         {t('auth.noAccount')}{' '}
-        <Link href={withReturnTo(`/${locale}/register`, returnTo)} className="font-semibold text-primary hover:underline">
+        <Link
+          href={`${withReturnTo(`/${locale}/register`, returnTo)}${role === 'SPEAKER' ? `${returnTo ? '&' : '?'}as=speaker` : ''}`}
+          className="font-semibold text-primary hover:underline"
+        >
           {t('nav.register')}
         </Link>
       </p>

@@ -26,8 +26,8 @@ interface Policy {
   sections: Section[];
 }
 
-const UPDATED_EN = 'Last updated: 9 October 2026';
-const UPDATED_AR = 'آخر تحديث: 9 أكتوبر 2026';
+const UPDATED_EN = 'Last updated: 10 October 2026';
+const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
@@ -65,6 +65,14 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'Live sessions and recordings',
           body: [
             'Live sessions are held on Google Meet and are usually recorded. Recordings of free courses are published on YouTube; recordings of paid courses are shared only with enrolled students. If you speak, turn on your camera or write in the chat during a recorded session, that may appear in the recording. You can take part with your camera and microphone off and ask questions in the chat under any display name.',
+          ],
+        },
+        {
+          heading: 'Speakers',
+          body: [
+            'If you sign up as a speaker, we keep your speaker application (name, phone or WhatsApp, LinkedIn, title and company, country, short bio, an optional photo link, topics, the session you propose, format, language and preferred months), the team\'s decision and note, and the slots you book with the session title and abstract you give.',
+            'We use it to review your application, plan and announce your session, and contact you about it. When you book or cancel a slot, the academy\'s session team is emailed your name, email, the time and the session details. When we approve you, we create a public speaker page from your name, title, bio, photo and LinkedIn; you can ask us to change it at any time.',
+            'Your application and bookings are included when you download your data. Deleting your account releases your upcoming bookings and, after 30 days, removes your application. Your public speaker page and past sessions stay as part of the community\'s session history unless you ask us to remove them through {contact}.',
           ],
         },
         {
@@ -146,6 +154,14 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'الجلسات المباشرة والتسجيلات',
           body: [
             'تُعقد الجلسات المباشرة على Google Meet وتُسجَّل عادةً. تُنشر تسجيلات الدورات المجانية على YouTube، بينما تُتاح تسجيلات الدورات المدفوعة للطلاب المسجلين فقط. إذا تحدثت أو فتحت الكاميرا أو كتبت في المحادثة أثناء جلسة مسجلة، فقد يظهر ذلك في التسجيل. يمكنك المشاركة والكاميرا والميكروفون مغلقان، وطرح أسئلتك في المحادثة بأي اسم عرض تختاره.',
+          ],
+        },
+        {
+          heading: 'المتحدثون',
+          body: [
+            'إذا سجلت متحدثًا، نحتفظ بطلبك (الاسم، والهاتف أو واتساب، وLinkedIn، والمسمى الوظيفي والشركة، والدولة، ونبذة قصيرة، ورابط صورة اختياري، والمجالات، والجلسة التي تقترحها، وشكلها ولغتها، والأشهر المفضلة)، وقرار الفريق وملاحظته، والمواعيد التي تحجزها مع عنوان الجلسة وملخصها.',
+            'نستخدم هذه البيانات لمراجعة طلبك وتخطيط جلستك والإعلان عنها والتواصل معك بشأنها. عند حجز موعد أو إلغائه، يصل فريقَ الجلسات في الأكاديمية بريدٌ فيه اسمك وبريدك الإلكتروني والموعد وتفاصيل الجلسة. وعند الموافقة على طلبك ننشئ لك صفحة متحدث عامة من اسمك ومسماك الوظيفي ونبذتك وصورتك ورابط LinkedIn، ويمكنك أن تطلب تعديلها في أي وقت.',
+            'يُضمَّن طلبك وحجوزاتك عند تنزيل بياناتك. وعند حذف حسابك تُلغى حجوزاتك القادمة، ويُحذف طلبك بعد 30 يومًا. تبقى صفحتك العامة وجلساتك السابقة ضمن سجل جلسات المجتمع ما لم تطلب حذفها عبر {contact}.',
           ],
         },
         {
