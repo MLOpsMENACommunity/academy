@@ -109,6 +109,7 @@ export function SpeakerAssignedCourses({ instructorId }: { instructorId: string 
               <div className="min-w-0 flex-1 sm:max-w-md">
                 <SelectField
                   label={s('course')}
+                  required
                   value={pick}
                   onChange={setPick}
                   options={data.available.map((c) => ({ value: c.id, label: `${title(c)} · ${courseStatusLabels[c.status][locale]}` }))}

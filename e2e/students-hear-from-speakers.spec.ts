@@ -171,9 +171,11 @@ test('the team assigns a speaker to a course; the speaker sends an announcement;
   await expect(item.getByRole('link', { name: 'https://example.test/slides' })).toBeVisible();
   await studentContext.close();
 
-  // And by email (bulk lane), with the speaker's name.
-  const html = await latestEmail(admin, studentEmail);
-  expect(html).toContain(SUBJECT);
+  // And by email (bulk lane), with the speaker's name. Delivery is asynchronous: wait for this one.
+  let html = '';
+  await expect
+    .poll(async () => (html = await latestEmail(admin, studentEmail)), { timeout: 30_000 })
+    .toContain(SUBJECT);
   expect(html).toContain(`From ${speaker.name}`);
   expect(errors).toEqual([]);
 });
