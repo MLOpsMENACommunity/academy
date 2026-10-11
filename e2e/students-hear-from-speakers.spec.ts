@@ -113,6 +113,7 @@ test.beforeAll(async () => {
       abstract: 'What a feature store buys you, what it costs, and how to run one in production without regret.',
       format: 'TALK',
       language: 'EN',
+      referralSource: 'LINKEDIN',
       preferredMonths: [new Date(Date.now() + 31 * 86_400_000).toISOString().slice(0, 7)],
     },
   });
