@@ -77,6 +77,7 @@
   },
   "errors": {
     "notFoundTitle": "Page not found",
+    "notFound": "We couldn’t find this. It may have been deleted.",
     "notFoundBody": "The page you're looking for doesn't exist or has moved.",
     "goHome": "Go to the homepage",
     "generic": "Something went wrong. Please try again.",
@@ -1123,7 +1124,7 @@
       "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email.",
       "importedHint": "Added by the archive import. Your edits are kept: the import never changes a session after an admin edits it.",
       "kindDetails": "Session, course or podcast",
-      "kindDetailsHint": "Filled by the speaker when booking, or by you. Every field is optional; empty ones don't show on the public page. A course here is a label: create the real course in Courses.",
+      "kindDetailsHint": "Filled by the speaker when booking, or by you. Every field is optional; empty ones don't show on the public page. Course here is only a label on the session: a speaker's course booking becomes a draft course in Courses.",
       "filterLabel": "Filter sessions by status",
       "filterAll": "All",
       "filter": {
