@@ -107,15 +107,14 @@ const unique = <T extends z.ZodTypeAny>(item: T, max: number) =>
 
 // ------------------------------------------------------------------ sections
 
-/** Required before applying to any course. */
-export const coreSectionSchema = z.preprocess(
-  // A local number (e.g. 01001234567 in Egypt) is accepted and stored in international format.
-  (raw) => {
-    if (!raw || typeof raw !== 'object') return raw;
-    const o = raw as Record<string, unknown>;
-    return typeof o.phone === 'string' ? { ...o, phone: normalizePhone(o.phone, typeof o.country === 'string' ? o.country : null) } : o;
-  },
-  z.object({
+/** A local number (e.g. 01001234567 in Egypt) is accepted and stored in international format. */
+function normalizeCorePhone(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const o = raw as Record<string, unknown>;
+  return typeof o.phone === 'string' ? { ...o, phone: normalizePhone(o.phone, typeof o.country === 'string' ? o.country : null) } : o;
+}
+
+const coreFields = z.object({
   fullNameEn: text(120).min(2, 'Enter your full name'),
   fullNameAr: optionalText(120),
   phone: phoneSchema,
@@ -131,8 +130,9 @@ export const coreSectionSchema = z.preprocess(
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: 'You must accept the Terms and Privacy Policy' }),
   }),
-  }),
-);
+});
+/** Required before applying to any course. */
+export const coreSectionSchema = z.preprocess(normalizeCorePhone, coreFields);
 export type CoreSection = z.infer<typeof coreSectionSchema>;
 
 /** Required (no skip): admins screen and filter applicants on these. Industry is optional. */
@@ -186,12 +186,15 @@ export const linksSectionSchema = z.object({
 });
 export type LinksSection = z.infer<typeof linksSectionSchema>;
 
-/** Required: every question needs an explicit answer. Yes/No, never pre-ticked (consent stays a free choice). */
+/**
+ * Required: every question needs an explicit answer. Yes/No, never pre-ticked (consent stays a free choice).
+ * "Open to job opportunities" and "Share my profile with hiring partners" are no longer asked:
+ * their saved answers stay in the database (admins still see them) and saving this step
+ * leaves them as they are (unknown keys are dropped by the schema).
+ */
 export const communitySectionSchema = z.object({
   referralSource: z.enum(REFERRAL_SOURCES),
   communityMember: z.boolean(),
-  openToOpportunities: z.boolean(),
-  shareWithPartners: z.boolean(),
   marketingEmails: z.boolean(),
 });
 export type CommunitySection = z.infer<typeof communitySectionSchema>;
@@ -250,15 +253,65 @@ export function sectionSchemaFor(section: ProfileSection, saved: SavedProfileFac
       }
     }).transform((d) => ({ ...d, secondaryAreas: d.secondaryAreas.filter((a) => a !== saved?.primaryArea) }));
   }
-  if (section === 'core') {
-    return withCrossChecks(coreSectionSchema, (raw, addIssue) => {
-      if (mlExperienceExceedsTotal(raw.experienceYears as string, saved?.mlExperienceYears)) {
-        addIssue(['experienceYears'], ML_EXPERIENCE_MESSAGE);
-      }
-    });
-  }
+  if (section === 'core') return coreWithChecks(coreSectionSchema, saved);
   return profileSectionSchemas[section];
 }
+
+function coreWithChecks(schema: z.ZodTypeAny, saved: SavedProfileFacts): z.ZodTypeAny {
+  return withCrossChecks(schema, (raw, addIssue) => {
+    if (mlExperienceExceedsTotal(raw.experienceYears as string, saved?.mlExperienceYears)) {
+      addIssue(['experienceYears'], ML_EXPERIENCE_MESSAGE);
+    }
+  });
+}
+
+// ------------------------------------------------------------------ admin edits
+
+/**
+ * What an admin edits on Admin → Students → {student}: the student's own steps, with the same
+ * validation, plus "other" (answers the profile no longer asks, kept for admins). Required
+ * fields stay required; optional ones can be cleared.
+ */
+export const ADMIN_PROFILE_SECTIONS = [...PROFILE_SECTIONS, 'other'] as const;
+export type AdminProfileSection = (typeof ADMIN_PROFILE_SECTIONS)[number];
+
+/** The core step without "I accept the Terms": only the student can accept them. */
+export const adminCoreSectionSchema = z.preprocess(normalizeCorePhone, coreFields.omit({ acceptTerms: true }));
+
+const optionalLink = z
+  .string()
+  .trim()
+  .max(300)
+  .nullish()
+  .transform((v) => (v ? v : null))
+  .refine((v) => v === null || /^https?:\/\/[^\s]+\.[^\s]+/i.test(v), { message: 'Enter a full URL starting with https://' });
+
+/**
+ * Answers the profile no longer asks. Admins can correct or clear them. The two hiring
+ * answers can only be turned off by an admin (a student's consent is never given for them;
+ * the API checks this against the saved value).
+ */
+export const adminOtherSectionSchema = z.object({
+  websiteUrl: optionalLink,
+  kaggleUrl: optionalLink,
+  huggingfaceUrl: optionalLink,
+  fieldOfStudy: optionalText(120),
+  university: optionalText(160),
+  graduationYear: z.preprocess((v) => (v === '' || v === undefined ? null : v), z.coerce.number().int().min(1950).max(2100).nullable()),
+  openToOpportunities: z.boolean(),
+  shareWithPartners: z.boolean(),
+});
+export type AdminOtherSection = z.infer<typeof adminOtherSectionSchema>;
+
+/** The schema an admin save of `section` is checked against (same cross-checks as the student's). */
+export function adminSectionSchemaFor(section: AdminProfileSection, saved: SavedProfileFacts): z.ZodTypeAny {
+  if (section === 'other') return adminOtherSectionSchema;
+  if (section === 'core') return coreWithChecks(adminCoreSectionSchema, saved);
+  return sectionSchemaFor(section, saved);
+}
+
+/** Consents only the student can give: an admin may turn them off, never on. */
+export const STUDENT_ONLY_CONSENTS = ['marketingEmails', 'openToOpportunities', 'shareWithPartners'] as const;
 
 // ------------------------------------------------------------------ DTO + completeness
 

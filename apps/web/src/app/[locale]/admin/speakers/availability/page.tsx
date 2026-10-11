@@ -5,6 +5,7 @@ import {
   eventStatusLabels,
   generateSlotTimes,
   slotGeneratorSchema,
+  speakerKindLabels,
   zonedTimeToUtc,
   type AdminSlotDto,
 } from '@academy/shared';
@@ -12,6 +13,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { SpeakersTabs } from '@/components/admin/SpeakersTabs';
 import { ChipGroup, TextField } from '@/components/forms/fields';
+import { BookingForm } from '@/components/speakers/BookingForm';
 import { byMonth, monthLabel, speakerError, upcomingMonths } from '@/components/speakers/shared';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -30,6 +32,7 @@ export default function AdminAvailability() {
   const [slots, setSlots] = useState<AdminSlotDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api<AdminSlotDto[]>('/admin/speaking-slots')
@@ -101,6 +104,7 @@ export default function AdminAvailability() {
                     {s.bookedBy && (
                       <p className="mt-0.5 text-sm break-words text-muted">
                         {s.bookedBy.name} · <span className="ltr-embed">{s.bookedBy.email}</span>
+                        {s.kind && s.kind !== 'SESSION' ? ` · ${speakerKindLabels[s.kind][locale]}` : ''}
                         {s.title ? ` · ${s.title}` : ''}
                       </p>
                     )}
@@ -117,6 +121,11 @@ export default function AdminAvailability() {
                         {t('admin.slots.withdraw')}
                       </Button>
                     )}
+                    {s.status === 'BOOKED' && editing !== s.id && (
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(s.id)}>
+                        {t('admin.slots.editBooking')}
+                      </Button>
+                    )}
                     {s.status === 'BOOKED' && (
                       <Button variant="ghost" size="sm" onClick={() => act(s, 'release')}>
                         {t('admin.slots.release')}
@@ -128,6 +137,27 @@ export default function AdminAvailability() {
                       </Button>
                     )}
                   </div>
+                  {editing === s.id && s.status === 'BOOKED' && (
+                    <div className="w-full rounded-xl bg-muted-bg p-4">
+                      <p className="mb-3 text-sm text-muted">{t('admin.slots.editBookingHint')}</p>
+                      <BookingForm
+                        initial={{ title: s.title ?? '', abstract: s.abstract ?? '', kind: s.kind ?? 'SESSION', details: s.details }}
+                        detailsOpen
+                        submitLabel={t('admin.common.save')}
+                        submit={async (body) => {
+                          await api(`/admin/speaking-slots/${s.id}/booking`, { method: 'PUT', json: body });
+                          setEditing(null);
+                          setNotice(t('admin.common.saved'));
+                          load();
+                        }}
+                        extra={
+                          <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                            {t('admin.common.cancel')}
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

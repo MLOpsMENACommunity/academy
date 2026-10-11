@@ -5,6 +5,8 @@ import {
   courseLanguageLabels,
   speakerAreaLabels,
   speakerFormatLabels,
+  speakerKindLabels,
+  speakerReferralSourceLabels,
   speakerReviewSchema,
   type AdminSpeakerApplicationDto,
 } from '@academy/shared';
@@ -13,6 +15,8 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { SpeakersTabs } from '@/components/admin/SpeakersTabs';
 import { SelectField, TextAreaField } from '@/components/forms/fields';
+import { DetailsView } from '@/components/speakers/DetailsView';
+import { SpeakerApplicationForm } from '@/components/speakers/SpeakerApplicationForm';
 import { monthLabel, SPEAKER_APP_TONE, speakerError } from '@/components/speakers/shared';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -36,6 +40,7 @@ export default function AdminSpeakerApplication() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const load = useCallback(() => {
     api<AdminSpeakerApplicationDto>(`/admin/speaker-applications/${id}`)
@@ -99,25 +104,67 @@ export default function AdminSpeakerApplication() {
         <h1 className="text-3xl break-words">{a.fullName}</h1>
         <Badge tone={SPEAKER_APP_TONE[a.status]}>{t(`speakers.portal.status.${a.status}`)}</Badge>
         {a.userRole !== 'SPEAKER' && <Badge tone="info">{t('admin.speakerApps.studentAccount')}</Badge>}
+        {!editing && (
+          <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+            {t('admin.speakerApps.edit')}
+          </Button>
+        )}
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       {done && <Alert tone="success">{done}</Alert>}
+      {editing && (
+        <div className="space-y-3">
+          <Alert tone="info">{t('admin.speakerApps.editHint')}</Alert>
+          <SpeakerApplicationForm
+            me={null}
+            application={a}
+            admin={{
+              onSaved: (saved) => {
+                setA({ ...a, ...saved });
+                setEditing(false);
+                setDone(t('admin.common.saved'));
+              },
+              onCancel: () => setEditing(false),
+            }}
+          />
+        </div>
+      )}
+      {!editing && (
       <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
         <Card>
           <dl className="divide-y divide-line">
             {row(f('email'), <span className="ltr-embed">{a.email}</span>)}
             {row(f('phone'), <a href={`https://wa.me/${a.phone.replace(/\D/g, '')}`} className="ltr-embed text-primary underline" target="_blank" rel="noopener noreferrer">{a.phone}</a>)}
             {row(f('linkedinUrl'), <a href={a.linkedinUrl} className="text-primary underline" target="_blank" rel="noopener noreferrer">{a.linkedinUrl}</a>)}
+            {a.githubUrl && row(t('speakers.details.githubUrl'), <a href={a.githubUrl} className="text-primary underline" target="_blank" rel="noopener noreferrer">{a.githubUrl}</a>)}
             {row(f('title'), `${a.title}${a.company ? ` · ${a.company}` : ''}`)}
             {row(f('country'), countryName(a.country, locale))}
             {a.photoUrl && row(f('photoUrl'), <a href={a.photoUrl} className="text-primary underline" target="_blank" rel="noopener noreferrer">{a.photoUrl}</a>)}
             {row(f('bio'), <span className="whitespace-pre-line">{a.bio}</span>)}
             {row(f('areas'), a.areas.map((x) => speakerAreaLabels[x][locale]).join(' · '))}
-            {row(f('sessionTitle'), a.sessionTitle)}
+            {row(t('speakers.details.kind'), speakerKindLabels[a.kind][locale])}
+            {row(t(`speakers.details.titleOf.${a.kind}`), a.sessionTitle)}
             {row(f('abstract'), <span className="whitespace-pre-line">{a.abstract}</span>)}
             {row(f('format'), speakerFormatLabels[a.format][locale])}
             {row(f('language'), courseLanguageLabels[a.language][locale])}
             {row(f('preferredMonths'), a.preferredMonths.map((m) => monthLabel(m, locale)).join(' · '))}
+            {row(
+              t('speakers.details.referralSource'),
+              a.referralSource ? (
+                <>
+                  {speakerReferralSourceLabels[a.referralSource][locale]}
+                  {a.referralMemberName && (
+                    <>
+                      {' · '}
+                      <span className="font-medium">{t('speakers.details.referredBy', { name: a.referralMemberName })}</span>
+                    </>
+                  )}
+                </>
+              ) : (
+                <span className="text-muted">{t('admin.speakerApps.notAsked')}</span>
+              ),
+            )}
+            {Object.keys(a.details).length > 0 && row(t('speakers.details.heading'), <DetailsView kind={a.kind} details={a.details} locale={locale} t={t} />)}
             {row(t('admin.speakerApps.submitted'), `${formatDateTime(a.submittedAt, locale)}${a.submissions > 1 ? ` (${t('admin.speakerApps.resubmitted', { n: a.submissions })})` : ''}`)}
             {a.reviewedAt && row(t('admin.speakerApps.reviewed'), `${formatDateTime(a.reviewedAt, locale)}${a.reviewedBy ? ` · ${a.reviewedBy}` : ''}`)}
             {a.reviewNote && row(t('admin.speakerApps.note'), a.reviewNote)}
@@ -173,6 +220,7 @@ export default function AdminSpeakerApplication() {
           </Card>
         </div>
       </div>
+      )}
     </div>
   );
 }

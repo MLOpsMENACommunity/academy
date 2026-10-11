@@ -54,7 +54,7 @@ export default function EditSession() {
       </div>
       <div className="mt-6">
         {/* Keyed by version: after a save the form restarts from what the server stored. */}
-        <EventForm key={version} initial={toEventForm(event)} eventId={event.id} onSaved={() => setVersion((v) => v + 1)} />
+        <EventForm key={version} initial={toEventForm(event)} initialDetails={event.details} eventId={event.id} onSaved={() => setVersion((v) => v + 1)} />
       </div>
     </div>
   );

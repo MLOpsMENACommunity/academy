@@ -12,6 +12,7 @@ import {
 } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { AddAcceptedEmails } from '@/components/admin/AddAcceptedEmails';
 import { ApplicationBulkBar } from '@/components/admin/ApplicationBulkBar';
 import { CvMark } from '@/components/admin/CvCard';
 import { Pager } from '@/components/admin/Pager';
@@ -51,7 +52,7 @@ const PAGE_SIZE = 50;
  * Admin → Courses → {course} → Applications: this course's applications, on the
  * same API, bulk actions and CSV export as Admin → Applications (filtered by course).
  */
-export function CourseApplications({ courseId, slug, onChange }: { courseId: string; slug: string; onChange?: () => void }) {
+export function CourseApplications({ courseId, slug, paid = false, onChange }: { courseId: string; slug: string; paid?: boolean; onChange?: () => void }) {
   const { locale, t } = useI18n();
   const [status, setStatus] = useState<ApplicationStatus | null>(null);
   const [q, setQ] = useState('');
@@ -145,6 +146,9 @@ export function CourseApplications({ courseId, slug, onChange }: { courseId: str
         </div>
       </div>
       {exportError && <Alert tone="danger" className="mt-4">{exportError}</Alert>}
+      <div className="mt-4">
+        <AddAcceptedEmails courseId={courseId} paid={paid} onChange={onChange} />
+      </div>
 
       {/* Scrolls sideways on narrow screens instead of wrapping into many rows. */}
       <div role="group" aria-label={t('admin.courses.apps.statusFilter')} className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">

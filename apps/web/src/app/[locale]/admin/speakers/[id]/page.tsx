@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { InstructorForm, toSpeakerInput } from '@/components/admin/InstructorEditor';
+import { SpeakerProfileExtras, type SpeakerAccountInfo } from '@/components/admin/SpeakerProfileExtras';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
@@ -15,13 +16,14 @@ import type { AdminSpeaker } from '../types';
 export default function EditSpeaker() {
   const { locale, t } = useI18n();
   const { id } = useParams<{ id: string }>();
-  const [speaker, setSpeaker] = useState<AdminSpeaker | null>(null);
+  const router = useRouter();
+  const [speaker, setSpeaker] = useState<(AdminSpeaker & SpeakerAccountInfo) | null>(null);
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
   const [version, setVersion] = useState(0);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api<AdminSpeaker>(`/admin/instructors/${id}`)
+    api<AdminSpeaker & SpeakerAccountInfo>(`/admin/instructors/${id}`)
       .then(setSpeaker)
       .catch((err) => setError(err instanceof ApiError && err.status === 404 ? 'notFound' : 'generic'));
   }, [id, version]);
@@ -62,6 +64,7 @@ export default function EditSpeaker() {
           {saved ? `✓ ${t('admin.common.saved')}` : ''}
         </p>
       </Card>
+      <SpeakerProfileExtras speaker={speaker} onDeleted={() => router.push(`/${locale}/admin/speakers?deleted=1`)} />
     </div>
   );
 }

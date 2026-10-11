@@ -165,7 +165,11 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 5 of 7')).toBeVisible();
   await page.getByLabel(/How did you hear about us/).selectOption('LINKEDIN');
-  for (const q of [/member of the community/, /open to job opportunities/, /Share my profile/, /Email me about new courses/]) {
+  // The two hiring questions are no longer asked.
+  await expect(page.getByText(/open to job opportunities/i)).toHaveCount(0);
+  await expect(page.getByText(/hiring partners/i)).toHaveCount(0);
+  await expect(page.locator('main form').getByRole('radiogroup')).toHaveCount(2);
+  for (const q of [/member of the community/, /Email me about new courses/]) {
     await page.getByRole('radiogroup', { name: q }).getByLabel('No').check();
   }
   await page.getByRole('button', { name: 'Save and continue' }).click();

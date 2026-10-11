@@ -1,4 +1,6 @@
 import {
+  detailsEmpty,
+  speakerKindLabels,
   courseLanguageLabels,
   deliveryPlatformLabels,
   eventEnded,
@@ -16,6 +18,7 @@ import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { TopicList } from '@/components/archive/TopicList';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
+import { DetailsView } from '@/components/speakers/DetailsView';
 import { RegisterPanel } from '@/components/sessions/RegisterPanel';
 import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
@@ -204,6 +207,13 @@ export default async function SessionPage({ params }: Props) {
           <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${past ? 'text-muted' : 'text-primary'}`}>
             <span aria-hidden className={`size-2 rounded-full ${e.status === 'CANCELLED' || past ? 'bg-line-strong' : 'bg-logo-green'}`} />
             {past ? t('sessions.recorded') : t('sessions.free')}
+            {/* A course or podcast booked through the speaker portal: a label on the session. */}
+            {e.kind && e.kind !== 'SESSION' && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{speakerKindLabels[e.kind][locale]}</span>
+              </>
+            )}
           </p>
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
           <div>
@@ -297,6 +307,17 @@ export default async function SessionPage({ params }: Props) {
               </h2>
               <div className="mt-5">
                 <Markdown>{description}</Markdown>
+              </div>
+            </section>
+          )}
+
+          {e.details && !detailsEmpty(e.details) && (
+            <section aria-labelledby="details">
+              <h2 id="details" className="text-[1.5rem] sm:text-[1.625rem]">
+                {t(`speakers.details.publicHeading.${e.kind ?? 'SESSION'}`)}
+              </h2>
+              <div className="mt-5">
+                <DetailsView kind={e.kind ?? 'SESSION'} details={e.details} locale={locale} t={t} />
               </div>
             </section>
           )}

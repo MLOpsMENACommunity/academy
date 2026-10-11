@@ -2,15 +2,17 @@
 
 import type { ApplicationStatus, ProfileDto } from '@academy/shared';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { SpeakerRoleSwitch } from '@/components/admin/SpeakerRoleSwitch';
 import { CvCard } from '@/components/admin/CvCard';
 import { Notes, type Note } from '@/components/admin/Notes';
 import { ProfileView } from '@/components/admin/ProfileView';
+import { DeleteAccount, StudentEditor } from '@/components/admin/StudentEditor';
 import { StudentPoints } from '@/components/admin/StudentPoints';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
@@ -21,6 +23,7 @@ import { formatDate } from '@/lib/format';
 interface Student {
   id: string;
   email: string;
+  role: 'STUDENT' | 'SPEAKER' | 'ADMIN';
   emailVerified: boolean;
   createdAt: string;
   lastLoginAt: string | null;
@@ -31,9 +34,12 @@ interface Student {
 
 export default function StudentDetail() {
   const { locale, t } = useI18n();
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [s, setS] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   useEffect(() => {
     api<Student>(`/admin/students/${id}`).then(setS).catch((e: unknown) => setError(errorMessage(e, t)));
   }, [id, t]);
@@ -44,17 +50,38 @@ export default function StudentDetail() {
       <Link href={`/${locale}/admin/students`} className="text-sm text-primary hover:underline">
         <span aria-hidden className="inline-block rtl:rotate-180">←</span> {t('admin.students.title')}
       </Link>
-      <div>
-        <h1 className="text-2xl">{s.profile.fullNameEn ?? s.email}</h1>
-        <p className="text-sm text-muted">
-          <span className="ltr-embed">{s.email}</span> · {t('admin.students.joined')} {formatDate(s.createdAt, locale)}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl break-words">{s.profile.fullNameEn ?? s.email}</h1>
+          <p className="text-sm break-all text-muted">
+            <span className="ltr-embed">{s.email}</span> · {t('admin.students.joined')} {formatDate(s.createdAt, locale)}
+          </p>
+        </div>
+        {/* Admin accounts are never edited here (the API refuses too). */}
+        {s.role !== 'ADMIN' && (
+          <Button variant={editing ? 'secondary' : 'primary'} onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
+            {editing ? t('admin.studentEdit.done') : t('admin.studentEdit.edit')}
+          </Button>
+        )}
       </div>
-      <Alert tone="info">{t('admin.students.readOnly')}</Alert>
       {error && <Alert tone="danger">{error}</Alert>}
+      <p role="status" className="text-sm text-success">
+        {savedAt ? `✓ ${t('admin.common.saved')}` : ''}
+      </p>
       <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
         <Card>
-          <ProfileView profile={s.profile} />
+          {editing ? (
+            <StudentEditor
+              studentId={s.id}
+              profile={s.profile}
+              onSaved={(profile) => {
+                setS({ ...s, profile });
+                setSavedAt(profile.updatedAt);
+              }}
+            />
+          ) : (
+            <ProfileView profile={s.profile} />
+          )}
         </Card>
         <div className="space-y-5">
           <CvCard studentId={s.id} hasCv={s.profile.hasCv} />
@@ -80,6 +107,11 @@ export default function StudentDetail() {
               <Notes notes={s.notes} postUrl={`/admin/students/${s.id}/notes`} />
             </div>
           </Card>
+          {s.role !== 'ADMIN' && (
+            <Card className="border-danger/40">
+              <DeleteAccount studentId={s.id} email={s.email} onDeleted={() => router.push(`/${locale}/admin/students?deleted=1`)} />
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -107,7 +107,19 @@ export function InstructorForm({
         <TextAreaField label={c('instructorBio')} hint={sp('bioHint')} value={v.bioEn} onChange={set('bioEn')} error={errors.bioEn} rows={6} />
         <TextAreaField label={c('instructorBioAr')} dir="rtl" value={v.bioAr ?? ''} onChange={set('bioAr')} rows={6} />
         <TextField label={c('instructorPhoto')} hint={sp('photoHint')} dir="ltr" value={v.photoUrl ?? ''} onChange={set('photoUrl')} error={errors.photoUrl} />
-        <TextField label={sp('slug')} hint={`${sp('slugHint')} /speakers/${v.slug || '…'}`} dir="ltr" value={v.slug ?? ''} onChange={set('slug')} error={errors.slug} />
+        <TextField
+          label={sp('slug')}
+          hint={
+            // Changing a page's address: the old one keeps working (it redirects).
+            id && initial.slug && v.slug && v.slug !== initial.slug
+              ? t('admin.speakerEdit.slugChanged', { old: initial.slug, new: v.slug })
+              : `${sp('slugHint')} /speakers/${v.slug || '…'}`
+          }
+          dir="ltr"
+          value={v.slug ?? ''}
+          onChange={set('slug')}
+          error={errors.slug}
+        />
         <TextField
           label="LinkedIn"
           required

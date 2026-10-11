@@ -1,16 +1,15 @@
 'use client';
 
 import {
-  slotBookingSchema,
+  speakerKindLabels,
   type MeResponse,
   type SpeakerBookingDto,
   type SpeakerPortalDto,
   type SpeakingSlotDto,
 } from '@academy/shared';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
-import { TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button, buttonClass } from '@/components/ui/Button';
@@ -21,7 +20,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { formatDateTime, viewerTimezone } from '@/lib/format';
 import { useSearchParam } from '@/lib/use-search-param';
-import { issuesToErrors } from '@/lib/zod-errors';
+import { BookingForm, type BookingValues } from './BookingForm';
 import { byMonth, monthLabel, SPEAKER_APP_TONE, speakerError } from './shared';
 
 /** /speaker: the speaker's home (application, open slots, bookings). */
@@ -117,7 +116,10 @@ function Portal() {
         )}
         {app && (
           <div className="mt-3 space-y-3">
-            <p className="font-medium text-fg">{app.sessionTitle}</p>
+            <p className="font-medium text-fg">
+              {app.kind !== 'SESSION' && <span className="me-2 inline-block align-middle"><Badge tone="info">{speakerKindLabels[app.kind][locale]}</Badge></span>}
+              {app.sessionTitle}
+            </p>
             {app.status === 'SUBMITTED' && <p className="text-sm text-muted">{t('speakers.portal.application.waiting', { date: when(app.submittedAt) })}</p>}
             {app.status === 'REJECTED' && (
               <Alert tone="warning" title={t('speakers.portal.application.rejectedTitle')}>
@@ -202,7 +204,7 @@ function Portal() {
                     key={s.id}
                     slot={s}
                     disabled={atLimit}
-                    defaults={{ title: app.sessionTitle, abstract: app.abstract }}
+                    defaults={{ title: app.sessionTitle, abstract: app.abstract, kind: app.kind, details: app.details }}
                     onBooked={(b) => {
                       setConfirmed(b);
                       void load();
@@ -241,35 +243,11 @@ function SlotRow({
 }: {
   slot: SpeakingSlotDto;
   disabled: boolean;
-  defaults: { title: string; abstract: string };
+  defaults: BookingValues;
   onBooked: (b: SpeakerBookingDto) => void;
 }) {
   const { locale, t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(defaults.title);
-  const [abstract, setAbstract] = useState(defaults.abstract);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const parsed = slotBookingSchema.safeParse({ title, abstract });
-    if (!parsed.success) {
-      setErrors(issuesToErrors(parsed.error.issues, t));
-      return;
-    }
-    setErrors({});
-    setBusy(true);
-    try {
-      const b = await api<SpeakerBookingDto>(`/speaker/slots/${slot.id}/booking`, { method: 'POST', json: parsed.data });
-      onBooked(b);
-    } catch (err) {
-      setError(speakerError(err, t));
-      setBusy(false);
-    }
-  }
 
   return (
     <li className="px-5 py-3">
@@ -285,19 +263,18 @@ function SlotRow({
         )}
       </div>
       {open && (
-        <form onSubmit={onSubmit} noValidate className="mt-3 space-y-3 rounded-xl bg-muted-bg p-4">
-          {error && <Alert tone="danger">{error}</Alert>}
-          <TextField label={t('speakers.portal.form.sessionTitle')} required value={title} onChange={setTitle} error={errors.title} />
-          <TextAreaField label={t('speakers.portal.form.abstract')} required rows={5} maxLength={2000} value={abstract} onChange={setAbstract} error={errors.abstract} />
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" loading={busy}>
-              {t('speakers.portal.slots.confirm')}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              {t('speakers.portal.slots.back')}
-            </Button>
-          </div>
-        </form>
+        <div className="mt-3 rounded-xl bg-muted-bg p-4">
+          <BookingForm
+            initial={defaults}
+            submitLabel={t('speakers.portal.slots.confirm')}
+            submit={async (body) => onBooked(await api<SpeakerBookingDto>(`/speaker/slots/${slot.id}/booking`, { method: 'POST', json: body }))}
+            extra={
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                {t('speakers.portal.slots.back')}
+              </Button>
+            }
+          />
+        </div>
       )}
     </li>
   );
@@ -306,6 +283,7 @@ function SlotRow({
 function UpcomingBooking({ booking: b, cancelDays, onChange }: { booking: SpeakerBookingDto; cancelDays: number; onChange: () => Promise<void> }) {
   const { locale, t } = useI18n();
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = b.event?.status ?? 'DRAFT';
@@ -327,12 +305,34 @@ function UpcomingBooking({ booking: b, cancelDays, onChange }: { booking: Speake
       <Card className="!p-4 sm:!p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium break-words text-fg">{b.title}</p>
+            <p className="font-medium break-words text-fg">
+              {b.kind !== 'SESSION' && <span className="me-2 inline-block align-middle"><Badge tone="info">{speakerKindLabels[b.kind][locale]}</Badge></span>}
+              {b.title}
+            </p>
             <p className="mt-1 text-sm text-muted">{formatDateTime(b.startsAt, locale, viewerTimezone())}</p>
           </div>
           <Badge tone={status === 'PUBLISHED' ? 'success' : status === 'CANCELLED' ? 'danger' : 'info'}>{t(`speakers.portal.bookings.event.${status}`)}</Badge>
         </div>
         <CalendarLinks booking={b} />
+        {editing && (
+          <div className="mt-3 rounded-xl bg-muted-bg p-4">
+            <BookingForm
+              initial={{ title: b.title, abstract: b.abstract, kind: b.kind, details: b.details }}
+              detailsOpen
+              submitLabel={t('speakers.portal.bookings.saveDetails')}
+              submit={async (body) => {
+                await api<SpeakerBookingDto>(`/speaker/slots/${b.slotId}/booking`, { method: 'PUT', json: body });
+                setEditing(false);
+                await onChange();
+              }}
+              extra={
+                <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+                  {t('speakers.portal.slots.back')}
+                </Button>
+              }
+            />
+          </div>
+        )}
         {status === 'PUBLISHED' && b.event && (
           <p className="mt-2 text-sm">
             <Link href={`/${locale}/sessions/${b.event.slug}`} className="font-medium text-primary underline">
@@ -347,6 +347,12 @@ function UpcomingBooking({ booking: b, cancelDays, onChange }: { booking: Speake
           </Alert>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {b.canEdit && !editing && (
+            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+              {t('speakers.portal.bookings.editDetails')}
+            </Button>
+          )}
+          {!b.canEdit && <span className="text-xs text-muted">{t('speakers.portal.bookings.lockedHint')}</span>}
           {b.canCancel ? (
             confirming ? (
               <>

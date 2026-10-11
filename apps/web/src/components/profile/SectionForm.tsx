@@ -21,6 +21,7 @@ import {
   learningGoalLabels,
   MENA_COUNTRIES,
   PRODUCTION_TOOL_MAX_LENGTH,
+  adminSectionSchemaFor,
   sectionSchemaFor,
   REFERRAL_SOURCES,
   referralSourceLabels,
@@ -78,7 +79,7 @@ const TOOL_SUGGESTIONS = [
  * `language` preselects the preferred language when none is saved yet
  * (the account's language, else the UI's).
  */
-function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 'ar'): Values {
+function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 'ar', admin = false): Values {
   switch (section) {
     case 'core': {
       const detectedTz =
@@ -89,13 +90,14 @@ function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 
         phone: p.phone ?? '',
         country: p.country,
         city: p.city ?? '',
-        timezone: p.timezone ?? detectedTz,
+        // An admin's device says nothing about the student's timezone.
+        timezone: p.timezone ?? (admin ? null : detectedTz),
         employmentStatus: p.employmentStatus,
         jobTitle: p.jobTitle ?? '',
         experienceYears: p.experienceYears,
         primaryArea: p.primaryArea,
         googleEmail: p.googleEmail ?? '',
-        preferredLanguage: p.preferredLanguage ?? language,
+        preferredLanguage: p.preferredLanguage ?? (admin ? null : language),
         acceptTerms: Boolean(p.acceptedTermsAt),
       };
     }
@@ -126,10 +128,10 @@ function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 
       // required questions is still in effect, so it is shown (and can be changed).
       const answer = (v: boolean | null) => (p.communityAnsweredAt || v ? Boolean(v) : null);
       return {
+        // "Open to job opportunities" and "Share with hiring partners" are no longer asked:
+        // never sent, so their saved answers stay as they are.
         referralSource: p.referralSource,
         communityMember: answer(p.communityMember),
-        openToOpportunities: answer(p.openToOpportunities),
-        shareWithPartners: answer(p.shareWithPartners),
         marketingEmails: answer(p.marketingEmails),
       };
     }
@@ -143,6 +145,7 @@ export function SectionForm({
   onProfileChange,
   submitLabel,
   secondary,
+  adminFor,
 }: {
   section: ProfileSection;
   profile: ProfileDto;
@@ -152,11 +155,17 @@ export function SectionForm({
   submitLabel?: string;
   /** Extra action next to submit (e.g. "Skip for now" in onboarding). */
   secondary?: ReactNode;
+  /**
+   * An admin editing this student's profile (Admin → Students → {student}): same fields and
+   * validation, saved through the admin API. The Terms checkbox isn't shown (only the student
+   * accepts them), and consents can only be turned off.
+   */
+  adminFor?: string;
 }) {
   const { locale, t } = useI18n();
   const { user } = useAuth();
   const form = useRef<HTMLFormElement>(null);
-  const [values, setValues] = useState<Values>(() => initialValues(section, profile, user?.locale ?? locale));
+  const [values, setValues] = useState<Values>(() => initialValues(section, profile, user?.locale ?? locale, Boolean(adminFor)));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -211,7 +220,7 @@ export function SectionForm({
     e.preventDefault();
     setFormError(null);
     // Cross-section checks (ML/AI vs total experience) use the saved profile, as the API does.
-    const parsed = sectionSchemaFor(section, profile).safeParse(values);
+    const parsed = (adminFor ? adminSectionSchemaFor(section, profile) : sectionSchemaFor(section, profile)).safeParse(values);
     if (!parsed.success) {
       setErrors(issuesToErrors(parsed.error.issues, t));
       setFormError(t('forms.fixErrors'));
@@ -221,7 +230,8 @@ export function SectionForm({
     setErrors({});
     setBusy(true);
     try {
-      const updated = await api<ProfileDto>(`/me/profile/${section}`, { method: 'PUT', json: parsed.data });
+      const url = adminFor ? `/admin/students/${adminFor}/profile/${section}` : `/me/profile/${section}`;
+      const updated = await api<ProfileDto>(url, { method: 'PUT', json: parsed.data });
       setSaved(true);
       onSaved(updated);
     } catch (err) {
@@ -272,7 +282,7 @@ export function SectionForm({
             error={errors.country}
           />
           <TextField label={f('city')} required autoComplete="address-level2" value={str('city')} onChange={set('city')} error={errors.city} />
-          <SelectField label={f('timezone')} required hint={f('timezoneHint')} value={str('timezone')} onChange={set('timezone')} options={timezoneOptions} error={errors.timezone} />
+          <SelectField label={f('timezone')} required hint={adminFor ? undefined : f('timezoneHint')} value={str('timezone')} onChange={set('timezone')} options={timezoneOptions} error={errors.timezone} />
           <SelectField label={f('employmentStatus')} required value={str('employmentStatus')} onChange={set('employmentStatus')} options={options(EMPLOYMENT_STATUSES, employmentStatusLabels, locale)} error={errors.employmentStatus} />
           <TextField label={f('jobTitle')} required autoComplete="organization-title" value={str('jobTitle')} onChange={set('jobTitle')} error={errors.jobTitle} />
           <SelectField label={f('experienceYears')} required value={str('experienceYears')} onChange={set('experienceYears')} options={options(EXPERIENCE_RANGES, experienceRangeLabels, locale)} error={errors.experienceYears} />
@@ -288,6 +298,7 @@ export function SectionForm({
             ]}
             error={errors.preferredLanguage}
           />
+          {!adminFor && (
           <div className="sm:col-span-2">
             <CheckboxField
               checked={Boolean(values.acceptTerms)}
@@ -303,6 +314,7 @@ export function SectionForm({
               }
             />
           </div>
+          )}
         </div>
       );
       break;
@@ -398,7 +410,7 @@ export function SectionForm({
             <TextField label={f('githubUrl')} required type="url" inputMode="url" placeholder="https://github.com/…" value={str('githubUrl')} onChange={set('githubUrl')} error={errors.githubUrl} />
           </div>
           {/* CVs are no longer collected; a student who uploaded one before can still open or remove it. */}
-          {profile.hasCv && <SavedCv profile={profile} onChange={onProfileChange ?? onSaved} />}
+          {profile.hasCv && !adminFor && <SavedCv profile={profile} onChange={onProfileChange ?? onSaved} />}
         </div>
       );
       break;
@@ -408,9 +420,7 @@ export function SectionForm({
           <SelectField label={f('referralSource')} required value={str('referralSource')} onChange={set('referralSource')} error={errors.referralSource} options={options(REFERRAL_SOURCES, referralSourceLabels, locale)} />
           {yesNo('communityMember', f('communityMember'))}
           <hr className="border-line" />
-          {yesNo('openToOpportunities', f('openToOpportunities'))}
-          {yesNo('shareWithPartners', f('shareWithPartners'), f('shareWithPartnersHint'))}
-          {yesNo('marketingEmails', f('marketingEmails'))}
+          {yesNo('marketingEmails', f('marketingEmails'), adminFor ? t('admin.studentEdit.consentHint') : undefined)}
         </div>
       );
       break;
