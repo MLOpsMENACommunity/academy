@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, ForbiddenException, HttpExcepti
 import {
   cancelDeadline,
   canCancelBooking,
+  courseDraftFromBooking,
+  shortDescription,
   eventEnded,
   generateSlotTimes,
   googleCalendarLink,
@@ -12,6 +14,8 @@ import {
   type SpeakerKind,
   type AdminSlotDto,
   type AdminSpeakerApplicationDto,
+  type CourseDraftResultDto,
+  type CourseLanguage,
   type Locale,
   type SlotBookingInput,
   type SlotGeneratorInput,
@@ -24,7 +28,7 @@ import {
   type SpeakerReviewInput,
   type SpeakingSlotDto,
 } from '@academy/shared';
-import { Prisma, type LiveEvent, type SpeakerApplication, type SpeakingSlot, type User } from '@prisma/client';
+import { Prisma, type Course, type LiveEvent, type SpeakerApplication, type SpeakingSlot, type User } from '@prisma/client';
 import { freeInstructorSlug } from '../admin/admin-courses.service';
 import { AuditService } from '../audit/audit.service';
 import { ENV } from '../config/config.module';
@@ -56,6 +60,7 @@ function bookableFrom(now: Date, cancelDays: number): Date {
 
 type SlotWithEvent = SpeakingSlot & {
   event: (Pick<LiveEvent, 'id' | 'slug' | 'status' | 'recordingUrl' | 'startsAt' | 'durationMin'> & { _count: { registrations: number } }) | null;
+  course: Pick<Course, 'id' | 'slug' | 'status'> | null;
 };
 
 const eventSelect = {
@@ -69,6 +74,26 @@ const eventSelect = {
     _count: { select: { registrations: { where: { user: { deletedAt: null } } } } },
   },
 } satisfies Prisma.SpeakingSlot$eventArgs;
+
+const courseSelect = { select: { id: true, slug: true, status: true } } satisfies Prisma.SpeakingSlot$courseArgs;
+
+/** A booking with what the team prepares from it: a draft session, or (a course booking) a draft course. */
+const slotInclude = { event: eventSelect, course: courseSelect } satisfies Prisma.SpeakingSlotInclude;
+
+/** What a release did: the slot, its session (deleted or cancelled) and its course (deleted or kept). */
+type Released = {
+  slot: SpeakingSlot;
+  event: LiveEvent | null;
+  bookedById: string | null;
+  cancelled: LiveEvent | null;
+  /** The booking's course, if it had one (deleted while a draft, kept otherwise). */
+  courseTitle: string | null;
+  /** A course that was already published (or had applicants): left as it is. */
+  courseKept: { id: string; slug: string; titleEn: string; status: Course['status'] } | null;
+};
+
+/** The booking fields a draft session or course is made from. */
+type BookingContent = Pick<SlotBookingInput, 'title' | 'abstract' | 'kind' | 'details'>;
 
 function toApplicationDto(a: SpeakerApplication, email: string): SpeakerApplicationDto {
   return {
@@ -103,8 +128,8 @@ function toApplicationDto(a: SpeakerApplication, email: string): SpeakerApplicat
 
 /**
  * The speaker portal: speakers apply, the team approves, the team publishes monthly slots,
- * approved speakers book one, and every booking becomes a DRAFT live session the team
- * finishes and publishes as usual.
+ * approved speakers book one. A session or podcast booking becomes a DRAFT live session, a
+ * course booking a DRAFT course; the team finishes and publishes either as usual.
  */
 @Injectable()
 export class SpeakerPortalService {
@@ -138,7 +163,7 @@ export class SpeakerPortalService {
         where: { bookedById: userId, status: 'BOOKED' },
         orderBy: { startsAt: 'desc' },
         take: 50,
-        include: { event: eventSelect },
+        include: slotInclude,
       }),
     ]);
     const locale: Locale = user.locale === 'ar' ? 'ar' : 'en';
@@ -166,7 +191,7 @@ export class SpeakerPortalService {
       abstract: s.abstract ?? '',
       kind,
       details: readSpeakerDetails(kind, s.details),
-      canEdit: !past && (!s.event || s.event.status === 'DRAFT'),
+      canEdit: !past && (!s.event || s.event.status === 'DRAFT') && (!s.course || s.course.status === 'DRAFT'),
       past,
       canCancel: !past && canCancelBooking(startsAt, cancelDays, now),
       cancelUntil: cancelDeadline(startsAt, cancelDays).toISOString(),
@@ -180,6 +205,7 @@ export class SpeakerPortalService {
             registered: s.event._count.registrations,
           }
         : null,
+      course: s.course ? { slug: s.course.slug, status: s.course.status } : null,
     };
   }
 
@@ -250,10 +276,89 @@ export class SpeakerPortalService {
     }
   }
 
+  /** A free course slug: "serving-llms-on-kubernetes", then "serving-llms-on-kubernetes-2", ... */
+  private async freeCourseSlug(tx: Prisma.TransactionClient, title: string): Promise<string> {
+    const base = slugify(title, 70) || 'course';
+    for (let n = 1; ; n++) {
+      const candidate = n === 1 ? base : `${base}-${n}`;
+      if (!(await tx.course.findUnique({ where: { slug: candidate }, select: { id: true } }))) return candidate;
+    }
+  }
+
+  /** The DRAFT session a session or podcast booking becomes (the kind is a label on it). */
+  private async createDraftEvent(
+    tx: Prisma.TransactionClient,
+    slot: Pick<SpeakingSlot, 'startsAt' | 'durationMin'>,
+    b: BookingContent,
+    speakerId: string | null,
+    language: CourseLanguage,
+    actorId: string | null,
+  ): Promise<LiveEvent> {
+    const e = await tx.liveEvent.create({
+      data: {
+        slug: await this.freeEventSlug(tx, b.title, slot.startsAt),
+        status: 'DRAFT',
+        titleEn: b.title,
+        descriptionEn: b.abstract,
+        speakerId,
+        startsAt: slot.startsAt,
+        durationMin: slot.durationMin,
+        language: b.details.language ?? language,
+        platform: 'GOOGLE_MEET',
+        source: 'speaker-booking',
+        // The kind is a label on the session; the details fill its page once published.
+        details: { kind: b.kind, details: b.details } as Prisma.InputJsonValue,
+      },
+    });
+    await this.audit.log({ actorId, action: 'event.created', entityType: 'LiveEvent', entityId: e.id, metadata: { slug: e.slug, status: 'DRAFT', source: 'speaker-booking', kind: b.kind } }, tx);
+    return e;
+  }
+
+  /**
+   * The DRAFT course a course booking becomes, prefilled from the booking (courseDraftFromBooking)
+   * with the speaker as its instructor. The team finishes it in Admin → Courses and publishes it
+   * with the usual course statuses. `extra` carries what the team already wrote on a draft
+   * session the course replaces (Arabic title and description, cover, tags, a moved time).
+   */
+  private async createDraftCourse(
+    tx: Prisma.TransactionClient,
+    slot: Pick<SpeakingSlot, 'id' | 'startsAt'>,
+    b: BookingContent,
+    instructorId: string | null,
+    language: CourseLanguage,
+    actorId: string | null,
+    extra: Partial<Pick<LiveEvent, 'titleAr' | 'descriptionAr' | 'coverImageUrl' | 'topics' | 'startsAt'>> = {},
+  ): Promise<Course> {
+    const draft = courseDraftFromBooking({ title: b.title, abstract: b.abstract, details: b.details, language, startsAt: extra.startsAt ?? slot.startsAt });
+    const c = await tx.course.create({
+      data: {
+        ...draft,
+        slug: await this.freeCourseSlug(tx, b.title),
+        titleAr: extra.titleAr || draft.titleAr,
+        longDescriptionAr: extra.descriptionAr || draft.longDescriptionAr,
+        coverImageUrl: extra.coverImageUrl ?? null,
+        topics: Array.from(new Set([...draft.topics, ...(extra.topics ?? [])])).slice(0, 12),
+        targetAudience: draft.targetAudience as Prisma.InputJsonValue,
+        notFor: draft.notFor as Prisma.InputJsonValue,
+        preparation: draft.preparation as Prisma.InputJsonValue,
+        learningOutcomes: draft.learningOutcomes as Prisma.InputJsonValue,
+        prerequisites: draft.prerequisites as Prisma.InputJsonValue,
+        outline: draft.outline as Prisma.InputJsonValue,
+        faq: draft.faq as Prisma.InputJsonValue,
+        included: draft.included as Prisma.InputJsonValue,
+        source: 'speaker-booking',
+        ...(instructorId ? { instructors: { create: { instructorId, order: 0 } } } : {}),
+      },
+    });
+    await this.audit.log({ actorId, action: 'course.created', entityType: 'Course', entityId: c.id, metadata: { slug: c.slug, status: 'DRAFT', source: 'speaker-booking', slotId: slot.id } }, tx);
+    return c;
+  }
+
   /**
    * Books a slot. In one transaction: the speaker's row is locked (so two requests can't
    * both pass the open-bookings limit), the slot flips OPEN → BOOKED only if it is still
-   * OPEN (so two speakers can't hold it), and the DRAFT session is created and linked.
+   * OPEN (so two speakers can't hold it), and the DRAFT session (or, for a course, the DRAFT
+   * course) is created and linked.
    */
   async book(userId: string, slotId: string, input: SlotBookingInput, now = new Date()): Promise<SpeakerBookingDto> {
     const settings = await this.settings.get();
@@ -275,7 +380,7 @@ export class SpeakerPortalService {
     settings: Awaited<ReturnType<SettingsService['get']>>,
     now: Date,
   ): Promise<SpeakerBookingDto> {
-    const { slot, event, user } = await this.prisma.$transaction(async (tx) => {
+    const { slot, event, course, user } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
       const [account, app] = await Promise.all([
         tx.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, email: true, locale: true, deletedAt: true, speakerProfile: { select: { id: true } } } }),
@@ -299,26 +404,18 @@ export class SpeakerPortalService {
         throw new ConflictException({ code: 'SLOT_TAKEN', message: 'This slot was just booked or is no longer available. Choose another one.' });
       }
       const s = await tx.speakingSlot.findUniqueOrThrow({ where: { id: slotId } });
-      const e = await tx.liveEvent.create({
-        data: {
-          slug: await this.freeEventSlug(tx, input.title, s.startsAt),
-          status: 'DRAFT',
-          titleEn: input.title,
-          descriptionEn: input.abstract,
-          speakerId: account.speakerProfile.id,
-          startsAt: s.startsAt,
-          durationMin: s.durationMin,
-          language: input.details.language ?? app.language,
-          platform: 'GOOGLE_MEET',
-          source: 'speaker-booking',
-          // The kind is a label on the session; the details fill its page once published.
-          details: { kind: input.kind, details: input.details } as Prisma.InputJsonValue,
-        },
-      });
-      const linked = await tx.speakingSlot.update({ where: { id: slotId }, data: { eventId: e.id }, include: { event: eventSelect } });
+      // A course becomes a draft course (the team finishes and publishes it in Courses);
+      // a session or podcast, a draft live session.
+      if (input.kind === 'COURSE') {
+        const c = await this.createDraftCourse(tx, s, input, account.speakerProfile.id, app.language, userId);
+        const linked = await tx.speakingSlot.update({ where: { id: slotId }, data: { courseId: c.id }, include: slotInclude });
+        await this.audit.log({ actorId: userId, action: 'speaking_slot.booked', entityType: 'SpeakingSlot', entityId: slotId, metadata: { courseId: c.id } }, tx);
+        return { slot: linked, event: null, course: c, user: account };
+      }
+      const e = await this.createDraftEvent(tx, s, input, account.speakerProfile.id, app.language, userId);
+      const linked = await tx.speakingSlot.update({ where: { id: slotId }, data: { eventId: e.id }, include: slotInclude });
       await this.audit.log({ actorId: userId, action: 'speaking_slot.booked', entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: e.id } }, tx);
-      await this.audit.log({ actorId: userId, action: 'event.created', entityType: 'LiveEvent', entityId: e.id, metadata: { slug: e.slug, status: 'DRAFT', source: 'speaker-booking', kind: input.kind } }, tx);
-      return { slot: linked, event: e, user: account };
+      return { slot: linked, event: e, course: null, user: account };
     }, BOOK_TX);
 
     const locale: Locale = user.locale === 'ar' ? 'ar' : 'en';
@@ -326,7 +423,7 @@ export class SpeakerPortalService {
     // The booking is committed: telling people must never turn it into an error (a retry
     // would then say "slot taken" about the speaker's own booking).
     try {
-      await this.afterBooking(userId, user, slot, event, input, dto, locale, settings.sessionTeamEmails);
+      await this.afterBooking(userId, user, slot, { event, course }, input, dto, locale, settings.sessionTeamEmails);
     } catch (err) {
       this.logger.error(`Telling people about a booking failed: ${(err as Error).name}`);
     }
@@ -337,7 +434,7 @@ export class SpeakerPortalService {
     userId: string,
     user: { email: string },
     slot: SpeakingSlot,
-    event: LiveEvent,
+    made: { event: LiveEvent | null; course: Course | null },
     input: SlotBookingInput,
     dto: SpeakerBookingDto,
     locale: Locale,
@@ -354,67 +451,165 @@ export class SpeakerPortalService {
         url: this.email.url(locale, '/speaker'),
         calendarUrl: dto.calendarUrl,
         icsUrl: dto.icsUrl,
+        course: Boolean(made.course),
       })
       .catch(() => undefined);
-    // The kind is a label: "[Course] Serving LLMs" tells the team what to prepare.
+    // The kind is a label: "[Podcast] Serving LLMs" tells the team what to prepare.
     const label = input.kind === 'SESSION' ? input.title : `[${speakerKindLabels[input.kind].en}] ${input.title}`;
+    // The team opens what was made: the draft course, or the draft session.
+    const link = made.course ? `/admin/courses/${made.course.id}` : `/admin/sessions/${made.event?.id ?? ''}`;
     await this.tellTeam(team, {
       kind: 'booked',
+      draft: made.course ? 'course' : 'session',
       speakerName: app.fullName,
       speakerEmail: user.email,
       title: label,
       abstract: input.abstract,
       when: formatWhen(slot.startsAt, 'en'),
-      url: this.email.url('en', `/admin/sessions/${event.id}`),
+      url: this.email.url('en', link),
     });
     await this.notifications.notifyAdmins({
       type: 'speaker_booking',
-      titleEn: 'New speaker booking',
-      titleAr: 'حجز جديد من متحدث',
+      titleEn: made.course ? 'New course from a speaker: a draft course is ready' : 'New speaker booking',
+      titleAr: made.course ? 'دورة جديدة من متحدث: مسودة الدورة جاهزة' : 'حجز جديد من متحدث',
       bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
       bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
-      link: `/admin/sessions/${event.id}`,
+      link,
     });
   }
 
   /**
-   * Edits a booking's title, abstract, kind and details: by the speaker while its session is
-   * still a draft (and upcoming), or by the team at any time. The session follows: a draft's
-   * title and description too, any session's details.
+   * Edits a booking's title, abstract, kind and details: by the speaker while what the team
+   * prepares from it is still a draft (and upcoming), or by the team at any time. A draft
+   * session follows (title, description and details; a published one, its details only), and
+   * a draft course its title and descriptions. Changing the kind to or from Course swaps a
+   * draft session for a draft course (or back), as long as nothing was published yet.
    */
   async updateBooking(slotId: string, input: SlotBookingInput, actor: { id: string; admin: boolean }, now = new Date()): Promise<SpeakerBookingDto> {
-    const s = await this.prisma.speakingSlot.findUnique({ where: { id: slotId }, include: { event: eventSelect, bookedBy: { select: { locale: true } } } });
+    const s = await this.prisma.speakingSlot.findUnique({
+      where: { id: slotId },
+      include: {
+        ...slotInclude,
+        bookedBy: { select: { locale: true, speakerProfile: { select: { id: true } }, speakerApplication: { select: { language: true } } } },
+      },
+    });
     if (!s || s.status !== 'BOOKED' || (!actor.admin && s.bookedById !== actor.id)) throw new NotFoundException('Booking not found');
+    const locked = () => new ConflictException({ code: 'BOOKING_LOCKED', message: 'This session is already published. Ask the team to change it.' });
     if (!actor.admin) {
       const startsAt = s.event?.startsAt ?? s.startsAt;
-      if (eventEnded(startsAt, s.event?.durationMin ?? s.durationMin, now) || (s.event && s.event.status !== 'DRAFT')) {
-        throw new ConflictException({ code: 'BOOKING_LOCKED', message: 'This session is already published. Ask the team to change it.' });
-      }
+      if (eventEnded(startsAt, s.event?.durationMin ?? s.durationMin, now) || (s.event && s.event.status !== 'DRAFT') || (s.course && s.course.status !== 'DRAFT')) throw locked();
     }
     const details = { kind: input.kind, details: input.details } as Prisma.InputJsonValue;
+    const speakerId = s.bookedBy?.speakerProfile?.id ?? null;
+    const language: CourseLanguage = s.bookedBy?.speakerApplication?.language ?? 'BILINGUAL';
     const saved = await this.prisma.$transaction(async (tx) => {
-      // Conditional: a speaker edit never lands on a session the team published meanwhile.
-      if (s.event) {
-        const r = await tx.liveEvent.updateMany({
-          where: { id: s.event.id, ...(actor.admin ? {} : { status: 'DRAFT' }) },
-          data: s.event.status === 'DRAFT' ? { titleEn: input.title, descriptionEn: input.abstract, details } : { details },
-        });
-        if (!r.count) throw new ConflictException({ code: 'BOOKING_LOCKED', message: 'This session is already published. Ask the team to change it.' });
+      const draftEvent = !s.event || s.event.status === 'DRAFT';
+      const metadata: Record<string, unknown> = { eventId: s.event?.id ?? null, courseId: s.course?.id ?? null, kind: input.kind };
+      // Only a change of kind swaps them: a course booked before course drafts existed keeps its
+      // draft session until the team makes the course (createCourseDraft).
+      if (input.kind === 'COURSE' && s.kind !== 'COURSE' && !s.course && draftEvent) {
+        // Now a course: the draft session (never public) gives way to a draft course.
+        const c = await this.createDraftCourse(tx, s, input, speakerId, language, actor.id);
+        if (s.event) await this.deleteDraftEvent(tx, s.event, actor.id);
+        await tx.speakingSlot.update({ where: { id: slotId }, data: { courseId: c.id, eventId: null } });
+        metadata.courseId = c.id;
+      } else if (input.kind !== 'COURSE' && s.kind === 'COURSE' && s.course?.status === 'DRAFT' && !s.event) {
+        // No longer a course: the draft course (never public) gives way to a draft session.
+        const e = await this.createDraftEvent(tx, s, input, speakerId, language, actor.id);
+        await this.deleteDraftCourse(tx, s.course, actor.id);
+        await tx.speakingSlot.update({ where: { id: slotId }, data: { eventId: e.id, courseId: null } });
+        metadata.eventId = e.id;
+      } else {
+        // Conditional: a speaker edit never lands on a session or course the team published meanwhile.
+        if (s.event) {
+          const r = await tx.liveEvent.updateMany({
+            where: { id: s.event.id, ...(actor.admin ? {} : { status: 'DRAFT' }) },
+            data: s.event.status === 'DRAFT' ? { titleEn: input.title, descriptionEn: input.abstract, details } : { details },
+          });
+          if (!r.count) throw locked();
+        }
+        if (s.course?.status === 'DRAFT') {
+          const r = await tx.course.updateMany({
+            where: { id: s.course.id, status: 'DRAFT' },
+            data: { titleEn: input.title, shortDescriptionEn: shortDescription(input.abstract), longDescriptionEn: input.abstract },
+          });
+          if (!r.count && !actor.admin) throw locked();
+        }
       }
       const updated = await tx.speakingSlot.update({
         where: { id: slotId },
         data: { title: input.title, abstract: input.abstract, kind: input.kind, details: input.details as Prisma.InputJsonValue },
-        include: { event: eventSelect },
+        include: slotInclude,
       });
-      await this.audit.log(
-        { actorId: actor.id, action: actor.admin ? 'speaking_slot.updated_by_admin' : 'speaking_slot.updated', entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: s.event?.id ?? null, kind: input.kind } },
-        tx,
-      );
+      await this.audit.log({ actorId: actor.id, action: actor.admin ? 'speaking_slot.updated_by_admin' : 'speaking_slot.updated', entityType: 'SpeakingSlot', entityId: slotId, metadata }, tx);
       return updated;
     });
     const settings = await this.settings.get();
     const locale: Locale = s.bookedBy?.locale === 'ar' ? 'ar' : 'en';
     return this.toBookingDto(saved, settings.speakerCancelDays, locale, now);
+  }
+
+  /**
+   * Deletes a booking's DRAFT session (never public, so nobody is told). Conditional: if the team
+   * published it a moment ago, nothing is deleted and the whole change is refused.
+   */
+  private async deleteDraftEvent(tx: Prisma.TransactionClient, event: Pick<LiveEvent, 'id' | 'slug'>, actorId: string | null): Promise<void> {
+    const r = await tx.liveEvent.deleteMany({ where: { id: event.id, status: 'DRAFT' } });
+    if (!r.count) throw changedMeanwhile();
+    await this.audit.log({ actorId, action: 'event.deleted', entityType: 'LiveEvent', entityId: event.id, metadata: { slug: event.slug, status: 'DRAFT', source: 'speaker-booking' } }, tx);
+  }
+
+  /**
+   * Deletes a booking's DRAFT course (never public: no applicants, no students). Conditional, like
+   * deleteDraftEvent: a course published (or given students) a moment ago is never deleted.
+   */
+  private async deleteDraftCourse(tx: Prisma.TransactionClient, course: Pick<Course, 'id' | 'slug'>, actorId: string | null): Promise<void> {
+    const r = await tx.course.deleteMany({ where: { id: course.id, status: 'DRAFT', applications: { none: {} }, enrollments: { none: {} } } });
+    if (!r.count) throw changedMeanwhile();
+    await this.audit.log({ actorId, action: 'course.deleted', entityType: 'Course', entityId: course.id, metadata: { slug: course.slug, status: 'DRAFT', source: 'speaker-booking' } }, tx);
+  }
+
+  /**
+   * "Create course draft from this booking" (Admin → Speakers → Availability, or the booking's
+   * draft session): for a course booked before course drafts existed. Idempotent: a booking that
+   * already has its course gets that one back. A draft session made from the booking gives way
+   * to the course (what the team wrote on it carries over); a published one stays as it is.
+   */
+  async createCourseDraft(slotId: string, actorId: string): Promise<CourseDraftResultDto> {
+    return this.prisma.$transaction(async (tx) => {
+      const [locked] = await tx.$queryRaw<{ status: string; kind: string | null; courseId: string | null }[]>`
+        SELECT status::text AS status, kind::text AS kind, "courseId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
+      if (!locked || locked.status !== 'BOOKED') throw new NotFoundException('Booking not found');
+      if (locked.courseId) {
+        const existing = await tx.course.findUnique({ where: { id: locked.courseId }, select: { id: true, slug: true } });
+        if (existing) return { courseId: existing.id, slug: existing.slug, created: false, removedDraftEventId: null };
+      }
+      if (locked.kind !== 'COURSE') {
+        throw new ConflictException({ code: 'NOT_A_COURSE_BOOKING', message: 'Only a course booking becomes a course. Change the booking to a course first (Edit details).' });
+      }
+      const s = await tx.speakingSlot.findUniqueOrThrow({
+        where: { id: slotId },
+        include: { event: true, bookedBy: { select: { speakerProfile: { select: { id: true } }, speakerApplication: { select: { language: true } } } } },
+      });
+      const title = s.title || s.event?.titleEn || 'Course';
+      // Account deletion clears the abstract: the session's description, or the title, stands in.
+      const abstract = s.abstract || s.event?.descriptionEn || title;
+      const e = s.event;
+      const c = await this.createDraftCourse(
+        tx,
+        s,
+        { title, abstract, kind: 'COURSE', details: readSpeakerDetails('COURSE', s.details) },
+        s.bookedBy?.speakerProfile?.id ?? e?.speakerId ?? null,
+        s.bookedBy?.speakerApplication?.language ?? e?.language ?? 'BILINGUAL',
+        actorId,
+        e ? { titleAr: e.titleAr, descriptionAr: e.descriptionAr, coverImageUrl: e.coverImageUrl, topics: e.topics, startsAt: e.startsAt } : {},
+      );
+      const removeEvent = e?.status === 'DRAFT';
+      if (removeEvent) await this.deleteDraftEvent(tx, e, actorId);
+      await tx.speakingSlot.update({ where: { id: slotId }, data: { courseId: c.id, ...(removeEvent ? { eventId: null } : {}) } });
+      await this.audit.log({ actorId, action: 'speaking_slot.course_drafted', entityType: 'SpeakingSlot', entityId: slotId, metadata: { courseId: c.id, removedEventId: removeEvent ? e.id : null } }, tx);
+      return { courseId: c.id, slug: c.slug, created: true, removedDraftEventId: removeEvent ? e.id : null };
+    });
   }
 
   /** One email per team address, on the bulk lane (never ahead of sign-ups and resets). */
@@ -428,62 +623,80 @@ export class SpeakerPortalService {
   }
 
   /**
-   * Frees a booked slot in one transaction: the slot is OPEN again, and its session goes
-   * with it. A DRAFT (never public) is deleted, so the speaker's text never reaches the
-   * public pages; a session the team already published is CANCELLED, so registrants hear.
+   * Frees a booked slot in one transaction: the slot is OPEN again, and what was made from it
+   * goes with it. A DRAFT session or course (never public) is deleted, so the speaker's text
+   * never reaches the public pages; a session the team already published is CANCELLED, so
+   * registrants hear; a course the team already published (or that has applicants) is kept as
+   * it is, and the team is told.
    */
   private async release(
     slotId: string,
     actorId: string | null,
     action: string,
     check: (locked: { bookedById: string | null; startsAt: Date }, event: LiveEvent | null) => void,
-  ): Promise<{ slot: SpeakingSlot; event: LiveEvent | null; bookedById: string | null; cancelled: LiveEvent | null }> {
+  ): Promise<Released> {
     return this.prisma.$transaction(async (tx) => {
-      const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; eventId: string | null }[]>`
-        SELECT status::text AS status, "bookedById", "startsAt", "eventId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
+      const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; eventId: string | null; courseId: string | null }[]>`
+        SELECT status::text AS status, "bookedById", "startsAt", "eventId", "courseId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
       if (!locked || locked.status !== 'BOOKED') throw new NotFoundException('Booking not found');
       const event = locked.eventId ? await tx.liveEvent.findUnique({ where: { id: locked.eventId } }) : null;
+      const course = locked.courseId
+        ? await tx.course.findUnique({ where: { id: locked.courseId }, select: { id: true, slug: true, titleEn: true, status: true, _count: { select: { applications: true, enrollments: true } } } })
+        : null;
       check(locked, event);
       const slot = await tx.speakingSlot.update({
         where: { id: slotId },
-        data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, kind: null, details: Prisma.DbNull, eventId: null },
+        data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, kind: null, details: Prisma.DbNull, eventId: null, courseId: null },
       });
       let cancelled: LiveEvent | null = null;
       if (event?.status === 'DRAFT') {
-        await tx.liveEvent.delete({ where: { id: event.id } });
-        await this.audit.log({ actorId, action: 'event.deleted', entityType: 'LiveEvent', entityId: event.id, metadata: { slug: event.slug, status: 'DRAFT', source: 'speaker-booking' } }, tx);
+        await this.deleteDraftEvent(tx, event, actorId);
       } else if (event?.status === 'PUBLISHED') {
         cancelled = await tx.liveEvent.update({ where: { id: event.id }, data: { status: 'CANCELLED' } });
         await this.audit.log({ actorId, action: 'event.updated', entityType: 'LiveEvent', entityId: event.id, metadata: { slug: event.slug, status: { from: 'PUBLISHED', to: 'CANCELLED' } } }, tx);
       }
-      await this.audit.log({ actorId, action, entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: event?.id ?? null, bookedById: locked.bookedById } }, tx);
-      return { slot, event, bookedById: locked.bookedById, cancelled };
+      let courseKept: Released['courseKept'] = null;
+      if (course?.status === 'DRAFT' && !course._count.applications && !course._count.enrollments) {
+        await this.deleteDraftCourse(tx, course, actorId);
+      } else if (course) {
+        courseKept = { id: course.id, slug: course.slug, titleEn: course.titleEn, status: course.status };
+      }
+      await this.audit.log(
+        { actorId, action, entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: event?.id ?? null, courseId: course?.id ?? null, courseKept: Boolean(courseKept), bookedById: locked.bookedById } },
+        tx,
+      );
+      return { slot, event, bookedById: locked.bookedById, cancelled, courseTitle: course?.titleEn ?? null, courseKept };
     });
   }
 
   /** After a release: registrants of a published session, the session team and admins hear about it. */
-  private async afterRelease(r: { slot: SpeakingSlot; event: LiveEvent | null; bookedById: string | null; cancelled: LiveEvent | null; title?: string | null }, speakerName?: string): Promise<void> {
+  private async afterRelease(r: Released & { title?: string | null }, speakerName?: string): Promise<void> {
     if (r.cancelled) await this.events.notifyCancelled(r.cancelled);
     const settings = await this.settings.get();
     const user = r.bookedById ? await this.prisma.user.findUnique({ where: { id: r.bookedById }, select: { email: true, speakerApplication: { select: { fullName: true } } } }) : null;
     const name = speakerName ?? user?.speakerApplication?.fullName ?? user?.email ?? 'Speaker';
-    const title = r.event?.titleEn ?? r.title ?? 'Speaker session';
+    const title = r.event?.titleEn ?? r.courseTitle ?? r.title ?? 'Speaker session';
+    // A published course stays: the team decides what happens to it (archive it, or find another speaker).
+    const kept = r.courseKept;
+    const keptNote = kept ? `The course was kept (status: ${kept.status}) because it is published or has students: check it in Courses.` : '';
     await this.tellTeam(settings.sessionTeamEmails, {
       kind: 'cancelled',
+      draft: r.courseTitle ? 'course' : 'session',
+      courseKept: kept ? kept.status : null,
       speakerName: name,
       speakerEmail: user?.email ?? '',
       title,
       abstract: '',
       when: formatWhen(r.slot.startsAt, 'en'),
-      url: this.email.url('en', '/admin/speakers/availability'),
+      url: this.email.url('en', kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability'),
     });
     await this.notifications.notifyAdmins({
       type: 'speaker_booking_cancelled',
       titleEn: 'A speaker booking was cancelled',
       titleAr: 'أُلغي حجز متحدث',
-      bodyEn: `${name}: ${title}`,
-      bodyAr: `${name}: ${title}`,
-      link: '/admin/speakers/availability',
+      bodyEn: kept ? `${name}: ${title}. ${keptNote}` : `${name}: ${title}`,
+      bodyAr: kept ? `${name}: ${title}. الدورة منشورة بالفعل، فبقيت كما هي: راجعها في الدورات.` : `${name}: ${title}`,
+      link: kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability',
     });
   }
 
@@ -704,6 +917,7 @@ export class SpeakerPortalService {
       include: {
         bookedBy: { select: { id: true, email: true, speakerApplication: { select: { fullName: true } } } },
         event: { select: { id: true, slug: true, status: true } },
+        course: courseSelect,
       },
     });
     return rows.map((s) => ({
@@ -717,6 +931,7 @@ export class SpeakerPortalService {
       details: s.kind ? readSpeakerDetails(s.kind, s.details) : {},
       bookedBy: s.bookedBy ? { id: s.bookedBy.id, email: s.bookedBy.email, name: s.bookedBy.speakerApplication?.fullName ?? s.bookedBy.email } : null,
       event: s.event,
+      course: s.course,
     }));
   }
 
@@ -735,7 +950,7 @@ export class SpeakerPortalService {
     if ((await this.taken([input.startsAt])).size) throw new ConflictException({ code: 'SLOT_EXISTS', message: 'There is already a slot at this time' });
     const s = await this.prisma.speakingSlot.create({ data: { startsAt: input.startsAt, durationMin: input.durationMin, createdById: actorId } });
     await this.audit.log({ actorId, action: 'speaking_slot.created', entityType: 'SpeakingSlot', entityId: s.id });
-    return { id: s.id, startsAt: s.startsAt.toISOString(), durationMin: s.durationMin, status: s.status, title: null, abstract: null, kind: null, details: {}, bookedBy: null, event: null };
+    return { id: s.id, startsAt: s.startsAt.toISOString(), durationMin: s.durationMin, status: s.status, title: null, abstract: null, kind: null, details: {}, bookedBy: null, event: null, course: null };
   }
 
   async generate(input: SlotGeneratorInput, actorId: string, now = new Date()): Promise<{ created: number; skipped: number }> {
@@ -792,6 +1007,11 @@ export class SpeakerPortalService {
     if (released) this.logger.log(`Released ${released} speaker booking(s) of a deleted account`);
     return released;
   }
+}
+
+/** A draft the team published (or changed) while this request ran: nothing was changed. */
+function changedMeanwhile(): ConflictException {
+  return new ConflictException({ code: 'BOOKING_CHANGED', message: 'The team changed this booking a moment ago, so nothing was changed. Reload and try again.' });
 }
 
 /**

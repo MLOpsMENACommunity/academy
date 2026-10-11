@@ -631,6 +631,8 @@ model Course {
   announcements       Announcement[]
   interests           CourseInterest[]
   invites             CourseInvite[]
+  /// The speaker booking this course was drafted from, if any.
+  speakingSlot        SpeakingSlot?
 }
 
 model CourseInstructor {
@@ -931,7 +933,7 @@ enum SpeakerFormat {
   PODCAST
 }
 
-/// What a speaker offers. Every booking is still one live session; the kind is a label on it.
+/// What a speaker offers. A session or podcast booking becomes a draft live session; a course booking, a draft course.
 enum SpeakerKind {
   SESSION
   COURSE
@@ -1024,6 +1026,9 @@ model SpeakingSlot {
   details     Json?
   eventId     String?    @unique
   event       LiveEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  /// A COURSE booking becomes a DRAFT course (instead of a draft session) that the team finishes and publishes.
+  courseId    String?    @unique
+  course      Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
   createdById String?
   createdBy   User?      @relation("SlotCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime   @default(now())

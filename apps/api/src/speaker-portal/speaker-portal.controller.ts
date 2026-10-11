@@ -137,7 +137,17 @@ export class AdminSpeakerPortalController {
     return this.portal.updateBooking(id, body, { id: user.id, admin: true });
   }
 
-  /** Frees a booked slot (the draft session is deleted; a published one is cancelled). */
+  /**
+   * "Create course draft from this booking": for a course booked before course drafts existed.
+   * Idempotent (the booking's course comes back if it has one).
+   */
+  @Post('speaking-slots/:id/course-draft')
+  @HttpCode(200)
+  courseDraft(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.portal.createCourseDraft(id, user.id);
+  }
+
+  /** Frees a booked slot (a draft session or course is deleted; a published session is cancelled, a published course kept). */
   @Post('speaking-slots/:id/release')
   @HttpCode(204)
   async release(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<void> {

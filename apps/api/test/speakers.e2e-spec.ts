@@ -426,7 +426,7 @@ describe('speaker portal (e2e)', () => {
       expect(JSON.stringify(audit.metadata)).not.toContain('Layla');
     });
 
-    it('books a course with optional details, copies them to the draft, and lets the speaker edit until it is published', async () => {
+    it('books a course with optional details, keeps them on the booking and its draft course, and lets the speaker edit until it is published', async () => {
       const s = await approvedSpeaker('Course giver');
       const slot = await slotAt(new Date(Date.now() + 40 * DAY), 120);
       const details = { audience: 'Data scientists', outcomes: ['Ship a model'], level: 'BEGINNER', course: { modulesCount: 3, modules: [{ title: 'Packaging', description: 'Docker' }], durationWeeks: 3 }, podcast: { host: 'Nobody' } };
@@ -435,10 +435,11 @@ describe('speaker portal (e2e)', () => {
       const res = await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send({ ...booking, kind: 'COURSE', details }).expect(201);
       expect(res.body).toMatchObject({ kind: 'COURSE', canEdit: true, abstract: booking.abstract, details: { audience: 'Data scientists', course: { modulesCount: 3 } } });
       expect(res.body.details).not.toHaveProperty('podcast');
-      const saved = await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id }, include: { event: true } });
+      const saved = await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id }, include: { course: true } });
       expect(saved.kind).toBe('COURSE');
-      // A label on the session, never a real course.
-      expect(saved.event).toMatchObject({ status: 'DRAFT', titleEn: booking.title, durationMin: 120, details: { kind: 'COURSE', details: { level: 'BEGINNER' } } });
+      // A draft course (see speaker-publish.e2e-spec.ts), not a draft session.
+      expect(saved.eventId).toBeNull();
+      expect(saved.course).toMatchObject({ status: 'DRAFT', titleEn: booking.title, durationWeeks: 3, levels: ['JUNIOR'] });
 
       // Every detail is optional; the speaker edits while it is a draft.
       const edit = { title: 'Shipping models, a course', abstract: booking.abstract, kind: 'COURSE', details: { audience: 'Everyone' } };
@@ -446,23 +447,30 @@ describe('speaker portal (e2e)', () => {
       await http().put(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', other.cookie).send(edit).expect(404);
       const edited = await http().put(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(edit).expect(200);
       expect(edited.body).toMatchObject({ title: edit.title, details: { audience: 'Everyone' } });
-      expect(await prisma.liveEvent.findUniqueOrThrow({ where: { id: saved.eventId! } })).toMatchObject({ titleEn: edit.title, details: { kind: 'COURSE', details: { audience: 'Everyone' } } });
+      expect(await prisma.course.findUniqueOrThrow({ where: { id: saved.courseId! } })).toMatchObject({ titleEn: edit.title });
 
-      // Published: the speaker can't change it any more; the team can (details only on the session).
-      await prisma.liveEvent.update({ where: { id: saved.eventId! }, data: { status: 'PUBLISHED', titleAr: 'دورة', liveUrl: 'https://meet.google.com/x' } });
+      // Published: the speaker can't change it any more; the team can (on the booking; the course is edited in Courses).
+      await prisma.course.update({ where: { id: saved.courseId! }, data: { status: 'OPEN', titleAr: 'دورة', shortDescriptionAr: 'دورة منشورة للاختبار.' } });
       const locked = await http().put(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(edit).expect(409);
       expect(locked.body.code).toBe('BOOKING_LOCKED');
       const portal = await http().get('/api/speaker').set('Cookie', s.cookie).expect(200);
       expect(portal.body.bookings.find((b: { slotId: string }) => b.slotId === slot.id).canEdit).toBe(false);
       await http().put(`/api/admin/speaking-slots/${slot.id}/booking`).set('Cookie', s.cookie).send(edit).expect(403);
-      await http()
+      const team = await http()
         .put(`/api/admin/speaking-slots/${slot.id}/booking`)
         .set('Cookie', admin.cookie)
         .send({ ...edit, title: 'Changed by the team', details: { audience: 'Engineers', prerequisites: 'Python', course: { modulesCount: 4 } } })
         .expect(200);
-      const event = await prisma.liveEvent.findUniqueOrThrow({ where: { id: saved.eventId! } });
-      expect(event.titleEn).toBe(edit.title); // a published title is edited on the session itself
-      // The public page shows what is filled, nothing empty.
+      expect(team.body).toMatchObject({ title: 'Changed by the team', details: { audience: 'Engineers', prerequisites: 'Python', course: { modulesCount: 4 } } });
+      expect(team.body.details).not.toHaveProperty('outcomes');
+      // A published course's title is edited in Courses.
+      expect((await prisma.course.findUniqueOrThrow({ where: { id: saved.courseId! } })).titleEn).toBe(edit.title);
+    });
+
+    it('shows a session\'s course details on its public page (a course label set by the team)', async () => {
+      const event = await prisma.liveEvent.create({
+        data: { slug: `course-label-${Date.now()}`, status: 'PUBLISHED', titleEn: 'Course intro', titleAr: 'مقدمة', liveUrl: 'https://meet.google.com/x', startsAt: new Date(Date.now() + 50 * DAY), details: { kind: 'COURSE', details: { audience: 'Engineers', prerequisites: 'Python', course: { modulesCount: 4 } } } },
+      });
       const pub = await http().get(`/api/events/${event.slug}`).expect(200);
       expect(pub.body).toMatchObject({ kind: 'COURSE', details: { audience: 'Engineers', prerequisites: 'Python', course: { modulesCount: 4 } } });
       expect(pub.body.details).not.toHaveProperty('outcomes');

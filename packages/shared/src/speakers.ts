@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ALL_COUNTRIES } from './countries';
 import { withCrossChecks } from './cross-checks';
-import { COURSE_LANGUAGES, REFERRAL_SOURCES, type CourseLanguage, type EventStatus, type Role } from './enums';
+import { COURSE_LANGUAGES, REFERRAL_SOURCES, type CourseLanguage, type CourseStatus, type EventStatus, type Role } from './enums';
 import { referralSourceLabels } from './labels';
 import { linkedinProfileUrlSchema } from './links';
 import { phoneSchema } from './profile';
@@ -390,6 +390,14 @@ export interface SpeakerBookingDto {
     /** People registered for it. */
     registered: number;
   } | null;
+  /**
+   * A course booking: the DRAFT course the team finishes and publishes (instead of a session).
+   * Null for sessions and podcasts, and for a course booked before course drafts existed.
+   */
+  course: {
+    slug: string;
+    status: CourseStatus;
+  } | null;
 }
 
 export interface SpeakerPortalDto {
@@ -418,4 +426,16 @@ export interface AdminSlotDto {
   details: SpeakerDetailsDto;
   bookedBy: { id: string; name: string; email: string } | null;
   event: { id: string; slug: string; status: EventStatus } | null;
+  /** A course booking's course (a DRAFT until the team publishes it). */
+  course: { id: string; slug: string; status: CourseStatus } | null;
+}
+
+/** The answer to "Create course draft from this booking": the course, new or the one already linked. */
+export interface CourseDraftResultDto {
+  courseId: string;
+  slug: string;
+  /** False when the booking already had its course (nothing new was made). */
+  created: boolean;
+  /** The booking's draft session was removed (the course replaces it). */
+  removedDraftEventId: string | null;
 }

@@ -97,17 +97,39 @@ export const eventInputSchema = z
     details: eventDetailsInputSchema.optional(),
   })
   .superRefine((e, ctx) => {
-    // Published sessions are public, so they need Arabic too (drafts can wait).
-    if (e.status === 'PUBLISHED' && e.titleAr.length < 2) {
-      ctx.addIssue({ code: 'custom', path: ['titleAr'], message: 'Arabic title is required to publish' });
-    }
-    // Registered people would otherwise wait for a link that never comes. A session that
-    // already took place (e.g. one added to the archive afterwards) doesn't need one.
-    if (e.status === 'PUBLISHED' && !e.liveUrl && !eventEnded(e.startsAt, e.durationMin)) {
-      ctx.addIssue({ code: 'custom', path: ['liveUrl'], message: 'A live link is required to publish' });
+    if (e.status !== 'PUBLISHED') return;
+    for (const field of eventPublishMissing(e)) {
+      ctx.addIssue({ code: 'custom', path: [field], message: EVENT_PUBLISH_MESSAGES[field] });
     }
   });
 export type EventInput = z.infer<typeof eventInputSchema>;
+
+/** What a session needs before it can be published, besides what every save needs. */
+export type EventPublishField = 'titleAr' | 'liveUrl';
+
+export const EVENT_PUBLISH_MESSAGES: Record<EventPublishField, string> = {
+  titleAr: 'Arabic title is required to publish',
+  liveUrl: 'A live link is required to publish',
+};
+
+/**
+ * What is missing to publish a session: the server's check (eventInputSchema) and the admin's
+ * "Publish" button use this one list.
+ *   - An Arabic title: published sessions are public, so they need Arabic too (drafts can wait).
+ *   - The live (Meet) link: registered people would otherwise wait for a link that never comes.
+ *     A session that already took place (e.g. one added to the archive afterwards) doesn't need one.
+ */
+export function eventPublishMissing(
+  e: { titleAr?: string | null; liveUrl?: string | null; startsAt?: Date | string | null; durationMin?: number | null },
+  now = new Date(),
+): EventPublishField[] {
+  const missing: EventPublishField[] = [];
+  if ((e.titleAr ?? '').trim().length < 2) missing.push('titleAr');
+  const startsAt = e.startsAt ? new Date(e.startsAt) : null;
+  const ended = startsAt !== null && !Number.isNaN(startsAt.getTime()) && eventEnded(startsAt, e.durationMin ?? 0, now);
+  if (!(e.liveUrl ?? '').trim() && !ended) missing.push('liveUrl');
+  return missing;
+}
 
 /** A host or guest of a session, besides its main speaker. */
 export interface CoSpeakerDto extends SpeakerRefDto {

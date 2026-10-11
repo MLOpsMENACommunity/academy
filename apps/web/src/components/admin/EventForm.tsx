@@ -12,17 +12,21 @@ import {
   eventCategoryLabels,
   eventEnded,
   eventInputSchema,
+  eventPublishMissing,
   eventStatusLabels,
   readEventDetails,
   type EventCategory,
   type EventInput,
+  type EventPublishField,
   type EventSpeakerRole,
   type EventStatus,
   type InstructorDto,
+  type CourseStatus,
   type Localized,
+  type SpeakerKind,
 } from '@academy/shared';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { SelectField, TextField } from '@/components/forms/fields';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { focusFirstInvalid, SelectField, TextField } from '@/components/forms/fields';
 import { DetailsFields, detailsToValues, KindField, valuesToDetails, type DetailsValues } from '@/components/speakers/DetailsFields';
 import { Alert } from '@/components/ui/Alert';
 import type { Tone } from '@/components/ui/Badge';
@@ -47,6 +51,13 @@ export interface AdminEvent extends Omit<EventInput, 'startsAt' | 'details'> {
   /** { kind, details } (see readEventDetails); {} for a session the team made by hand. */
   details?: unknown;
   _count: { registrations: number };
+  /** The speaker booking this session came from, if any (its kind, who booked it, and its course if it became one). */
+  speakingSlot?: {
+    id: string;
+    kind: SpeakerKind | null;
+    course?: { id: string; slug: string; status: CourseStatus } | null;
+    bookedBy?: { email: string; speakerApplication: { fullName: string } | null } | null;
+  } | null;
 }
 
 export type CoSpeakerValue = { instructorId: string; role: EventSpeakerRole };
@@ -132,7 +143,8 @@ export function EventForm({
 }: {
   initial: EventFormValue;
   eventId?: string;
-  onSaved: (id: string) => void;
+  /** After a save, with the status it was saved with (the page says what it means). */
+  onSaved: (id: string, status: EventStatus) => void;
   /** The session's stored kind and details (from a speaker booking or an earlier save). */
   initialDetails?: unknown;
 }) {
@@ -144,7 +156,9 @@ export function EventForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | 'save' | 'publish'>(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [tz, setTz] = useState('');
   const [speakers, setSpeakers] = useState<InstructorDto[]>([]);
   useEffect(() => setTz(viewerTimezone()), []);
@@ -164,12 +178,35 @@ export function EventForm({
   const url = (k: 'speakerPhotoUrl' | 'speakerLinkedinUrl' | 'liveUrl' | 'recordingUrl' | 'coverImageUrl') => (x: string) => set(k)(x || null);
   const opts = (values: readonly string[], labels: Record<string, Localized>) => values.map((x) => ({ value: x, label: labels[x]?.[locale] ?? x }));
 
+  // A stored draft gets the banner: what it needs to go public, and a one-step Publish.
+  const draft = Boolean(eventId) && initial.status === 'DRAFT';
+  const missing = eventPublishMissing({ titleAr: v.titleAr, liveUrl: v.liveUrl, startsAt: fromLocalInput(v.startsAt) || null, durationMin: v.durationMin });
+  const need = (field: EventPublishField) => t(`admin.sessions.publish.need.${field}`);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    await submit(v.status);
+  }
+
+  /** Saves the form and publishes it in one step: the same request and checks as Save with status Published. */
+  async function publish() {
+    setPublishError(null);
+    if (missing.length) {
+      // Say what is needed, mark those fields, and take the admin to the first one.
+      setErrors((prev) => ({ ...prev, ...Object.fromEntries(missing.map((m) => [m, need(m)])) }));
+      setPublishError(t('admin.sessions.publish.blocked', { list: missing.map(need).join(' · ') }));
+      focusFirstInvalid(formRef.current);
+      return;
+    }
+    await submit('PUBLISHED');
+  }
+
+  async function submit(status: EventStatus) {
     setFormError(null);
     // A row left without a person is dropped rather than blocking the save.
     const payload = {
       ...v,
+      status,
       startsAt: fromLocalInput(v.startsAt),
       coSpeakers: v.coSpeakers.filter((c) => c.instructorId),
       details: { kind, details: valuesToDetails(details) },
@@ -181,28 +218,62 @@ export function EventForm({
     if (Object.keys(found).length) {
       setErrors(found);
       setFormError(t('forms.fixErrors'));
+      focusFirstInvalid(formRef.current);
       return;
     }
     setErrors({});
-    setBusy(true);
+    setBusy(status === 'PUBLISHED' && v.status !== 'PUBLISHED' ? 'publish' : 'save');
     try {
-      const res = await api<{ id: string }>(eventId ? `/admin/events/${eventId}` : '/admin/events', {
+      const res = await api<{ id: string; status: EventStatus }>(eventId ? `/admin/events/${eventId}` : '/admin/events', {
         method: eventId ? 'PUT' : 'POST',
         json: payload,
       });
+      setV((p) => ({ ...p, status: res.status }));
       setSaved(true);
-      onSaved(res.id);
+      onSaved(res.id, res.status);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'SLUG_TAKEN') setErrors({ slug: err.message });
       if (err instanceof ApiError && err.errors.length) setErrors(detailErrors(err.fieldErrors()));
       setFormError(errorMessage(err, t));
+      focusFirstInvalid(formRef.current);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-5">
+    <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
+      {draft && (
+        <section aria-labelledby="draft-banner" className="rounded-card border border-warning/30 bg-warning-soft p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 basis-64">
+              <h2 id="draft-banner" className="text-lg font-semibold text-fg">
+                {t('admin.sessions.publish.title')}
+              </h2>
+              {missing.length > 0 ? (
+                <>
+                  <p className="mt-1 text-[0.9375rem] text-body">{t('admin.sessions.publish.toPublish')}</p>
+                  <ul className="mt-1 list-disc ps-5 text-[0.9375rem] text-body">
+                    {missing.map((m) => (
+                      <li key={m}>{need(m)}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="mt-1 text-[0.9375rem] text-body">{t('admin.sessions.publish.ready')}</p>
+              )}
+            </div>
+            <Button type="button" size="lg" onClick={publish} loading={busy === 'publish'} disabled={Boolean(busy)} aria-describedby="draft-banner">
+              {t('admin.sessions.publish.button')}
+            </Button>
+          </div>
+          {publishError && (
+            <Alert tone="danger" className="mt-3">
+              {publishError}
+            </Alert>
+          )}
+        </section>
+      )}
       {formError && <Alert tone="danger">{formError}</Alert>}
 
       <Fieldset title={t('admin.sessions.basics')}>
@@ -268,7 +339,16 @@ export function EventForm({
           onChange={(x) => set('platform')((x ?? 'GOOGLE_MEET') as EventFormValue['platform'])}
           options={opts(DELIVERY_PLATFORMS, deliveryPlatformLabels)}
         />
-        <TextField label={f('liveUrl')} required={v.status === 'PUBLISHED' && !(v.startsAt && eventEnded(new Date(v.startsAt), v.durationMin))} type="url" dir="ltr" value={v.liveUrl ?? ''} onChange={url('liveUrl')} error={errors.liveUrl} hint={f('liveUrlHint')} />
+        <TextField
+          label={f('liveUrl')}
+          required={v.status === 'PUBLISHED' && !(v.startsAt && eventEnded(new Date(v.startsAt), v.durationMin))}
+          type="url"
+          dir="ltr"
+          value={v.liveUrl ?? ''}
+          onChange={url('liveUrl')}
+          error={errors.liveUrl}
+          hint={f('liveUrlHint')}
+        />
         <TextField
           label={f('capacity')}
           type="number"
@@ -409,8 +489,8 @@ export function EventForm({
       </Fieldset>
 
       <div className="sticky bottom-0 z-10 flex items-center gap-3 border-t border-line bg-page/95 py-3 backdrop-blur">
-        <Button type="submit" size="lg" loading={busy}>
-          {t('admin.common.save')}
+        <Button type="submit" size="lg" variant={draft ? 'secondary' : 'primary'} loading={busy === 'save'} disabled={Boolean(busy)}>
+          {draft && v.status === 'DRAFT' ? t('admin.sessions.publish.saveDraft') : t('admin.common.save')}
         </Button>
         <span role="status" className="text-sm text-success">
           {saved ? `✓ ${t('admin.common.saved')}` : ''}
