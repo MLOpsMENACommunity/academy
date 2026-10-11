@@ -87,8 +87,11 @@ export interface LearnCourseDto {
   progress: { completed: number; total: number; percent: number };
   courseFeedback: { rating: number; comment: string | null } | null;
   sessions: LearnSessionDto[];
-  /** Messages from the course team, newest first. Arabic falls back to English. */
-  announcements: { id: string; at: string; subjectEn: string; subjectAr: string; bodyEn: string; bodyAr: string }[];
+  /**
+   * Messages from the course team, newest first. Arabic falls back to English. `fromEn`/`fromAr`
+   * name the speaker who sent it (null when the team did).
+   */
+  announcements: { id: string; at: string; subjectEn: string; subjectAr: string; bodyEn: string; bodyAr: string; fromEn: string | null; fromAr: string | null }[];
 }
 
 export interface NextSessionDto {

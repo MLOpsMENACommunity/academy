@@ -24,7 +24,7 @@ function Linkified({ text }: { text: string }) {
   );
 }
 
-/** Messages from the course team (study-group link, quiz links, schedule changes). */
+/** Messages from the course team or one of its speakers (study-group link, quiz links, schedule changes). */
 export function CourseAnnouncements({ items }: { items: LearnCourseDto['announcements'] }) {
   const { locale, t } = useI18n();
   if (!items.length) return null;
@@ -37,7 +37,10 @@ export function CourseAnnouncements({ items }: { items: LearnCourseDto['announce
         {items.map((a) => (
           <li key={a.id} className="rounded-card border border-line bg-card p-4">
             <p className="font-semibold text-fg">{locale === 'ar' ? a.subjectAr : a.subjectEn}</p>
-            <p className="text-xs text-muted">{formatDateTime(a.at, locale)}</p>
+            <p className="text-xs text-muted">
+              {formatDateTime(a.at, locale)}
+              {a.fromEn && <> · {t('learn.announcementFrom', { name: (locale === 'ar' ? a.fromAr : a.fromEn) ?? a.fromEn })}</>}
+            </p>
             <p className="mt-2 text-sm whitespace-pre-line text-body">
               <Linkified text={locale === 'ar' ? a.bodyAr : a.bodyEn} />
             </p>

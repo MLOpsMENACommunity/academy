@@ -72,7 +72,12 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
         take: BATCH,
         include: {
           user: { select: { email: true, locale: true, deletedAt: true, anonymizedAt: true } },
-          announcement: { include: { course: { select: { slug: true, titleEn: true, titleAr: true } } } },
+          announcement: {
+            include: {
+              course: { select: { slug: true, titleEn: true, titleAr: true } },
+              event: { select: { slug: true, titleEn: true, titleAr: true } },
+            },
+          },
         },
       });
       if (!batch.length) break;
@@ -85,15 +90,20 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
         const a = r.announcement;
         const locale = r.user.locale === 'ar' ? 'ar' : 'en';
         const ar = locale === 'ar';
+        // A course's students, or a live session's registrants (exactly one is set).
+        const target = (a.course ?? a.event)!;
+        const path = a.event ? `/sessions/${a.event.slug}` : r.enrolled ? `/learn/${target.slug}` : '/dashboard';
         const ok = await this.email.send(
           r.user.email,
           locale,
           {
             name: 'announcement',
-            courseTitle: ar ? a.course.titleAr || a.course.titleEn : a.course.titleEn,
+            courseTitle: ar ? target.titleAr || target.titleEn : target.titleEn,
             subject: ar ? a.subjectAr || a.subjectEn : a.subjectEn,
             body: ar ? a.bodyAr || a.bodyEn : a.bodyEn,
-            url: this.email.url(locale, r.enrolled ? `/learn/${a.course.slug}` : '/dashboard'),
+            url: this.email.url(locale, path),
+            from: ar ? a.fromNameAr || a.fromName : a.fromName,
+            session: Boolean(a.event),
           },
           { bulk: true },
         );
@@ -128,6 +138,8 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
       for (const r of batch) {
         tried.add(r.id);
         const a = r.announcement!;
+        // Waiting-list announcements always belong to a course.
+        const course = a.course!;
         if (r.user?.deletedAt) {
           await this.prisma.courseInterest.updateMany({ where: { id: r.id }, data: { deliveryStatus: 'SKIPPED' } });
           continue;
@@ -139,10 +151,10 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
           locale,
           {
             name: 'waitlistOpen',
-            courseTitle: ar ? a.course.titleAr || a.course.titleEn : a.course.titleEn,
+            courseTitle: ar ? course.titleAr || course.titleEn : course.titleEn,
             subject: ar ? a.subjectAr || a.subjectEn : a.subjectEn,
             body: ar ? a.bodyAr || a.bodyEn : a.bodyEn,
-            url: this.email.url(locale, `/courses/${a.course.slug}`),
+            url: this.email.url(locale, `/courses/${course.slug}`),
             leaveUrl: this.links.leaveUrl(locale, r.id),
           },
           { bulk: true },

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { InstructorForm, toSpeakerInput } from '@/components/admin/InstructorEditor';
+import { SpeakerAssignedCourses } from '@/components/admin/SpeakerAssignedCourses';
 import { SpeakerProfileExtras, type SpeakerAccountInfo } from '@/components/admin/SpeakerProfileExtras';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -64,6 +65,7 @@ export default function EditSpeaker() {
           {saved ? `✓ ${t('admin.common.saved')}` : ''}
         </p>
       </Card>
+      <SpeakerAssignedCourses instructorId={speaker.id} />
       <SpeakerProfileExtras speaker={speaker} onDeleted={() => router.push(`/${locale}/admin/speakers?deleted=1`)} />
     </div>
   );

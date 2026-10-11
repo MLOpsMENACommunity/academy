@@ -68,7 +68,7 @@ export class LearnService {
         },
         orderBy: { createdAt: 'desc' },
         take: 20,
-        select: { id: true, createdAt: true, subjectEn: true, subjectAr: true, bodyEn: true, bodyAr: true },
+        select: { id: true, createdAt: true, subjectEn: true, subjectAr: true, bodyEn: true, bodyAr: true, fromName: true, fromNameAr: true },
       }),
     ]);
     const done = new Set(progress.map((p) => p.sessionId));
@@ -100,6 +100,8 @@ export class LearnService {
         subjectAr: a.subjectAr || a.subjectEn,
         bodyEn: a.bodyEn,
         bodyAr: a.bodyAr || a.bodyEn,
+        fromEn: a.fromName,
+        fromAr: a.fromName ? a.fromNameAr || a.fromName : null,
       })),
       sessions: sessions.map((x) => {
         const visible = user.role === 'ADMIN' || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);

@@ -126,6 +126,8 @@ export class AdminAnnouncementsService {
       id: a.id,
       at: a.createdAt.toISOString(),
       by: a.createdBy?.email ?? null,
+      /** The speaker who sent it (null when the team did). */
+      fromSpeaker: a.fromName,
       subject: a.subjectEn,
       statuses: a.statuses as string[],
       recipients: ['PENDING', 'SENT', 'FAILED', 'SKIPPED'].reduce((s, st) => s + n(a.id, st), 0),

@@ -64,8 +64,11 @@ export type EmailTemplate =
       when: string;
       url: string;
     }
-  /** Sent by an admin to a course's students. */
-  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string }
+  /**
+   * Sent by an admin to a course's students, or by a speaker to an assigned course's students
+   * or to their live session's registrants (`session`). `from` is the speaker's name.
+   */
+  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string; from?: string | null; session?: boolean }
   /** Waiting list ("Notify me"): may go to people without an account, so every one has a leave link. */
   | { name: 'waitlistJoined'; courseTitle: string; courseUrl: string; leaveUrl: string }
   | { name: 'waitlistOpen'; courseTitle: string; subject: string; body: string; url: string; leaveUrl: string }
@@ -505,9 +508,22 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             {...base}
             preview={t.subject}
             heading={t.subject}
+            banner={t.from ? { text: ar ? `من ${t.from}` : `From ${t.from}`, tone: 'neutral' } : undefined}
             paragraphs={t.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)}
-            cta={{ label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }}
-            note={ar ? `أُرسلت هذه الرسالة إلى طلاب ${t.courseTitle}.` : `Sent to students of ${t.courseTitle}.`}
+            cta={
+              t.session
+                ? { label: ar ? 'افتح صفحة الجلسة' : 'Open session page', url: t.url }
+                : { label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }
+            }
+            note={
+              t.session
+                ? ar
+                  ? `أُرسلت هذه الرسالة إلى المسجلين في ${t.courseTitle}.`
+                  : `Sent to people registered for ${t.courseTitle}.`
+                : ar
+                  ? `أُرسلت هذه الرسالة إلى طلاب ${t.courseTitle}.`
+                  : `Sent to students of ${t.courseTitle}.`
+            }
           />
         ),
       };

@@ -949,7 +949,8 @@
         "sending": "{count} still sending",
         "delivered": "Emailed {sent} of {count}",
         "failed": "{count} failed",
-        "skipped": "{count} skipped (account deleted)"
+        "skipped": "{count} skipped (account deleted)",
+        "fromSpeaker": "From speaker {name}"
       },
       "delete": {
         "confirm": "Delete \"{title}\" permanently? Its sessions, questions and announcements are deleted too. This can’t be undone.",
@@ -1638,6 +1639,7 @@
     "driveSetup": "We're giving your Google account ({email}) access to the recordings. This is done by hand and can take up to a day after enrolment.",
     "addGoogleEmail": "Add it in your profile",
     "announcements": "Announcements",
+    "announcementFrom": "From {name}",
     "sessionOf": "Session {n} of {total}",
     "about": "About this session",
     "percentDone": "{percent}% complete",
@@ -1649,6 +1651,64 @@
     "nextSession": "Next: {n}. {title}",
     "confirmEmailFirst": "Were you added to this course by email? Confirm your email address first (we sent you a link) and you'll be enrolled automatically.",
     "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way."
+  },
+  "speakerAnnouncements": {
+    "title": "My courses & sessions",
+    "intro": "Send a short announcement to the students of a course you teach, or to the people registered for one of your sessions. It goes out right away, by email and as a notification on the site, from you.",
+    "noProfile": "Once the team approves your application and links your speaker profile, the courses you teach and your sessions appear here.",
+    "none": "No courses or sessions yet. The team assigns you to the courses you teach; your published sessions appear here automatically.",
+    "courses": "Courses",
+    "sessions": "Live sessions",
+    "audienceCourse": "{count, plural, =0 {No enrolled students yet} one {# enrolled student} other {# enrolled students}}",
+    "audienceSession": "{count, plural, =0 {Nobody registered yet} one {# person registered} other {# people registered}}",
+    "write": "Write an announcement",
+    "composeTitle": "Announcement to {title}",
+    "subjectEn": "Subject",
+    "subjectAr": "Subject (Arabic)",
+    "bodyEn": "Message",
+    "bodyAr": "Message (Arabic)",
+    "arHint": "Optional: the English text is used when empty.",
+    "bodyHint": "Plain text: links become clickable. Up to {max} characters.",
+    "review": "Review and send",
+    "confirmTitle": "Send to {count, plural, one {# person} other {# people}}?",
+    "confirmBody": "It goes out right away, with your name as the sender, and can't be undone.",
+    "send": "Send now",
+    "edit": "Keep editing",
+    "cancel": "Cancel",
+    "sent": "Sent to {count, plural, one {# person} other {# people}}. Emails go out over the next few minutes.",
+    "limits": "Up to {perTarget} announcements per course or session, and {perDay} in total, in any 24 hours. Sent in the last 24 hours: {used}.",
+    "targetFull": "You've sent {max} here in the last 24 hours. You can send again tomorrow.",
+    "dayFull": "You've reached the limit of {max} announcements in 24 hours. You can send again tomorrow.",
+    "noAudience": "Nobody to send to yet.",
+    "history": "Sent announcements",
+    "historyNone": "Nothing sent yet.",
+    "delivered": "Emailed {sent} of {count}",
+    "sending": "{count} still sending",
+    "failed": "{count} failed",
+    "kind": {
+      "course": "Course",
+      "session": "Session"
+    },
+    "errors": {
+      "NOT_YOUR_AUDIENCE": "You can only send to your assigned courses and your own sessions. Reload the page to see the current list.",
+      "NO_RECIPIENTS": "Nobody to send this to yet.",
+      "SPEAKER_TARGET_LIMIT": "You've reached the limit for this course or session today. You can send again tomorrow.",
+      "SPEAKER_DAILY_LIMIT": "You've reached today's limit of announcements. You can send again tomorrow.",
+      "IDEMPOTENCY_KEY_REUSED": "This message was already sent. Reload the page."
+    }
+  },
+  "speakerAssignments": {
+    "title": "Assigned courses",
+    "help": "This speaker can send announcements to the enrolled students of these courses (nothing else: no materials or grading). Assigning also lists them as an instructor on the public course page.",
+    "account": "Speaker account: {email}",
+    "noAccount": "No speaker account is linked to this profile yet, so nobody can send announcements as them. Approving their speaker application links it.",
+    "inactive": "The linked account isn't an active speaker account, so it can't send announcements.",
+    "none": "Not assigned to any course yet.",
+    "course": "Course to assign",
+    "assign": "Assign",
+    "unassign": "Unassign",
+    "unassignConfirm": "Unassign {title}? They'll no longer be listed on the course page or be able to message its students.",
+    "noneAvailable": "Every course is already assigned (archived courses can't be)."
   },
   "sessions": {
     "title": "Live sessions",
