@@ -241,7 +241,7 @@ describe('points, badges and leaderboards (e2e)', () => {
     const { course, first, admin, students } = await setup({ startedDaysAgo: 10, students: 4 });
     const [a, b, c, d] = students;
     const outsider = await createUser(app, prisma, { prefix: 'outsider' });
-    await prisma.profile.update({ where: { userId: a!.id }, data: { fullNameEn: 'Aya Nasser Salama' } });
+    await prisma.profile.update({ where: { userId: a!.id }, data: { fullNameEn: 'Layla Member Salama' } });
     const week1 = courseWeekRange(first, 1);
     const inWeek1 = new Date(week1.start.getTime() + DAY);
     await prisma.pointsEntry.createMany({

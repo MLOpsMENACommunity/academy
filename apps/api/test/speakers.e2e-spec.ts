@@ -407,23 +407,23 @@ describe('speaker portal (e2e)', () => {
       const res = await http()
         .put('/api/speaker/application')
         .set('Cookie', s.cookie)
-        .send(application({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'PODCAST', format: 'PODCAST', githubUrl: '', details: { podcast: { host: 'Aya', guests: [{ name: 'Sara' }] }, course: { modulesCount: 4 } } }))
+        .send(application({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Layla Member', kind: 'PODCAST', format: 'PODCAST', githubUrl: '', details: { podcast: { host: 'Host Person', guests: [{ name: 'Sara' }] }, course: { modulesCount: 4 } } }))
         .expect(200);
-      expect(res.body).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'PODCAST', format: 'PODCAST', githubUrl: null, details: { podcast: { host: 'Aya', guests: [{ name: 'Sara' }] } } });
+      expect(res.body).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Layla Member', kind: 'PODCAST', format: 'PODCAST', githubUrl: null, details: { podcast: { host: 'Host Person', guests: [{ name: 'Sara' }] } } });
       expect(res.body.details).not.toHaveProperty('course');
       const seen = await http().get(`/api/admin/speaker-applications/${res.body.id}`).set('Cookie', admin.cookie).expect(200);
-      expect(seen.body).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'PODCAST' });
+      expect(seen.body).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Layla Member', kind: 'PODCAST' });
 
       // The team corrects it (the decision and the speaker's status don't change).
       const edited = await http()
         .put(`/api/admin/speaker-applications/${res.body.id}`)
         .set('Cookie', admin.cookie)
-        .send(application({ referralSource: 'EVENT', referralMemberName: 'Aya Nasser', kind: 'COURSE', githubUrl: 'https://github.com/mona' }))
+        .send(application({ referralSource: 'EVENT', referralMemberName: 'Layla Member', kind: 'COURSE', githubUrl: 'https://github.com/mona' }))
         .expect(200);
       expect(edited.body).toMatchObject({ status: 'SUBMITTED', referralSource: 'EVENT', referralMemberName: null, kind: 'COURSE', githubUrl: 'https://github.com/mona' });
       await http().put(`/api/admin/speaker-applications/${res.body.id}`).set('Cookie', s.cookie).send(application()).expect(403);
       const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: 'speaker_application.updated_by_admin', entityId: res.body.id } });
-      expect(JSON.stringify(audit.metadata)).not.toContain('Aya');
+      expect(JSON.stringify(audit.metadata)).not.toContain('Layla');
     });
 
     it('books a course with optional details, copies them to the draft, and lets the speaker edit until it is published', async () => {

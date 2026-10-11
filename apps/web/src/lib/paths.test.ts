@@ -135,7 +135,7 @@ describe('the MLOps Engineer path', () => {
     const speakersBySession: Record<string, ReturnType<typeof sp>[]> = {
       'docker-deep-dive': [sp('mahmoud-sharif', 'Mahmoud Sharif')],
       // A renamed speaker: the path shows the current name from the speaker record.
-      'hands-on-cicd-github-actions': [sp('abdallah-almalawany', 'Abdallah Elmalawany'), sp('aya-nasser-salama', 'Aya Nasser Salama')],
+      'hands-on-cicd-github-actions': [sp('abdallah-almalawany', 'Abdallah Elmalawany'), sp('aya-nasser-salama', 'Layla Member Salama')],
       'hands-on-fastapi-backend-for-mlops': [sp('mohamed-samy', 'Mohamed Samy')],
     };
     const recs = ['docker-deep-dive', 'hands-on-cicd-github-actions', 'kubernetes-deployment-strategies-part-1', 'kubernetes-deployment-strategies-part-2', 'hands-on-fastapi-backend-for-mlops', 'prometheus-grafana-monitoring-stack-part-1'].map((slug) => ({
@@ -158,8 +158,8 @@ describe('the MLOps Engineer path', () => {
       'https://www.youtube.com/watch?v=s2TxWGGYHbQ',
     ]);
     expect(steps.map((s) => s.title)).toEqual(MLOPS_ENGINEER_ORDER.map(([t]) => t));
-    expect(steps[1]).toMatchObject({ kind: 'lesson', people: ['Aya Nasser Salama'], format: 'live' });
-    expect(steps[1]!.speakers).toEqual([{ slug: 'aya-nasser-salama', name: 'Aya Nasser Salama' }]);
+    expect(steps[1]).toMatchObject({ kind: 'lesson', people: ['Layla Member Salama'], format: 'live' });
+    expect(steps[1]!.speakers).toEqual([{ slug: 'aya-nasser-salama', name: 'Layla Member Salama' }]);
     expect(steps[5]!.speakers).toEqual([{ slug: 'abdallah-almalawany', name: 'Abdallah Elmalawany' }]);
     expect(steps[7]!.people).toEqual([]);
     // The order isn't chronological: no dates at all.

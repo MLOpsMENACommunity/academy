@@ -4,7 +4,7 @@ import { renderCertificatePdf, visualWords } from './pdf';
 
 describe('visualWords (word-level bidi for the PDF)', () => {
   it('keeps left-to-right lines in order', () => {
-    expect(visualWords('Aya Nasser Salama')).toEqual(['Aya', 'Nasser', 'Salama']);
+    expect(visualWords('Layla Member Salama')).toEqual(['Aya', 'Nasser', 'Salama']);
   });
 
   it('reverses the words of an Arabic line (fontkit shapes and orders each word)', () => {

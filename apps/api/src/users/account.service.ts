@@ -16,6 +16,7 @@ import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
 import { EmailService } from '../email/email.service';
 import { InvitesService } from '../invites/invites.service';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpeakerPortalService } from '../speaker-portal/speaker-portal.service';
 import { ProfileService, toProfileDto } from './profile.service';
@@ -321,7 +322,7 @@ export class AccountService {
     // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
     // cancelled), the team is told. Never fails the deletion (errors are logged).
     await this.speakerPortal.releaseBookings(user);
-    await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
+    await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null, actorId);
     await this.audit.log({ actorId, action: byTeam ? 'account.deleted_by_admin' : 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted', byTeam });
   }
@@ -394,7 +395,7 @@ export class AccountService {
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),
-      this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null } }),
+      this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null, details: Prisma.DbNull } }),
       // A profile the portal created that never spoke anywhere has no history to keep: delete it.
       this.prisma.instructor.deleteMany({
         where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} } },

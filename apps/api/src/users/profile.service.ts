@@ -215,7 +215,7 @@ export class ProfileService {
     }
 
     if (section === 'core' && before.googleEmail && after.googleEmail !== before.googleEmail) {
-      await this.alertDriveAccess(userId, 'changed', before.googleEmail);
+      await this.alertDriveAccess(userId, 'changed', before.googleEmail, adminId ?? userId);
     }
     if (adminId) {
       // Field names only: never the values (they are personal data).
@@ -244,7 +244,7 @@ export class ProfileService {
    * When that account changes (or the student deletes their account) on an
    * active enrolment, flag it so an admin updates the folder sharing (Risk 1).
    */
-  async alertDriveAccess(userId: string, reason: 'changed' | 'deleted', oldGoogleEmail: string | null): Promise<void> {
+  async alertDriveAccess(userId: string, reason: 'changed' | 'deleted', oldGoogleEmail: string | null, actorId: string = userId): Promise<void> {
     const enrollments = await this.prisma.enrollment.findMany({
       where: { userId, course: { type: 'PAID', recordingsPlatform: 'GOOGLE_DRIVE', status: { not: 'ARCHIVED' } } },
       include: { course: { select: { id: true, slug: true, titleEn: true, titleAr: true } } },
@@ -259,7 +259,7 @@ export class ProfileService {
     });
     for (const e of enrollments) {
       await this.audit.log({
-        actorId: userId,
+        actorId,
         action: reason === 'changed' ? 'profile.google_email_changed' : 'account.deleted_with_drive_access',
         entityType: 'Enrollment',
         entityId: e.id,

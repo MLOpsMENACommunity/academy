@@ -25,7 +25,7 @@ function website(over: Partial<WebsiteInput> = {}): WebsiteInput {
         slug: 'mlops-practitioner-3-inference-serving',
         title: 'The MLOps Practitioner — Session 3',
         subtitle: 'Inference, Serving & Release Strategies',
-        speaker: 'Aya Nasser Salama',
+        speaker: 'Layla Member Salama',
         speakerRole: 'Founder',
         startsAt: '2026-09-06T19:00:00+03:00',
         durationMinutes: 90,
@@ -48,7 +48,7 @@ function website(over: Partial<WebsiteInput> = {}): WebsiteInput {
       enrollUrl: 'https://zomra.io/courses/the-mlops-practitioner',
       repoUrl: 'https://github.com/MLOpsMENACommunity/mlops_practitioner_course',
       summary: 'From notebook to production.',
-      instructor: { name: 'Aya Nasser Salama', role: 'Founder of MLOps MENA Community and Senior MLOps Engineer' },
+      instructor: { name: 'Layla Member Salama', role: 'Founder of MLOps MENA Community and Senior MLOps Engineer' },
       objectives: ['Objective'],
       includes: ['Certificate of completion'],
       resources: [{ label: 'Course repository', href: 'https://github.com/MLOpsMENACommunity/mlops_practitioner_course' }],
@@ -66,7 +66,7 @@ function website(over: Partial<WebsiteInput> = {}): WebsiteInput {
       audience: ['ML engineers'],
     },
     upcomingCourses: [{ slug: 'llmops', title: 'LLMOps', summary: 'Serving, evaluating, and operating LLM systems in production.', topics: ['vLLM'] }],
-    team: [{ name: 'Aya Nasser Salama', role: 'Founder', photo: '/team/aya.jpg', bio: 'Senior MLOps engineer.', linkedin: 'https://www.linkedin.com/in/ayanasser/' }],
+    team: [{ name: 'Layla Member Salama', role: 'Founder', photo: '/team/aya.jpg', bio: 'Senior MLOps engineer.', linkedin: 'https://www.linkedin.com/in/ayanasser/' }],
     youtube: {
       videos: [
         { id: 'AFcoKDtyhec', title: 'handson docker mlops mena community', published: '2026-08-24T12:34:27.000Z' },
@@ -292,7 +292,7 @@ describe('archive converter', () => {
     it('every speaker has a photo on this site, a bio in both languages, and a title', () => {
       const names = Object.fromEntries(archive.speakers.map((s) => [s.slug, s.name]));
       expect(names).toEqual({
-        'aya-nasser-salama': 'Aya Nasser Salama',
+        'aya-nasser-salama': 'Layla Member Salama',
         'mahmoud-sharif': 'Mahmoud Sharif',
         // The slug stays, so his page address doesn't change.
         'abdallah-almalawany': 'Abdallah Elmalawany',

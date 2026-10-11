@@ -66,7 +66,7 @@ test('a speaker registers, applies, is approved and books a slot', async ({ page
   await page.getByRole('button', { name: 'Send application' }).click();
   // The member's name is missing: nothing is sent until it's there.
   await expect(page.getByText('Please fix the highlighted fields.')).toBeVisible();
-  await page.getByLabel(/Member's name/).fill('Aya Nasser');
+  await page.getByLabel(/Member's name/).fill('Layla Member');
   await page.getByRole('button', { name: 'Send application' }).click();
   await page.waitForURL(/\/en\/speaker\?sent=1$/);
   await expect(page.getByText('Under review')).toBeVisible();
@@ -74,7 +74,7 @@ test('a speaker registers, applies, is approved and books a slot', async ({ page
   // The team approves.
   const list = await admin.get(`/api/admin/speaker-applications?q=${encodeURIComponent(speaker.email)}`);
   const [application] = (await list.json()) as { id: string; referralSource: string; referralMemberName: string; kind: string }[];
-  expect(application).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'SESSION' });
+  expect(application).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Layla Member', kind: 'SESSION' });
   const review = await admin.post(`/api/admin/speaker-applications/${application!.id}/review`, { headers: JSON_HEADERS, data: { decision: 'APPROVE' } });
   expect(review.status(), await review.text()).toBe(200);
 

@@ -1564,7 +1564,7 @@
       "deleteTitle": "Delete speaker profile",
       "deleteBody": "Removes the public speaker page.",
       "deleteHasSessions": "Removes the public speaker page. Their {events} session(s) stay on the site, shown without a link to a speaker page, and they're taken off {courses} course(s).",
-      "deleteAccountStays": "Their speaker account stays (it can no longer book slots until a new profile is linked).",
+      "deleteAccountStays": "Their speaker account stays. If their application was approved, it goes back to \"Under review\": approve it again to give them a new profile so they can keep booking.",
       "deleteButton": "Delete this profile…",
       "deleteType": "Type {name} to confirm",
       "deleteConfirm": "Delete the profile",

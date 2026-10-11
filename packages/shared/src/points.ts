@@ -173,7 +173,7 @@ export function badgeScopeKey(courseId: string | null, week: number | null = nul
 
 // ------------------------------------------------------------------ names on boards
 
-/** "Aya Nasser Salama" → "Aya S." Never a full name or an email on a leaderboard. */
+/** "Layla Member Salama" → "Aya S." Never a full name or an email on a leaderboard. */
 export function boardName(fullName: string | null | undefined): string {
   const parts = (fullName ?? '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '—';

@@ -176,6 +176,20 @@ describe('admin edits students and speakers (e2e)', () => {
   });
 
   describe('speakers', () => {
+    it("deleting a speaker account's profile sends its approved application back for review", async () => {
+      const s = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'reopen', coreComplete: false });
+      const appRow = await prisma.speakerApplication.create({
+        data: { userId: s.id, status: 'APPROVED', fullName: 'Re Open', phone: '+201001234567', linkedinUrl: 'https://www.linkedin.com/in/re-open', title: 'Engineer', country: 'EG', bio: 'x'.repeat(40), areas: ['MLOPS'], sessionTitle: 'A talk', abstract: 'y'.repeat(60), format: 'TALK', language: 'EN', preferredMonths: ['2026-12'], reviewedAt: new Date() },
+      });
+      const profile = await prisma.instructor.create({ data: { slug: `re-open-${Date.now()}`, name: 'Re Open', titleEn: '', bioEn: '', userId: s.id, source: 'speaker-portal' } });
+      const detail = await http().get(`/api/admin/instructors/${profile.id}`).set('Cookie', admin.cookie).expect(200);
+      expect(detail.body).toMatchObject({ userId: s.id, applicationId: appRow.id });
+      await http().post(`/api/admin/instructors/${profile.id}/delete`).set('Cookie', admin.cookie).send({ confirm: 'Re Open' }).expect(200);
+      expect((await prisma.speakerApplication.findUniqueOrThrow({ where: { id: appRow.id } })).status).toBe('SUBMITTED');
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: s.id } })).deletedAt).toBeNull();
+      expect((await lastAudit('instructor.deleted', profile.id)).metadata).toMatchObject({ hadAccount: true, applicationReopened: true });
+    });
+
     const profile = (over: Record<string, unknown> = {}) => ({
       name: 'Sara Speaker',
       nameAr: 'سارة',
@@ -230,7 +244,7 @@ describe('admin edits students and speakers (e2e)', () => {
       expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: event.id } })).speakerId).toBeNull();
       await http().get(`/api/events/${event.slug}`).expect(200);
       const audit = await lastAudit('instructor.deleted', id);
-      expect(audit.metadata).toEqual({ events: 1, courses: 0, guestOf: 0, hadAccount: false });
+      expect(audit.metadata).toEqual({ events: 1, courses: 0, guestOf: 0, hadAccount: false, applicationReopened: false });
       await http().post(`/api/admin/instructors/${id}/delete`).set('Cookie', admin.cookie).send({ confirm: created.body.name }).expect(404);
     });
   });

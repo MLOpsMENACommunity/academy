@@ -27,12 +27,12 @@ describe('archive topics', () => {
 describe('speakers', () => {
   it('makes slugs from names', () => {
     expect(slugify('Eng. Sameh Amin')).toBe('eng-sameh-amin');
-    expect(slugify('Aya Nasser Salama')).toBe('aya-nasser-salama');
+    expect(slugify('Layla Member Salama')).toBe('aya-nasser-salama');
     expect(slugify('محمد')).toBe('');
   });
 
   it('allows a site photo path but not other schemes', () => {
-    const base = { name: 'Aya Nasser', titleEn: 'Engineer', linkedinUrl: 'https://www.linkedin.com/in/ayanasser' };
+    const base = { name: 'Layla Member', titleEn: 'Engineer', linkedinUrl: 'https://www.linkedin.com/in/ayanasser' };
     expect(instructorInputSchema.parse({ ...base, photoUrl: '/speakers/aya.webp' }).photoUrl).toBe('/speakers/aya.webp');
     expect(instructorInputSchema.safeParse({ ...base, photoUrl: 'javascript:alert(1)' }).success).toBe(false);
     expect(instructorInputSchema.safeParse({ ...base, photoUrl: '//evil.example/x.png' }).success).toBe(false);

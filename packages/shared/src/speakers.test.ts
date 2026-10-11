@@ -121,8 +121,8 @@ describe('speaker application', () => {
     expect(issues({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: ' ' })).toEqual(['referralMemberName']);
     // Reported with the other errors on the first submit.
     expect(issues({ referralSource: 'MLOPS_MENA_MEMBER', abstract: 'short' })).toEqual(['abstract', 'referralMemberName']);
-    const ok = speakerApplicationSchema.parse({ ...application, referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: '  Aya Nasser ' });
-    expect(ok.referralMemberName).toBe('Aya Nasser');
+    const ok = speakerApplicationSchema.parse({ ...application, referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: '  Layla Member ' });
+    expect(ok.referralMemberName).toBe('Layla Member');
     // Another source: a typed name is dropped, never stored.
     expect(speakerApplicationSchema.parse({ ...application, referralMemberName: 'Someone' }).referralMemberName).toBeNull();
   });
@@ -251,7 +251,7 @@ describe('booking details', () => {
   it('reads stored JSON defensively', () => {
     expect(readEventDetails({})).toEqual({ kind: 'SESSION', details: {} });
     expect(readEventDetails(null)).toEqual({ kind: 'SESSION', details: {} });
-    expect(readEventDetails({ kind: 'PODCAST', details: { podcast: { host: 'Aya' }, course: { modulesCount: 3 } } })).toEqual({ kind: 'PODCAST', details: { podcast: { host: 'Aya' } } });
+    expect(readEventDetails({ kind: 'PODCAST', details: { podcast: { host: 'Host Person' }, course: { modulesCount: 3 } } })).toEqual({ kind: 'PODCAST', details: { podcast: { host: 'Host Person' } } });
     expect(readEventDetails({ kind: 'HACK', details: { level: 'NOPE' } })).toEqual({ kind: 'SESSION', details: {} });
     expect(cleanSpeakerDetails('SESSION', null)).toEqual({});
   });

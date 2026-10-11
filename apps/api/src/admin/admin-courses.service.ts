@@ -477,13 +477,20 @@ export class AdminCoursesService {
     if (!confirmMatches(confirm, i.name)) {
       throw new BadRequestException({ code: 'CONFIRM_MISMATCH', message: "Type the speaker's name exactly to delete the profile" });
     }
-    await this.prisma.instructor.delete({ where: { id } });
+    const reopened = await this.prisma.$transaction(async (tx) => {
+      await tx.instructor.delete({ where: { id } });
+      // A speaker account loses its profile: an approved application goes back to "Under review",
+      // so the team can approve it again (which creates a new profile) if they should keep booking.
+      if (!i.userId) return 0;
+      const r = await tx.speakerApplication.updateMany({ where: { userId: i.userId, status: 'APPROVED' }, data: { status: 'SUBMITTED', reviewedAt: null, reviewedById: null } });
+      return r.count;
+    });
     await this.audit.log({
       actorId: admin.id,
       action: 'instructor.deleted',
       entityType: 'Instructor',
       entityId: id,
-      metadata: { events: i._count.events, courses: i._count.courses, guestOf: i._count.coSpeaking, hadAccount: Boolean(i.userId) },
+      metadata: { events: i._count.events, courses: i._count.courses, guestOf: i._count.coSpeaking, hadAccount: Boolean(i.userId), applicationReopened: reopened > 0 },
     });
     return { events: i._count.events, courses: i._count.courses };
   }
