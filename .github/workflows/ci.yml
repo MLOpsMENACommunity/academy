@@ -26,7 +26,9 @@ permissions:
 concurrency:
   # github.workflow is the caller's name when called, so a release never cancels main's CI.
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A draft PR's run does nothing, so it must not cancel a real run that's in progress (e.g.
+  # a push and "ready for review" seconds apart); it just waits its turn and is skipped.
+  cancel-in-progress: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
 
 jobs:
   check:

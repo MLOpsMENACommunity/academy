@@ -59,18 +59,27 @@ jobs:
         run: |
           set -euo pipefail
           passed=false
-          # CI no longer runs on pushes to main (to save Actions minutes), so this normally
-          # finds nothing and CI runs below on the tag. It still reuses a run if one exists.
-          for _ in $(seq 1 60); do
-            runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&per_page=20" --jq '.workflow_runs')
-            if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then passed=true; break; fi
-            if jq -e 'any(.[]; .status != "completed")' <<<"$runs" >/dev/null; then
-              echo "CI is still running for $SHA; waiting"; sleep 30; continue
+          # 1) A CI run on this exact commit (e.g. a re-release, or a manual run) is reused.
+          runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&per_page=20" --jq '.workflow_runs')
+          if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then passed=true; fi
+          # 2) The usual case: the tag is the merge commit of a pull request whose CI passed.
+          #    That CI tested the PR head merged onto main, so it covers this commit exactly when
+          #    main hadn't moved since (first parent = main when the run started, i.e. the run
+          #    started after that commit landed) and the PR head is the second parent.
+          if [ "$passed" = false ]; then
+            commit=$(gh api "repos/$REPO/commits/$SHA")
+            if [ "$(jq '.parents | length' <<<"$commit")" = 2 ]; then
+              base=$(jq -r '.parents[0].sha' <<<"$commit"); head=$(jq -r '.parents[1].sha' <<<"$commit")
+              base_at=$(gh api "repos/$REPO/commits/$base" --jq '.commit.committer.date')
+              pr_runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$head&event=pull_request&per_page=20" --jq '.workflow_runs')
+              if jq -e --arg t "$base_at" 'any(.[]; .conclusion == "success" and .created_at >= $t)' <<<"$pr_runs" >/dev/null; then
+                passed=true
+                echo "Reusing the pull request CI run for $head (merged onto $base, unchanged since)"
+              fi
             fi
-            break
-          done
+          fi
           echo "passed=$passed" >> "$GITHUB_OUTPUT"
-          if [ "$passed" = true ]; then echo "CI already passed for $SHA"; else echo "No passing CI run for $SHA: running CI on the tag"; fi
+          if [ "$passed" = true ]; then echo "CI already passed for $SHA"; else echo "No passing CI run covers $SHA: running CI on the tag"; fi
 
   ci:
     name: CI on the tag
