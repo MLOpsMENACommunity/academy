@@ -20,6 +20,7 @@ import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
 import { buildIcs } from '../learn/ics';
 import { liveEventIcsEvent } from './event-calendar';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -82,6 +83,7 @@ export class EventsService {
     private readonly email: EmailService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -270,12 +272,27 @@ export class EventsService {
 
   // ------------------------------------------------------------------ admin
 
+  /** Every session, with the speaker booking it came from (its kind), if any. */
   adminList() {
-    return this.prisma.liveEvent.findMany({ orderBy: { startsAt: 'desc' }, include: withCount });
+    return this.prisma.liveEvent.findMany({ orderBy: { startsAt: 'desc' }, include: { ...withCount, speakingSlot: { select: { id: true, kind: true } } } });
   }
 
+  /** One session, with the speaker booking it came from: who booked it, its kind, and its course if it became one. */
   async adminGet(id: string) {
-    const e = await this.prisma.liveEvent.findUnique({ where: { id }, include: withCount });
+    const e = await this.prisma.liveEvent.findUnique({
+      where: { id },
+      include: {
+        ...withCount,
+        speakingSlot: {
+          select: {
+            id: true,
+            kind: true,
+            course: { select: { id: true, slug: true, status: true } },
+            bookedBy: { select: { email: true, speakerApplication: { select: { fullName: true } } } },
+          },
+        },
+      },
+    });
     if (!e) throw new NotFoundException('Session not found');
     return e;
   }
@@ -364,7 +381,37 @@ export class EventsService {
     } else if (rescheduled && before?.status === 'PUBLISHED' && saved.status === 'PUBLISHED' && !eventEnded(saved.startsAt, saved.durationMin)) {
       await this.notifyRegistrants(saved, 'eventRescheduled');
     }
+    if (before && before.status !== 'PUBLISHED' && saved.status === 'PUBLISHED' && !eventEnded(saved.startsAt, saved.durationMin)) {
+      await this.tellSpeakerPublished(saved);
+    }
     return saved;
+  }
+
+  /**
+   * A session a speaker booked is now public: the speaker gets an email (in their language,
+   * with the public link) and a notification. Never fails the publish.
+   */
+  private async tellSpeakerPublished(e: LiveEvent): Promise<void> {
+    try {
+      const slot = await this.prisma.speakingSlot.findUnique({
+        where: { eventId: e.id },
+        select: { status: true, bookedBy: { select: { id: true, email: true, locale: true, deletedAt: true, profile: { select: { timezone: true } } } } },
+      });
+      const speaker = slot?.status === 'BOOKED' ? slot.bookedBy : null;
+      if (!speaker || speaker.deletedAt) return;
+      const locale: Locale = speaker.locale === 'ar' ? 'ar' : 'en';
+      void this.email.send(speaker.email, locale, { name: 'speakerSessionPublished', ...this.mailFields(e, locale, speaker.profile?.timezone) }).catch(() => undefined);
+      await this.notifications.create(speaker.id, {
+        type: 'speaker_session_published',
+        titleEn: 'Your session is published',
+        titleAr: 'جلستك منشورة الآن',
+        bodyEn: `${e.titleEn} is on the public sessions page. Share the link so people can register.`,
+        bodyAr: `${e.titleAr || e.titleEn} في صفحة الجلسات العامة الآن. شارك الرابط ليسجّل الناس.`,
+        link: `/sessions/${e.slug}`,
+      });
+    } catch {
+      // The session is published either way; the speaker also sees it on their portal.
+    }
   }
 
   /** Tells registrants a session is cancelled (a speaker cancelling a booked, already published session). */

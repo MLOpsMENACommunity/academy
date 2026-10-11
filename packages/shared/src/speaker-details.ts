@@ -7,8 +7,9 @@ import { normalizeLinkedinUrl, LINKEDIN_PROFILE_MESSAGE } from './links';
 
 /**
  * What a speaker offers: a live session (talk, hands-on, workshop, Q&A), a course, or a
- * podcast episode. Every booking still becomes one live session (a DRAFT LiveEvent): the
- * kind is a label on it, and the team builds a real course from it by hand when needed.
+ * podcast episode. A session or podcast booking becomes a DRAFT live session (the kind is a
+ * label on it); a course booking becomes a DRAFT course, prefilled from the booking (see
+ * courseDraftFromBooking), that the team finishes and publishes in Admin → Courses.
  */
 export const SPEAKER_KINDS = ['SESSION', 'COURSE', 'PODCAST'] as const;
 export type SpeakerKind = (typeof SPEAKER_KINDS)[number];

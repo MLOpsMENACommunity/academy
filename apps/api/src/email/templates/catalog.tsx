@@ -51,12 +51,18 @@ export type EmailTemplate =
   | { name: 'eventReminder'; title: string; when: string; hoursBefore: 24 | 1; url: string }
   /** Speaker portal: the team's decision on a speaker application. */
   | { name: 'speakerReviewed'; decision: 'APPROVED' | 'REJECTED'; note: string | null; url: string }
-  /** Speaker portal: to the speaker after booking a slot. Calendar links never hold a join link. */
-  | { name: 'speakerBookingConfirmed'; title: string; when: string; cancelUntil: string; url: string; calendarUrl: string; icsUrl: string }
+  /** Speaker portal: to the speaker after booking a slot. Calendar links never hold a join link. `course`: a course booking. */
+  | { name: 'speakerBookingConfirmed'; title: string; when: string; cancelUntil: string; url: string; calendarUrl: string; icsUrl: string; course?: boolean }
+  /** Speaker portal: to the speaker when the team publishes their booked session. `url` is its public page. */
+  | { name: 'speakerSessionPublished'; title: string; when: string; url: string; calendarUrl: string; icsUrl: string }
   /** Speaker portal: to every address in the sessionTeamEmails setting. */
   | {
       name: 'speakerBookingTeam';
       kind: 'booked' | 'cancelled';
+      /** What the booking became: a draft session (sessions, podcasts) or a draft course. */
+      draft?: 'session' | 'course';
+      /** Cancelled: the course was already published (its status), so it was kept. */
+      courseKept?: string | null;
       speakerName: string;
       speakerEmail: string;
       title: string;
@@ -455,7 +461,13 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
       };
     }
     case 'speakerBookingConfirmed': {
-      const subject = ar ? `تم حجز موعدك: ${t.title}` : `Your session is booked: ${t.title}`;
+      const subject = t.course
+        ? ar
+          ? `تم حجز دورتك: ${t.title}`
+          : `Your course is booked: ${t.title}`
+        : ar
+          ? `تم حجز موعدك: ${t.title}`
+          : `Your session is booked: ${t.title}`;
       return {
         subject,
         element: (
@@ -465,10 +477,14 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             banner={{ text: ar ? 'تم الحجز!' : "You're booked!", tone: 'success' }}
             heading={t.title}
             paragraphs={[
-              ar ? `موعد جلستك: ${t.when}.` : `Your session is on ${t.when}.`,
-              ar
-                ? 'سيتواصل معك فريق الجلسات لتجهيز الجلسة ونشرها. يمكنك إلغاء الحجز من صفحة المتحدث حتى ' + t.cancelUntil + '.'
-                : `The sessions team will be in touch to prepare and publish it. You can cancel from your speaker page until ${t.cancelUntil}.`,
+              t.course ? (ar ? `تبدأ دورتك يوم ${t.when}.` : `Your course starts on ${t.when}.`) : ar ? `موعد جلستك: ${t.when}.` : `Your session is on ${t.when}.`,
+              t.course
+                ? ar
+                  ? 'مسودة دورتك الآن لدى الفريق: سيكملون صفحة الدورة معك وينشرونها. يمكنك إلغاء الحجز من صفحة المتحدث حتى ' + t.cancelUntil + '.'
+                  : `Your course draft is now with the team: they'll finish the course page with you and publish it. You can cancel from your speaker page until ${t.cancelUntil}.`
+                : ar
+                  ? 'سيتواصل معك فريق الجلسات لتجهيز الجلسة ونشرها. يمكنك إلغاء الحجز من صفحة المتحدث حتى ' + t.cancelUntil + '.'
+                  : `The sessions team will be in touch to prepare and publish it. You can cancel from your speaker page until ${t.cancelUntil}.`,
               calendarLinks(t, ar),
             ]}
             cta={{ label: ar ? 'افتح صفحة المتحدث' : 'Open your speaker page', url: t.url }}
@@ -476,8 +492,33 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
         ),
       };
     }
+    case 'speakerSessionPublished': {
+      const subject = ar ? `جلستك منشورة الآن: ${t.title}` : `Your session is live on the site: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            banner={{ text: ar ? 'جلستك منشورة!' : 'Your session is published!', tone: 'success' }}
+            heading={t.title}
+            paragraphs={[
+              ar
+                ? `نشر الفريق جلستك، وأصبحت في صفحة الجلسات العامة. موعدها: ${t.when}.`
+                : `The team published your session: it's now on the public sessions page. It's on ${t.when}.`,
+              ar
+                ? 'شارك الرابط مع شبكتك ليسجّل الناس. يحصل المسجّلون على رابط الانضمام قبل البداية بوقت قصير.'
+                : 'Share the link with your network so people can register. Registered people get the join link shortly before it starts.',
+              calendarLinks(t, ar),
+            ]}
+            cta={{ label: ar ? 'افتح صفحة الجلسة' : 'Open the session page', url: t.url }}
+          />
+        ),
+      };
+    }
     case 'speakerBookingTeam': {
       const booked = t.kind === 'booked';
+      const course = t.draft === 'course';
       const subject = booked ? `New speaker booking: ${t.title}` : `Speaker cancelled: ${t.title}`;
       return {
         subject,
@@ -490,11 +531,17 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
               `${t.speakerName} (${t.speakerEmail})`,
               t.when,
               booked
-                ? 'A draft session was created. Add the Meet link, the Arabic title and a cover, then publish it.'
-                : 'The slot is open again and the draft session was cancelled.',
+                ? course
+                  ? 'A draft course was created from the booking, with the speaker as its instructor. Add the Arabic texts and check the details, then publish it (Status: Open or Coming soon).'
+                  : 'A draft session was created. Add the Meet link, the Arabic title and a cover, then press Publish.'
+                : t.courseKept
+                  ? `The slot is open again. The course was kept as it is (status: ${t.courseKept}) because it is already published or has students: decide what happens to it in Courses.`
+                  : course
+                    ? 'The slot is open again and the draft course was deleted.'
+                    : 'The slot is open again and the draft session was cancelled.',
             ]}
             callout={booked ? { title: 'Abstract', body: t.abstract } : undefined}
-            cta={{ label: booked ? 'Open the draft session' : 'Open availability', url: t.url }}
+            cta={{ label: booked ? (course ? 'Open the draft course' : 'Open the draft session') : t.courseKept ? 'Open the course' : 'Open availability', url: t.url }}
           />
         ),
       };

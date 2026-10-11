@@ -1004,6 +1004,11 @@
         "openInMainHint": "More filters and saved views",
         "statusFilter": "Filter by status",
         "count": "{count, plural, one {# application} other {# applications}}"
+      },
+      "fromBooking": {
+        "badge": "From a speaker booking",
+        "title": "Draft course from a speaker booking: not in the catalog yet.",
+        "body": "Prefilled from the booking, with the speaker as instructor. Add the Arabic title and description (module titles start in English), check the details, then set Status to Open or Coming soon and save to publish."
       }
     },
     "settings": {
@@ -1118,7 +1123,34 @@
       "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email.",
       "importedHint": "Added by the archive import. Your edits are kept: the import never changes a session after an admin edits it.",
       "kindDetails": "Session, course or podcast",
-      "kindDetailsHint": "Filled by the speaker when booking, or by you. Every field is optional; empty ones don't show on the public page. A course here is a label: create the real course in Courses."
+      "kindDetailsHint": "Filled by the speaker when booking, or by you. Every field is optional; empty ones don't show on the public page. A course here is a label: create the real course in Courses.",
+      "filterLabel": "Filter sessions by status",
+      "filterAll": "All",
+      "filter": {
+        "DRAFT": "Drafts",
+        "PUBLISHED": "Published",
+        "CANCELLED": "Cancelled"
+      },
+      "fromBooking": "Speaker booking",
+      "bookedBy": "Booked by {name} through the speaker portal.",
+      "openAvailability": "Open availability",
+      "courseBooking": "This booking is a course",
+      "courseBookingHint": "Make it a draft course you finish and publish in Courses. It's prefilled from the booking, with the speaker as instructor.",
+      "courseLinked": "This booking already has its course ({status}).",
+      "publish": {
+        "title": "Draft: not visible on the public sessions page.",
+        "toPublish": "To publish it, add:",
+        "ready": "Everything it needs is filled in. Publish it to put it on the public sessions page.",
+        "button": "Publish",
+        "saveDraft": "Save draft",
+        "blocked": "Not published yet. Add: {list}",
+        "need": {
+          "titleAr": "The Arabic title",
+          "liveUrl": "The live link (the Google Meet link)"
+        },
+        "savedDraft": "Saved as a draft: it's not on the public sessions page yet. Press Publish when it's ready.",
+        "published": "Published. It shows on the public sessions page within about 2 minutes. A speaker who booked it is emailed the link."
+      }
     },
     "speakers": {
       "title": "Speakers",
@@ -1181,7 +1213,7 @@
     },
     "slots": {
       "title": "Availability",
-      "intro": "Times speakers can book for a free live session. Times are Cairo time. A booking creates a draft session and emails the session team.",
+      "intro": "Times speakers can book, in Cairo time. A session or podcast booking creates a draft session, a course booking a draft course, and the session team is emailed.",
       "generator": "Generate monthly slots",
       "weekdays": "Days",
       "timeCairo": "Time (Cairo)",
@@ -1210,7 +1242,17 @@
       "release": "Release",
       "releaseConfirm": "Release this booking? The slot opens again, a draft session is deleted (a published one is cancelled and its registrants are emailed), and the session team is told.",
       "editBooking": "Edit details",
-      "editBookingHint": "Changes the booking. Its session's details follow; a published session's title and description are edited on the session itself."
+      "editBookingHint": "Changes the booking. Its session's details follow; a published session's title and description are edited on the session itself.",
+      "openCourse": "Open the course",
+      "openCourseDraft": "Open the course draft",
+      "createCourseDraft": "Create course draft from this booking",
+      "courseDraftConfirm": "Create a draft course from this booking? It's prefilled from the booking, with the speaker as instructor. The booking's draft session is removed; its Arabic title, description and cover carry over.",
+      "courseDraftConfirmKeep": "Create a draft course from this booking? It's prefilled from the booking, with the speaker as instructor. The booking's session stays as it is.",
+      "courseDrafted": "Course draft created. Open it to finish and publish it.",
+      "courseAlready": "This booking already has its course.",
+      "releaseConfirmCourse": "Release this booking? The slot opens again, the draft course is deleted, and the session team is told.",
+      "releaseConfirmCourseKept": "Release this booking? The slot opens again. Its course is already published ({status}), so it stays as it is: archive it in Courses if it shouldn't run. The session team is told.",
+      "releasedCourseKept": "Released. The course was already published, so it was kept: check it in Courses."
     },
     "assessments": {
       "tab": "Assessments",
@@ -1838,7 +1880,8 @@
       },
       "booked": {
         "title": "You're booked!",
-        "body": "“{title}” on {when}. We've emailed you the details. The team will add the meeting link and publish the session."
+        "body": "“{title}” on {when}. We've emailed you the details. The team will add the meeting link and publish the session.",
+        "bodyCourse": "“{title}”, starting {when}. We've emailed you the details. Your course draft is with the team: they'll finish the course page with you and publish it."
       },
       "calendar": {
         "google": "Add to Google Calendar",
@@ -1863,7 +1906,9 @@
         "sessionPage": "Session page",
         "editDetails": "Edit details",
         "saveDetails": "Save changes",
-        "lockedHint": "Published: ask the team for changes."
+        "lockedHint": "Published: ask the team for changes.",
+        "courseDraft": "Your course draft is with the team: they'll finish the course page with you and publish it.",
+        "coursePage": "Course page"
       },
       "form": {
         "title": "Current title",

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  courseStatusLabels,
   DEFAULT_TIMEZONE,
   eventStatusLabels,
   generateSlotTimes,
@@ -8,6 +9,7 @@ import {
   speakerKindLabels,
   zonedTimeToUtc,
   type AdminSlotDto,
+  type CourseDraftResultDto,
 } from '@academy/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
@@ -43,11 +45,32 @@ export default function AdminAvailability() {
 
   async function act(slot: AdminSlotDto, action: 'withdraw' | 'delete' | 'release') {
     if (action === 'delete' && !window.confirm(t('admin.slots.deleteConfirm'))) return;
-    if (action === 'release' && !window.confirm(t('admin.slots.releaseConfirm'))) return;
+    // A course the team already published stays: say so before they release the booking.
+    const releaseText = slot.course
+      ? slot.course.status === 'DRAFT'
+        ? t('admin.slots.releaseConfirmCourse')
+        : t('admin.slots.releaseConfirmCourseKept', { status: courseStatusLabels[slot.course.status][locale] })
+      : t('admin.slots.releaseConfirm');
+    if (action === 'release' && !window.confirm(releaseText)) return;
     setError(null);
     try {
       const path = { delete: `/admin/speaking-slots/${slot.id}`, withdraw: `/admin/speaking-slots/${slot.id}/cancel`, release: `/admin/speaking-slots/${slot.id}/release` }[action];
       await api(path, { method: action === 'delete' ? 'DELETE' : 'POST' });
+      if (action === 'release' && slot.course && slot.course.status !== 'DRAFT') setNotice(t('admin.slots.releasedCourseKept'));
+      load();
+    } catch (err) {
+      setError(speakerError(err, t));
+    }
+  }
+
+  /** "Create course draft from this booking" (a course booked before course drafts existed). */
+  async function courseDraft(slot: AdminSlotDto) {
+    if (!window.confirm(t(slot.event?.status === 'DRAFT' ? 'admin.slots.courseDraftConfirm' : 'admin.slots.courseDraftConfirmKeep'))) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await api<CourseDraftResultDto>(`/admin/speaking-slots/${slot.id}/course-draft`, { method: 'POST' });
+      setNotice(t(r.created ? 'admin.slots.courseDrafted' : 'admin.slots.courseAlready'));
       load();
     } catch (err) {
       setError(speakerError(err, t));
@@ -109,8 +132,13 @@ export default function AdminAvailability() {
                       </p>
                     )}
                     {s.event && (
-                      <Link href={`/${locale}/admin/sessions/${s.event.id}`} className="text-sm text-primary underline">
+                      <Link href={`/${locale}/admin/sessions/${s.event.id}`} className="me-3 inline-flex min-h-11 items-center text-sm text-primary underline sm:min-h-0">
                         {t('admin.slots.openSession')} ({eventStatusLabels[s.event.status][locale]})
+                      </Link>
+                    )}
+                    {s.course && (
+                      <Link href={`/${locale}/admin/courses/${s.course.id}`} className="inline-flex min-h-11 items-center text-sm text-primary underline sm:min-h-0">
+                        {s.course.status === 'DRAFT' ? t('admin.slots.openCourseDraft') : `${t('admin.slots.openCourse')} (${courseStatusLabels[s.course.status][locale]})`}
                       </Link>
                     )}
                   </div>
@@ -119,6 +147,11 @@ export default function AdminAvailability() {
                     {s.status === 'OPEN' && (
                       <Button variant="ghost" size="sm" onClick={() => act(s, 'withdraw')}>
                         {t('admin.slots.withdraw')}
+                      </Button>
+                    )}
+                    {s.status === 'BOOKED' && s.kind === 'COURSE' && !s.course && (
+                      <Button variant="secondary" size="sm" onClick={() => courseDraft(s)}>
+                        {t('admin.slots.createCourseDraft')}
                       </Button>
                     )}
                     {s.status === 'BOOKED' && editing !== s.id && (

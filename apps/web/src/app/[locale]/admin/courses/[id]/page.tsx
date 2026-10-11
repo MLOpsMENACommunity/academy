@@ -146,6 +146,7 @@ function CourseEditor() {
         <h1 className="text-3xl">{(locale === 'ar' && course.titleAr) || course.titleEn}</h1>
         <Badge tone={course.status === 'OPEN' ? 'success' : course.status === 'DRAFT' ? 'warning' : course.status === 'COMING_SOON' ? 'info' : 'neutral'}>{courseStatusLabels[course.status][locale]}</Badge>
         {course.source === 'import' && <Badge tone="info">{t('admin.common.imported')}</Badge>}
+        {course.source === 'speaker-booking' && <Badge tone="info">{t('admin.courses.fromBooking.badge')}</Badge>}
         {(PUBLIC_COURSE_STATUSES as readonly string[]).includes(course.status) && (
           <a href={`/${locale}/courses/${course.slug}`} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
             {t('admin.courses.viewPublic')} ↗
@@ -165,6 +166,11 @@ function CourseEditor() {
       </div>
 
       {course.source === 'import' && <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.courses.importedHint')}</p>}
+      {course.source === 'speaker-booking' && course.status === 'DRAFT' && (
+        <Alert tone="warning" className="mt-4" title={t('admin.courses.fromBooking.title')}>
+          {t('admin.courses.fromBooking.body')}
+        </Alert>
+      )}
 
       {/* Opening a course never emails anyone by itself: the admin decides when to tell the list. */}
       {course.status === 'OPEN' && waiting && waiting.waiting > 0 && tab !== 'waitlist' && (

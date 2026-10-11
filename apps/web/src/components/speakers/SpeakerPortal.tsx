@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  PUBLIC_COURSE_STATUSES,
   speakerKindLabels,
+  type CourseStatus,
   type MeResponse,
   type SpeakerBookingDto,
   type SpeakerPortalDto,
@@ -96,7 +98,7 @@ function Portal() {
       {confirmed && (
         <div ref={confirmation} tabIndex={-1} className="outline-none">
           <Alert tone="success" title={t('speakers.portal.booked.title')}>
-            <p>{t('speakers.portal.booked.body', { title: confirmed.title, when: when(confirmed.startsAt) })}</p>
+            <p>{t(confirmed.course ? 'speakers.portal.booked.bodyCourse' : 'speakers.portal.booked.body', { title: confirmed.title, when: when(confirmed.startsAt) })}</p>
             <CalendarLinks booking={confirmed} />
           </Alert>
         </div>
@@ -169,7 +171,13 @@ function Portal() {
                       <p className="mt-1 text-sm text-muted">{when(b.startsAt)}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                         {b.event && <span>{t('speakers.portal.bookings.registered', { n: b.event.registered })}</span>}
-                        {b.event?.recordingUrl ? (
+                        {b.course ? (
+                          (PUBLIC_COURSE_STATUSES as readonly string[]).includes(b.course.status) && (
+                            <Link href={`/${locale}/courses/${b.course.slug}`} className="font-medium text-primary underline">
+                              {t('speakers.portal.bookings.coursePage')}
+                            </Link>
+                          )
+                        ) : b.event?.recordingUrl ? (
                           <a href={b.event.recordingUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline">
                             {t('speakers.portal.bookings.recording')}
                           </a>
@@ -289,7 +297,9 @@ function UpcomingBooking({ booking: b, cancelDays, onChange }: { booking: Speake
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const status = b.event?.status ?? 'DRAFT';
+  // A course booking is followed through its course; a session or podcast, through its session.
+  const status = b.course ? courseProgress(b.course.status) : (b.event?.status ?? 'DRAFT');
+  const coursePublic = b.course && (PUBLIC_COURSE_STATUSES as readonly string[]).includes(b.course.status);
 
   async function cancel() {
     setBusy(true);
@@ -335,6 +345,14 @@ function UpcomingBooking({ booking: b, cancelDays, onChange }: { booking: Speake
               }
             />
           </div>
+        )}
+        {b.course?.status === 'DRAFT' && <p className="mt-2 text-sm text-body">{t('speakers.portal.bookings.courseDraft')}</p>}
+        {coursePublic && b.course && (
+          <p className="mt-2 text-sm">
+            <Link href={`/${locale}/courses/${b.course.slug}`} className="font-medium text-primary underline">
+              {t('speakers.portal.bookings.coursePage')}
+            </Link>
+          </p>
         )}
         {status === 'PUBLISHED' && b.event && (
           <p className="mt-2 text-sm">
@@ -382,4 +400,10 @@ function UpcomingBooking({ booking: b, cancelDays, onChange }: { booking: Speake
       </Card>
     </li>
   );
+}
+
+/** Where a course booking stands, in the words used for sessions: being prepared, published, or cancelled (archived). */
+function courseProgress(status: CourseStatus): 'DRAFT' | 'PUBLISHED' | 'CANCELLED' {
+  if (status === 'DRAFT') return 'DRAFT';
+  return status === 'ARCHIVED' ? 'CANCELLED' : 'PUBLISHED';
 }
