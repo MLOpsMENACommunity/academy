@@ -1,6 +1,7 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   APPLICATION_STATUSES,
+  confirmMatches,
   slugify,
   toCsv,
   type CourseInput,
@@ -393,9 +394,25 @@ export class AdminCoursesService {
   }
 
   async instructor(id: string) {
-    const i = await this.prisma.instructor.findUnique({ where: { id }, include: { _count: { select: { courses: true, events: true } } } });
+    const i = await this.prisma.instructor.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { courses: true, events: true } },
+        // The speaker account behind the profile, and its application (editable by the team).
+        user: { select: { id: true, deletedAt: true, speakerApplication: { select: { id: true } } } },
+      },
+    });
     if (!i) throw new NotFoundException('Instructor not found');
-    return { ...toInstructorDto(i), source: i.source, courses: i._count.courses, events: i._count.events };
+    const account = i.user && !i.user.deletedAt ? i.user : null;
+    return {
+      ...toInstructorDto(i),
+      source: i.source,
+      courses: i._count.courses,
+      events: i._count.events,
+      previousSlugs: i.previousSlugs,
+      userId: account?.id ?? null,
+      applicationId: account?.speakerApplication?.id ?? null,
+    };
   }
 
   private freeSlug(name: string, exceptId?: string): Promise<string> {
@@ -403,7 +420,7 @@ export class AdminCoursesService {
   }
 
   async saveInstructor(input: InstructorInput, admin: Actor, id?: string) {
-    const current = id ? await this.prisma.instructor.findUnique({ where: { id }, select: { slug: true } }) : null;
+    const current = id ? await this.prisma.instructor.findUnique({ where: { id }, select: { slug: true, previousSlugs: true } }) : null;
     if (id && !current) throw new NotFoundException('Instructor not found');
     const data = {
       // Keep the page address stable: an empty field keeps the current slug, or makes one from the name.
@@ -418,10 +435,20 @@ export class AdminCoursesService {
       linkedinUrl: input.linkedinUrl ?? null,
       githubUrl: input.githubUrl ?? null,
     };
+    // A new address: the old one redirects to it (kept in previousSlugs), and nobody else
+    // keeps redirecting from the new one.
+    const moved = Boolean(current?.slug && data.slug !== current.slug);
+    const previousSlugs = moved ? [...new Set([current!.slug!, ...current!.previousSlugs])].filter((x) => x !== data.slug).slice(0, 20) : (current?.previousSlugs ?? []).filter((x) => x !== data.slug);
     let saved;
     try {
-      // An admin save takes the speaker over from the archive import (it never touches them again).
-      saved = id ? await this.prisma.instructor.update({ where: { id }, data: { ...data, importHash: null } }) : await this.prisma.instructor.create({ data });
+      saved = await this.prisma.$transaction(async (tx) => {
+        const others = await tx.instructor.findMany({ where: { previousSlugs: { has: data.slug }, ...(id ? { id: { not: id } } : {}) }, select: { id: true, previousSlugs: true } });
+        for (const o of others) await tx.instructor.update({ where: { id: o.id }, data: { previousSlugs: o.previousSlugs.filter((x) => x !== data.slug) } });
+        // An admin save takes the speaker over from the archive import (it never touches them again).
+        return id
+          ? tx.instructor.update({ where: { id }, data: { ...data, previousSlugs, importHash: null } })
+          : tx.instructor.create({ data });
+      });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({ code: 'SLUG_TAKEN', message: 'Another speaker already uses this slug' });
@@ -429,8 +456,36 @@ export class AdminCoursesService {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') throw new NotFoundException('Instructor not found');
       throw err;
     }
-    await this.audit.log({ actorId: admin.id, action: id ? 'instructor.updated' : 'instructor.created', entityType: 'Instructor', entityId: saved.id });
+    await this.audit.log({
+      actorId: admin.id,
+      action: id ? 'instructor.updated' : 'instructor.created',
+      entityType: 'Instructor',
+      entityId: saved.id,
+      ...(moved ? { metadata: { slugChanged: true } } : {}),
+    });
     return toInstructorDto(saved);
+  }
+
+  /**
+   * Deletes a speaker's public profile. Their sessions stay (shown without a speaker link),
+   * they leave the courses and guest lists they were on, and a speaker account behind the
+   * profile stays (a student or speaker account, unlinked). Typed confirmation: the name.
+   */
+  async deleteInstructor(id: string, confirm: string, admin: Actor): Promise<{ events: number; courses: number }> {
+    const i = await this.prisma.instructor.findUnique({ where: { id }, include: { _count: { select: { courses: true, events: true, coSpeaking: true } } } });
+    if (!i) throw new NotFoundException('Instructor not found');
+    if (!confirmMatches(confirm, i.name)) {
+      throw new BadRequestException({ code: 'CONFIRM_MISMATCH', message: "Type the speaker's name exactly to delete the profile" });
+    }
+    await this.prisma.instructor.delete({ where: { id } });
+    await this.audit.log({
+      actorId: admin.id,
+      action: 'instructor.deleted',
+      entityType: 'Instructor',
+      entityId: id,
+      metadata: { events: i._count.events, courses: i._count.courses, guestOf: i._count.coSpeaking, hadAccount: Boolean(i.userId) },
+    });
+    return { events: i._count.events, courses: i._count.courses };
   }
 
   // ------------------------------------------------------------------ enrolled students (Risk 1)

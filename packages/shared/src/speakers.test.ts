@@ -10,8 +10,11 @@ import {
   slotGeneratorSchema,
   speakerApplicationSchema,
   speakerReviewSchema,
+  slotBookingSchema,
+  SPEAKER_FORMATS,
   zonedTimeToUtc,
 } from './speakers';
+import { cleanSpeakerDetails, readEventDetails, speakerDetailsSchema } from './speaker-details';
 
 const application = {
   fullName: 'Mona Speaker',
@@ -28,6 +31,7 @@ const application = {
   format: 'HANDS_ON',
   language: 'AR',
   preferredMonths: ['2026-12', '2026-11'],
+  referralSource: 'LINKEDIN',
 };
 
 describe('signing up as a student or a speaker', () => {
@@ -109,6 +113,33 @@ describe('speaker application', () => {
     expect(issues({ preferredMonths: ['2026-13'] })).toEqual(['preferredMonths.0']);
   });
 
+  it('asks how they heard about us, and the member\'s name for "An MLOps MENA member"', () => {
+    const issues = (over: Record<string, unknown>) =>
+      [...new Set(speakerApplicationSchema.safeParse({ ...application, ...over }).error?.issues.map((i) => i.path.join('.')) ?? [])];
+    expect(issues({ referralSource: undefined })).toEqual(['referralSource']);
+    expect(issues({ referralSource: 'MLOPS_MENA_MEMBER' })).toEqual(['referralMemberName']);
+    expect(issues({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: ' ' })).toEqual(['referralMemberName']);
+    // Reported with the other errors on the first submit.
+    expect(issues({ referralSource: 'MLOPS_MENA_MEMBER', abstract: 'short' })).toEqual(['abstract', 'referralMemberName']);
+    const ok = speakerApplicationSchema.parse({ ...application, referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: '  Aya Nasser ' });
+    expect(ok.referralMemberName).toBe('Aya Nasser');
+    // Another source: a typed name is dropped, never stored.
+    expect(speakerApplicationSchema.parse({ ...application, referralMemberName: 'Someone' }).referralMemberName).toBeNull();
+  });
+
+  it('has an optional GitHub link, the course and podcast formats, and a kind (session by default)', () => {
+    const a = speakerApplicationSchema.parse(application);
+    expect(a.githubUrl).toBeNull();
+    expect(a.kind).toBe('SESSION');
+    expect(a.details).toEqual({});
+    expect(speakerApplicationSchema.parse({ ...application, githubUrl: 'https://github.com/mona' }).githubUrl).toBe('https://github.com/mona');
+    expect(speakerApplicationSchema.safeParse({ ...application, githubUrl: 'https://gitlab.com/mona' }).success).toBe(false);
+    expect(speakerApplicationSchema.safeParse({ ...application, githubUrl: 'https://github.com/' }).success).toBe(false);
+    expect(SPEAKER_FORMATS).toEqual(expect.arrayContaining(['COURSE', 'PODCAST', 'TALK', 'HANDS_ON', 'WORKSHOP', 'QA']));
+    for (const kind of ['SESSION', 'COURSE', 'PODCAST']) expect(speakerApplicationSchema.parse({ ...application, kind }).kind).toBe(kind);
+    expect(speakerApplicationSchema.safeParse({ ...application, kind: 'WEBINAR' }).success).toBe(false);
+  });
+
   it('needs a reason to reject', () => {
     expect(speakerReviewSchema.safeParse({ decision: 'REJECT', note: '' }).success).toBe(false);
     expect(speakerReviewSchema.safeParse({ decision: 'REJECT', note: 'Topic already covered this term.' }).success).toBe(true);
@@ -165,5 +196,63 @@ describe('booking rules', () => {
     expect(canCancelBooking(startsAt, 3, new Date('2026-11-07T16:59:00Z'))).toBe(true);
     expect(canCancelBooking(startsAt, 3, new Date('2026-11-07T17:00:00Z'))).toBe(false);
     expect(canCancelBooking(startsAt, 0, new Date('2026-11-10T16:00:00Z'))).toBe(true);
+  });
+});
+
+describe('booking details', () => {
+  const booking = { title: 'Serving LLMs on Kubernetes', abstract: 'A walk through GPU scheduling, autoscaling and observability for LLM inference.' };
+
+  it('needs only the title and abstract; every detail is optional', () => {
+    expect(slotBookingSchema.parse(booking)).toEqual({ ...booking, kind: 'SESSION', details: {} });
+    expect(slotBookingSchema.safeParse({ ...booking, title: '' }).success).toBe(false);
+    expect(slotBookingSchema.safeParse({ ...booking, abstract: 'short' }).success).toBe(false);
+  });
+
+  it('keeps what is filled, drops empty fields and the blocks of other kinds', () => {
+    const details = {
+      audience: '  ML engineers  ',
+      prerequisites: '',
+      outcomes: ['Deploy a model', '', 'Deploy a model', 'Monitor it'],
+      level: 'INTERMEDIATE',
+      language: '',
+      tags: [],
+      course: { modulesCount: '6', modules: [{ title: 'Intro', description: '' }, { title: '', description: '' }], weeklyHours: '3', durationWeeks: '', materialsUrl: 'https://github.com/x/y' },
+      podcast: { guests: [{ name: 'Sara', linkedinUrl: 'https://www.linkedin.com/in/sara?utm_source=x' }], discussion: ['Careers'], episodeFormat: 'PANEL', host: '' },
+    };
+    expect(slotBookingSchema.parse({ ...booking, kind: 'COURSE', details }).details).toEqual({
+      audience: 'ML engineers',
+      outcomes: ['Deploy a model', 'Monitor it'],
+      level: 'INTERMEDIATE',
+      course: { modulesCount: 6, modules: [{ title: 'Intro', description: '' }], weeklyHours: 3, materialsUrl: 'https://github.com/x/y' },
+    });
+    expect(slotBookingSchema.parse({ ...booking, kind: 'PODCAST', details }).details).toEqual({
+      audience: 'ML engineers',
+      outcomes: ['Deploy a model', 'Monitor it'],
+      level: 'INTERMEDIATE',
+      podcast: { guests: [{ name: 'Sara', linkedinUrl: 'https://www.linkedin.com/in/sara' }], discussion: ['Careers'], episodeFormat: 'PANEL' },
+    });
+    expect(slotBookingSchema.parse({ ...booking, kind: 'SESSION', details }).details).not.toHaveProperty('course');
+  });
+
+  it('checks lengths, links and limits', () => {
+    const bad = (d: Record<string, unknown>) => speakerDetailsSchema.safeParse(d).success;
+    expect(bad({ audience: 'x'.repeat(501) })).toBe(false);
+    expect(bad({ outcomes: Array.from({ length: 11 }, (_, i) => `o${i}`) })).toBe(false);
+    expect(bad({ level: 'EXPERT' })).toBe(false);
+    expect(bad({ course: { materialsUrl: 'http://example.com' } })).toBe(false);
+    expect(bad({ course: { materialsUrl: 'javascript:alert(1)' } })).toBe(false);
+    expect(bad({ course: { modulesCount: 0 } })).toBe(false);
+    expect(bad({ course: { weeklyHours: 80 } })).toBe(false);
+    expect(bad({ podcast: { guests: [{ name: 'A', linkedinUrl: 'https://twitter.com/a' }] } })).toBe(false);
+    expect(bad({ podcast: { episodeFormat: 'SOLO' } })).toBe(false);
+    expect(bad({})).toBe(true);
+  });
+
+  it('reads stored JSON defensively', () => {
+    expect(readEventDetails({})).toEqual({ kind: 'SESSION', details: {} });
+    expect(readEventDetails(null)).toEqual({ kind: 'SESSION', details: {} });
+    expect(readEventDetails({ kind: 'PODCAST', details: { podcast: { host: 'Aya' }, course: { modulesCount: 3 } } })).toEqual({ kind: 'PODCAST', details: { podcast: { host: 'Aya' } } });
+    expect(readEventDetails({ kind: 'HACK', details: { level: 'NOPE' } })).toEqual({ kind: 'SESSION', details: {} });
+    expect(cleanSpeakerDetails('SESSION', null)).toEqual({});
   });
 });

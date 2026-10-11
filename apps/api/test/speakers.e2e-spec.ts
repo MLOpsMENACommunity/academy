@@ -1,8 +1,10 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { GoogleService } from '../src/auth/google.service';
 import { EmailService } from '../src/email/email.service';
 import type { EmailTemplate } from '../src/email/templates/catalog';
+import { NotificationsService } from '../src/notifications/notifications.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AccountService } from '../src/users/account.service';
 import { cookieHeader, createCourse, createTestApp, createUser, uniqueEmail } from './helpers';
@@ -33,6 +35,7 @@ describe('speaker portal (e2e)', () => {
     format: 'HANDS_ON',
     language: 'AR',
     preferredMonths: ['2026-11'],
+    referralSource: 'LINKEDIN',
     ...over,
   });
   const booking = { title: 'Serving LLMs on Kubernetes', abstract: 'A walk through GPU scheduling, autoscaling and observability for LLM inference.' };
@@ -392,6 +395,103 @@ describe('speaker portal (e2e)', () => {
       expect(await prisma.speakerApplication.findUnique({ where: { userId: s.id } })).toBeNull();
       // The profile the portal created, with no session anywhere, is gone with the account.
       expect(await prisma.instructor.findUnique({ where: { id: s.instructorId } })).toBeNull();
+    });
+  });
+
+  describe('referral, kinds and details', () => {
+    it('applies with "An MLOps MENA member" and the member\'s name, which the team sees', async () => {
+      const s = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'ref', coreComplete: false });
+      const missing = await http().put('/api/speaker/application').set('Cookie', s.cookie).send(application({ referralSource: 'MLOPS_MENA_MEMBER' })).expect(400);
+      expect(missing.body.errors.map((e: { path: string }) => e.path)).toEqual(['referralMemberName']);
+      await http().put('/api/speaker/application').set('Cookie', s.cookie).send(application({ referralSource: undefined })).expect(400);
+      const res = await http()
+        .put('/api/speaker/application')
+        .set('Cookie', s.cookie)
+        .send(application({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'PODCAST', format: 'PODCAST', githubUrl: '', details: { podcast: { host: 'Aya', guests: [{ name: 'Sara' }] }, course: { modulesCount: 4 } } }))
+        .expect(200);
+      expect(res.body).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'PODCAST', format: 'PODCAST', githubUrl: null, details: { podcast: { host: 'Aya', guests: [{ name: 'Sara' }] } } });
+      expect(res.body.details).not.toHaveProperty('course');
+      const seen = await http().get(`/api/admin/speaker-applications/${res.body.id}`).set('Cookie', admin.cookie).expect(200);
+      expect(seen.body).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'PODCAST' });
+
+      // The team corrects it (the decision and the speaker's status don't change).
+      const edited = await http()
+        .put(`/api/admin/speaker-applications/${res.body.id}`)
+        .set('Cookie', admin.cookie)
+        .send(application({ referralSource: 'EVENT', referralMemberName: 'Aya Nasser', kind: 'COURSE', githubUrl: 'https://github.com/mona' }))
+        .expect(200);
+      expect(edited.body).toMatchObject({ status: 'SUBMITTED', referralSource: 'EVENT', referralMemberName: null, kind: 'COURSE', githubUrl: 'https://github.com/mona' });
+      await http().put(`/api/admin/speaker-applications/${res.body.id}`).set('Cookie', s.cookie).send(application()).expect(403);
+      const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: 'speaker_application.updated_by_admin', entityId: res.body.id } });
+      expect(JSON.stringify(audit.metadata)).not.toContain('Aya');
+    });
+
+    it('books a course with optional details, copies them to the draft, and lets the speaker edit until it is published', async () => {
+      const s = await approvedSpeaker('Course giver');
+      const slot = await slotAt(new Date(Date.now() + 40 * DAY), 120);
+      const details = { audience: 'Data scientists', outcomes: ['Ship a model'], level: 'BEGINNER', course: { modulesCount: 3, modules: [{ title: 'Packaging', description: 'Docker' }], durationWeeks: 3 }, podcast: { host: 'Nobody' } };
+      const bad = await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send({ ...booking, kind: 'COURSE', details: { course: { materialsUrl: 'ftp://x' } } }).expect(400);
+      expect(bad.body.errors[0].path).toBe('details.course.materialsUrl');
+      const res = await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send({ ...booking, kind: 'COURSE', details }).expect(201);
+      expect(res.body).toMatchObject({ kind: 'COURSE', canEdit: true, abstract: booking.abstract, details: { audience: 'Data scientists', course: { modulesCount: 3 } } });
+      expect(res.body.details).not.toHaveProperty('podcast');
+      const saved = await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id }, include: { event: true } });
+      expect(saved.kind).toBe('COURSE');
+      // A label on the session, never a real course.
+      expect(saved.event).toMatchObject({ status: 'DRAFT', titleEn: booking.title, durationMin: 120, details: { kind: 'COURSE', details: { level: 'BEGINNER' } } });
+
+      // Every detail is optional; the speaker edits while it is a draft.
+      const edit = { title: 'Shipping models, a course', abstract: booking.abstract, kind: 'COURSE', details: { audience: 'Everyone' } };
+      const other = await approvedSpeaker('Someone else');
+      await http().put(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', other.cookie).send(edit).expect(404);
+      const edited = await http().put(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(edit).expect(200);
+      expect(edited.body).toMatchObject({ title: edit.title, details: { audience: 'Everyone' } });
+      expect(await prisma.liveEvent.findUniqueOrThrow({ where: { id: saved.eventId! } })).toMatchObject({ titleEn: edit.title, details: { kind: 'COURSE', details: { audience: 'Everyone' } } });
+
+      // Published: the speaker can't change it any more; the team can (details only on the session).
+      await prisma.liveEvent.update({ where: { id: saved.eventId! }, data: { status: 'PUBLISHED', titleAr: 'دورة', liveUrl: 'https://meet.google.com/x' } });
+      const locked = await http().put(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(edit).expect(409);
+      expect(locked.body.code).toBe('BOOKING_LOCKED');
+      const portal = await http().get('/api/speaker').set('Cookie', s.cookie).expect(200);
+      expect(portal.body.bookings.find((b: { slotId: string }) => b.slotId === slot.id).canEdit).toBe(false);
+      await http().put(`/api/admin/speaking-slots/${slot.id}/booking`).set('Cookie', s.cookie).send(edit).expect(403);
+      await http()
+        .put(`/api/admin/speaking-slots/${slot.id}/booking`)
+        .set('Cookie', admin.cookie)
+        .send({ ...edit, title: 'Changed by the team', details: { audience: 'Engineers', prerequisites: 'Python', course: { modulesCount: 4 } } })
+        .expect(200);
+      const event = await prisma.liveEvent.findUniqueOrThrow({ where: { id: saved.eventId! } });
+      expect(event.titleEn).toBe(edit.title); // a published title is edited on the session itself
+      // The public page shows what is filled, nothing empty.
+      const pub = await http().get(`/api/events/${event.slug}`).expect(200);
+      expect(pub.body).toMatchObject({ kind: 'COURSE', details: { audience: 'Engineers', prerequisites: 'Python', course: { modulesCount: 4 } } });
+      expect(pub.body.details).not.toHaveProperty('outcomes');
+    });
+
+    it('lets the team edit details on the session, and keeps them when an old client leaves them out', async () => {
+      const event = await prisma.liveEvent.create({ data: { slug: `details-${Date.now()}`, status: 'DRAFT', titleEn: 'Panel', startsAt: new Date(Date.now() + 50 * DAY) } });
+      const base = { slug: event.slug, status: 'DRAFT', titleEn: 'Panel', startsAt: event.startsAt.toISOString(), durationMin: 60, language: 'EN', platform: 'GOOGLE_MEET' };
+      await http().put(`/api/admin/events/${event.id}`).set('Cookie', admin.cookie).send({ ...base, details: { kind: 'PODCAST', details: { podcast: { guests: [{ name: 'Sara', linkedinUrl: 'https://twitter.com/s' }] } } } }).expect(400);
+      await http().put(`/api/admin/events/${event.id}`).set('Cookie', admin.cookie).send({ ...base, details: { kind: 'PODCAST', details: { podcast: { episodeFormat: 'PANEL', guests: [{ name: 'Sara' }] } } } }).expect(200);
+      await http().put(`/api/admin/events/${event.id}`).set('Cookie', admin.cookie).send(base).expect(200);
+      expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: event.id } })).details).toEqual({ kind: 'PODCAST', details: { podcast: { episodeFormat: 'PANEL', guests: [{ name: 'Sara' }] } } });
+    });
+
+    it('answers a failed booking with a code and a message, never a bare 500, and books nothing', async () => {
+      const s = await approvedSpeaker('Unlucky');
+      const slot = await slotAt(new Date(Date.now() + 45 * DAY), 120);
+      const spy = jest.spyOn(prisma, '$transaction').mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('Transaction already closed', { code: 'P2028', clientVersion: 'test' }));
+      const busy = await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(booking).expect(503);
+      expect(busy.body).toMatchObject({ code: 'BOOKING_BUSY', message: expect.stringContaining('nothing was booked') });
+      spy.mockRejectedValueOnce(new Error('boom'));
+      const failed = await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(booking).expect(503);
+      expect(failed.body.code).toBe('BOOKING_FAILED');
+      spy.mockRestore();
+      expect((await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id } })).status).toBe('OPEN');
+      // A failure after the booking is saved (telling the team) doesn't turn it into an error.
+      const notify = jest.spyOn(app.get(NotificationsService), 'notifyAdmins').mockRejectedValueOnce(new Error('down'));
+      await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(booking).expect(201);
+      notify.mockRestore();
     });
   });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeCompleteness,
+  adminSectionSchemaFor,
   communitySectionSchema,
   coreSectionSchema,
   educationSectionSchema,
@@ -133,10 +134,34 @@ describe('educationSectionSchema', () => {
 
 describe('communitySectionSchema', () => {
   it('needs an explicit Yes or No for every question', () => {
-    const ok = { referralSource: 'LINKEDIN', communityMember: false, openToOpportunities: true, shareWithPartners: false, marketingEmails: false };
+    const ok = { referralSource: 'LINKEDIN', communityMember: false, marketingEmails: false };
     expect(communitySectionSchema.safeParse(ok).success).toBe(true);
     expect(communitySectionSchema.safeParse({ ...ok, marketingEmails: undefined }).success).toBe(false);
     expect(communitySectionSchema.safeParse({ ...ok, referralSource: undefined }).success).toBe(false);
+  });
+
+  it('no longer asks about job opportunities or hiring partners, and never passes them on', () => {
+    const ok = { referralSource: 'LINKEDIN', communityMember: true, marketingEmails: false };
+    expect(communitySectionSchema.safeParse(ok).success).toBe(true);
+    // Sent by an old client: dropped, so a save never overwrites the stored answers.
+    expect(communitySectionSchema.parse({ ...ok, openToOpportunities: true, shareWithPartners: true })).toEqual(ok);
+  });
+
+  it('lets an admin edit the same fields, without accepting the Terms for the student', () => {
+    const core = adminSectionSchemaFor('core', null).safeParse({
+      fullNameEn: 'Mona', phone: '01001234567', country: 'EG', city: 'Cairo', timezone: 'Africa/Cairo', employmentStatus: 'EMPLOYED_FULL_TIME',
+      jobTitle: 'Engineer', experienceYears: 'Y3_5', primaryArea: 'MLOPS', googleEmail: 'm@gmail.com', preferredLanguage: 'en',
+    });
+    expect(core.success).toBe(true);
+    expect(core.data).not.toHaveProperty('acceptTerms');
+    expect((core.data as { phone: string }).phone).toBe('+201001234567');
+    expect(adminSectionSchemaFor('core', null).safeParse({ fullNameEn: 'M' }).success).toBe(false);
+    expect(adminSectionSchemaFor('community', null).parse({ referralSource: 'EVENT', communityMember: false, marketingEmails: false, shareWithPartners: true })).toEqual({
+      referralSource: 'EVENT', communityMember: false, marketingEmails: false,
+    });
+    const other = adminSectionSchemaFor('other', null).parse({ websiteUrl: '', kaggleUrl: null, huggingfaceUrl: 'https://huggingface.co/m', fieldOfStudy: ' ', university: 'Cairo University', graduationYear: '', openToOpportunities: false, shareWithPartners: false });
+    expect(other).toEqual({ websiteUrl: null, kaggleUrl: null, huggingfaceUrl: 'https://huggingface.co/m', fieldOfStudy: null, university: 'Cairo University', graduationYear: null, openToOpportunities: false, shareWithPartners: false });
+    expect(adminSectionSchemaFor('other', null).safeParse({ ...other, websiteUrl: 'javascript:x' }).success).toBe(false);
   });
 });
 

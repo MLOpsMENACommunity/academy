@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DEFAULT_TIMEZONE,
+  readEventDetails,
   eventEnded,
   googleCalendarLink,
   isValidTimezone,
@@ -117,6 +118,7 @@ export class EventsService {
       capacity: e.capacity,
       registered: e._count.registrations,
       full: e.capacity !== null && e._count.registrations >= e.capacity,
+      ...readEventDetails(e.details),
     };
     if (viewer) {
       const visible = viewer.registered && e.status === 'PUBLISHED' && liveLinkVisible(e.startsAt, e.durationMin, viewer.revealMinutes, now);

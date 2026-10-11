@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
-import { eventInputSchema, toCsv, type EventInput, type PublicEventDto } from '@academy/shared';
+import { cleanSpeakerDetails, eventInputSchema, toCsv, type EventInput, type PublicEventDto } from '@academy/shared';
 import type { Response } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
@@ -65,9 +65,11 @@ export class MyEventsController {
   }
 }
 
-const toData = ({ coSpeakers: _coSpeakers, ...e }: EventInput) => ({
+const toData = ({ coSpeakers: _coSpeakers, details, ...e }: EventInput) => ({
   ...e,
   capacity: e.capacity ?? null,
+  // Left out: kept as they are. Empty fields and the other kinds' blocks are dropped.
+  ...(details ? { details: { kind: details.kind, details: cleanSpeakerDetails(details.kind, details.details) } } : {}),
 });
 
 @ApiTags('admin')

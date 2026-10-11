@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import { ALL_COUNTRIES } from './countries';
-import { COURSE_LANGUAGES, type CourseLanguage, type EventStatus, type Role } from './enums';
+import { withCrossChecks } from './cross-checks';
+import { COURSE_LANGUAGES, REFERRAL_SOURCES, type CourseLanguage, type EventStatus, type Role } from './enums';
+import { referralSourceLabels } from './labels';
 import { linkedinProfileUrlSchema } from './links';
 import { phoneSchema } from './profile';
+import { cleanSpeakerDetails, SPEAKER_KINDS, speakerDetailsSchema, type SpeakerDetailsDto, type SpeakerKind } from './speaker-details';
 import { DEFAULT_TIMEZONE } from './time';
 
 // Every enum here has an identically named enum in apps/api/prisma/schema.prisma.
@@ -19,7 +22,7 @@ export const SPEAKER_AREAS = [
 ] as const;
 export type SpeakerArea = (typeof SPEAKER_AREAS)[number];
 
-export const SPEAKER_FORMATS = ['TALK', 'HANDS_ON', 'WORKSHOP', 'QA'] as const;
+export const SPEAKER_FORMATS = ['TALK', 'HANDS_ON', 'WORKSHOP', 'QA', 'COURSE', 'PODCAST'] as const;
 export type SpeakerFormat = (typeof SPEAKER_FORMATS)[number];
 
 /** SUBMITTED → APPROVED or REJECTED; a rejected application can be sent again. */
@@ -45,7 +48,39 @@ export const speakerFormatLabels: Record<SpeakerFormat, { en: string; ar: string
   HANDS_ON: { en: 'Hands-on', ar: 'تطبيق عملي' },
   WORKSHOP: { en: 'Workshop', ar: 'ورشة عمل' },
   QA: { en: 'Q&A', ar: 'أسئلة وأجوبة' },
+  COURSE: { en: 'Course', ar: 'دورة' },
+  PODCAST: { en: 'Podcast', ar: 'بودكاست' },
 };
+
+/**
+ * "How did you hear about us?" on the speaker application: the student list plus "An MLOps
+ * MENA member", which asks for the member's name (the community member who referred them).
+ */
+export const SPEAKER_REFERRAL_SOURCES = [
+  'MAIN_SITE',
+  'LINKEDIN',
+  'FACEBOOK',
+  'X_TWITTER',
+  'YOUTUBE',
+  'DISCORD',
+  'TELEGRAM',
+  'WHATSAPP',
+  'FRIEND_COLLEAGUE',
+  'EVENT',
+  'SEARCH',
+  'MLOPS_MENA_MEMBER',
+  'OTHER',
+] as const;
+export type SpeakerReferralSource = (typeof SPEAKER_REFERRAL_SOURCES)[number];
+
+export const speakerReferralSourceLabels: Record<SpeakerReferralSource, { en: string; ar: string }> = {
+  ...referralSourceLabels,
+  MLOPS_MENA_MEMBER: { en: 'An MLOps MENA member', ar: 'عضو في مجتمع MLOps MENA' },
+};
+
+// The student list must stay a subset (one label map, one meaning per value).
+const _referralSubset: readonly SpeakerReferralSource[] = REFERRAL_SOURCES;
+void _referralSubset;
 
 // ------------------------------------------------------------------ months & Cairo time
 
@@ -92,8 +127,29 @@ export function cairoMonthKey(at: Date | string): string {
 
 const text = (min: number, max: number, message = 'Required') => z.string().trim().min(min, message).max(max);
 
-/** The speaker application (short on purpose; the team follows up on WhatsApp or email). */
-export const speakerApplicationSchema = z.object({
+/** Optional GitHub profile link (https, github.com, a profile path). Empty = none. */
+export const optionalGithubUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .nullish()
+  .transform((v) => (v ? v : null))
+  .refine(
+    (v) => {
+      if (v === null) return true;
+      try {
+        const u = new URL(v);
+        const h = u.hostname.toLowerCase();
+        return u.protocol === 'https:' && !u.username && !u.password && (h === 'github.com' || h === 'www.github.com') && u.pathname.replace(/\/+$/, '').length > 1;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Enter your github.com profile link' },
+  );
+
+/** The fields of the speaker application (see speakerApplicationSchema for the cross-field rules). */
+export const speakerApplicationFields = z.object({
   fullName: text(2, 120, 'Enter your full name'),
   phone: phoneSchema,
   linkedinUrl: linkedinProfileUrlSchema,
@@ -127,7 +183,27 @@ export const speakerApplicationSchema = z.object({
     .min(1, 'Choose at least one month')
     .max(6)
     .transform((a) => Array.from(new Set(a)).sort()),
+  /** Optional: not every speaker has public code. */
+  githubUrl: optionalGithubUrlSchema,
+  /** A session, a course or a podcast episode. */
+  kind: z.enum(SPEAKER_KINDS).default('SESSION'),
+  referralSource: z.enum(SPEAKER_REFERRAL_SOURCES, { errorMap: () => ({ message: 'Tell us how you heard about us' }) }),
+  /** Required when referralSource is MLOPS_MENA_MEMBER, dropped otherwise. */
+  referralMemberName: z.string().trim().max(120).nullish(),
+  /** Optional details for the kind (audience, outline, guests, …). */
+  details: speakerDetailsSchema.default({}),
 });
+
+/** The speaker application (short on purpose; the team follows up on WhatsApp or email). */
+export const speakerApplicationSchema = withCrossChecks(speakerApplicationFields, (raw, addIssue) => {
+  // Checked alongside the other fields, so every error shows on the first submit.
+  const name = typeof raw.referralMemberName === 'string' ? raw.referralMemberName.trim() : '';
+  if (raw.referralSource === 'MLOPS_MENA_MEMBER' && name.length < 2) addIssue(['referralMemberName'], "Enter the member's name");
+}).transform(({ details, ...a }) => ({
+    ...a,
+    referralMemberName: a.referralSource === 'MLOPS_MENA_MEMBER' ? (a.referralMemberName ?? null) : null,
+    details: cleanSpeakerDetails(a.kind, details),
+  }));
 export type SpeakerApplicationInput = z.infer<typeof speakerApplicationSchema>;
 
 /** The team's decision. A rejection always says why (the speaker reads it). */
@@ -206,11 +282,19 @@ export function generateSlotTimes(input: SlotGeneratorInput, now = new Date()): 
   return out.sort((a, b) => a.getTime() - b.getTime());
 }
 
-/** The speaker's session, as typed when booking (prefilled from the application). */
-export const slotBookingSchema = z.object({
-  title: text(5, 160, 'Write at least 5 characters'),
-  abstract: text(50, 2000, 'Write at least 50 characters'),
-});
+/**
+ * The speaker's session, course or podcast, as typed when booking (prefilled from the
+ * application). Only the title and abstract are required; every detail is optional.
+ * Also the body of a later edit (by the speaker while it is a draft, or by the team).
+ */
+export const slotBookingSchema = z
+  .object({
+    title: text(5, 160, 'Write at least 5 characters'),
+    abstract: text(50, 2000, 'Write at least 50 characters'),
+    kind: z.enum(SPEAKER_KINDS).default('SESSION'),
+    details: speakerDetailsSchema.default({}),
+  })
+  .transform(({ details, ...b }) => ({ ...b, details: cleanSpeakerDetails(b.kind, details) }));
 export type SlotBookingInput = z.infer<typeof slotBookingSchema>;
 
 /** A booking can be cancelled by the speaker until `cancelDays` days before it starts. */
@@ -262,6 +346,12 @@ export interface SpeakerApplicationDto {
   format: SpeakerFormat;
   language: CourseLanguage;
   preferredMonths: string[];
+  githubUrl: string | null;
+  kind: SpeakerKind;
+  /** Null on applications sent before the question existed. */
+  referralSource: SpeakerReferralSource | null;
+  referralMemberName: string | null;
+  details: SpeakerDetailsDto;
   reviewNote: string | null;
   submittedAt: string;
   reviewedAt: string | null;
@@ -280,6 +370,11 @@ export interface SpeakerBookingDto {
   startsAt: string;
   durationMin: number;
   title: string;
+  abstract: string;
+  kind: SpeakerKind;
+  details: SpeakerDetailsDto;
+  /** The speaker can still edit the title, abstract and details (the session is not published yet). */
+  canEdit: boolean;
   /** Upcoming until it ends. */
   past: boolean;
   canCancel: boolean;
@@ -318,6 +413,9 @@ export interface AdminSlotDto {
   durationMin: number;
   status: SlotStatus;
   title: string | null;
+  abstract: string | null;
+  kind: SpeakerKind | null;
+  details: SpeakerDetailsDto;
   bookedBy: { id: string; name: string; email: string } | null;
   event: { id: string; slug: string; status: EventStatus } | null;
 }

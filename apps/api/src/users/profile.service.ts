@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, type Profile, type SkillRating } from '@prisma/client';
 import {
+  adminSectionSchemaFor,
   computeCompleteness,
+  STUDENT_ONLY_CONSENTS,
+  type AdminProfileSection,
   profileSectionSchemas,
   sectionSchemaFor,
   type ProfileDto,
@@ -115,9 +118,23 @@ export class ProfileService {
    * from a fresh read, so completeness never comes from a stale copy.
    */
   async updateSection(userId: string, section: ProfileSection, raw: unknown): Promise<ProfileDto> {
+    return this.save(userId, section, raw, null);
+  }
+
+  /**
+   * An admin edits a student's profile (Admin → Students → {student}): the same validation as
+   * the student's form, but an admin never accepts the Terms or answers the consent questions
+   * for them (core keeps acceptedTermsAt as it is; the community step's "answered" stamp is
+   * left alone; consents can be turned off, never on). Audited with ids and field names only.
+   */
+  async adminUpdateSection(userId: string, section: AdminProfileSection, raw: unknown, adminId: string): Promise<ProfileDto> {
+    return this.save(userId, section, raw, adminId);
+  }
+
+  private async save(userId: string, section: AdminProfileSection, raw: unknown, adminId: string | null): Promise<ProfileDto> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.saveSection(userId, section, raw);
+        return await this.saveSection(userId, section, raw, adminId);
       } catch (err) {
         const raced = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025';
         if (!raced || attempt >= 3) throw err;
@@ -125,10 +142,11 @@ export class ProfileService {
     }
   }
 
-  private async saveSection(userId: string, section: ProfileSection, raw: unknown): Promise<ProfileDto> {
+  private async saveSection(userId: string, section: AdminProfileSection, raw: unknown, adminId: string | null): Promise<ProfileDto> {
     const before = await this.load(userId);
     // Cross-section checks (ML/AI vs total experience, primary vs secondary area) need the saved profile.
-    const parsed = sectionSchemaFor(section, toProfileDto(before)).safeParse(raw);
+    const schema = adminId ? adminSectionSchemaFor(section, toProfileDto(before)) : sectionSchemaFor(section as ProfileSection, toProfileDto(before));
+    const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       throw new BadRequestException({
         statusCode: 400,
@@ -147,15 +165,29 @@ export class ProfileService {
       skills = (Object.entries(ratings) as [Skill, number][]).map(([skill, level]) => ({ profileId: before.id, skill, level }) as SkillRating);
     } else if (section === 'core') {
       const { acceptTerms: _accept, ...rest } = data as z.infer<(typeof profileSectionSchemas)['core']>;
-      changes = { ...rest, acceptedTermsAt: before.acceptedTermsAt ?? now };
+      // Only the student accepts the Terms: an admin save keeps the stamp as it is.
+      changes = { ...rest, acceptedTermsAt: adminId ? before.acceptedTermsAt : (before.acceptedTermsAt ?? now) };
       // A new primary area is no longer also a secondary one.
       if (before.secondaryAreas.includes(rest.primaryArea)) {
         changes.secondaryAreas = before.secondaryAreas.filter((a) => a !== rest.primaryArea);
       }
     } else if (section === 'community') {
-      changes = { ...data, communityAnsweredAt: now };
+      // The student answering the step stamps it; an admin correcting an answer doesn't.
+      changes = adminId ? data : { ...data, communityAnsweredAt: now };
     } else {
       changes = data;
+    }
+    if (adminId) {
+      for (const consent of STUDENT_ONLY_CONSENTS) {
+        if (changes[consent] === true && !before[consent]) {
+          throw new BadRequestException({
+            statusCode: 400,
+            code: 'CONSENT_STUDENT_ONLY',
+            message: 'Only the student can give this consent',
+            errors: [{ path: consent, message: 'Only the student can turn this on' }],
+          });
+        }
+      }
     }
 
     const c = computeCompleteness(toProfileDto({ ...before, ...changes, skills } as ProfileWithSkills));
@@ -184,6 +216,11 @@ export class ProfileService {
 
     if (section === 'core' && before.googleEmail && after.googleEmail !== before.googleEmail) {
       await this.alertDriveAccess(userId, 'changed', before.googleEmail);
+    }
+    if (adminId) {
+      // Field names only: never the values (they are personal data).
+      const fields = Object.keys(changes).filter((k) => JSON.stringify(changes[k]) !== JSON.stringify((before as Record<string, unknown>)[k]));
+      await this.audit.log({ actorId: adminId, action: 'profile.updated_by_admin', entityType: 'User', entityId: userId, metadata: { section, fields } });
     }
     return toProfileDto(after);
   }

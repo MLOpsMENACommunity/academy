@@ -222,8 +222,10 @@ export class ArchiveService {
   }
 
   async speaker(slug: string, now = new Date()): Promise<PublicSpeakerDto> {
+    // A former address finds the speaker too: the page sees the current slug and redirects.
+    const current = await this.prisma.instructor.findFirst({ where: { slug }, select: { id: true } });
     const s = await this.prisma.instructor.findFirst({
-      where: { ...this.publicSpeaker(), slug },
+      where: { ...this.publicSpeaker(), ...(current ? { slug } : { previousSlugs: { has: slug } }) },
       include: {
         events: {
           where: { status: { in: ['PUBLISHED', 'CANCELLED'] } },
