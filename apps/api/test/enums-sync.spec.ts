@@ -7,6 +7,8 @@ const pairs: Record<string, readonly string[]> = {
   Role: shared.ROLES,
   SpeakerArea: shared.SPEAKER_AREAS,
   SpeakerFormat: shared.SPEAKER_FORMATS,
+  SpeakerKind: shared.SPEAKER_KINDS,
+  SpeakerReferralSource: shared.SPEAKER_REFERRAL_SOURCES,
   SpeakerApplicationStatus: shared.SPEAKER_APPLICATION_STATUSES,
   SlotStatus: shared.SLOT_STATUSES,
   EmploymentStatus: shared.EMPLOYMENT_STATUSES,

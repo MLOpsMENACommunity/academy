@@ -1,22 +1,29 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { verifyPassword } from '../auth/password-hasher';
-import type { Locale } from '@academy/shared';
+import { confirmMatches, type AddStudentInput, type Locale } from '@academy/shared';
+import { randomToken, sha256 } from '../common/crypto';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
 import { EmailService } from '../email/email.service';
 import { InvitesService } from '../invites/invites.service';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpeakerPortalService } from '../speaker-portal/speaker-portal.service';
 import { ProfileService, toProfileDto } from './profile.service';
 
 export const ANONYMIZE_AFTER_DAYS = 30;
+/** "Add student": how long the choose-your-password link works (then "Forgot password" does). */
+export const WELCOME_LINK_DAYS = 7;
 const REAUTH_WINDOW_MS = 10 * 60 * 1000;
 
 @Injectable()
@@ -245,7 +252,57 @@ export class AccountService {
   /** Soft delete: sign-in is blocked now; personal data is anonymised after 30 days. */
   async deleteAccount(session: AuthUser, password: string | undefined): Promise<void> {
     await this.checkPassword(session, password);
-    const userId = session.id;
+    await this.softDelete(session.id, session.id);
+  }
+
+  /**
+   * An admin deletes a student's or speaker's account (Admin → Students → {student}): the same
+   * soft delete and 30-day anonymisation as when they delete it themselves. Never an admin
+   * account. Typed confirmation: the account's email address.
+   */
+  async deleteByAdmin(userId: string, confirm: string, adminId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, role: true, deletedAt: true } });
+    if (!user || user.deletedAt) throw new NotFoundException('Student not found');
+    if (user.role === 'ADMIN') throw new ForbiddenException({ code: 'ADMIN_ACCOUNT', message: "An admin account can't be edited or deleted here" });
+    if (!confirmMatches(confirm, user.email)) {
+      throw new BadRequestException({ code: 'CONFIRM_MISMATCH', message: "Type the account's email address exactly to delete it" });
+    }
+    await this.softDelete(userId, adminId);
+  }
+
+  /**
+   * "Add student": creates a student account for an address, with no password. The person
+   * gets a link to choose their own password (a password-reset token, which also confirms the
+   * address and so claims any course invites for it). Nobody else ever sets it.
+   */
+  async createByAdmin(input: AddStudentInput, adminId: string): Promise<{ id: string; email: string }> {
+    const existing = await this.prisma.user.findFirst({ where: { email: { equals: input.email, mode: 'insensitive' } }, select: { id: true, deletedAt: true } });
+    if (existing) {
+      throw new ConflictException({
+        code: 'EMAIL_TAKEN',
+        message: existing.deletedAt ? 'This address belongs to a deleted account' : 'An account with this email already exists',
+        ...(existing.deletedAt ? {} : { userId: existing.id }),
+      });
+    }
+    const token = randomToken();
+    const user = await this.prisma.user.create({
+      data: {
+        email: input.email,
+        locale: input.locale,
+        role: 'STUDENT',
+        profile: { create: { preferredLanguage: input.locale, fullNameEn: input.fullNameEn } },
+        passwordResetTokens: { create: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + WELCOME_LINK_DAYS * 86_400_000) } },
+      },
+    });
+    await this.audit.log({ actorId: adminId, action: 'user.created_by_admin', entityType: 'User', entityId: user.id });
+    void this.email
+      .send(user.email, user.locale, { name: 'accountCreated', url: this.email.url(user.locale, `/reset-password?token=${token}&welcome=1`), days: WELCOME_LINK_DAYS })
+      .catch(() => undefined);
+    return { id: user.id, email: user.email };
+  }
+
+  private async softDelete(userId: string, actorId: string): Promise<void> {
+    const byTeam = actorId !== userId;
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { deletedAt: new Date() },
@@ -265,9 +322,9 @@ export class AccountService {
     // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
     // cancelled), the team is told. Never fails the deletion (errors are logged).
     await this.speakerPortal.releaseBookings(user);
-    await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null);
-    await this.audit.log({ actorId: userId, action: 'account.deleted', entityType: 'User', entityId: userId });
-    await this.email.send(user.email, user.locale, { name: 'accountDeleted' });
+    await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null, actorId);
+    await this.audit.log({ actorId, action: byTeam ? 'account.deleted_by_admin' : 'account.deleted', entityType: 'User', entityId: userId });
+    await this.email.send(user.email, user.locale, { name: 'accountDeleted', byTeam });
   }
 
   /**
@@ -338,7 +395,7 @@ export class AccountService {
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),
-      this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null } }),
+      this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null, details: Prisma.DbNull } }),
       // A profile the portal created that never spoke anywhere has no history to keep: delete it.
       this.prisma.instructor.deleteMany({
         where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} } },

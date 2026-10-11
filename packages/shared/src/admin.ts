@@ -12,6 +12,7 @@ import {
   EDUCATION_LEVELS,
   EMPLOYMENT_STATUSES,
   EXPERIENCE_RANGES,
+  LOCALES,
   QUESTION_TYPES,
   RECORDINGS_PLATFORMS,
   SAVED_FILTER_SCOPES,
@@ -24,6 +25,7 @@ import { ALL_COUNTRIES } from './countries';
 import { faqItemSchema, includedSchema, localizedListSchema, localizedTextSchema, materialSchema, outlineModuleSchema, questionOptionSchema } from './course-content';
 import { ADMIN_APPLICATION_EVENTS } from './state-machine';
 import { audienceLevelsSchema, legacyCourseLevel, levelsFromLegacy } from './course';
+import { emailSchema } from './auth';
 import { linkedinProfileUrlSchema } from './links';
 
 // ------------------------------------------------------------------ filters
@@ -294,6 +296,30 @@ export const instructorInputSchema = z.object({
   githubUrl: optionalUrl,
 });
 export type InstructorInput = z.infer<typeof instructorInputSchema>;
+
+// ------------------------------------------------------------------ admin: accounts
+
+/**
+ * "Add student": the team creates a student account for an email address. Nobody sets a
+ * password for them: they get an email with a link to choose their own (a password-reset
+ * link, which also confirms the address), then complete their profile.
+ */
+export const addStudentSchema = z.object({
+  email: emailSchema,
+  /** Language of the welcome email (and the account's default). */
+  locale: z.enum(LOCALES).default('en'),
+  /** Optional: prefills the profile's English name. */
+  fullNameEn: z.string().trim().max(120).nullish().transform((v) => (v ? v : null)),
+});
+export type AddStudentInput = z.infer<typeof addStudentSchema>;
+
+/** Typed confirmation for destructive admin actions: the account's email address, or the speaker's name. */
+export const typedConfirmSchema = z.object({ confirm: z.string().trim().min(1, 'Type it to confirm').max(320) });
+
+/** True when the typed confirmation matches (case and surrounding spaces don't matter). */
+export function confirmMatches(typed: string, expected: string): boolean {
+  return typed.trim().toLowerCase() === expected.trim().toLowerCase();
+}
 
 // ------------------------------------------------------------------ CSV
 

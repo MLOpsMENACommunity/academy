@@ -19,6 +19,7 @@ import {
   duplicateCourseSchema,
   sessionOrderSchema,
   studentFilterSchema,
+  typedConfirmSchema,
   type ApplicationFilter,
   type CourseInput,
   type InstructorInput,
@@ -51,7 +52,7 @@ function sendCsv(res: Response, name: string, csv: string): void {
   res.send(csv);
 }
 
-/** Admin panel API. Every route is admin-only; admins can view student data but never edit profiles. */
+/** Admin panel API. Every route is admin-only (student edits and deletion: users/admin-accounts.controller.ts). */
 @ApiTags('admin')
 @Roles('ADMIN')
 @Controller('admin')
@@ -266,6 +267,13 @@ export class AdminController {
   @Put('instructors/:id')
   updateInstructor(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(instructorInputSchema)) body: InstructorInput) {
     return this.courses.saveInstructor(body, user, id);
+  }
+
+  /** Deletes the public profile (sessions stay, without the speaker link). Typed confirmation: the name. */
+  @Post('instructors/:id/delete')
+  @HttpCode(200)
+  deleteInstructor(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(typedConfirmSchema)) body: z.infer<typeof typedConfirmSchema>) {
+    return this.courses.deleteInstructor(id, body.confirm, user);
   }
 
   // ------------------------------------------------------------------ audit & saved views

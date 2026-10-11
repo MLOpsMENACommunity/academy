@@ -22,6 +22,7 @@ export * from './events';
 export * from './archive';
 export * from './waitlist';
 export * from './speakers';
+export * from './speaker-details';
 export * from './assessments';
 export * from './points';
 export * from './certificates';

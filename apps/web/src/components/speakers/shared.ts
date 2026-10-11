@@ -5,13 +5,21 @@ import type { Translate } from '@/i18n/translator';
 import { ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 
-/** API error codes of the speaker portal have their own messages; the rest use the usual ones. */
+/**
+ * API error codes of the speaker portal have their own messages; the rest use the usual ones.
+ * A server error is never just "Something went wrong": its code (and the API's own message,
+ * when there is no translation) is shown, so a speaker can tell the team what happened.
+ */
 export function speakerError(err: unknown, t: Translate): string {
   if (err instanceof ApiError && err.code) {
     const key = `speakers.portal.errors.${err.code}`;
     const msg = t(key);
-    if (msg !== key) return msg;
+    if (msg !== key) return err.status >= 500 ? `${msg} (${err.code})` : msg;
+    if (err.status >= 500 && err.message) return `${err.message} (${err.code})`;
   }
+  // The edge answers a plain 503 while the API container wakes up (or a request timed out).
+  if (err instanceof ApiError && err.status === 503) return t('speakers.portal.errors.unavailable');
+  if (err instanceof ApiError && err.status >= 500) return `${t('errors.generic')} (${t('speakers.portal.errors.status', { status: err.status })})`;
   return errorMessage(err, t);
 }
 

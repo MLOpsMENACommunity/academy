@@ -36,7 +36,10 @@ export type EmailTemplate =
       unsubscribeUrl: string;
     }
   | { name: 'profileReview'; url: string }
-  | { name: 'accountDeleted' }
+  /** byTeam: an admin deleted it (the student didn't ask on the site). */
+  | { name: 'accountDeleted'; byTeam?: boolean }
+  /** "Add student": the team created an account for this address; the link chooses a password. */
+  | { name: 'accountCreated'; url: string; days: number }
   /** Sent to the account's (old) address after a sensitive change. */
   | { name: 'securityNotice'; kind: 'emailChanged' | 'passwordChanged'; url: string }
   | { name: 'adminAlert'; message: string; url: string }
@@ -591,10 +594,39 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             preview={subject}
             heading={subject}
             paragraphs={[
-              ar
-                ? 'حذفنا حسابك كما طلبت. ستُجهَّل بياناتك الشخصية خلال 30 يومًا. نحتفظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.'
-                : "We've deleted your account as requested. Your personal data will be anonymised within 30 days. Payment records are kept in anonymised form for accounting.",
+              t.byTeam
+                ? ar
+                  ? 'حذف فريق الأكاديمية حسابك. ستُجهَّل بياناتك الشخصية خلال 30 يومًا. نحتفظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية. إذا لم تطلب ذلك، فراسلنا بالرد على هذه الرسالة.'
+                  : 'The academy team deleted your account. Your personal data will be anonymised within 30 days. Payment records are kept in anonymised form for accounting. If you did not ask for this, reply to this email.'
+                : ar
+                  ? 'حذفنا حسابك كما طلبت. ستُجهَّل بياناتك الشخصية خلال 30 يومًا. نحتفظ بسجلات الدفع بشكل مجهول الهوية لأغراض محاسبية.'
+                  : "We've deleted your account as requested. Your personal data will be anonymised within 30 days. Payment records are kept in anonymised form for accounting.",
             ]}
+          />
+        ),
+      };
+    }
+    case 'accountCreated': {
+      const subject = ar ? 'أنشأنا لك حسابًا في أكاديمية MLOps MENA' : 'Your MLOps MENA Academy account is ready';
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              ar
+                ? 'أنشأ فريق أكاديمية MLOps MENA حسابًا لك بعنوان بريدك هذا. اختر كلمة المرور الخاصة بك للدخول، ثم أكمل ملفك الشخصي. لا أحد غيرك يعرف كلمة المرور أو يضعها.'
+                : 'The MLOps MENA Academy team created an account for you with this email address. Choose your own password to sign in, then complete your profile. Nobody else sets or knows your password.',
+              ar ? 'يمكنك أيضًا الدخول بحساب Google بالعنوان نفسه.' : 'You can also sign in with Google using this same address.',
+            ]}
+            cta={{ label: ar ? 'اختر كلمة المرور' : 'Choose your password', url: t.url }}
+            note={
+              ar
+                ? `ينتهي هذا الرابط خلال ${t.days} أيام؛ بعدها استخدم "نسيت كلمة المرور". إذا لم تكن تتوقع هذه الرسالة، تجاهلها أو احذف الحساب من ملفك الشخصي.`
+                : `This link expires in ${t.days} days; after that, use "Forgot password". If you didn't expect this, ignore it, or delete the account from your profile.`
+            }
           />
         ),
       };

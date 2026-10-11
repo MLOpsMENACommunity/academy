@@ -510,6 +510,8 @@ model Instructor {
   id         String   @id @default(cuid())
   /// Public page /speakers/{slug}. Null only for rows created before speaker pages existed.
   slug       String?  @unique
+  /// Former slugs: their pages redirect to the current one.
+  previousSlugs String[] @default([])
   name       String
   nameAr     String?
   titleEn    String
@@ -534,6 +536,8 @@ model Instructor {
   events  LiveEvent[]
   /// Sessions they hosted or joined as a guest (besides each session's main speaker).
   coSpeaking LiveEventSpeaker[]
+
+  @@index([previousSlugs], type: Gin)
 }
 
 model Course {
@@ -923,6 +927,32 @@ enum SpeakerFormat {
   HANDS_ON
   WORKSHOP
   QA
+  COURSE
+  PODCAST
+}
+
+/// What a speaker offers. Every booking is still one live session; the kind is a label on it.
+enum SpeakerKind {
+  SESSION
+  COURSE
+  PODCAST
+}
+
+/// "How did you hear about us?" on the speaker application (the student list plus a member).
+enum SpeakerReferralSource {
+  MAIN_SITE
+  LINKEDIN
+  FACEBOOK
+  X_TWITTER
+  YOUTUBE
+  DISCORD
+  TELEGRAM
+  WHATSAPP
+  FRIEND_COLLEAGUE
+  EVENT
+  SEARCH
+  MLOPS_MENA_MEMBER
+  OTHER
 }
 
 enum SpeakerApplicationStatus {
@@ -957,6 +987,14 @@ model SpeakerApplication {
   format          SpeakerFormat
   language        CourseLanguage
   preferredMonths String[]
+  githubUrl       String?
+  kind            SpeakerKind              @default(SESSION)
+  /// Null on applications sent before the question existed.
+  referralSource  SpeakerReferralSource?
+  /// The community member who referred them (only with MLOPS_MENA_MEMBER).
+  referralMemberName String?
+  /// Optional details for the kind (see speakerDetailsSchema in @academy/shared).
+  details         Json                     @default("{}")
   reviewNote      String?
   reviewedById    String?
   reviewedBy      User?                    @relation("SpeakerReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
@@ -981,6 +1019,9 @@ model SpeakingSlot {
   bookedAt    DateTime?
   title       String?
   abstract    String?
+  /// Set while booked: what the speaker gives, and its optional details.
+  kind        SpeakerKind?
+  details     Json?
   eventId     String?    @unique
   event       LiveEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
   createdById String?
@@ -1188,6 +1229,8 @@ model LiveEvent {
   coverImageUrl     String?
   /// Empty = unlimited.
   capacity          Int?
+  /// { kind: SESSION | COURSE | PODCAST, details: {...} } from a speaker booking or the team; {} = a plain session.
+  details           Json                @default("{}")
   /// "import" when created by prisma/import-archive.ts.
   source            String?
   importHash        String?

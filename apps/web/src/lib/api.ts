@@ -18,6 +18,8 @@ export class ApiError extends Error {
     public readonly code: string | undefined,
     message: string,
     public readonly errors: FieldError[] = [],
+    /** The whole JSON error body (some errors carry more, e.g. the id of an existing account). */
+    public readonly body: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -74,7 +76,7 @@ async function toError(res: Response): Promise<ApiError> {
     // non-JSON error
   }
   const message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? res.statusText);
-  return new ApiError(res.status, body.code, message, body.errors ?? []);
+  return new ApiError(res.status, body.code, message, body.errors ?? [], body as Record<string, unknown>);
 }
 
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {

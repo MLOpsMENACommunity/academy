@@ -3,6 +3,7 @@
 import { countryName, experienceRangeLabels, seniorityLabels } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { AddStudent } from '@/components/admin/AddStudent';
 import { Pager } from '@/components/admin/Pager';
 import { ProfileFilters } from '@/components/admin/ProfileFilters';
 import { useQueryState } from '@/components/admin/query';
@@ -14,6 +15,7 @@ import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { formatDate } from '@/lib/format';
+import { useSearchParam } from '@/lib/use-search-param';
 
 interface Row {
   id: string;
@@ -35,6 +37,7 @@ export function StudentsDirectory() {
   const [data, setData] = useState<{ total: number; page: number; pageSize: number; items: Row[] } | null>(null);
   const [error, setError] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const deleted = useSearchParam('deleted');
   const [q, setQ] = useState(params.q ?? '');
   // Keep the search box in step with the URL (Reset, saved views, back button).
   useEffect(() => setQ(params.q ?? ''), [params.q]);
@@ -65,6 +68,10 @@ export function StudentsDirectory() {
         </Button>
       </div>
       {exportError && <Alert tone="danger" className="mt-4">{exportError}</Alert>}
+      {deleted && <Alert tone="success" className="mt-4">{t('admin.studentEdit.deleted')}</Alert>}
+      <div className="mt-4">
+        <AddStudent />
+      </div>
       <div className="mt-5 space-y-4 rounded-card border border-line bg-card p-4">
         <form
           onSubmit={(e) => {

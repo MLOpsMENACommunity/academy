@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import {
   cancelDeadline,
   canCancelBooking,
@@ -6,7 +6,10 @@ import {
   generateSlotTimes,
   googleCalendarLink,
   MAX_GENERATED_SLOTS,
+  readSpeakerDetails,
   slugify,
+  speakerKindLabels,
+  type SpeakerKind,
   type AdminSlotDto,
   type AdminSpeakerApplicationDto,
   type Locale,
@@ -32,6 +35,16 @@ import { buildIcs } from '../learn/ics';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+
+/**
+ * The booking transaction: a few queries, but each is a round trip to a remote database
+ * (Neon), and the speaker's row is locked first. Prisma's defaults (wait 2 s for a
+ * connection, 5 s in all) are too tight there; a timeout became a generic 500.
+ */
+const BOOK_TX = { timeout: 20_000, maxWait: 10_000 };
+
+/** Prisma errors that mean "the database was busy or slow": safe to try again. */
+const BUSY_CODES = new Set(['P2024', 'P2028', 'P2034', 'P1001', 'P1002', 'P1008', 'P1017']);
 
 /** Open slots a speaker sees: from now until this far ahead. */
 const SLOT_HORIZON_DAYS = 180;
@@ -76,6 +89,11 @@ function toApplicationDto(a: SpeakerApplication, email: string): SpeakerApplicat
     format: a.format,
     language: a.language,
     preferredMonths: a.preferredMonths,
+    githubUrl: a.githubUrl,
+    kind: a.kind,
+    referralSource: a.referralSource,
+    referralMemberName: a.referralMemberName,
+    details: readSpeakerDetails(a.kind, a.details),
     reviewNote: a.reviewNote,
     submittedAt: a.submittedAt.toISOString(),
     reviewedAt: a.reviewedAt?.toISOString() ?? null,
@@ -139,11 +157,16 @@ export class SpeakerPortalService {
     const durationMin = s.event?.durationMin ?? s.durationMin;
     const page = this.email.url(locale, '/speaker');
     const past = eventEnded(startsAt, durationMin, now);
+    const kind: SpeakerKind = s.kind ?? 'SESSION';
     return {
       slotId: s.id,
       startsAt: startsAt.toISOString(),
       durationMin,
       title,
+      abstract: s.abstract ?? '',
+      kind,
+      details: readSpeakerDetails(kind, s.details),
+      canEdit: !past && (!s.event || s.event.status === 'DRAFT'),
       past,
       canCancel: !past && canCancelBooking(startsAt, cancelDays, now),
       cancelUntil: cancelDeadline(startsAt, cancelDays).toISOString(),
@@ -167,7 +190,7 @@ export class SpeakerPortalService {
     if (current?.status === 'APPROVED') {
       throw new ConflictException({ code: 'SPEAKER_ALREADY_APPROVED', message: 'Your application is already approved. Ask the team to change your public profile.' });
     }
-    const data = { ...input, company: input.company ?? '', photoUrl: input.photoUrl ?? null };
+    const data = { ...input, company: input.company ?? '', photoUrl: input.photoUrl ?? null, details: input.details as Prisma.InputJsonValue };
     const resubmitted = current?.status === 'REJECTED';
     const saved = current
       ? await this.prisma.speakerApplication.update({
@@ -240,7 +263,7 @@ export class SpeakerPortalService {
         return await this.bookOnce(userId, slotId, input, settings, now);
       } catch (err) {
         if (attempt < 2 && err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') continue;
-        throw err;
+        throw bookingError(err, this.logger);
       }
     }
   }
@@ -270,7 +293,7 @@ export class SpeakerPortalService {
       }
       const claimed = await tx.speakingSlot.updateMany({
         where: { id: slotId, status: 'OPEN', startsAt: { gt: bookableFrom(now, settings.speakerCancelDays) } },
-        data: { status: 'BOOKED', bookedById: userId, bookedAt: now, title: input.title, abstract: input.abstract },
+        data: { status: 'BOOKED', bookedById: userId, bookedAt: now, title: input.title, abstract: input.abstract, kind: input.kind, details: input.details as Prisma.InputJsonValue },
       });
       if (claimed.count !== 1) {
         throw new ConflictException({ code: 'SLOT_TAKEN', message: 'This slot was just booked or is no longer available. Choose another one.' });
@@ -285,20 +308,42 @@ export class SpeakerPortalService {
           speakerId: account.speakerProfile.id,
           startsAt: s.startsAt,
           durationMin: s.durationMin,
-          language: app.language,
+          language: input.details.language ?? app.language,
           platform: 'GOOGLE_MEET',
           source: 'speaker-booking',
+          // The kind is a label on the session; the details fill its page once published.
+          details: { kind: input.kind, details: input.details } as Prisma.InputJsonValue,
         },
       });
       const linked = await tx.speakingSlot.update({ where: { id: slotId }, data: { eventId: e.id }, include: { event: eventSelect } });
       await this.audit.log({ actorId: userId, action: 'speaking_slot.booked', entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: e.id } }, tx);
-      await this.audit.log({ actorId: userId, action: 'event.created', entityType: 'LiveEvent', entityId: e.id, metadata: { slug: e.slug, status: 'DRAFT', source: 'speaker-booking' } }, tx);
+      await this.audit.log({ actorId: userId, action: 'event.created', entityType: 'LiveEvent', entityId: e.id, metadata: { slug: e.slug, status: 'DRAFT', source: 'speaker-booking', kind: input.kind } }, tx);
       return { slot: linked, event: e, user: account };
-    });
+    }, BOOK_TX);
 
     const locale: Locale = user.locale === 'ar' ? 'ar' : 'en';
-    const app = await this.prisma.speakerApplication.findUniqueOrThrow({ where: { userId }, select: { fullName: true } });
     const dto = this.toBookingDto(slot, settings.speakerCancelDays, locale, now);
+    // The booking is committed: telling people must never turn it into an error (a retry
+    // would then say "slot taken" about the speaker's own booking).
+    try {
+      await this.afterBooking(userId, user, slot, event, input, dto, locale, settings.sessionTeamEmails);
+    } catch (err) {
+      this.logger.error(`Telling people about a booking failed: ${(err as Error).name}`);
+    }
+    return dto;
+  }
+
+  private async afterBooking(
+    userId: string,
+    user: { email: string },
+    slot: SpeakingSlot,
+    event: LiveEvent,
+    input: SlotBookingInput,
+    dto: SpeakerBookingDto,
+    locale: Locale,
+    team: string[],
+  ): Promise<void> {
+    const app = await this.prisma.speakerApplication.findUniqueOrThrow({ where: { userId }, select: { fullName: true } });
     // The speaker's confirmation, then the session team (each address its own email, bulk lane).
     void this.email
       .send(user.email, locale, {
@@ -311,11 +356,13 @@ export class SpeakerPortalService {
         icsUrl: dto.icsUrl,
       })
       .catch(() => undefined);
-    await this.tellTeam(settings.sessionTeamEmails, {
+    // The kind is a label: "[Course] Serving LLMs" tells the team what to prepare.
+    const label = input.kind === 'SESSION' ? input.title : `[${speakerKindLabels[input.kind].en}] ${input.title}`;
+    await this.tellTeam(team, {
       kind: 'booked',
       speakerName: app.fullName,
       speakerEmail: user.email,
-      title: input.title,
+      title: label,
       abstract: input.abstract,
       when: formatWhen(slot.startsAt, 'en'),
       url: this.email.url('en', `/admin/sessions/${event.id}`),
@@ -324,11 +371,50 @@ export class SpeakerPortalService {
       type: 'speaker_booking',
       titleEn: 'New speaker booking',
       titleAr: 'حجز جديد من متحدث',
-      bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${input.title}`,
-      bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${input.title}`,
+      bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
+      bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
       link: `/admin/sessions/${event.id}`,
     });
-    return dto;
+  }
+
+  /**
+   * Edits a booking's title, abstract, kind and details: by the speaker while its session is
+   * still a draft (and upcoming), or by the team at any time. The session follows: a draft's
+   * title and description too, any session's details.
+   */
+  async updateBooking(slotId: string, input: SlotBookingInput, actor: { id: string; admin: boolean }, now = new Date()): Promise<SpeakerBookingDto> {
+    const s = await this.prisma.speakingSlot.findUnique({ where: { id: slotId }, include: { event: eventSelect, bookedBy: { select: { locale: true } } } });
+    if (!s || s.status !== 'BOOKED' || (!actor.admin && s.bookedById !== actor.id)) throw new NotFoundException('Booking not found');
+    if (!actor.admin) {
+      const startsAt = s.event?.startsAt ?? s.startsAt;
+      if (eventEnded(startsAt, s.event?.durationMin ?? s.durationMin, now) || (s.event && s.event.status !== 'DRAFT')) {
+        throw new ConflictException({ code: 'BOOKING_LOCKED', message: 'This session is already published. Ask the team to change it.' });
+      }
+    }
+    const details = { kind: input.kind, details: input.details } as Prisma.InputJsonValue;
+    const saved = await this.prisma.$transaction(async (tx) => {
+      // Conditional: a speaker edit never lands on a session the team published meanwhile.
+      if (s.event) {
+        const r = await tx.liveEvent.updateMany({
+          where: { id: s.event.id, ...(actor.admin ? {} : { status: 'DRAFT' }) },
+          data: s.event.status === 'DRAFT' ? { titleEn: input.title, descriptionEn: input.abstract, details } : { details },
+        });
+        if (!r.count) throw new ConflictException({ code: 'BOOKING_LOCKED', message: 'This session is already published. Ask the team to change it.' });
+      }
+      const updated = await tx.speakingSlot.update({
+        where: { id: slotId },
+        data: { title: input.title, abstract: input.abstract, kind: input.kind, details: input.details as Prisma.InputJsonValue },
+        include: { event: eventSelect },
+      });
+      await this.audit.log(
+        { actorId: actor.id, action: actor.admin ? 'speaking_slot.updated_by_admin' : 'speaking_slot.updated', entityType: 'SpeakingSlot', entityId: slotId, metadata: { eventId: s.event?.id ?? null, kind: input.kind } },
+        tx,
+      );
+      return updated;
+    });
+    const settings = await this.settings.get();
+    const locale: Locale = s.bookedBy?.locale === 'ar' ? 'ar' : 'en';
+    return this.toBookingDto(saved, settings.speakerCancelDays, locale, now);
   }
 
   /** One email per team address, on the bulk lane (never ahead of sign-ups and resets). */
@@ -360,7 +446,7 @@ export class SpeakerPortalService {
       check(locked, event);
       const slot = await tx.speakingSlot.update({
         where: { id: slotId },
-        data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, eventId: null },
+        data: { status: 'OPEN', bookedById: null, bookedAt: null, title: null, abstract: null, kind: null, details: Prisma.DbNull, eventId: null },
       });
       let cancelled: LiveEvent | null = null;
       if (event?.status === 'DRAFT') {
@@ -534,6 +620,7 @@ export class SpeakerPortalService {
                 bioEn: app.bio,
                 photoUrl: app.photoUrl,
                 linkedinUrl: app.linkedinUrl,
+                githubUrl: app.githubUrl,
                 source: 'speaker-portal',
                 userId: app.userId,
               },
@@ -565,6 +652,20 @@ export class SpeakerPortalService {
       bodyAr: status === 'APPROVED' ? 'اختر موعدًا متاحًا واحجز جلستك.' : input.note,
       link: '/speaker',
     });
+    return this.adminGet(id);
+  }
+
+  /**
+   * The team corrects or completes an application (any status). It doesn't change the
+   * decision, and the speaker isn't told; the public profile is edited on its own page.
+   */
+  async adminUpdateApplication(id: string, input: SpeakerApplicationInput, actorId: string): Promise<AdminSpeakerApplicationDto> {
+    const r = await this.prisma.speakerApplication.updateMany({
+      where: { id, user: { deletedAt: null } },
+      data: { ...input, company: input.company ?? '', photoUrl: input.photoUrl ?? null, details: input.details as Prisma.InputJsonValue },
+    });
+    if (!r.count) throw new NotFoundException('Application not found');
+    await this.audit.log({ actorId, action: 'speaker_application.updated_by_admin', entityType: 'SpeakerApplication', entityId: id });
     return this.adminGet(id);
   }
 
@@ -611,6 +712,9 @@ export class SpeakerPortalService {
       durationMin: s.durationMin,
       status: s.status,
       title: s.title,
+      abstract: s.abstract,
+      kind: s.kind,
+      details: s.kind ? readSpeakerDetails(s.kind, s.details) : {},
       bookedBy: s.bookedBy ? { id: s.bookedBy.id, email: s.bookedBy.email, name: s.bookedBy.speakerApplication?.fullName ?? s.bookedBy.email } : null,
       event: s.event,
     }));
@@ -631,7 +735,7 @@ export class SpeakerPortalService {
     if ((await this.taken([input.startsAt])).size) throw new ConflictException({ code: 'SLOT_EXISTS', message: 'There is already a slot at this time' });
     const s = await this.prisma.speakingSlot.create({ data: { startsAt: input.startsAt, durationMin: input.durationMin, createdById: actorId } });
     await this.audit.log({ actorId, action: 'speaking_slot.created', entityType: 'SpeakingSlot', entityId: s.id });
-    return { id: s.id, startsAt: s.startsAt.toISOString(), durationMin: s.durationMin, status: s.status, title: null, bookedBy: null, event: null };
+    return { id: s.id, startsAt: s.startsAt.toISOString(), durationMin: s.durationMin, status: s.status, title: null, abstract: null, kind: null, details: {}, bookedBy: null, event: null };
   }
 
   async generate(input: SlotGeneratorInput, actorId: string, now = new Date()): Promise<{ created: number; skipped: number }> {
@@ -688,4 +792,22 @@ export class SpeakerPortalService {
     if (released) this.logger.log(`Released ${released} speaker booking(s) of a deleted account`);
     return released;
   }
+}
+
+/**
+ * A booking that failed for a reason the speaker can't fix: logged (error name and Prisma code
+ * only), and answered with a code and a message the portal shows as is, never a bare 500.
+ */
+export function bookingError(err: unknown, logger: Logger): unknown {
+  if (err instanceof HttpException) return err;
+  const code =
+    err instanceof Prisma.PrismaClientKnownRequestError ? err.code : err instanceof Prisma.PrismaClientInitializationError ? err.errorCode : undefined;
+  logger.error(`Booking failed: ${(err as Error)?.name ?? 'Error'}${code ? ` (${code})` : ''}`);
+  if (code && BUSY_CODES.has(code)) {
+    return new ServiceUnavailableException({ code: 'BOOKING_BUSY', message: 'The academy is busy right now and nothing was booked. Try again in a minute.' });
+  }
+  return new ServiceUnavailableException({
+    code: 'BOOKING_FAILED',
+    message: `The booking could not be saved and nothing was booked${code ? ` (error ${code})` : ''}. Try again, or contact the team if it keeps happening.`,
+  });
 }

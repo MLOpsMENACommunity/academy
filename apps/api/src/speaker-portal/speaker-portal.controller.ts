@@ -52,6 +52,13 @@ export class SpeakerPortalController {
     return this.portal.book(user.id, id, body);
   }
 
+  /** Title, abstract, kind and details, while the session is still a draft. */
+  @Put('slots/:id/booking')
+  @Throttle({ default: { limit: 30, ttl: 600_000 } })
+  updateBooking(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(slotBookingSchema)) body: SlotBookingInput) {
+    return this.portal.updateBooking(id, body, { id: user.id, admin: false });
+  }
+
   @Delete('slots/:id/booking')
   @HttpCode(204)
   @Throttle({ default: { limit: 10, ttl: 600_000 } })
@@ -88,6 +95,11 @@ export class AdminSpeakerPortalController {
     return this.portal.adminGet(id);
   }
 
+  @Put('speaker-applications/:id')
+  updateApplication(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(speakerApplicationSchema)) body: SpeakerApplicationInput) {
+    return this.portal.adminUpdateApplication(id, body, user.id);
+  }
+
   @Post('speaker-applications/:id/review')
   @HttpCode(200)
   review(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(speakerReviewSchema)) body: SpeakerReviewInput) {
@@ -117,6 +129,12 @@ export class AdminSpeakerPortalController {
   @HttpCode(200)
   generate(@CurrentUser() user: AuthUser, @Body(new ZodPipe(slotGeneratorSchema)) body: SlotGeneratorInput) {
     return this.portal.generate(body, user.id);
+  }
+
+  /** The team edits a booking's title, abstract, kind and details (any time). */
+  @Put('speaking-slots/:id/booking')
+  updateBooking(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(slotBookingSchema)) body: SlotBookingInput) {
+    return this.portal.updateBooking(id, body, { id: user.id, admin: true });
   }
 
   /** Frees a booked slot (the draft session is deleted; a published one is cancelled). */

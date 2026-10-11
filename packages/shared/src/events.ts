@@ -12,6 +12,7 @@ import {
   type EventSpeakerRole,
   type EventStatus,
 } from './enums';
+import { eventDetailsInputSchema, type SpeakerDetailsDto, type SpeakerKind } from './speaker-details';
 
 /** Links people click: http(s) only. */
 const optionalUrl = z
@@ -89,6 +90,11 @@ export const eventInputSchema = z
     recordingUrl: optionalUrl,
     coverImageUrl: optionalUrl,
     capacity: z.coerce.number().int().min(1).max(100_000).nullish().or(z.literal('').transform(() => null)),
+    /**
+     * Session, course or podcast, and its optional details (filled by the speaker when booking,
+     * or by the team). Left out: kept as they are.
+     */
+    details: eventDetailsInputSchema.optional(),
   })
   .superRefine((e, ctx) => {
     // Published sessions are public, so they need Arabic too (drafts can wait).
@@ -140,6 +146,9 @@ export interface PublicEventDto {
   capacity: number | null;
   registered: number;
   full: boolean;
+  /** Session, course or podcast, and the details that are filled in (empty ones are left out). */
+  kind: SpeakerKind;
+  details: SpeakerDetailsDto;
   /** Only for the signed-in viewer. */
   me?: { registered: boolean; liveUrl: string | null; liveUrlFrom: string };
 }

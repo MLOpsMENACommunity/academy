@@ -11,6 +11,7 @@ import {
 } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { AddAcceptedEmails } from '@/components/admin/AddAcceptedEmails';
 import { ApplicationBulkBar } from '@/components/admin/ApplicationBulkBar';
 import { CvMark } from '@/components/admin/CvCard';
 import { MultiSelect } from '@/components/admin/MultiSelect';
@@ -49,7 +50,7 @@ export function ApplicationsTable() {
   const [data, setData] = useState<Page | null>(null);
   const [error, setError] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [courses, setCourses] = useState<{ id: string; titleEn: string; titleAr: string }[]>([]);
+  const [courses, setCourses] = useState<{ id: string; titleEn: string; titleAr: string; type: string }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [q, setQ] = useState(params.q ?? '');
@@ -68,7 +69,7 @@ export function ApplicationsTable() {
   }, [query]);
 
   useEffect(() => {
-    api<{ id: string; titleEn: string; titleAr: string }[]>('/admin/courses').then(setCourses).catch(() => undefined);
+    api<{ id: string; titleEn: string; titleAr: string; type: string }[]>('/admin/courses').then(setCourses).catch(() => undefined);
   }, []);
   useEffect(() => {
     let current = true;
@@ -101,6 +102,10 @@ export function ApplicationsTable() {
         </Button>
       </div>
       {exportError && <Alert tone="danger" className="mt-4">{exportError}</Alert>}
+      <div className="mt-4">
+        {/* Keyed by the course filter: changing it preselects that course. */}
+        <AddAcceptedEmails key={params.courseId ?? ''} courseId={params.courseId || null} courses={courses} onChange={() => void reload().catch(() => undefined)} />
+      </div>
 
       <div className="mt-5 space-y-4 rounded-card border border-line bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

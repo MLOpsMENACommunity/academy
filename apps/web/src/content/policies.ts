@@ -54,6 +54,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
             'Waiting lists: if you ask to be told when a course opens ("Notify me"), your email address and language, with or without an account.',
             'Course invitations: if the academy team adds you to a course by your email address, that address, the course, who added you and when, and whether you joined. If you have no account yet, we email you to invite you, a few times at most; you are enrolled only after you sign up and confirm that same address.',
+            'Accounts the team creates: the academy team can create a student account for your email address (for example after accepting you outside the site). We email you a link to choose your own password; nobody else sets or knows it. You can delete the account from your profile at any time.',
             'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Our own logs do not contain your email address, IP address or the content you submit. Our hosting provider (Cloudflare) processes IP addresses to deliver and protect the site.',
           ],
         },
@@ -62,7 +63,8 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: [
             'To run the courses you apply to (screening applications, verifying payments, giving enrolled students their session links, sending course emails and reminders). This is necessary to provide the service you asked for.',
             'To plan future courses for the community, using aggregated and anonymised profile data. This is in our legitimate interest and does not single you out.',
-            'Only with your consent: sharing your profile with MLOps MENA hiring partners, and emailing you about new courses and events. Both are off by default and you can withdraw consent at any time from your profile.',
+            'Only with your consent: emailing you about new courses and events. It is off by default and you can withdraw consent at any time from your profile.',
+            'We no longer ask whether you are open to job opportunities or want your profile shared with MLOps MENA hiring partners. An answer you gave before stays on your record; to withdraw it, write to us through {contact} and the team will clear it.',
           ],
         },
         {
@@ -83,7 +85,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Speakers',
           body: [
-            'If you sign up as a speaker, we keep your speaker application (name, phone or WhatsApp, LinkedIn, title and company, country, short bio, an optional photo link, topics, the session you propose, format, language and preferred months), the team\'s decision and note, and the slots you book with the session title and abstract you give.',
+            'If you sign up as a speaker, we keep your speaker application (name, phone or WhatsApp, LinkedIn, an optional GitHub link, title and company, country, short bio, an optional photo link, how you heard about us and, if a community member referred you, that member\'s name, topics, whether you propose a session, a course or a podcast and its optional details, format, language and preferred months), the team\'s decision and note, and the slots you book with the title, abstract and details you give.',
             'We use it to review your application, plan and announce your session, and contact you about it. When you book or cancel a slot, the academy\'s session team is emailed your name, email, the time and the session details. When we approve you, we create a public speaker page from your name, title, bio, photo and LinkedIn; you can ask us to change it at any time.',
             'Your application and bookings are included when you download your data. Deleting your account releases your upcoming bookings and, after 30 days, removes your application. Your public speaker page and past sessions stay as part of the community\'s session history unless you ask us to remove them through {contact}.',
           ],
@@ -115,6 +117,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'Your rights',
           body: [
             'You can view and edit your profile at any time, download all your data as a JSON file, and delete your account from your profile page. You can also ask us to correct, restrict or explain how we process your data.',
+            'The academy team (administrators) can also correct or remove details in your profile or speaker application, or delete your account, for example when you ask them to. They never accept the Terms or give a consent for you, and every change is recorded in an internal audit log (who changed what, never the values).',
             `To exercise any right or raise a concern, write to us through {contact}. We respond within the time limits set by law. You may also complain to Egypt's Personal Data Protection Center.`,
           ],
         },
@@ -154,6 +157,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
             'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريدك الإلكتروني ولغتك، سواء كان لديك حساب أم لا.',
             'دعوات الدورات: إذا أضافك فريق الأكاديمية إلى دورة بعنوان بريدك الإلكتروني، نحفظ هذا العنوان والدورة ومن أضافك ومتى، وهل انضممت. إن لم يكن لديك حساب بعد، نراسلك لدعوتك بضع مرات على الأكثر، ولا نسجّلك إلا بعد أن تنشئ حسابًا وتؤكد العنوان نفسه.',
+            'الحسابات التي ينشئها الفريق: يمكن لفريق الأكاديمية إنشاء حساب طالب بعنوان بريدك (مثلًا بعد قبولك خارج الموقع). نرسل إليك رابطًا لتختار كلمة مرورك بنفسك، ولا أحد غيرك يضعها أو يعرفها. ويمكنك حذف الحساب من ملفك الشخصي في أي وقت.',
             'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن سجلاتنا بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله. ويعالج مزود الاستضافة لدينا (Cloudflare) عناوين IP لتقديم الموقع وحمايته.',
           ],
         },
@@ -162,7 +166,8 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: [
             'لتشغيل الدورات التي تقدم عليها (مراجعة الطلبات، والتحقق من المدفوعات، وإتاحة روابط الجلسات للطلاب المسجلين، وإرسال رسائل الدورة والتذكيرات). وهذا ضروري لتقديم الخدمة التي طلبتها.',
             'لتخطيط الدورات المستقبلية للمجتمع باستخدام بيانات مجمّعة ومجهولة الهوية، وهذا في إطار مصلحتنا المشروعة ولا يحدد هويتك.',
-            'فقط بموافقتك: مشاركة ملفك مع شركاء التوظيف لدى MLOps MENA، ومراسلتك بشأن الدورات والفعاليات الجديدة. كلاهما غير مفعّل افتراضيًا، ويمكنك سحب موافقتك في أي وقت من ملفك الشخصي.',
+            'فقط بموافقتك: مراسلتك بشأن الدورات والفعاليات الجديدة. هذا غير مفعّل افتراضيًا، ويمكنك سحب موافقتك في أي وقت من ملفك الشخصي.',
+            'لم نعد نسأل إن كنت منفتحًا على فرص العمل أو تريد مشاركة ملفك مع شركاء التوظيف لدى MLOps MENA. تبقى إجابتك السابقة محفوظة في سجلك؛ ولسحبها راسلنا عبر {contact} وسيحذفها الفريق.',
           ],
         },
         {
@@ -183,7 +188,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'المتحدثون',
           body: [
-            'إذا سجلت متحدثًا، نحتفظ بطلبك (الاسم، والهاتف أو واتساب، وLinkedIn، والمسمى الوظيفي والشركة، والدولة، ونبذة قصيرة، ورابط صورة اختياري، والمجالات، والجلسة التي تقترحها، وشكلها ولغتها، والأشهر المفضلة)، وقرار الفريق وملاحظته، والمواعيد التي تحجزها مع عنوان الجلسة وملخصها.',
+            'إذا سجلت متحدثًا، نحتفظ بطلبك (الاسم، والهاتف أو واتساب، وLinkedIn، ورابط GitHub اختياري، والمسمى الوظيفي والشركة، والدولة، ونبذة قصيرة، ورابط صورة اختياري، وكيف عرفت عنا، واسم عضو المجتمع الذي رشّحك إن وُجد، والمجالات، وهل تقترح جلسة أو دورة أو بودكاست وتفاصيله الاختيارية، وشكلها ولغتها، والأشهر المفضلة)، وقرار الفريق وملاحظته، والمواعيد التي تحجزها مع العنوان والملخص والتفاصيل التي تقدمها.',
             'نستخدم هذه البيانات لمراجعة طلبك وتخطيط جلستك والإعلان عنها والتواصل معك بشأنها. عند حجز موعد أو إلغائه، يصل فريقَ الجلسات في الأكاديمية بريدٌ فيه اسمك وبريدك الإلكتروني والموعد وتفاصيل الجلسة. وعند الموافقة على طلبك ننشئ لك صفحة متحدث عامة من اسمك ومسماك الوظيفي ونبذتك وصورتك ورابط LinkedIn، ويمكنك أن تطلب تعديلها في أي وقت.',
             'يُضمَّن طلبك وحجوزاتك عند تنزيل بياناتك. وعند حذف حسابك تُلغى حجوزاتك القادمة، ويُحذف طلبك بعد 30 يومًا. تبقى صفحتك العامة وجلساتك السابقة ضمن سجل جلسات المجتمع ما لم تطلب حذفها عبر {contact}.',
           ],
@@ -215,6 +220,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'حقوقك',
           body: [
             'يمكنك عرض ملفك الشخصي وتعديله في أي وقت، وتنزيل جميع بياناتك كملف JSON، وحذف حسابك من صفحة ملفك الشخصي. ويمكنك أيضًا أن تطلب منا تصحيح بياناتك أو تقييد معالجتها أو توضيح كيفية معالجتها.',
+            'يستطيع فريق الأكاديمية (المشرفون) أيضًا تصحيح بيانات ملفك أو طلبك متحدثًا أو حذف بعضها، أو حذف حسابك، مثلًا عندما تطلب ذلك. لا يقبلون الشروط ولا يمنحون أي موافقة نيابةً عنك، وكل تغيير يُسجَّل في سجل تدقيق داخلي (من غيّر ماذا، دون القيم نفسها).',
             `لممارسة أي حق أو تقديم شكوى، راسلنا عبر {contact}، وسنرد خلال المدد التي يحددها القانون. ويمكنك أيضًا تقديم شكوى إلى مركز حماية البيانات الشخصية في مصر.`,
           ],
         },
