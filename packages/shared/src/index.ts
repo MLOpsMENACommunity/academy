@@ -26,3 +26,4 @@ export * from './assessments';
 export * from './points';
 export * from './certificates';
 export * from './invites';
+export * from './speaker-announcements';

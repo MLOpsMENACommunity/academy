@@ -221,6 +221,23 @@ him in the admin.
   team is emailed. Admins can **Release** any booked slot in Availability (same effect, any time).
 - **Photos:** the application takes an optional https photo link, not an upload: speaker
   photos are public, and the private bucket only serves 5-minute signed links.
+- **Announcements from speakers:** on `/speaker`, "My courses & sessions" lets a speaker
+  message (1) the ENROLLED students of each course they are **assigned** to and (2) the
+  registrants of each PUBLISHED live session where they are the speaker, a host or a guest
+  (until 30 days after it starts). Nothing else: no materials, assessments or grading. It goes
+  out at once, without approval, through the course announcement queue (in-app notification,
+  bulk-lane email, the course's learn page), with "From {speaker name}". Limits: 5 per course
+  or session and 20 in total per speaker in any 24 hours; subject 120 and message 3,000
+  characters, plain text. Speakers see audience counts only, never who. Audited as
+  `announcement.sent_by_speaker`; course messages also appear in Admin → Courses → (course) →
+  Announcements, labelled "From speaker …".
+- **Assigning courses:** Admin → Speakers → (speaker) → **Assigned courses** (any course
+  except archived; audited as `instructor.course_assigned` / `instructor.course_unassigned`).
+  Assigned means the speaker's profile is one of the course's **instructors**, so it is the
+  same list as the course editor's Instructors field and the speaker is shown publicly on the
+  course page. The speaker profile must be linked to a speaker account (approving their
+  application links it). Unassigning, archiving the course, switching the account to a student
+  or deleting it removes access at once.
 
 ## Enrol by email
 

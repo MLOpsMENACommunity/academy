@@ -17,6 +17,8 @@ interface HistoryRow {
   id: string;
   at: string;
   by: string | null;
+  /** The speaker who sent it (null when the team did). */
+  fromSpeaker?: string | null;
   subject: string;
   statuses: ApplicationStatus[];
   recipients: number;
@@ -141,6 +143,7 @@ export function Announcements({ courseId }: { courseId: string }) {
             {history.map((h) => (
               <li key={h.id} className="py-3">
                 <p className="font-semibold text-fg">{h.subject}</p>
+                {h.fromSpeaker && <p className="text-xs font-medium text-primary">{a('fromSpeaker', { name: h.fromSpeaker })}</p>}
                 <p className="text-xs text-muted">
                   {formatDateTime(h.at, locale)} · {h.by ?? '—'} · {h.statuses.map((s) => ((s as string) === 'WAITLIST' ? t('admin.courses.wl.title') : (applicationStatusLabels[s]?.[locale] ?? s))).join(', ')}
                 </p>

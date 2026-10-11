@@ -1084,11 +1084,15 @@ enum DeliveryStatus {
   SKIPPED
 }
 
-/// A message from admins to a course's students (in-app + email), delivered from a durable queue.
+/// A message to a course's students or a live session's registrants (in-app + email), delivered from a durable queue.
+/// Exactly one of courseId and eventId is set (a database check enforces it).
 model Announcement {
   id             String                  @id @default(cuid())
-  courseId       String
-  course         Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId       String?
+  course         Course?                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// A live session's registrants instead of a course (speakers only, for now).
+  eventId        String?
+  event          LiveEvent?              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   createdById    String?
   createdBy      User?                   @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   /// Client-generated per send attempt: retrying the same request can't send twice.
@@ -1098,12 +1102,18 @@ model Announcement {
   bodyEn         String
   bodyAr         String
   statuses       Json
+  /// Set when a speaker sent it (their public name at the time): shown as "From …". Null for the team's own messages.
+  fromName       String?
+  fromNameAr     String?
   createdAt      DateTime                @default(now())
   recipients     AnnouncementRecipient[]
   /// Waiting-list announcements ("the course is open") are delivered to these rows instead.
   waitlist       CourseInterest[]
 
   @@index([courseId, createdAt])
+  @@index([eventId, createdAt])
+  /// Speaker rate limits count a sender's recent announcements.
+  @@index([createdById, createdAt])
 }
 
 model AnnouncementRecipient {
@@ -1189,6 +1199,8 @@ model LiveEvent {
   /// Hosts and guests besides the main speaker, in display order.
   coSpeakers        LiveEventSpeaker[]
   speakingSlot      SpeakingSlot?
+  /// Messages from the session's speakers to its registrants.
+  announcements     Announcement[]
 
   @@index([status, startsAt])
   @@index([speakerId])

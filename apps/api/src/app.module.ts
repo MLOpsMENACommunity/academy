@@ -29,6 +29,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
+import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-announcements.module';
 import { SpeakerPortalModule } from './speaker-portal/speaker-portal.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
@@ -62,6 +63,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     CertificatesModule,
     EventsModule,
     SpeakerPortalModule,
+    SpeakerAnnouncementsModule,
     AdminModule,
     JobsModule,
   ],

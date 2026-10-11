@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { InstructorForm, toSpeakerInput } from '@/components/admin/InstructorEditor';
+import { SpeakerAssignedCourses } from '@/components/admin/SpeakerAssignedCourses';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
@@ -62,6 +63,7 @@ export default function EditSpeaker() {
           {saved ? `✓ ${t('admin.common.saved')}` : ''}
         </p>
       </Card>
+      <SpeakerAssignedCourses instructorId={speaker.id} />
     </div>
   );
 }

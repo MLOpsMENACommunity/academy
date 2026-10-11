@@ -23,6 +23,7 @@ import { formatDateTime, viewerTimezone } from '@/lib/format';
 import { useSearchParam } from '@/lib/use-search-param';
 import { issuesToErrors } from '@/lib/zod-errors';
 import { byMonth, monthLabel, SPEAKER_APP_TONE, speakerError } from './shared';
+import { SpeakerAnnouncements } from './SpeakerAnnouncements';
 
 /** /speaker: the speaker's home (application, open slots, bookings). */
 export function SpeakerPortal() {
@@ -140,6 +141,8 @@ function Portal() {
           </div>
         )}
       </Card>
+
+      <SpeakerAnnouncements />
 
       {data.bookings.length > 0 && (
         <section aria-labelledby="bookings-h" className="space-y-3">
