@@ -1115,7 +1115,9 @@
         "registeredAt": "Registered"
       },
       "hasRegistrations": "People registered for this session, so it can't be deleted. Set its status to Cancelled instead: everyone registered gets an email.",
-      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a session after an admin edits it."
+      "importedHint": "Added by the archive import. Your edits are kept: the import never changes a session after an admin edits it.",
+      "kindDetails": "Session, course or podcast",
+      "kindDetailsHint": "Filled by the speaker when booking, or by you. Every field is optional; empty ones don't show on the public page. A course here is a label: create the real course in Courses."
     },
     "speakers": {
       "title": "Speakers",
@@ -1171,7 +1173,10 @@
       "toSpeaker": "Switch to a speaker account",
       "toStudentConfirm": "Switch this account to a student account? They'll lose access to the speaker portal.",
       "toSpeakerConfirm": "Switch this account to a speaker account? They'll use the speaker portal and can no longer apply to courses.",
-      "nowSpeaker": "This account is now a speaker account. They can apply to speak at /speaker."
+      "nowSpeaker": "This account is now a speaker account. They can apply to speak at /speaker.",
+      "edit": "Edit application",
+      "editHint": "You're editing the speaker's application. The decision doesn't change and the speaker isn't told. The public profile is edited on the speaker's page.",
+      "notAsked": "Not asked (sent before this question existed)"
     },
     "slots": {
       "title": "Availability",
@@ -1202,7 +1207,9 @@
       "withdraw": "Withdraw",
       "deleteConfirm": "Delete this slot?",
       "release": "Release",
-      "releaseConfirm": "Release this booking? The slot opens again, a draft session is deleted (a published one is cancelled and its registrants are emailed), and the session team is told."
+      "releaseConfirm": "Release this booking? The slot opens again, a draft session is deleted (a published one is cancelled and its registrants are emailed), and the session team is told.",
+      "editBooking": "Edit details",
+      "editBookingHint": "Changes the booking. Its session's details follow; a published session's title and description are edited on the session itself."
     },
     "assessments": {
       "tab": "Assessments",
@@ -1517,6 +1524,59 @@
         "NO_NAME": "This student has no name on their profile, so there is nothing to print.",
         "ACCOUNT_DELETED": "This student deleted their account."
       }
+    },
+    "studentEdit": {
+      "edit": "Edit profile",
+      "done": "Done editing",
+      "intro": "Edit one step at a time. The same rules as the student's own form apply; leave an optional field empty to remove it. Every change is recorded in the audit log.",
+      "sections": "Profile steps",
+      "other": "Other answers",
+      "otherHint": "Answers the profile no longer asks. They stay on record for admins; correct or clear them here.",
+      "hiring": "Job opportunities and hiring partners (no longer asked)",
+      "openToOpportunities": "Open to job opportunities (said yes earlier)",
+      "openToOpportunitiesNo": "Open to job opportunities: no",
+      "shareWithPartners": "Share the profile with hiring partners (said yes earlier)",
+      "shareWithPartnersNo": "Share with hiring partners: no",
+      "consentHint": "Only the student can say yes to a consent. You can turn a yes off when they ask.",
+      "deleteTitle": "Delete account",
+      "deleteBody": "Signs them out and blocks sign-in now; their personal data is anonymised after 30 days, as when they delete it themselves. Upcoming speaker bookings are released. They get an email saying the team deleted it.",
+      "deleteButton": "Delete this account…",
+      "deleteType": "Type {email} to confirm",
+      "deleteConfirm": "Delete the account",
+      "deleted": "The account was deleted. It is anonymised after 30 days."
+    },
+    "addStudent": {
+      "button": "Add student",
+      "title": "Add a student",
+      "intro": "Creates a student account for this email address. Nobody sets a password for them: they get an email to choose their own (the link works for 7 days, then \"Forgot password\" does), and then complete their profile. To add them to a course, use \"Add accepted emails\" on Applications.",
+      "email": "Email address",
+      "name": "Full name (optional)",
+      "language": "Language of the email",
+      "submit": "Create the account",
+      "done": "Account created for {email}. They've been emailed a link to choose their password.",
+      "open": "Open their profile"
+    },
+    "speakerEdit": {
+      "slugChanged": "The page moves to /speakers/{new}. The old address /speakers/{old} keeps working: it redirects here.",
+      "application": "Open the speaker application",
+      "applicationHint": "The application behind this profile: edit what they sent (contact details, referral, proposal).",
+      "formerAddresses": "Former addresses (they redirect here):",
+      "deleteTitle": "Delete speaker profile",
+      "deleteBody": "Removes the public speaker page.",
+      "deleteHasSessions": "Removes the public speaker page. Their {events} session(s) stay on the site, shown without a link to a speaker page, and they're taken off {courses} course(s).",
+      "deleteAccountStays": "Their speaker account stays (it can no longer book slots until a new profile is linked).",
+      "deleteButton": "Delete this profile…",
+      "deleteType": "Type {name} to confirm",
+      "deleteConfirm": "Delete the profile",
+      "deleted": "The speaker profile was deleted."
+    },
+    "acceptedEmails": {
+      "button": "Add accepted emails",
+      "close": "Close",
+      "title": "Add accepted emails",
+      "intro": "Enrol people you accepted outside the site, by email address. It's the course's Enrol-by-email tool: people with a confirmed student account are enrolled now, everyone else is invited and enrolled when they sign up.",
+      "course": "Course",
+      "pick": "Choose a course…"
     }
   },
   "learn": {
@@ -1740,7 +1800,10 @@
         "registered": "{n, plural, one {# person registered} other {# people registered}}",
         "recording": "Watch the recording",
         "noRecording": "The recording will appear here when the team adds it.",
-        "sessionPage": "Session page"
+        "sessionPage": "Session page",
+        "editDetails": "Edit details",
+        "saveDetails": "Save changes",
+        "lockedHint": "Published: ask the team for changes."
       },
       "form": {
         "title": "Current title",
@@ -1788,10 +1851,73 @@
         "SLOT_IN_PAST": "Choose a time in the future.",
         "SLOT_NOT_OPEN": "Only open slots can be changed.",
         "TOO_MANY_SLOTS": "That's too many slots at once. Choose fewer days or months.",
-        "HAS_COURSES": "This student has course applications or enrolments, so the account stays a student account. They can sign up as a speaker with another email."
+        "HAS_COURSES": "This student has course applications or enrolments, so the account stays a student account. They can sign up as a speaker with another email.",
+        "BOOKING_BUSY": "The academy is busy right now and nothing was booked. Please try again in a minute.",
+        "BOOKING_FAILED": "The booking couldn't be saved and nothing was booked. Please try again, or tell the team if it keeps happening.",
+        "BOOKING_LOCKED": "This session is already published. Ask the team to change it.",
+        "status": "error {status}",
+        "unavailable": "The academy is waking up or busy (error 503), and nothing was saved. Wait a few seconds and try again."
       },
       "cta": "Practitioner in the region? Give a free live session for the community.",
       "ctaButton": "Apply to speak"
+    },
+    "details": {
+      "kind": "What would you like to give?",
+      "kindHint": "Every booking is a live slot on the calendar; for a course, the team builds the full course with you.",
+      "your": {
+        "SESSION": "Your session",
+        "COURSE": "Your course",
+        "PODCAST": "Your podcast episode"
+      },
+      "titleOf": {
+        "SESSION": "Session title",
+        "COURSE": "Course title",
+        "PODCAST": "Episode title"
+      },
+      "publicHeading": {
+        "SESSION": "About this session",
+        "COURSE": "About this course",
+        "PODCAST": "About this episode"
+      },
+      "heading": "Details",
+      "title": "{kind} details (optional)",
+      "intro": "All optional. Fill in what you know; the team can complete or change it later, and empty parts never show on the public page.",
+      "audience": "Who it's for",
+      "prerequisites": "Prerequisites",
+      "outcomes": "What people will learn",
+      "onePerLine": "One per line, up to {max}.",
+      "level": "Level",
+      "language": "Language",
+      "tags": "Tags",
+      "tagsHint": "Press Enter after each one, up to {max}.",
+      "remove": "Remove",
+      "course": {
+        "title": "Course",
+        "modulesCount": "Number of modules or sessions",
+        "weeklyHours": "Hours per week",
+        "durationWeeks": "Duration (weeks)",
+        "modules": "Modules",
+        "moduleTitle": "Module {n} title",
+        "moduleDescription": "Short description",
+        "addModule": "Add a module",
+        "materialsUrl": "Materials or repository link"
+      },
+      "podcast": {
+        "title": "Podcast",
+        "guests": "Guests",
+        "guestName": "Guest {n} name",
+        "guestLinkedin": "LinkedIn (optional)",
+        "addGuest": "Add a guest",
+        "discussion": "Topics or questions to discuss",
+        "episodeFormat": "Episode format",
+        "host": "Host (optional)"
+      },
+      "githubUrl": "GitHub profile",
+      "optional": "Optional.",
+      "referralSource": "How did you hear about us?",
+      "referralMemberName": "Member's name",
+      "referralMemberHint": "The MLOps MENA community member who told you about us.",
+      "referredBy": "referred by {name}"
     }
   },
   "policy": {

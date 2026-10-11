@@ -203,7 +203,7 @@ function CourseEditor() {
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
         {tab === 'details' && <CourseForm initial={toForm(course)} courseId={course.id} onSaved={refresh} />}
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
-        {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} onChange={refresh} />}
+        {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} paid={course.type === 'PAID'} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
         {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} />}
         {tab === 'leaderboard' && <CourseLeaderboard courseId={course.id} />}

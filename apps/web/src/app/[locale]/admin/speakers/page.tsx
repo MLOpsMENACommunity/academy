@@ -9,12 +9,14 @@ import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
+import { useSearchParam } from '@/lib/use-search-param';
 import type { AdminSpeaker } from './types';
 
 export default function AdminSpeakers() {
   const { locale, t } = useI18n();
   const [rows, setRows] = useState<AdminSpeaker[] | null>(null);
   const [error, setError] = useState(false);
+  const deleted = useSearchParam('deleted');
 
   useEffect(() => {
     api<AdminSpeaker[]>('/admin/instructors')
@@ -32,6 +34,11 @@ export default function AdminSpeakers() {
         </Link>
       </div>
       <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.speakers.intro')}</p>
+      {deleted && (
+        <Alert tone="success" className="mt-4">
+          {t('admin.speakerEdit.deleted')}
+        </Alert>
+      )}
       {error && (
         <Alert tone="danger" className="mt-4">
           {t('errors.generic')}

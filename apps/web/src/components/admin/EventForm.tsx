@@ -13,6 +13,7 @@ import {
   eventEnded,
   eventInputSchema,
   eventStatusLabels,
+  readEventDetails,
   type EventCategory,
   type EventInput,
   type EventSpeakerRole,
@@ -22,6 +23,7 @@ import {
 } from '@academy/shared';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { SelectField, TextField } from '@/components/forms/fields';
+import { DetailsFields, detailsToValues, KindField, valuesToDetails, type DetailsValues } from '@/components/speakers/DetailsFields';
 import { Alert } from '@/components/ui/Alert';
 import type { Tone } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -36,12 +38,14 @@ import { MarkdownField } from './MarkdownField';
 import { TopicsField } from './TopicsField';
 
 /** A live session as the admin API returns it. */
-export interface AdminEvent extends Omit<EventInput, 'startsAt'> {
+export interface AdminEvent extends Omit<EventInput, 'startsAt' | 'details'> {
   id: string;
   startsAt: string;
   updatedAt: string;
   /** "import" when the archive import created it. */
   source: string | null;
+  /** { kind, details } (see readEventDetails); {} for a session the team made by hand. */
+  details?: unknown;
   _count: { registrations: number };
 }
 
@@ -120,9 +124,23 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function EventForm({ initial, eventId, onSaved }: { initial: EventFormValue; eventId?: string; onSaved: (id: string) => void }) {
+export function EventForm({
+  initial,
+  eventId,
+  onSaved,
+  initialDetails,
+}: {
+  initial: EventFormValue;
+  eventId?: string;
+  onSaved: (id: string) => void;
+  /** The session's stored kind and details (from a speaker booking or an earlier save). */
+  initialDetails?: unknown;
+}) {
   const { locale, t } = useI18n();
   const [v, setV] = useState<EventFormValue>(initial);
+  const [kindDetails] = useState(() => readEventDetails(initialDetails));
+  const [kind, setKind] = useState(kindDetails.kind);
+  const [details, setDetails] = useState<DetailsValues>(() => detailsToValues(kindDetails.details));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -154,10 +172,11 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
       ...v,
       startsAt: fromLocalInput(v.startsAt),
       coSpeakers: v.coSpeakers.filter((c) => c.instructorId),
+      details: { kind, details: valuesToDetails(details) },
     };
     const parsed = eventInputSchema.safeParse(payload);
     // z.coerce.date() would turn an empty date into 1970.
-    const found = parsed.success ? {} : issuesToErrors(parsed.error.issues, t);
+    const found = parsed.success ? {} : detailErrors(issuesToErrors(parsed.error.issues, t));
     if (!payload.startsAt) found.startsAt = t('forms.errors.required');
     if (Object.keys(found).length) {
       setErrors(found);
@@ -175,7 +194,7 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
       onSaved(res.id);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'SLUG_TAKEN') setErrors({ slug: err.message });
-      if (err instanceof ApiError && err.errors.length) setErrors(err.fieldErrors());
+      if (err instanceof ApiError && err.errors.length) setErrors(detailErrors(err.fieldErrors()));
       setFormError(errorMessage(err, t));
     } finally {
       setBusy(false);
@@ -375,6 +394,15 @@ export function EventForm({ initial, eventId, onSaved }: { initial: EventFormVal
         </div>
       </Fieldset>
 
+      <Card>
+        <fieldset className="space-y-4">
+          <legend className="text-lg font-semibold text-fg">{t('admin.sessions.kindDetails')}</legend>
+          <p className="text-sm text-muted">{t('admin.sessions.kindDetailsHint')}</p>
+          <KindField value={kind} onChange={(k) => { setKind(k); setSaved(false); }} />
+          <DetailsFields kind={kind} value={details} onChange={(d) => { setDetails(d); setSaved(false); }} errors={errors} />
+        </fieldset>
+      </Card>
+
       <Fieldset title={t('admin.sessions.links')}>
         <TextField label={f('recordingUrl')} hint={f('recordingUrlHint')} type="url" dir="ltr" value={v.recordingUrl ?? ''} onChange={url('recordingUrl')} error={errors.recordingUrl} />
         <TextField label={f('coverImage')} type="url" dir="ltr" value={v.coverImageUrl ?? ''} onChange={url('coverImageUrl')} error={errors.coverImageUrl} />
@@ -421,4 +449,9 @@ export function DeleteEvent({ event, onDone }: { event: Pick<AdminEvent, 'id' | 
       {busy ? t('admin.common.loading') : t('admin.common.delete')}
     </button>
   );
+}
+
+/** The event schema nests the details one level deeper ("details.details.x"): the fields expect "details.x". */
+function detailErrors(errors: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(errors).map(([k, v]) => [k.replace(/^details\.details\./, 'details.'), v]));
 }

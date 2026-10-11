@@ -48,21 +48,33 @@ test('a speaker registers, applies, is approved and books a slot', async ({ page
   await page.getByLabel('Company').fill('Acme');
   await page.getByLabel('Country').selectOption('EG');
   await page.getByLabel('Short bio').fill('Ten years shipping ML systems to production in fintech and telecom.');
+  // GitHub is optional. "An MLOps MENA member" asks for the member's name, and requires it.
+  await expect(page.getByLabel(/Member's name/)).toHaveCount(0);
+  await page.getByLabel('How did you hear about us?').selectOption('MLOPS_MENA_MEMBER');
+  await expect(page.getByLabel(/Member's name/)).toBeVisible();
   // Chips are visually hidden checkboxes inside their labels.
   await page.getByRole('checkbox', { name: 'LLMOps' }).check({ force: true });
-  await page.getByLabel('Proposed session title').fill(TITLE);
+  // Session, course or podcast: the title's label follows the choice.
+  await page.getByRole('radio', { name: 'Podcast' }).first().check();
+  await expect(page.getByLabel('Episode title')).toBeVisible();
+  await page.getByRole('radio', { name: 'Session', exact: true }).check();
+  await page.getByLabel('Session title').fill(TITLE);
   await page.getByLabel('Abstract').fill('Guardrails, evaluation and rollout strategies for LLM features, with a live demo on a real product.');
   await page.getByRole('radio', { name: 'Hands-on' }).check();
   await page.getByRole('radio', { name: 'Arabic', exact: true }).check();
   await page.getByRole('group', { name: /Preferred months/ }).getByRole('checkbox').first().check({ force: true });
+  await page.getByRole('button', { name: 'Send application' }).click();
+  // The member's name is missing: nothing is sent until it's there.
+  await expect(page.getByText('Please fix the highlighted fields.')).toBeVisible();
+  await page.getByLabel(/Member's name/).fill('Aya Nasser');
   await page.getByRole('button', { name: 'Send application' }).click();
   await page.waitForURL(/\/en\/speaker\?sent=1$/);
   await expect(page.getByText('Under review')).toBeVisible();
 
   // The team approves.
   const list = await admin.get(`/api/admin/speaker-applications?q=${encodeURIComponent(speaker.email)}`);
-  const [application] = (await list.json()) as { id: string }[];
-  expect(application).toBeTruthy();
+  const [application] = (await list.json()) as { id: string; referralSource: string; referralMemberName: string; kind: string }[];
+  expect(application).toMatchObject({ referralSource: 'MLOPS_MENA_MEMBER', referralMemberName: 'Aya Nasser', kind: 'SESSION' });
   const review = await admin.post(`/api/admin/speaker-applications/${application!.id}/review`, { headers: JSON_HEADERS, data: { decision: 'APPROVE' } });
   expect(review.status(), await review.text()).toBe(200);
 
@@ -73,7 +85,20 @@ test('a speaker registers, applies, is approved and books a slot', async ({ page
   const index = ((await slots.json()) as { id: string }[]).findIndex((s) => s.id === slotId);
   expect(index).toBeGreaterThanOrEqual(0);
   await page.getByRole('button', { name: 'Book this slot' }).nth(index).click();
-  await expect(page.getByLabel('Proposed session title')).toHaveValue(TITLE);
+  await expect(page.getByLabel('Session title')).toHaveValue(TITLE);
+  // A failed booking shows the API's reason and code, never just "Something went wrong".
+  await page.route('**/api/speaker/slots/*/booking', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ statusCode: 503, code: 'BOOKING_FAILED', message: 'The booking could not be saved (error P2028).' }) })
+      : route.continue(),
+  );
+  await page.getByRole('button', { name: 'Confirm booking' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'BOOKING_FAILED' })).toContainText("couldn't be saved and nothing was booked");
+  await expect(page.getByText('Something went wrong')).toHaveCount(0);
+  await page.unroute('**/api/speaker/slots/*/booking');
+  // The details are optional; this one says who it's for.
+  await page.getByText('Session details (optional)').click();
+  await page.getByLabel("Who it's for").fill('ML engineers shipping LLM features');
   await page.getByRole('button', { name: 'Confirm booking' }).click();
   await expect(page.getByText("You're booked!")).toBeVisible();
   await expect(page.getByRole('link', { name: 'Add to Google Calendar' }).first()).toHaveAttribute('href', /calendar\.google\.com/);
@@ -85,6 +110,16 @@ test('a speaker registers, applies, is approved and books a slot', async ({ page
     status: string;
     bookedBy: { email: string } | null;
     event: { status: string } | null;
+    kind: string | null;
+    details: Record<string, unknown>;
   }[];
-  expect(all.find((s) => s.id === slotId)).toMatchObject({ status: 'BOOKED', bookedBy: { email: speaker.email }, event: { status: 'DRAFT' } });
+  expect(all.find((s) => s.id === slotId)).toMatchObject({
+    status: 'BOOKED',
+    bookedBy: { email: speaker.email },
+    event: { status: 'DRAFT' },
+    kind: 'SESSION',
+    details: { audience: 'ML engineers shipping LLM features' },
+  });
+  // Until the team publishes it, the speaker can still edit the details.
+  await expect(page.getByRole('button', { name: 'Edit details' })).toBeVisible();
 });

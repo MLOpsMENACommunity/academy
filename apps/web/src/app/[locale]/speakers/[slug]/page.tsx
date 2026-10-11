@@ -6,7 +6,7 @@ import {
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { TopicList } from '@/components/archive/TopicList';
 import { DateTile } from '@/components/sessions/SessionDate';
@@ -52,8 +52,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: name,
     description,
-    alternates: alternates(locale, `/speakers/${slug}`),
-    openGraph: { title: name, description, type: 'profile', url: absoluteUrl(speakerPath(locale, slug)), images: s.photoUrl ? [absolutePhoto(s.photoUrl)] : [DEFAULT_OG_IMAGE] },
+    alternates: alternates(locale, `/speakers/${s.slug}`),
+    openGraph: { title: name, description, type: 'profile', url: absoluteUrl(speakerPath(locale, s.slug)), images: s.photoUrl ? [absolutePhoto(s.photoUrl)] : [DEFAULT_OG_IMAGE] },
   };
 }
 
@@ -73,6 +73,8 @@ export default async function SpeakerPage({ params }: Props) {
   if (!isLocale(locale)) notFound();
   const s = await load(slug);
   if (!s) notFound();
+  // A former address (the team changed the slug): send people and crawlers to the current one.
+  if (s.slug !== slug) permanentRedirect(speakerPath(locale, s.slug));
   const t = createTranslator(locale);
   const name = pick(locale, s.name, s.nameAr);
   const title = pick(locale, s.titleEn, s.titleAr);
