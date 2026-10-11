@@ -125,7 +125,7 @@ describe('badge scopes (one award per scope)', () => {
 
 describe('names on boards', () => {
   it('shows first name + last initial only', () => {
-    expect(boardName('Layla Member Salama')).toBe('Aya S.');
+    expect(boardName('Aya Nasser Salama')).toBe('Aya S.');
     expect(boardName('  omar  ')).toBe('omar');
     expect(boardName('آية ناصر')).toBe('آية ن.');
     expect(boardName(null)).toBe('—');

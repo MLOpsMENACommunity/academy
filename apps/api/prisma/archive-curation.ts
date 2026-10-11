@@ -119,7 +119,7 @@ export interface SpeakerProfile {
 }
 
 export const speakerProfiles: Record<string, SpeakerProfile> = {
-  'Layla Member Salama': {
+  'Aya Nasser Salama': {
     nameAr: 'آية ناصر سلامة',
     titleAr: 'مؤسِّسة مجتمع MLOps MENA ومهندسة MLOps أولى',
     bioAr:
@@ -191,7 +191,7 @@ export const sessions: Record<string, CuratedSession> = {
     // The website had 20:00 Cairo; the owner's list: Saturday 22 Aug, 4:00 PM UTC (7:00 PM Cairo).
     startsAt: '2026-08-22T19:00:00+03:00',
     coSpeakers: [
-      { name: 'Layla Member Salama', role: 'HOST' },
+      { name: 'Aya Nasser Salama', role: 'HOST' },
     ],
     details: {
       learnEn: [
@@ -242,7 +242,7 @@ export const sessions: Record<string, CuratedSession> = {
     tags: ['docker', 'mlops'],
   },
   'hands-on-cicd-github-actions': {
-    coSpeakers: [{ name: 'Layla Member Salama', role: 'HOST' }],
+    coSpeakers: [{ name: 'Aya Nasser Salama', role: 'HOST' }],
     details: {
       learnEn: [
         'Writing a workflow from scratch: `.github/workflows/ci.yml`, triggers with `on:`, jobs from `run:` and `uses:`.',
@@ -306,7 +306,7 @@ export const sessions: Record<string, CuratedSession> = {
     youtubeIdReason: 'matched by title and date (uploaded two days after the session)',
   },
   'on-prem-mlops-playbook': {
-    coSpeakers: [{ name: 'Layla Member Salama', role: 'HOST' }],
+    coSpeakers: [{ name: 'Aya Nasser Salama', role: 'HOST' }],
     details: {
       learnEn: [
         'Partitioning and scheduling a fixed GPU pool across training, inference and experimentation.',
@@ -394,7 +394,7 @@ export const videos: Record<string, CuratedVideo> = {
     startsAt: '2026-09-12T19:00:00+03:00',
     speaker: 'Mohamed Samy',
     coSpeakers: [
-      { name: 'Layla Member Salama', role: 'HOST' },
+      { name: 'Aya Nasser Salama', role: 'HOST' },
     ],
     details: {
       learnEn: [
@@ -473,7 +473,7 @@ export const extraSessions: CuratedExtraSession[] = [
     titleEn: 'Introduction to LLM Inference Engines',
     titleAr: 'مقدمة في محركات الاستدلال للنماذج اللغوية الكبيرة',
     speaker: 'Mohamed Rashad',
-    coSpeakers: [{ name: 'Layla Member Salama', role: 'HOST' }],
+    coSpeakers: [{ name: 'Aya Nasser Salama', role: 'HOST' }],
     // Thursday 8 Oct 2026, 5:00 PM UTC (8:00 PM Cairo), 1 h 30 min. The recording isn't uploaded yet.
     startsAt: '2026-10-08T20:00:00+03:00',
     durationMin: 90,
