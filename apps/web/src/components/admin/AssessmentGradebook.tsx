@@ -211,7 +211,8 @@ export function AssessmentGradebook({ assessmentId, onBack }: { assessmentId: st
   }, [assessmentId, filter, t]);
   useEffect(load, [load]);
 
-  const title = book ? (locale === 'ar' ? book.assessment.titleAr : book.assessment.titleEn) : '';
+  // The editor is English-only: the gradebook names assessments the same way.
+  const title = book ? book.assessment.titleEn : '';
 
   return (
     <div className="space-y-4">

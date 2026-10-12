@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { assessmentError } from './assessment-errors';
+import { assessmentText, optionText } from './assessment-text';
 
 const PHONE = '(max-width: 39.99rem)';
 
@@ -54,7 +55,7 @@ function Question({
 }) {
   const { locale, t } = useI18n();
   const multi = q.kind === 'MULTIPLE';
-  const prompt = (locale === 'ar' && q.promptAr) || q.promptEn;
+  const prompt = assessmentText(locale, q.promptEn, q.promptAr);
   const hintId = `q-${q.id}-hint`;
   const flagId = `q-${q.id}-flag`;
   return (
@@ -65,15 +66,17 @@ function Question({
           <span>{t('assessments.player.questionOf', { n, total })}</span>
           <span>{t('assessments.points', { count: q.weight })}</span>
         </span>
-        <span className="mt-1 block text-[1.0625rem] leading-snug font-semibold whitespace-pre-line text-fg">{prompt}</span>
+        <span dir={prompt.dir} className="mt-1 block text-[1.0625rem] leading-snug font-semibold whitespace-pre-line text-fg">
+          {prompt.text}
+        </span>
       </legend>
       <p id={hintId} className="mt-1 text-[0.8125rem] text-muted">
         {multi ? t('assessments.player.chooseAll') : t('assessments.player.chooseOne')}
       </p>
       <div className="mt-3 flex flex-col gap-2">
-        {q.options.map((o) => {
+        {q.options.map((o, i) => {
           const checked = value.includes(o.id);
-          const label = (locale === 'ar' && o.labelAr) || o.labelEn;
+          const label = optionText(locale, t, q.kind, o, i);
           return (
             <label
               key={o.id}
@@ -93,7 +96,9 @@ function Question({
                 aria-invalid={flagged || undefined}
                 className="size-5 shrink-0 accent-[var(--brand-primary)]"
               />
-              <span className="whitespace-pre-line">{label}</span>
+              <span dir={label.dir} className="whitespace-pre-line">
+                {label.text}
+              </span>
             </label>
           );
         })}

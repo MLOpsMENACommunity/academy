@@ -18,6 +18,7 @@ import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { scoreText, stateTone } from './AssessmentList';
 import { assessmentError } from './assessment-errors';
+import { assessmentText } from './assessment-text';
 import { QuizPlayer } from './QuizPlayer';
 import { QuizReview } from './QuizReview';
 import { WorkSubmission } from './WorkSubmission';
@@ -195,9 +196,8 @@ function Inner() {
   }
   if (!detail) return <PageSpinner />;
 
-  const ar = locale === 'ar';
-  const title = (ar && detail.titleAr) || detail.titleEn;
-  const instructions = (ar && detail.instructionsAr) || detail.instructionsEn;
+  const title = assessmentText(locale, detail.titleEn, detail.titleAr);
+  const instructions = assessmentText(locale, detail.instructionsEn, detail.instructionsAr);
   const quiz = detail.type === 'QUIZ';
   const preview = user?.role === 'ADMIN';
   const latest = detail.submissions[0] ?? null;
@@ -212,7 +212,9 @@ function Inner() {
           {detail.late && <Badge tone="warning">{t('assessments.late')}</Badge>}
           {detail.countsForCertificate && <Badge tone="info">{t('assessments.certificate')}</Badge>}
         </p>
-        <h1 className="text-2xl leading-snug sm:text-3xl">{title}</h1>
+        <h1 dir={title.dir} className="text-2xl leading-snug sm:text-3xl">
+          {title.text}
+        </h1>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[0.9375rem] text-muted">
           <li>
             {detail.dueAt ? (
@@ -255,12 +257,14 @@ function Inner() {
         <>
           {result && <ResultCard result={result} detail={detail} />}
 
-          {instructions.trim() && (
+          {instructions.text.trim() && (
             <section aria-labelledby="instructions" className="flex flex-col gap-2">
               <h2 id="instructions" className="text-lg">
                 {t('assessments.instructions')}
               </h2>
-              <Markdown>{instructions}</Markdown>
+              <div dir={instructions.dir}>
+                <Markdown>{instructions.text}</Markdown>
+              </div>
             </section>
           )}
 

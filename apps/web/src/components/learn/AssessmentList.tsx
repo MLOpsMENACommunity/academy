@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { LocalTime } from '@/components/course/LocalTime';
 import { Badge, type Tone } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
+import { assessmentText } from './assessment-text';
 
 export const stateTone: Record<AssessmentState, Tone> = {
   NOT_STARTED: 'neutral',
@@ -51,7 +52,9 @@ export function AssessmentList({
               <span className="flex min-w-0 flex-col gap-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <Badge tone={a.type === 'QUIZ' ? 'primary' : 'accent'}>{t(`assessments.type.${a.type}`)}</Badge>
-                  <span className="font-medium text-fg">{locale === 'ar' ? a.titleAr : a.titleEn}</span>
+                  <span dir={assessmentText(locale, a.titleEn, a.titleAr).dir} className="font-medium text-fg">
+                    {assessmentText(locale, a.titleEn, a.titleAr).text}
+                  </span>
                 </span>
                 <span className="text-[0.8125rem] text-muted">
                   {a.dueAt ? (
