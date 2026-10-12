@@ -31,6 +31,7 @@ import { Card } from '@/components/ui/Card';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { ImageUploadField } from './ImageUploadField';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 /** The old single `level` isn't edited: the API derives it from `levels`. */
@@ -182,7 +183,7 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
             <TextField label={f('currency')} required value={v.currency} onChange={set('currency')} maxLength={3} dir="ltr" />
           </div>
           <SelectField label={f('language')} required value={v.language} onChange={(x) => set('language')((x ?? 'BILINGUAL') as CourseFormValue['language'])} options={opts(COURSE_LANGUAGES, courseLanguageLabels)} />
-          <TextField label={f('cover')} type="url" dir="ltr" value={v.coverImageUrl ?? ''} onChange={(x) => set('coverImageUrl')(x || null)} error={errors.coverImageUrl} />
+          <ImageUploadField label={f('cover')} value={v.coverImageUrl} onChange={(x) => set('coverImageUrl')(x)} error={errors.coverImageUrl} />
           <CheckboxField label={f('requiresApproval')} checked={v.requiresApproval} onChange={set('requiresApproval')} />
           <div className="space-y-3 sm:col-span-2">
             <ChipGroup

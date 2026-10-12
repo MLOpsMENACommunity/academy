@@ -5,12 +5,14 @@ import {
   applicationStatusLabels,
   courseStatusLabels,
   funnelBars,
+  hasAdminPermission,
   type ApplicationStatus,
   type CourseStatus,
   type FunnelEvent,
 } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
@@ -38,6 +40,8 @@ export default function AdminHome() {
   const { locale, t } = useI18n();
   const [d, setD] = useState<Dashboard | null>(null);
   const [error, setError] = useState(false);
+  const { user } = useAuth();
+  const can = (...p: Parameters<typeof hasAdminPermission>[1]) => hasAdminPermission(user, p);
   useEffect(() => {
     api<Dashboard>('/admin/dashboard')
       .then(setD)
@@ -52,23 +56,29 @@ export default function AdminHome() {
         <Card>
           <p className="text-sm text-muted">{t('admin.dashboard.pendingPayments')}</p>
           <p className="mt-1 text-4xl font-semibold text-fg">{d?.pendingPayments ?? '–'}</p>
-          <Link href={`/${locale}/admin/payments`} className={buttonClass('primary', 'sm', 'mt-4')}>
-            {t('admin.nav.payments')}
-          </Link>
+          {can('FINANCE') && (
+            <Link href={`/${locale}/admin/payments`} className={buttonClass('primary', 'sm', 'mt-4')}>
+              {t('admin.nav.payments')}
+            </Link>
+          )}
         </Card>
         <Card>
           <p className="text-sm text-muted">{t('admin.dashboard.newApplications')}</p>
           <p className="mt-1 text-4xl font-semibold text-fg">{d?.newApplications7d ?? '–'}</p>
-          <Link href={`/${locale}/admin/applications?status=SUBMITTED`} className={buttonClass('secondary', 'sm', 'mt-4')}>
-            {t('admin.nav.applications')}
-          </Link>
+          {can('ADMISSIONS') && (
+            <Link href={`/${locale}/admin/applications?status=SUBMITTED`} className={buttonClass('secondary', 'sm', 'mt-4')}>
+              {t('admin.nav.applications')}
+            </Link>
+          )}
         </Card>
         <Card>
           <p className="text-sm text-muted">{t('admin.dashboard.courses')}</p>
           <p className="mt-1 text-4xl font-semibold text-fg">{d?.courseCount ?? '–'}</p>
-          <Link href={`/${locale}/admin/courses`} className={buttonClass('secondary', 'sm', 'mt-4')}>
-            {t('admin.nav.courses')}
-          </Link>
+          {can('ACADEMIC', 'ADMISSIONS') && (
+            <Link href={`/${locale}/admin/courses`} className={buttonClass('secondary', 'sm', 'mt-4')}>
+              {t('admin.nav.courses')}
+            </Link>
+          )}
         </Card>
       </div>
 

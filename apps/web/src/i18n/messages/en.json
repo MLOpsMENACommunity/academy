@@ -163,7 +163,10 @@
       "INVITE_RECENTLY_SENT": "This invitation was emailed less than a minute ago. Try again shortly.",
       "INVITE_NOT_PENDING": "This invitation was already used or revoked.",
       "INVITE_RESEND_LIMIT": "This invitation has already been emailed again as many times as allowed.",
-      "COURSE_NOT_INVITABLE": "Draft and archived courses can't take anyone. Publish or reopen the course first."
+      "COURSE_NOT_INVITABLE": "Draft and archived courses can't take anyone. Publish or reopen the course first.",
+      "LAST_SUPER": "There must always be at least one super admin.",
+      "ALREADY_ADMIN": "This account is already an admin.",
+      "ADMIN_PERMISSION": "Your admin account doesn't have access to this."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -535,7 +538,9 @@
       "settings": "Settings",
       "audit": "Audit log",
       "sessions": "Live sessions",
-      "speakers": "Speakers"
+      "speakers": "Speakers",
+      "media": "Media",
+      "team": "Team"
     },
     "payments": {
       "title": "Payment review",
@@ -1621,6 +1626,88 @@
       "intro": "Enrol people you accepted outside the site, by email address. It's the course's Enrol-by-email tool: people with a confirmed student account are enrolled now, everyone else is invited and enrolled when they sign up.",
       "course": "Course",
       "pick": "Choose a course…"
+    },
+    "noAccess": {
+      "title": "No access",
+      "body": "Your admin account doesn't include this part of the admin panel. Ask a super admin if you need it.",
+      "none": "Your admin account has no permissions yet. Ask a super admin to give you some."
+    },
+    "upload": {
+      "button": "Upload image",
+      "uploading": "Uploading…",
+      "hint": "Paste an https image link, or upload a JPG, PNG or WebP (5 MB max).",
+      "wrongType": "Choose a JPG, PNG or WebP image.",
+      "tooLarge": "The image must be 5 MB or smaller.",
+      "preview": "Preview of the image"
+    },
+    "permissions": {
+      "SUPER": {
+        "label": "Super admin",
+        "description": "Everything, including the team, settings and the audit log."
+      },
+      "ACADEMIC": {
+        "label": "Sessions and academics",
+        "description": "Courses and their sessions, live sessions, assessments and grading, points and badges, certificates, course announcements and feedback."
+      },
+      "CONTENT": {
+        "label": "Social media and content",
+        "description": "Images, recordings and video links: course and session covers, speaker photos. No student data."
+      },
+      "ADMISSIONS": {
+        "label": "Admissions",
+        "description": "Applications, students, enrolments, invites and waiting lists."
+      },
+      "SPEAKERS": {
+        "label": "Speakers",
+        "description": "Speaker profiles and applications, slots and bookings, assigning speakers to courses."
+      },
+      "FINANCE": {
+        "label": "Finance",
+        "description": "Payments."
+      }
+    },
+    "team": {
+      "title": "Team",
+      "intro": "Who can use the admin panel, and what each person can do. Changes apply at once, without signing anyone out.",
+      "add": "Add admin",
+      "addTitle": "Add an admin",
+      "addIntro": "If this address already has an account, it becomes an admin. Otherwise we create the account and email a link to choose a password (it works for 7 days).",
+      "email": "Email address",
+      "name": "Full name (optional, for a new account)",
+      "language": "Language of the email",
+      "presets": "What they can do",
+      "presetsHint": "Choose one or more.",
+      "submit": "Add to the team",
+      "invited": "Account created for {email}. They've been emailed a link to choose their password.",
+      "promoted": "{email} is now an admin.",
+      "you": "You",
+      "pending": "Hasn't signed in yet",
+      "lastLogin": "Last sign-in {date}",
+      "editPresets": "Change permissions",
+      "remove": "Remove from team",
+      "removeConfirm": "Remove {email} from the team? Their account stays, as a student account.",
+      "removed": "{email} was removed from the team.",
+      "lastSuperHint": "There must always be at least one super admin.",
+      "count": "{count, plural, one {# admin} other {# admins}}"
+    },
+    "media": {
+      "title": "Media",
+      "intro": "Covers, speaker photos and recording links. Only these fields can be changed here.",
+      "search": "Search by name",
+      "tabs": {
+        "courses": "Courses",
+        "events": "Live sessions",
+        "speakers": "Speakers"
+      },
+      "cover": "Cover image",
+      "playlist": "YouTube playlist link",
+      "sessionRecordings": "Session recordings ({count})",
+      "recording": "Recording link",
+      "speakerPhoto": "Speaker photo (this session)",
+      "photo": "Photo",
+      "save": "Save",
+      "saved": "Saved",
+      "empty": "Nothing matches."
     }
   },
   "learn": {

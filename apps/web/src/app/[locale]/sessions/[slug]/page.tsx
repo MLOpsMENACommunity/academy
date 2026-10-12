@@ -31,6 +31,9 @@ import { serverGet, staticSlugs } from '@/lib/server-api';
 import { excerpt, pick } from '@/lib/sessions';
 import { absoluteUrl, community } from '@/lib/site';
 
+/** Uploaded covers are site paths (/api/media/…): link previews and structured data need full URLs. */
+const absoluteImage = (url: string) => (url.startsWith('/') ? absoluteUrl(url) : url);
+
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
 export const revalidate = 60;
@@ -63,7 +66,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: 'website',
       url: absoluteUrl(`/${locale}/sessions/${slug}`),
-      images: e.coverImageUrl ? [e.coverImageUrl] : [DEFAULT_OG_IMAGE],
+      images: e.coverImageUrl ? [absoluteImage(e.coverImageUrl)] : [DEFAULT_OG_IMAGE],
     },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -141,7 +144,7 @@ export default async function SessionPage({ params }: Props) {
       location: { '@type': 'VirtualLocation', url },
       inLanguage: e.language === 'AR' ? 'ar' : e.language === 'EN' ? 'en' : ['ar', 'en'],
       isAccessibleForFree: true,
-      ...(e.coverImageUrl ? { image: [e.coverImageUrl] } : {}),
+      ...(e.coverImageUrl ? { image: [absoluteImage(e.coverImageUrl)] } : {}),
       organizer: { '@type': 'Organization', name: 'MLOps MENA Community', url: community.mainSite },
       ...(people.length
         ? {
