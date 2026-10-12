@@ -57,6 +57,8 @@ const pairs: Record<string, readonly string[]> = {
   // Points and badges
   PointsReason: shared.POINTS_REASONS,
   BadgeKind: shared.BADGE_KINDS,
+  AttendanceStatus: shared.ATTENDANCE_STATUSES,
+  AttendanceSource: shared.ATTENDANCE_SOURCES,
 };
 
 describe('Prisma enums match @academy/shared', () => {

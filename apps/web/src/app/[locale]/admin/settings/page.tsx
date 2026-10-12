@@ -17,11 +17,11 @@ const GROUPS: { title: string; keys: (keyof Settings)[] }[] = [
   { title: 'support', keys: ['supportEmail', 'supportWhatsapp'] },
   { title: 'windows', keys: ['liveLinkRevealMinutes', 'screenshotRetentionDays'] },
   { title: 'speakers', keys: ['speakerMaxOpenBookings', 'speakerCancelDays'] },
-  { title: 'points', keys: ['sessionCompletedPoints', 'certificatePoints'] },
+  { title: 'points', keys: ['sessionCompletedPoints', 'certificatePoints', 'speakerPointsCap'] },
 ];
-const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays', 'speakerMaxOpenBookings', 'speakerCancelDays', 'sessionCompletedPoints', 'certificatePoints']);
+const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRetentionDays', 'speakerMaxOpenBookings', 'speakerCancelDays', 'sessionCompletedPoints', 'certificatePoints', 'speakerPointsCap']);
 /** Points settings keep their strings with the rest of points (admin.points.settings.*). */
-const POINTS_KEYS = new Set<string>(['points', 'sessionCompletedPoints', 'certificatePoints']);
+const POINTS_KEYS = new Set<string>(['points', 'sessionCompletedPoints', 'certificatePoints', 'speakerPointsCap']);
 /** Fields that explain what an empty value does. */
 const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'supportEmail', 'supportWhatsapp', 'speakerCancelDays']);
 

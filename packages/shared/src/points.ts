@@ -30,7 +30,12 @@ export const BADGE_CODES = {
 } as const;
 
 /** Ledger source types of automatic entries (unique per student with sourceId + sourceSeq). */
-export const POINTS_SOURCES = { ASSESSMENT: 'ASSESSMENT', SESSION: 'SESSION', CERTIFICATE: 'CERTIFICATE' } as const;
+export const POINTS_SOURCES = { ASSESSMENT: 'ASSESSMENT', SESSION: 'SESSION', CERTIFICATE: 'CERTIFICATE', ATTENDANCE: 'ATTENDANCE' } as const;
+
+/** The largest single entry (either sign) an admin can add or set. */
+export const ADMIN_POINTS_CAP = 10_000;
+/** The default largest single entry a speaker can add, set or remove (Settings.speakerPointsCap). */
+export const DEFAULT_SPEAKER_POINTS_CAP = 100;
 
 /** Reasons an admin can pick by hand (the others are automatic). */
 export const MANUAL_POINTS_REASONS = ['MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT'] as const satisfies readonly PointsReason[];
@@ -155,12 +160,18 @@ export function assessmentPoints(score: number | null | undefined): number {
   return score == null ? 0 : Math.round(score);
 }
 
+/** What a source's entries add up to now: voided entries don't count. */
+export function ledgerTotal(entries: { points: number; voidedAt?: Date | string | null }[]): number {
+  return entries.reduce((n, e) => n + (e.voidedAt ? 0 : e.points), 0);
+}
+
 /**
  * What to append so a source's entries add up to `target` points: the delta and the
  * next sequence number, or null when the ledger already matches. Never edits a row.
+ * Voided entries don't count toward the total but keep their sequence numbers.
  */
-export function ledgerDelta(entries: { points: number; sourceSeq: number }[], target: number): { points: number; sourceSeq: number } | null {
-  const current = entries.reduce((n, e) => n + e.points, 0);
+export function ledgerDelta(entries: { points: number; sourceSeq: number; voidedAt?: Date | string | null }[], target: number): { points: number; sourceSeq: number } | null {
+  const current = ledgerTotal(entries);
   if (current === target) return null;
   const seq = entries.length ? Math.max(...entries.map((e) => e.sourceSeq)) + 1 : 0;
   return { points: target - current, sourceSeq: seq };
@@ -247,6 +258,25 @@ export const manualPointsSchema = z.object({
   note: text(500).min(1, 'Say what the points are for'),
 });
 export type ManualPointsInput = z.infer<typeof manualPointsSchema>;
+
+/**
+ * Editing a manual entry: the old entry is voided (kept, struck through) and a new one takes
+ * its place, dated like the old one so it stays in the same leaderboard week. `why` is kept
+ * on the voided entry.
+ */
+export const pointsEditSchema = manualPointsSchema.pick({ points: true, reason: true, note: true }).extend({
+  why: text(300).min(1, 'Say why you are changing it'),
+});
+export type PointsEditInput = z.infer<typeof pointsEditSchema>;
+
+/** Removing a manual entry: it is voided (kept, struck through, no longer counted), never deleted. */
+export const pointsVoidSchema = z.object({ why: text(300).min(1, 'Say why you are removing it') });
+export type PointsVoidInput = z.infer<typeof pointsVoidSchema>;
+
+/** Whether an entry came from a source (assessment, session, attendance, certificate): those are never edited directly. */
+export function isAutomaticEntry(e: { sourceType: string | null }): boolean {
+  return e.sourceType !== null;
+}
 
 export const pointsImportSchema = z.object({
   csv: z.string().max(500_000),
@@ -387,10 +417,32 @@ export interface AdminLeaderboardDto {
   total: number;
 }
 
+/** A ledger line as admins and teaching speakers see it, with what can be done to it. */
+export interface LedgerEntryDto extends PointsEntryDto {
+  awardedBy: string | null;
+  sourceType: string | null;
+  /** From a source (assessment, session, attendance, certificate): override with a correction instead. */
+  automatic: boolean;
+  /** Removed (or replaced by an edit): kept for the record, not counted. */
+  voided: { at: string; by: string | null; why: string | null } | null;
+  /** This entry replaced an earlier one when it was edited. */
+  replaces: string | null;
+}
+
+/** Speaker portal → Points → {student}: their entries in this course, and the speaker's limit. */
+export interface CourseStudentPointsDto {
+  student: { userId: string; name: string | null; email: string };
+  total: number;
+  entries: LedgerEntryDto[];
+  /** The largest single entry this user may add, set or remove. */
+  cap: number;
+}
+
 export interface AdminStudentPointsDto {
   total: number;
   courses: { id: string; slug: string; titleEn: string; titleAr: string; points: number }[];
-  entries: (PointsEntryDto & { awardedBy: string | null; sourceType: string | null })[];
+  entries: LedgerEntryDto[];
+  cap: number;
   badges: (UserBadgeDto & { awardedBy: string | null })[];
   /** Courses the student is enrolled in (for the award forms). */
   enrolledCourses: { id: string; slug: string; titleEn: string; titleAr: string }[];

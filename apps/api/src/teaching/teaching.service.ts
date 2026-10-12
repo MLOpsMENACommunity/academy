@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   Material,
   SessionMaterialsInput,
@@ -13,7 +13,8 @@ import type { CourseSession, Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { CourseAccessService } from '../course-access/course-access.service';
-import { PointsService } from '../points/points.service';
+import { COUNTED, PointsService } from '../points/points.service';
+import { SettingsService } from '../settings/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** New assessments a speaker may create in 24 hours (all their courses together). */
@@ -51,6 +52,7 @@ export class TeachingService {
     private readonly audit: AuditService,
     private readonly access: CourseAccessService,
     private readonly points: PointsService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Speaker portal → My courses: assigned, not archived. */
@@ -143,9 +145,9 @@ export class TeachingService {
     });
     const ids = enrolled.map((e) => e.user.id);
     const [sums, entries] = await Promise.all([
-      this.prisma.pointsEntry.groupBy({ by: ['userId'], where: { courseId, userId: { in: ids } }, _sum: { points: true } }),
+      this.prisma.pointsEntry.groupBy({ by: ['userId'], where: { courseId, userId: { in: ids }, ...COUNTED }, _sum: { points: true } }),
       this.prisma.pointsEntry.findMany({
-        where: { courseId, userId: { in: ids }, sourceType: null },
+        where: { courseId, userId: { in: ids }, sourceType: null, ...COUNTED },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: 50,
         include: { awardedBy: { select: { profile: { select: { fullNameEn: true } }, speakerProfile: { select: { name: true } } } } },
@@ -171,10 +173,22 @@ export class TeachingService {
     };
   }
 
-  /** Adds (or takes away) course points for an enrolled student: 404 for anyone else. Audited by PointsService. */
+  /** The largest single entry a speaker may add, set or remove (Settings.speakerPointsCap). */
+  async pointsCap(): Promise<number> {
+    return (await this.settings.get()).speakerPointsCap;
+  }
+
+  /**
+   * Adds (or takes away) course points for an enrolled student: 404 for anyone else, 403
+   * POINTS_CAP over the speaker cap. Audited by PointsService.
+   */
   async award(courseId: string, input: TeachingPointsInput, actor: Actor): Promise<PointsEntryDto> {
     const enrolled = await this.prisma.enrollment.findFirst({ where: { ...enrolledIn(courseId), userId: input.userId }, select: { id: true } });
     if (!enrolled) throw new NotFoundException('Student not found');
+    const cap = await this.pointsCap();
+    if (Math.abs(input.points) > cap) {
+      throw new ForbiddenException({ code: 'POINTS_CAP', message: `Speakers can add, change or remove at most ${cap} points per entry`, cap });
+    }
     const { userId, ...rest } = input;
     return this.points.addManual(userId, { ...rest, courseId }, actor);
   }

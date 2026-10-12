@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CourseType, DeliveryPlatform, RecordingsPlatform } from './enums';
+import type { AttendanceStatus, CourseType, DeliveryPlatform, RecordingsPlatform } from './enums';
 import type { Material } from './course-content';
 import { googleCalendarLink } from './calendar';
 
@@ -66,6 +66,8 @@ export interface LearnSessionDto {
   materials: Material[];
   assignmentUrl: string | null;
   completed: boolean;
+  /** Their attendance from the Meet file (or set by the team); null until it is recorded. */
+  attendance: { status: AttendanceStatus; minutes: number; percent: number } | null;
   myFeedback: { rating: number; comment: string | null } | null;
 }
 

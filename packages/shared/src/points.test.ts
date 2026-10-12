@@ -107,6 +107,9 @@ describe('ledger deltas', () => {
   it('takes session points back when a session is unmarked, and gives them again', () => {
     expect(ledgerDelta([{ points: 5, sourceSeq: 0 }], 0)).toEqual({ points: -5, sourceSeq: 1 });
     expect(ledgerDelta([{ points: 5, sourceSeq: 0 }, { points: -5, sourceSeq: 1 }], 5)).toEqual({ points: 5, sourceSeq: 2 });
+    // A voided entry doesn't count, but its sequence number stays taken.
+    expect(ledgerDelta([{ points: 5, sourceSeq: 0, voidedAt: new Date() }], 5)).toEqual({ points: 5, sourceSeq: 1 });
+    expect(ledgerDelta([{ points: 5, sourceSeq: 0, voidedAt: null }], 5)).toBeNull();
   });
 
   it('rounds counted scores to whole points', () => {

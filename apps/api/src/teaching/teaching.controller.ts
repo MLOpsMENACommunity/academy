@@ -1,13 +1,21 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
+  attendanceMarkSchema,
+  attendanceUploadSchema,
+  pointsEditSchema,
+  pointsVoidSchema,
   assessmentInputSchema,
   assessmentOrderSchema,
   gradeInputSchema,
   sessionMaterialsSchema,
   submissionFilterSchema,
   teachingPointsSchema,
+  type AttendanceMarkInput,
+  type AttendanceUploadInput,
+  type PointsEditInput,
+  type PointsVoidInput,
   type AssessmentInput,
   type AssessmentOrderInput,
   type GradeInput,
@@ -17,6 +25,9 @@ import {
 import type { Response } from 'express';
 import type { z } from 'zod';
 import { AdminAssessmentsService } from '../assessments/admin-assessments.service';
+import { sendAttendanceCsv } from '../attendance/attendance.controller';
+import { AttendanceService } from '../attendance/attendance.service';
+import { PointsService } from '../points/points.service';
 import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { TeachesCourseGuard } from './teaches-course.guard';
@@ -42,6 +53,8 @@ export class TeachingController {
   constructor(
     private readonly teaching: TeachingService,
     private readonly assessments: AdminAssessmentsService,
+    private readonly attendance: AttendanceService,
+    private readonly ledger: PointsService,
   ) {}
 
   @Get()
@@ -157,6 +170,68 @@ export class TeachingController {
   @Throttle(WRITE_LIMIT)
   award(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Body(new ZodPipe(teachingPointsSchema)) body: TeachingPointsInput) {
     return this.teaching.award(courseId, body, user);
+  }
+
+  /** One enrolled student's entries in this course (removed ones too) and the speaker's cap. 404 for anyone else. */
+  @Get(':courseId/students/:userId/points')
+  @Header('Cache-Control', 'private, no-store')
+  async studentPoints(@Param('courseId') courseId: string, @Param('userId') userId: string) {
+    return this.ledger.courseStudent(courseId, userId, await this.teaching.pointsCap());
+  }
+
+  /** Edits a manual entry of this course (void + replace), within the speaker cap. Automatic entries: 409. */
+  @Patch(':courseId/points/:entryId')
+  @Throttle(WRITE_LIMIT)
+  async editPoints(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Param('entryId') entryId: string, @Body(new ZodPipe(pointsEditSchema)) body: PointsEditInput) {
+    return this.ledger.editEntry(entryId, body, user, { kind: 'course', courseId, cap: await this.teaching.pointsCap() });
+  }
+
+  /** Removes (voids) a manual entry of this course, within the speaker cap. */
+  @Post(':courseId/points/:entryId/void')
+  @HttpCode(200)
+  @Throttle(WRITE_LIMIT)
+  async voidPoints(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Param('entryId') entryId: string, @Body(new ZodPipe(pointsVoidSchema)) body: PointsVoidInput) {
+    return this.ledger.voidEntry(entryId, body, user, { kind: 'course', courseId, cap: await this.teaching.pointsCap() });
+  }
+
+  // ------------------------------------------------------------------ attendance
+
+  @Get(':courseId/attendance')
+  @Header('Cache-Control', 'private, no-store')
+  attendanceCourse(@Param('courseId') courseId: string) {
+    return this.attendance.course(courseId);
+  }
+
+  @Get(':courseId/attendance.csv')
+  @Throttle(WRITE_LIMIT)
+  async attendanceCsv(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Res() res: Response) {
+    await sendAttendanceCsv(res, this.attendance.csv(courseId, user));
+  }
+
+  @Get(':courseId/sessions/:sessionId/attendance')
+  @Header('Cache-Control', 'private, no-store')
+  attendanceSession(@Param('courseId') courseId: string, @Param('sessionId') sessionId: string) {
+    return this.attendance.session(courseId, sessionId);
+  }
+
+  /** dryRun (default): the preview. dryRun false: replaces the session's attendance and adjusts points. */
+  @Post(':courseId/sessions/:sessionId/attendance')
+  @HttpCode(200)
+  @Throttle(GRADE_LIMIT)
+  attendanceUpload(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Param('sessionId') sessionId: string, @Body(new ZodPipe(attendanceUploadSchema)) body: AttendanceUploadInput) {
+    return this.attendance.upload(courseId, sessionId, body, user);
+  }
+
+  @Put(':courseId/sessions/:sessionId/attendance/:userId')
+  @Throttle(GRADE_LIMIT)
+  attendanceMark(
+    @CurrentUser() user: AuthUser,
+    @Param('courseId') courseId: string,
+    @Param('sessionId') sessionId: string,
+    @Param('userId') userId: string,
+    @Body(new ZodPipe(attendanceMarkSchema)) body: AttendanceMarkInput,
+  ) {
+    return this.attendance.mark(courseId, sessionId, userId, body.status, user);
   }
 
   // ------------------------------------------------------------------ materials

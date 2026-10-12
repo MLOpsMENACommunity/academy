@@ -6,13 +6,17 @@ import {
   badgeUpdateSchema,
   leaderboardQuerySchema,
   manualPointsSchema,
+  pointsEditSchema,
   pointsImportSchema,
+  pointsVoidSchema,
   type AwardBadgeInput,
   type BadgeInput,
   type BadgeUpdate,
   type LeaderboardQuery,
   type ManualPointsInput,
+  type PointsEditInput,
   type PointsImportInput,
+  type PointsVoidInput,
 } from '@academy/shared';
 import type { Response } from 'express';
 import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
@@ -41,6 +45,19 @@ export class AdminPointsController {
   @Post('students/:id/points')
   award(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(manualPointsSchema)) body: ManualPointsInput) {
     return this.points.addManual(id, body, user);
+  }
+
+  /** Edits a manual entry: the old one is voided and replaced (same week). Automatic entries: 409 AUTOMATIC_ENTRY. */
+  @Patch('points/:entryId')
+  editPoints(@CurrentUser() user: AuthUser, @Param('entryId') entryId: string, @Body(new ZodPipe(pointsEditSchema)) body: PointsEditInput) {
+    return this.points.editEntry(entryId, body, user, { kind: 'admin' });
+  }
+
+  /** Removes a manual entry: voided (kept, not counted), never deleted. */
+  @Post('points/:entryId/void')
+  @HttpCode(200)
+  voidPoints(@CurrentUser() user: AuthUser, @Param('entryId') entryId: string, @Body(new ZodPipe(pointsVoidSchema)) body: PointsVoidInput) {
+    return this.points.voidEntry(entryId, body, user, { kind: 'admin' });
   }
 
   @Post('students/:id/badges')

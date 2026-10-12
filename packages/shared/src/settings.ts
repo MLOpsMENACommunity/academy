@@ -38,6 +38,11 @@ export const settingsSchema = z.object({
   /** Bonus points when a course certificate is issued. */
   certificatePoints: z.number().int().min(0).max(10000).default(50),
   /**
+   * The largest single points entry (either sign) a teaching speaker can add, set or remove.
+   * Admins can go to ±10,000.
+   */
+  speakerPointsCap: z.number().int().min(1).max(10000).default(100),
+  /**
    * Who hears about speaker bookings and cancellations (one email each). Admin only:
    * never part of the public settings.
    */

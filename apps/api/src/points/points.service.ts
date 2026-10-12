@@ -1,18 +1,24 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  ADMIN_POINTS_CAP,
   assessmentPoints,
   BADGE_CODES,
   badgeScopeKey,
   countedAttempt,
   ledgerDelta,
+  ledgerTotal,
   parsePointsCsv,
   POINTS_SOURCES,
   type AdminStudentPointsDto,
+  type CourseStudentPointsDto,
+  type LedgerEntryDto,
   type ManualPointsInput,
+  type PointsEditInput,
   type MyPointsDto,
   type PointsEntryDto,
   type PointsImportResultDto,
   type PointsReason,
+  type PointsVoidInput,
   type UserBadgeDto,
 } from '@academy/shared';
 import { createHash } from 'node:crypto';
@@ -27,6 +33,23 @@ import { SettingsService } from '../settings/settings.service';
 const courseRef = { select: { slug: true, titleEn: true, titleAr: true } } as const;
 type CourseRef = { slug: string; titleEn: string; titleAr: string };
 type BadgeAward = UserBadge & { badge: Badge; course: CourseRef | null };
+type Person = { email: string; profile: { fullNameEn: string | null } | null; speakerProfile?: { name: string } | null } | null;
+const person = { select: { email: true, profile: { select: { fullNameEn: true } }, speakerProfile: { select: { name: true } } } } as const;
+
+/** Entries that count: not voided. Every total, board and source sync reads through this. */
+export const COUNTED = { voidedAt: null } as const;
+
+/**
+ * Where a points change is made from. Admins (ACADEMIC or SUPER): any student, any entry, up to
+ * ±ADMIN_POINTS_CAP. A teaching speaker: only entries tagged with their course, for students
+ * enrolled in it, and only up to the speaker cap (both the old and the new value).
+ */
+export type PointsScope = { kind: 'admin' } | { kind: 'course'; courseId: string; cap: number };
+
+/** One answer for "too big for you": the entry, or the change, is over the cap. */
+function overCap(cap: number): ForbiddenException {
+  return new ForbiddenException({ code: 'POINTS_CAP', message: `Speakers can add, change or remove at most ${cap} points per entry`, cap });
+}
 
 function isUniqueViolation(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
@@ -76,9 +99,9 @@ export class PointsService {
     for (let attempt = 0; attempt < 3; attempt++) {
       const entries = await this.prisma.pointsEntry.findMany({
         where: { userId: s.userId, sourceType: s.sourceType, sourceId: s.sourceId },
-        select: { points: true, sourceSeq: true },
+        select: { points: true, sourceSeq: true, voidedAt: true },
       });
-      const current = entries.reduce((n, e) => n + e.points, 0);
+      const current = ledgerTotal(entries);
       // The target is worked out again on every attempt, so a retry never writes a stale one.
       const delta = ledgerDelta(entries, typeof target === 'function' ? await target(current) : target);
       if (!delta) return 0;
@@ -93,6 +116,28 @@ export class PointsService {
       }
     }
     return 0;
+  }
+
+  /**
+   * syncSource inside a caller's transaction, for callers that already hold a lock on the
+   * source (attendance takes one per session), so there is no race to retry.
+   */
+  async syncSourceTx(
+    tx: Prisma.TransactionClient,
+    s: { userId: string; courseId: string | null; sourceType: string; sourceId: string; reason: PointsReason },
+    target: number,
+    now = new Date(),
+  ): Promise<number> {
+    const entries = await tx.pointsEntry.findMany({
+      where: { userId: s.userId, sourceType: s.sourceType, sourceId: s.sourceId },
+      select: { points: true, sourceSeq: true, voidedAt: true },
+    });
+    const delta = ledgerDelta(entries, target);
+    if (!delta) return 0;
+    await tx.pointsEntry.create({
+      data: { userId: s.userId, courseId: s.courseId, sourceType: s.sourceType, sourceId: s.sourceId, sourceSeq: delta.sourceSeq, reason: s.reason, points: delta.points, createdAt: now },
+    });
+    return delta.points;
   }
 
   /** Deleted (or anonymised) accounts never gain points or badges again. */
@@ -387,7 +432,10 @@ export class PointsService {
     const ids = (type: string) => [...new Set(entries.filter((e) => e.sourceType === type && e.sourceId).map((e) => e.sourceId!))];
     const [assessments, sessions] = await Promise.all([
       this.prisma.assessment.findMany({ where: { id: { in: ids(POINTS_SOURCES.ASSESSMENT) } }, select: { id: true, titleEn: true, titleAr: true } }),
-      this.prisma.courseSession.findMany({ where: { id: { in: ids(POINTS_SOURCES.SESSION) } }, select: { id: true, titleEn: true, titleAr: true, order: true } }),
+      this.prisma.courseSession.findMany({
+        where: { id: { in: [...ids(POINTS_SOURCES.SESSION), ...ids(POINTS_SOURCES.ATTENDANCE)] } },
+        select: { id: true, titleEn: true, titleAr: true, order: true },
+      }),
     ]);
     const titles = new Map<string, { en: string; ar: string }>([
       ...assessments.map((a) => [a.id, { en: a.titleEn, ar: a.titleAr || a.titleEn }] as const),
@@ -414,8 +462,8 @@ export class PointsService {
 
   private async totals(userId: string) {
     const [total, byCourse] = await Promise.all([
-      this.prisma.pointsEntry.aggregate({ where: { userId }, _sum: { points: true } }),
-      this.prisma.pointsEntry.groupBy({ by: ['courseId'], where: { userId, courseId: { not: null } }, _sum: { points: true } }),
+      this.prisma.pointsEntry.aggregate({ where: { userId, ...COUNTED }, _sum: { points: true } }),
+      this.prisma.pointsEntry.groupBy({ by: ['courseId'], where: { userId, courseId: { not: null }, ...COUNTED }, _sum: { points: true } }),
     ]);
     const courses = await this.prisma.course.findMany({ where: { id: { in: byCourse.map((c) => c.courseId!) } }, select: { id: true, slug: true, titleEn: true, titleAr: true } });
     const sums = new Map(byCourse.map((c) => [c.courseId!, c._sum.points ?? 0]));
@@ -426,7 +474,7 @@ export class PointsService {
   async mine(userId: string): Promise<MyPointsDto> {
     const [{ total, courses }, recent, badges] = await Promise.all([
       this.totals(userId),
-      this.prisma.pointsEntry.findMany({ where: { userId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 6, include: { course: courseRef } }),
+      this.prisma.pointsEntry.findMany({ where: { userId, ...COUNTED }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 6, include: { course: courseRef } }),
       this.badgesOf(userId),
     ]);
     return {
@@ -439,8 +487,28 @@ export class PointsService {
 
   /** The full history (profile page). */
   async history(userId: string): Promise<PointsEntryDto[]> {
-    const entries = await this.prisma.pointsEntry.findMany({ where: { userId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 500, include: { course: courseRef } });
+    // Voided entries (removed, or replaced by an edit) aren't the student's points any more.
+    const entries = await this.prisma.pointsEntry.findMany({ where: { userId, ...COUNTED }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 500, include: { course: courseRef } });
     return this.entryDtos(entries);
+  }
+
+  /** Ledger lines with who added them, whether they can be edited, and what replaced them. */
+  private async ledgerDtos(
+    entries: (PointsEntry & { course: CourseRef | null; awardedBy: Person; voidedBy: Person })[],
+    who: (u: Person) => string | null,
+  ): Promise<LedgerEntryDto[]> {
+    const dtos = await this.entryDtos(entries);
+    return dtos.map((d, i) => {
+      const e = entries[i]!;
+      return {
+        ...d,
+        sourceType: e.sourceType,
+        awardedBy: who(e.awardedBy),
+        automatic: e.sourceType !== null,
+        voided: e.voidedAt ? { at: e.voidedAt.toISOString(), by: who(e.voidedBy), why: e.voidReason } : null,
+        replaces: e.replacesId,
+      };
+    });
   }
 
   async adminStudent(userId: string): Promise<AdminStudentPointsDto> {
@@ -451,8 +519,8 @@ export class PointsService {
       this.prisma.pointsEntry.findMany({
         where: { userId },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: 200,
-        include: { course: courseRef, awardedBy: { select: { email: true, profile: { select: { fullNameEn: true } } } } },
+        take: 300,
+        include: { course: courseRef, awardedBy: person, voidedBy: person },
       }),
       this.prisma.userBadge.findMany({
         where: { userId },
@@ -461,14 +529,113 @@ export class PointsService {
       }),
       this.prisma.enrollment.findMany({ where: { userId }, select: { course: { select: { id: true, slug: true, titleEn: true, titleAr: true } } }, orderBy: { enrolledAt: 'desc' } }),
     ]);
-    const dtos = await this.entryDtos(entries);
-    const who = (u: { email: string; profile: { fullNameEn: string | null } | null } | null) => (u ? (u.profile?.fullNameEn ?? u.email) : null);
+    const who = (u: Person) => (u ? (u.profile?.fullNameEn ?? u.email) : null);
     return {
       total,
       courses,
-      entries: dtos.map((d, i) => ({ ...d, sourceType: entries[i]!.sourceType, awardedBy: who(entries[i]!.awardedBy) })),
+      entries: await this.ledgerDtos(entries, who),
       badges: badges.map((b) => ({ ...toUserBadgeDto(b), awardedBy: who(b.awardedBy) })),
       enrolledCourses: enrolled.map((e) => e.course),
+      cap: ADMIN_POINTS_CAP,
     };
+  }
+
+  // ------------------------------------------------------------------ editing and removing
+
+  /** Speaker portal → Points → {student}: their entries in this course (removed ones too). 404 unless enrolled. */
+  async courseStudent(courseId: string, userId: string, cap: number): Promise<CourseStudentPointsDto> {
+    const enrolment = await this.prisma.enrollment.findFirst({
+      where: { courseId, userId, user: { deletedAt: null } },
+      select: { user: { select: { id: true, email: true, profile: { select: { fullNameEn: true } } } } },
+    });
+    if (!enrolment) throw new NotFoundException('Student not found');
+    const [entries, sum] = await Promise.all([
+      this.prisma.pointsEntry.findMany({
+        where: { userId, courseId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 300,
+        include: { course: courseRef, awardedBy: person, voidedBy: person },
+      }),
+      this.prisma.pointsEntry.aggregate({ where: { userId, courseId, ...COUNTED }, _sum: { points: true } }),
+    ]);
+    // Speakers see names, not other team members' email addresses.
+    const who = (u: Person) => (u ? u.speakerProfile?.name || u.profile?.fullNameEn || null : null);
+    const u = enrolment.user;
+    return { student: { userId: u.id, name: u.profile?.fullNameEn ?? null, email: u.email }, total: sum._sum.points ?? 0, entries: await this.ledgerDtos(entries, who), cap };
+  }
+
+  /**
+   * The entry, if this scope may change it: a manual entry (automatic ones are corrected with
+   * an ADJUSTMENT instead), not already voided, of a student who still has an account; for a
+   * speaker, tagged with their course, for a student enrolled in it, and within their cap.
+   */
+  private async changeable(tx: Prisma.TransactionClient, entryId: string, scope: PointsScope): Promise<PointsEntry> {
+    const e = await tx.pointsEntry.findUnique({ where: { id: entryId } });
+    // Another course's entry looks the same as no entry to a speaker.
+    if (!e || (scope.kind === 'course' && e.courseId !== scope.courseId)) throw new NotFoundException('Points entry not found');
+    const user = await tx.user.findUnique({ where: { id: e.userId }, select: { deletedAt: true } });
+    if (!user || user.deletedAt) throw new NotFoundException('Points entry not found');
+    if (scope.kind === 'course') {
+      const enrolled = await tx.enrollment.findFirst({ where: { courseId: scope.courseId, userId: e.userId }, select: { id: true } });
+      if (!enrolled) throw new NotFoundException('Points entry not found');
+    }
+    if (e.sourceType !== null) {
+      throw new ConflictException({ code: 'AUTOMATIC_ENTRY', message: 'Points from an assessment, attendance, a session or a certificate change with their source. Add a correction instead.' });
+    }
+    if (e.voidedAt) throw new ConflictException({ code: 'ENTRY_VOIDED', message: 'This entry was already removed or changed. Reload to see the latest.' });
+    if (scope.kind === 'course' && Math.abs(e.points) > scope.cap) throw overCap(scope.cap);
+    return e;
+  }
+
+  /** Marks the entry voided, unless someone else got there first (409). */
+  private async voidRow(tx: Prisma.TransactionClient, e: PointsEntry, why: string, actor: Actor, now: Date): Promise<void> {
+    const r = await tx.pointsEntry.updateMany({ where: { id: e.id, voidedAt: null }, data: { voidedAt: now, voidedById: actor.id, voidReason: why } });
+    if (r.count !== 1) throw new ConflictException({ code: 'ENTRY_VOIDED', message: 'This entry was already removed or changed. Reload to see the latest.' });
+  }
+
+  /**
+   * Edits a manual entry: the old one is voided (kept, struck through) and a new one replaces
+   * it, dated like the old one so it stays in the same leaderboard week. Audited with ids only.
+   */
+  async editEntry(entryId: string, input: PointsEditInput, actor: Actor, scope: PointsScope, now = new Date()): Promise<LedgerEntryDto> {
+    const cap = scope.kind === 'course' ? scope.cap : ADMIN_POINTS_CAP;
+    if (Math.abs(input.points) > cap) throw scope.kind === 'course' ? overCap(cap) : new BadRequestException('Too many points');
+    const created = await this.prisma.$transaction(async (tx) => {
+      const old = await this.changeable(tx, entryId, scope);
+      await this.voidRow(tx, old, input.why, actor, now);
+      const next = await tx.pointsEntry.create({
+        data: { userId: old.userId, courseId: old.courseId, points: input.points, reason: input.reason, note: input.note, awardedById: actor.id, replacesId: old.id, createdAt: old.createdAt },
+      });
+      await this.audit.log(
+        {
+          actorId: actor.id,
+          action: 'points.edited',
+          entityType: 'PointsEntry',
+          entityId: old.id,
+          metadata: { userId: old.userId, courseId: old.courseId, newEntryId: next.id, from: old.points, to: input.points, reason: input.reason },
+        },
+        tx,
+      );
+      return next.id;
+    });
+    return this.ledgerEntry(created);
+  }
+
+  /** Removes a manual entry: voided (kept, struck through, not counted), never deleted. Audited with ids only. */
+  async voidEntry(entryId: string, input: PointsVoidInput, actor: Actor, scope: PointsScope, now = new Date()): Promise<LedgerEntryDto> {
+    await this.prisma.$transaction(async (tx) => {
+      const old = await this.changeable(tx, entryId, scope);
+      await this.voidRow(tx, old, input.why, actor, now);
+      await this.audit.log(
+        { actorId: actor.id, action: 'points.voided', entityType: 'PointsEntry', entityId: old.id, metadata: { userId: old.userId, courseId: old.courseId, points: old.points } },
+        tx,
+      );
+    });
+    return this.ledgerEntry(entryId);
+  }
+
+  private async ledgerEntry(id: string): Promise<LedgerEntryDto> {
+    const e = await this.prisma.pointsEntry.findUniqueOrThrow({ where: { id }, include: { course: courseRef, awardedBy: person, voidedBy: person } });
+    return (await this.ledgerDtos([e], (u) => (u ? u.speakerProfile?.name || u.profile?.fullNameEn || null : null)))[0]!;
   }
 }
