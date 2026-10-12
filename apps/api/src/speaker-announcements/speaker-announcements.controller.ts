@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nest
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { speakerAnnouncementSchema, type SpeakerAnnouncementInput } from '@academy/shared';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { SpeakerAnnouncementsService } from './speaker-announcements.service';
 
@@ -35,6 +35,7 @@ export class SpeakerAnnouncementsController {
 /** Admin → Speakers → {speaker} → Assigned courses. */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('SPEAKERS')
 @Controller('admin/instructors/:id/courses')
 export class AdminSpeakerCoursesController {
   constructor(private readonly service: SpeakerAnnouncementsService) {}

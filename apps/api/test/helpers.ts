@@ -40,7 +40,7 @@ export function cookieHeader(setCookie: string[] | string | undefined, prev = ''
   return [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
-import type { PrismaClient, Role } from '@prisma/client';
+import type { AdminPermission, PrismaClient, Role } from '@prisma/client';
 import type { INestApplication } from '@nestjs/common';
 import { TokensService } from '../src/auth/tokens.service';
 
@@ -48,13 +48,15 @@ import { TokensService } from '../src/auth/tokens.service';
 export async function createUser(
   app: INestApplication,
   prisma: PrismaClient,
-  opts: { role?: Role; verified?: boolean; coreComplete?: boolean; prefix?: string } = {},
+  /** An ADMIN is a super admin unless `adminPermissions` says otherwise. */
+  opts: { role?: Role; adminPermissions?: AdminPermission[]; verified?: boolean; coreComplete?: boolean; prefix?: string } = {},
 ): Promise<{ id: string; email: string; cookie: string }> {
   const email = uniqueEmail(opts.prefix ?? 'user');
   const user = await prisma.user.create({
     data: {
       email,
       role: opts.role ?? 'STUDENT',
+      adminPermissions: opts.role === 'ADMIN' ? (opts.adminPermissions ?? ['SUPER']) : [],
       emailVerifiedAt: opts.verified === false ? null : new Date(),
       profile: {
         create:

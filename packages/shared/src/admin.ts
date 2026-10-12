@@ -27,6 +27,7 @@ import { ADMIN_APPLICATION_EVENTS } from './state-machine';
 import { audienceLevelsSchema, legacyCourseLevel, levelsFromLegacy } from './course';
 import { emailSchema } from './auth';
 import { linkedinProfileUrlSchema } from './links';
+import { optionalImageUrlSchema } from './media';
 
 // ------------------------------------------------------------------ filters
 
@@ -138,7 +139,7 @@ const optionalUrl = z
   .nullish()
   .or(z.literal('').transform(() => null));
 const optionalDate = z.coerce.date().nullish().or(z.literal('').transform(() => null));
-/** A photo: an http(s) URL, or a file the site serves itself (e.g. /speakers/name.webp). */
+/** A photo: an http(s) URL, or a file the site serves itself (e.g. /speakers/name.webp, or an upload at /api/media/…). */
 const optionalImage = z
   .string()
   .trim()
@@ -178,7 +179,8 @@ export const courseInputSchema = z
     applicationDeadline: optionalDate,
     durationWeeks: z.coerce.number().int().min(1).max(104).nullish().or(z.literal('').transform(() => null)),
     hoursPerWeek: z.coerce.number().int().min(1).max(60).nullish().or(z.literal('').transform(() => null)),
-    coverImageUrl: optionalUrl,
+    /** An http(s) URL or an uploaded image (/api/media/…). */
+    coverImageUrl: optionalImageUrlSchema,
     targetAudience: localizedTextSchema,
     notFor: localizedTextSchema,
     preparation: z.object({ en: z.string().trim().max(10_000), ar: z.string().trim().max(10_000) }).default({ en: '', ar: '' }),

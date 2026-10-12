@@ -17,3 +17,15 @@ export function detectFileType(buf: Buffer): DetectedType | null {
 }
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+/**
+ * An uploaded image's real type (JPG, PNG or WebP) from its first bytes, or null. Separate from
+ * detectFileType so payment screenshots, CVs and submissions keep accepting exactly what they did.
+ */
+export function detectImageType(buf: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+  const t = detectFileType(buf);
+  if (t === 'image/jpeg' || t === 'image/png') return t;
+  // RIFF....WEBP
+  if (buf.length >= 12 && buf.subarray(0, 4).toString('latin1') === 'RIFF' && buf.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  return null;
+}

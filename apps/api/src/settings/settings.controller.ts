@@ -2,7 +2,7 @@ import { Body, Controller, Get, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { publicContact, settingsUpdateSchema, type PublicContactDto, type Settings, type SettingsUpdate } from '@academy/shared';
-import { CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { SettingsService } from './settings.service';
 
@@ -21,12 +21,14 @@ export class SettingsController {
   }
 
   @Roles('ADMIN')
+  @AdminCan('SUPER')
   @Get('admin/settings')
   get(): Promise<Settings> {
     return this.settings.get();
   }
 
   @Roles('ADMIN')
+  @AdminCan('SUPER')
   @Put('admin/settings')
   update(@CurrentUser() user: AuthUser, @Body(new ZodPipe(settingsUpdateSchema)) body: SettingsUpdate): Promise<Settings> {
     return this.settings.update(body, user.id);

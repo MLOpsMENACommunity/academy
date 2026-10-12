@@ -10,7 +10,7 @@ import {
 } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
-import { CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { WaitlistService } from './waitlist.service';
 
@@ -67,6 +67,7 @@ function sendCsv(res: Response, name: string, csv: string): void {
 /** The course admin's "Waiting list" tab. */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ADMISSIONS')
 @Controller('admin/courses/:id/waitlist')
 export class AdminWaitlistController {
   constructor(private readonly waitlist: WaitlistService) {}

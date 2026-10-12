@@ -1,9 +1,10 @@
 'use client';
 
-import { courseStatusLabels, courseTypeLabels, type ApplicationStatus, type CourseStatus, type CourseType } from '@academy/shared';
+import { courseStatusLabels, courseTypeLabels, hasAdminPermission, type ApplicationStatus, type CourseStatus, type CourseType } from '@academy/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
@@ -30,6 +31,8 @@ export default function AdminCourses() {
   const { locale, t } = useI18n();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState(false);
+  // Creating and deleting courses is for the academic preset; admissions opens them for their tabs.
+  const academic = hasAdminPermission(useAuth().user, ['ACADEMIC']);
 
   const load = useCallback(() => {
     api<Row[]>('/admin/courses')
@@ -42,9 +45,11 @@ export default function AdminCourses() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.courses.title')}</h1>
-        <Link href={`/${locale}/admin/courses/new`} className={buttonClass('primary', 'sm')}>
-          + {t('admin.courses.new')}
-        </Link>
+        {academic && (
+          <Link href={`/${locale}/admin/courses/new`} className={buttonClass('primary', 'sm')}>
+            + {t('admin.courses.new')}
+          </Link>
+        )}
       </div>
       {error && <Alert tone="danger" className="mt-4">{t('errors.generic')}</Alert>}
       <div className="mt-5 overflow-x-auto rounded-card border border-line bg-card">
@@ -107,7 +112,7 @@ export default function AdminCourses() {
                       <Link href={`/${locale}/admin/courses/${c.id}`} className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-semibold">
                         {t('admin.common.edit')}
                       </Link>
-                      <DeleteCourse courseId={c.id} title={c.titleEn} titleAr={c.titleAr} slug={c.slug} onDone={load} />
+                      {academic && <DeleteCourse courseId={c.id} title={c.titleEn} titleAr={c.titleAr} slug={c.slug} onDone={load} />}
                     </div>
                   </td>
                 </tr>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { ImageUploadField } from './ImageUploadField';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 export const EMPTY_SPEAKER: InstructorInput = {
@@ -106,7 +107,7 @@ export function InstructorForm({
         <TextField label={c('instructorTitleAr')} dir="rtl" value={v.titleAr ?? ''} onChange={set('titleAr')} />
         <TextAreaField label={c('instructorBio')} hint={sp('bioHint')} value={v.bioEn} onChange={set('bioEn')} error={errors.bioEn} rows={6} />
         <TextAreaField label={c('instructorBioAr')} dir="rtl" value={v.bioAr ?? ''} onChange={set('bioAr')} rows={6} />
-        <TextField label={c('instructorPhoto')} hint={sp('photoHint')} dir="ltr" value={v.photoUrl ?? ''} onChange={set('photoUrl')} error={errors.photoUrl} />
+        <ImageUploadField label={c('instructorPhoto')} hint={sp('photoHint')} shape="round" value={v.photoUrl} onChange={(x) => set('photoUrl')(x ?? '')} error={errors.photoUrl} />
         <TextField
           label={sp('slug')}
           hint={

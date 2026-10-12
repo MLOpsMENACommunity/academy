@@ -6,6 +6,7 @@ const me = (role: MeResponse['role'], coreComplete = false): MeResponse => ({
   id: 'u',
   email: 'a@b.co',
   role,
+  adminPermissions: role === 'ADMIN' ? ['SUPER'] : [],
   locale: 'en',
   emailVerified: true,
   hasPassword: true,

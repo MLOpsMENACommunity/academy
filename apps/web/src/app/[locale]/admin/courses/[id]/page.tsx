@@ -1,6 +1,6 @@
 'use client';
 
-import { courseStatusLabels, levelsOf, PUBLIC_COURSE_STATUSES, type CourseLevel, type CourseStatus, type WaitlistDto, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
+import { COURSE_TAB_PERMISSIONS, courseStatusLabels, hasAdminPermission, levelsOf, PUBLIC_COURSE_STATUSES, type CourseLevel, type CourseStatus, type WaitlistDto, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
@@ -15,6 +15,7 @@ import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
 import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor, type QuestionRow, type SessionRow } from '@/components/admin/CourseTabs';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
@@ -96,7 +97,13 @@ function CourseEditor() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const search = useSearchParams();
-  const tab: Tab = (TABS as readonly string[]).includes(search.get('tab') ?? '') ? (search.get('tab') as Tab) : 'details';
+  const { user } = useAuth();
+  // Only the tabs this admin's presets cover (the API checks the same on every request).
+  const tabs = TABS.filter((k) => hasAdminPermission(user, COURSE_TAB_PERMISSIONS[k]));
+  const academic = hasAdminPermission(user, ['ACADEMIC']);
+  const admissions = hasAdminPermission(user, ['ADMISSIONS']);
+  const asked = search.get('tab') ?? '';
+  const tab: Tab = (tabs as readonly string[]).includes(asked) ? (asked as Tab) : (tabs[0] ?? 'details');
   const [course, setCourse] = useState<AdminCourse | null>(null);
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
   const [version, setVersion] = useState(0);
@@ -111,25 +118,27 @@ function CourseEditor() {
 
   // For the tab count and the "tell the waiting list" prompt once the course opens.
   useEffect(() => {
+    if (!admissions) return;
     api<WaitlistDto>(`/admin/courses/${id}/waitlist`)
       .then((w) => setWaiting({ count: w.count, waiting: w.waiting }))
       .catch(() => setWaiting(null));
-  }, [id, version, tab]);
+  }, [id, version, tab, admissions]);
 
   // For the Applications tab count: every application to this course, whatever its status.
   useEffect(() => {
+    if (!admissions) return;
     api<{ total: number }>(`/admin/applications?courseId=${encodeURIComponent(id)}&pageSize=10`)
       .then((r) => setApplications(r.total))
       .catch(() => setApplications(null));
-  }, [id, version]);
+  }, [id, version, admissions]);
 
   const refresh = () => setVersion((v) => v + 1);
-  const go = (next: Tab) => router.replace(`/${locale}/admin/courses/${id}${next === 'details' ? '' : `?tab=${next}`}`, { scroll: false });
+  const go = (next: Tab) => router.replace(`/${locale}/admin/courses/${id}${next === tabs[0] ? '' : `?tab=${next}`}`, { scroll: false });
   const onKey = (e: KeyboardEvent) => {
-    const i = TABS.indexOf(tab);
+    const i = tabs.indexOf(tab);
     const d = (e.key === 'ArrowRight') !== (locale === 'ar') ? 1 : -1;
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    const next = TABS[(i + d + TABS.length) % TABS.length]!;
+    const next = tabs[(i + d + tabs.length) % tabs.length]!;
     go(next);
     document.getElementById(`tab-${next}`)?.focus();
   };
@@ -152,6 +161,7 @@ function CourseEditor() {
             {t('admin.courses.viewPublic')} ↗
           </a>
         )}
+        {academic && (
         <div className="ms-auto flex items-start gap-2">
           <DuplicateCourse courseId={course.id} slug={course.slug} titleEn={course.titleEn} />
           <DeleteCourse
@@ -163,6 +173,7 @@ function CourseEditor() {
             onDone={() => router.push(`/${locale}/admin/courses`)}
           />
         </div>
+        )}
       </div>
 
       {course.source === 'import' && <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.courses.importedHint')}</p>}
@@ -185,7 +196,7 @@ function CourseEditor() {
       )}
 
       <div role="tablist" aria-label={t('admin.courses.title')} className="mt-5 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>
-        {TABS.map((k) => (
+        {tabs.map((k) => (
           <button
             key={k}
             id={`tab-${k}`}

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ApplicationStatus, ProfileDto } from '@academy/shared';
+import { hasAdminPermission, type ApplicationStatus, type ProfileDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -11,6 +11,7 @@ import { ProfileView } from '@/components/admin/ProfileView';
 import { DeleteAccount, StudentEditor } from '@/components/admin/StudentEditor';
 import { StudentPoints } from '@/components/admin/StudentPoints';
 import { StatusBadge } from '@/components/applications/StatusBadge';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -40,6 +41,8 @@ export default function StudentDetail() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Points and badges are the academic preset's (the API checks it too).
+  const academic = hasAdminPermission(useAuth().user, ['ACADEMIC']);
   useEffect(() => {
     api<Student>(`/admin/students/${id}`).then(setS).catch((e: unknown) => setError(errorMessage(e, t)));
   }, [id, t]);
@@ -86,7 +89,7 @@ export default function StudentDetail() {
         <div className="space-y-5">
           <CvCard studentId={s.id} hasCv={s.profile.hasCv} />
           <SpeakerRoleSwitch userId={s.id} />
-          <StudentPoints studentId={s.id} />
+          {academic && <StudentPoints studentId={s.id} />}
           <Card>
             <h2 className="text-lg">{t('admin.students.applications')}</h2>
             <ul className="mt-2 space-y-2 text-sm">

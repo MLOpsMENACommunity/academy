@@ -7,6 +7,9 @@
  *     cacheable (ISR/static: `s-maxage`, no `private`/`no-store`/`no-cache`), 200, HTML,
  *     no Set-Cookie, and not a stale ISR copy. Kept for at most PAGE_TTL seconds.
  *   - Build assets: /_next/static/* (content-hashed, `immutable`), for everyone.
+ *   - Uploaded images: /api/media/<uuid>.<jpg|png|webp> (course and session covers, speaker
+ *     photos). Public, never reused under the same name, served by the API as `immutable`:
+ *     cached like build assets, for everyone (the image is the same whoever asks).
  *
  *   - Public API reads: anonymous GETs of the catalog endpoints in PUBLIC_API (courses, live
  *     sessions, speakers, recordings, public settings) whose response the API marks
@@ -42,6 +45,9 @@ const SESSION_COOKIES = ['access_token', 'has_session', 'refresh_token'];
  * PUBLIC_CACHE_ROUTES in apps/api/src/common/public-cache.ts; the API's Cache-Control has the
  * last word (anything it doesn't mark public is never stored), so this list can only narrow.
  */
+/** An uploaded image (apps/api/src/media): a random name, so the content behind it never changes. */
+const MEDIA = /^\/api\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/;
+
 const PUBLIC_API =
   /^\/api\/(courses|courses\/[a-z0-9-]{1,100}|events|events\/[a-z0-9-]{1,100}|speakers|speakers\/[a-z0-9-]{1,100}|recordings|recordings\/search|settings\/public)$/;
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
@@ -82,6 +88,9 @@ export function cacheKind(request: Request): CacheKind | null {
   const url = new URL(request.url);
   const path = url.pathname;
   if (path === '/api' || path.startsWith('/api/')) {
+    // Public, immutable images: the same bytes for everyone, so a session doesn't matter. No query
+    // string (it would only multiply cache entries) and no cross-origin callers (CORS headers vary).
+    if (MEDIA.test(path)) return url.search || request.headers.has('origin') || request.headers.has('authorization') ? null : 'asset';
     if (hasSession(request) || request.headers.has('origin') || request.headers.has('authorization')) return null;
     return PUBLIC_API.test(path) ? 'api' : null;
   }

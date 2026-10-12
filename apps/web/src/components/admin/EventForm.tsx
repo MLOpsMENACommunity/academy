@@ -39,6 +39,7 @@ import { viewerTimezone } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 import { fromLocalInput, toLocalInput } from './CourseForm';
 import { MarkdownField } from './MarkdownField';
+import { ImageUploadField } from './ImageUploadField';
 import { TopicsField } from './TopicsField';
 
 /** A live session as the admin API returns it. */
@@ -402,14 +403,7 @@ export function EventForm({
           error={errors.speakerTitleAr}
           maxLength={160}
         />
-        <TextField
-          label={f('speakerPhoto')}
-          type="url"
-          dir="ltr"
-          value={v.speakerPhotoUrl ?? ''}
-          onChange={url('speakerPhotoUrl')}
-          error={errors.speakerPhotoUrl}
-        />
+        <ImageUploadField label={f('speakerPhoto')} shape="round" value={v.speakerPhotoUrl} onChange={(x) => url('speakerPhotoUrl')(x ?? '')} error={errors.speakerPhotoUrl} />
         <TextField
           label={f('speakerLinkedin')}
           type="url"
@@ -485,7 +479,7 @@ export function EventForm({
 
       <Fieldset title={t('admin.sessions.links')}>
         <TextField label={f('recordingUrl')} hint={f('recordingUrlHint')} type="url" dir="ltr" value={v.recordingUrl ?? ''} onChange={url('recordingUrl')} error={errors.recordingUrl} />
-        <TextField label={f('coverImage')} type="url" dir="ltr" value={v.coverImageUrl ?? ''} onChange={url('coverImageUrl')} error={errors.coverImageUrl} />
+        <ImageUploadField label={f('coverImage')} value={v.coverImageUrl} onChange={(x) => url('coverImageUrl')(x ?? '')} error={errors.coverImageUrl} />
       </Fieldset>
 
       <div className="sticky bottom-0 z-10 flex items-center gap-3 border-t border-line bg-page/95 py-3 backdrop-blur">

@@ -19,6 +19,7 @@ import {
   type Locale,
   type MyCertificateDto,
   type PublicCertificateDto,
+  hasAdminPermission,
 } from '@academy/shared';
 import { Prisma, type Certificate, type Course } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
@@ -501,7 +502,7 @@ export class CertificatesService {
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
       include: { certificate: { include: { enrollment: { select: { course: { select: { slug: true } } } } } } },
     });
-    if (!enrollment && user.role !== 'ADMIN') throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
+    if (!enrollment && !hasAdminPermission(user, ['ACADEMIC'])) throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
     const rule = ruleOf(course);
     const eligibility = (await this.eligibilityFor(course, [user.id])).get(user.id)!;
     const included = (course.included ?? {}) as { certificate?: boolean };

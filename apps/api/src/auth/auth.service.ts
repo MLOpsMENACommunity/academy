@@ -264,6 +264,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       role: user.role,
+      adminPermissions: user.role === 'ADMIN' ? user.adminPermissions : [],
       locale: user.locale,
       emailVerified: Boolean(user.emailVerifiedAt),
       hasPassword: Boolean(user.passwordHash),

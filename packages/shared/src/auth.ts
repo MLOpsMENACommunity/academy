@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LOCALES, ROLES } from './enums';
+import { ADMIN_PERMISSIONS, LOCALES, ROLES } from './enums';
 
 export const PASSWORD_MIN = 10;
 
@@ -63,6 +63,8 @@ export interface MeResponse {
   id: string;
   email: string;
   role: (typeof ROLES)[number];
+  /** ADMIN accounts: what they may do (see admin-permissions.ts). Empty for everyone else. */
+  adminPermissions: (typeof ADMIN_PERMISSIONS)[number][];
   locale: (typeof LOCALES)[number];
   emailVerified: boolean;
   hasPassword: boolean;

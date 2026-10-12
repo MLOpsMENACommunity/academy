@@ -280,7 +280,8 @@ export class ProfileService {
               bodyEn: `A student enrolled in "${e.course.titleEn}" deleted their account. Remove their Google account from the Drive folder (see the enrolled students page).`,
               bodyAr: `حذف طالب مسجل في "${e.course.titleAr}" حسابه. أزل حساب Google الخاص به من مجلد Drive (راجع صفحة الطلاب المسجلين).`,
             };
-      const admins = await this.notifications.notifyAdmins({ type: `admin.drive_access_${reason}`, ...copy, link });
+      // Whoever manages enrolments (the enrolled students page).
+      const admins = await this.notifications.notifyAdmins({ type: `admin.drive_access_${reason}`, ...copy, link }, ['ADMISSIONS', 'ACADEMIC']);
       // Queued, not awaited: delivery is paced and must not hold up the student's save.
       for (const a of admins) {
         void this.email.send(a.email, a.locale, {

@@ -28,7 +28,7 @@ import {
 } from '@academy/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { AdminAnnouncementsService } from './admin-announcements.service';
 import { AdminApplicationsService } from './admin-applications.service';
@@ -52,7 +52,10 @@ function sendCsv(res: Response, name: string, csv: string): void {
   res.send(csv);
 }
 
-/** Admin panel API. Every route is admin-only (student edits and deletion: users/admin-accounts.controller.ts). */
+/**
+ * Admin panel API. Every route is admin-only (student edits and deletion: users/admin-accounts.controller.ts),
+ * and each one says which admin presets may use it (@AdminCan; SUPER always may).
+ */
 @ApiTags('admin')
 @Roles('ADMIN')
 @Controller('admin')
@@ -66,6 +69,7 @@ export class AdminController {
   ) {}
 
   @Get('dashboard')
+  @AdminCan('ADMISSIONS', 'ACADEMIC', 'FINANCE')
   dashboard() {
     return this.misc.dashboard();
   }
@@ -73,11 +77,13 @@ export class AdminController {
   // ------------------------------------------------------------------ applications
 
   @Get('applications')
+  @AdminCan('ADMISSIONS')
   listApplications(@Query(new ZodPipe(applicationFilterSchema)) f: ApplicationFilter) {
     return this.applications.list(f);
   }
 
   @Get('applications.csv')
+  @AdminCan('ADMISSIONS')
   async exportApplications(
     @CurrentUser() user: AuthUser,
     @Query(new ZodPipe(applicationFilterSchema)) f: ApplicationFilter,
@@ -87,17 +93,20 @@ export class AdminController {
   }
 
   @Get('applications/:id')
+  @AdminCan('ADMISSIONS')
   application(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.applications.detail(id, user.id);
   }
 
   @Post('applications/bulk')
+  @AdminCan('ADMISSIONS')
   @HttpCode(200)
   bulk(@CurrentUser() user: AuthUser, @Body(new ZodPipe(bulkTransitionSchema)) body: z.infer<typeof bulkTransitionSchema>) {
     return this.applications.bulk(body.ids, body.event, user, body.reason);
   }
 
   @Post('applications/:id/notes')
+  @AdminCan('ADMISSIONS')
   applicationNote(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(adminNoteSchema)) body: { body: string }) {
     return this.applications.addNote(id, user, body.body);
   }
@@ -105,27 +114,32 @@ export class AdminController {
   // ------------------------------------------------------------------ students
 
   @Get('students')
+  @AdminCan('ADMISSIONS')
   listStudents(@Query(new ZodPipe(studentFilterSchema)) f: StudentFilter) {
     return this.students.list(f);
   }
 
   @Get('students.csv')
+  @AdminCan('ADMISSIONS')
   async exportStudents(@CurrentUser() user: AuthUser, @Query(new ZodPipe(studentFilterSchema)) f: StudentFilter, @Res() res: Response) {
     sendCsv(res, 'students', await this.students.exportCsv(f, user));
   }
 
   @Get('students/:id')
+  @AdminCan('ADMISSIONS')
   student(@Param('id') id: string) {
     return this.students.detail(id);
   }
 
   @Get('students/:id/cv')
+  @AdminCan('ADMISSIONS')
   @Header('Cache-Control', 'private, no-store')
   cv(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.students.cvUrl(id, user);
   }
 
   @Post('students/:id/notes')
+  @AdminCan('ADMISSIONS')
   studentNote(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(adminNoteSchema)) body: { body: string }) {
     return this.students.addNote(id, user, body.body);
   }
@@ -133,63 +147,75 @@ export class AdminController {
   // ------------------------------------------------------------------ courses
 
   @Get('courses')
+  @AdminCan('ACADEMIC', 'ADMISSIONS')
   listCourses() {
     return this.courses.list();
   }
 
   @Post('courses')
+  @AdminCan('ACADEMIC')
   createCourse(@CurrentUser() user: AuthUser, @Body(new ZodPipe(courseInputSchema)) body: CourseInput) {
     return this.courses.create(body, user);
   }
 
   @Get('courses/:id')
+  @AdminCan('ACADEMIC', 'ADMISSIONS')
   course(@Param('id') id: string) {
     return this.courses.get(id);
   }
 
   @Put('courses/:id')
+  @AdminCan('ACADEMIC')
   updateCourse(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(courseInputSchema)) body: CourseInput) {
     return this.courses.update(id, body, user);
   }
 
   @Delete('courses/:id')
+  @AdminCan('ACADEMIC')
   @HttpCode(204)
   async deleteCourse(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.courses.remove(id, user);
   }
 
   @Post('courses/:id/archive')
+  @AdminCan('ACADEMIC')
   @HttpCode(204)
   async archiveCourse(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.courses.archive(id, user);
   }
 
   @Put('courses/:id/questions')
+  @AdminCan('ACADEMIC')
   questions(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(questionsInputSchema)) body: z.infer<typeof questionsInputSchema>) {
     return this.courses.setQuestions(id, body.questions, user);
   }
 
   @Post('courses/:id/sessions')
+  @AdminCan('ACADEMIC')
   createSession(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(sessionInputSchema)) body: SessionInput) {
     return this.courses.createSession(id, body, user);
   }
 
   @Post('courses/:id/sessions/bulk')
+  @AdminCan('ACADEMIC')
   createSessions(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(sessionsBulkSchema)) body: z.infer<typeof sessionsBulkSchema>) {
     return this.courses.createSessions(id, body.sessions, user);
   }
 
   @Post('courses/:id/duplicate')
+  @AdminCan('ACADEMIC')
   duplicate(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(duplicateCourseSchema)) body: z.infer<typeof duplicateCourseSchema>) {
     return this.courses.duplicate(id, body, user);
   }
 
   @Put('courses/:id/sessions/order')
+  @AdminCan('ACADEMIC')
   reorder(@Param('id') id: string, @Body(new ZodPipe(sessionOrderSchema)) body: { ids: string[] }) {
     return this.courses.reorderSessions(id, body.ids);
   }
 
   @Put('courses/:id/sessions/:sessionId')
+  @AdminCan('ACADEMIC')
   updateSession(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -200,27 +226,32 @@ export class AdminController {
   }
 
   @Delete('courses/:id/sessions/:sessionId')
+  @AdminCan('ACADEMIC')
   @HttpCode(204)
   async deleteSession(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('sessionId') sessionId: string) {
     await this.courses.deleteSession(id, sessionId, user);
   }
 
   @Get('courses/:id/enrollments')
+  @AdminCan('ADMISSIONS', 'ACADEMIC')
   enrollments(@Param('id') id: string, @Query(new ZodPipe(enrollmentQuerySchema)) q: z.infer<typeof enrollmentQuerySchema>) {
     return this.courses.enrollments(id, q.driveAccess);
   }
 
   @Get('courses/:id/enrollments.csv')
+  @AdminCan('ADMISSIONS', 'ACADEMIC')
   async enrollmentsCsv(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
     sendCsv(res, 'enrolled-students', await this.courses.enrollmentsCsv(id, user));
   }
 
   @Put('enrollments/:id/drive-access')
+  @AdminCan('ADMISSIONS', 'ACADEMIC')
   driveAccess(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(driveAccessSchema)) body: { granted: boolean }) {
     return this.courses.setDriveAccess(id, body.granted, user);
   }
 
   @Post('enrollments/:id/drive-removed')
+  @AdminCan('ADMISSIONS', 'ACADEMIC')
   @HttpCode(204)
   async driveRemoved(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.courses.markDriveRemoved(id, user);
@@ -229,48 +260,57 @@ export class AdminController {
   // ------------------------------------------------------------------ announcements
 
   @Get('courses/:id/announcements')
+  @AdminCan('ACADEMIC')
   announcementHistory(@Param('id') id: string) {
     return this.announcements.history(id);
   }
 
   @Get('courses/:id/announcements/audience')
+  @AdminCan('ACADEMIC')
   announcementAudience(@Param('id') id: string, @Query(new ZodPipe(announcementAudienceSchema)) q: z.infer<typeof announcementAudienceSchema>) {
     return this.announcements.audience(id, q.statuses);
   }
 
   @Post('courses/:id/announcements')
+  @AdminCan('ACADEMIC')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   sendAnnouncement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(announcementSchema)) body: AnnouncementInput & { idempotencyKey: string }) {
     return this.announcements.send(id, body, user);
   }
 
   @Get('courses/:id/feedback')
+  @AdminCan('ACADEMIC')
   feedback(@Param('id') id: string) {
     return this.courses.feedback(id);
   }
 
   @Get('instructors')
+  @AdminCan('ACADEMIC', 'SPEAKERS')
   instructors() {
     return this.courses.instructors();
   }
 
   @Get('instructors/:id')
+  @AdminCan('ACADEMIC', 'SPEAKERS')
   instructor(@Param('id') id: string) {
     return this.courses.instructor(id);
   }
 
   @Post('instructors')
+  @AdminCan('SPEAKERS')
   createInstructor(@CurrentUser() user: AuthUser, @Body(new ZodPipe(instructorInputSchema)) body: InstructorInput) {
     return this.courses.saveInstructor(body, user);
   }
 
   @Put('instructors/:id')
+  @AdminCan('SPEAKERS')
   updateInstructor(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(instructorInputSchema)) body: InstructorInput) {
     return this.courses.saveInstructor(body, user, id);
   }
 
   /** Deletes the public profile (sessions stay, without the speaker link). Typed confirmation: the name. */
   @Post('instructors/:id/delete')
+  @AdminCan('SPEAKERS')
   @HttpCode(200)
   deleteInstructor(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(typedConfirmSchema)) body: z.infer<typeof typedConfirmSchema>) {
     return this.courses.deleteInstructor(id, body.confirm, user);
@@ -279,21 +319,25 @@ export class AdminController {
   // ------------------------------------------------------------------ audit & saved views
 
   @Get('audit')
+  @AdminCan('SUPER')
   audit(@Query(new ZodPipe(auditQuerySchema)) q: z.infer<typeof auditQuerySchema>) {
     return this.misc.auditLog(q);
   }
 
   @Get('saved-filters')
+  @AdminCan('ADMISSIONS')
   savedFilters(@CurrentUser() user: AuthUser, @Query(new ZodPipe(scopeSchema)) q: z.infer<typeof scopeSchema>) {
     return this.misc.savedFilters(user, q.scope);
   }
 
   @Post('saved-filters')
+  @AdminCan('ADMISSIONS')
   saveFilter(@CurrentUser() user: AuthUser, @Body(new ZodPipe(savedFilterSchema)) body: z.infer<typeof savedFilterSchema>) {
     return this.misc.saveFilter(user, body);
   }
 
   @Delete('saved-filters/:id')
+  @AdminCan('ADMISSIONS')
   @HttpCode(204)
   async deleteFilter(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.misc.deleteFilter(user, id);

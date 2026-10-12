@@ -18,7 +18,7 @@ import {
 } from '@academy/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { SpeakerPortalService } from './speaker-portal.service';
 
@@ -81,6 +81,7 @@ const rangeSchema = z.object({ from: z.coerce.date().optional(), to: z.coerce.da
 /** Speaker applications, availability slots and account roles (admin panel → Speakers). */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('SPEAKERS')
 @Controller('admin')
 export class AdminSpeakerPortalController {
   constructor(private readonly portal: SpeakerPortalService) {}
@@ -107,6 +108,7 @@ export class AdminSpeakerPortalController {
   }
 
   @Put('users/:id/role')
+  @AdminCan('SPEAKERS', 'ADMISSIONS')
   setRole(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(accountRoleSchema)) body: z.infer<typeof accountRoleSchema>) {
     return this.portal.setRole(id, body.role, user.id);
   }
@@ -142,6 +144,7 @@ export class AdminSpeakerPortalController {
    * Idempotent (the booking's course comes back if it has one).
    */
   @Post('speaking-slots/:id/course-draft')
+  @AdminCan('SPEAKERS', 'ACADEMIC')
   @HttpCode(200)
   courseDraft(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.portal.createCourseDraft(id, user.id);

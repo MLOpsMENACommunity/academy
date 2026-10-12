@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { AdminPermission } from '@academy/shared';
 import type { Notification, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,9 +21,10 @@ export class NotificationsService {
     return tx.notification.create({ data: { userId, ...n, link: n.link ?? null } });
   }
 
-  async notifyAdmins(n: NotificationInput): Promise<{ id: string; email: string; locale: 'en' | 'ar' }[]> {
+  /** Tells the admins whose presets cover it (SUPER always), in the app; returns them for emails. */
+  async notifyAdmins(n: NotificationInput, permissions: AdminPermission[]): Promise<{ id: string; email: string; locale: 'en' | 'ar' }[]> {
     const admins = await this.prisma.user.findMany({
-      where: { role: 'ADMIN', deletedAt: null },
+      where: { role: 'ADMIN', deletedAt: null, adminPermissions: { hasSome: ['SUPER', ...permissions] } },
       select: { id: true, email: true, locale: true },
     });
     await this.prisma.notification.createMany({

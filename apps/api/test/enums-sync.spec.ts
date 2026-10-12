@@ -5,6 +5,7 @@ import * as shared from '@academy/shared';
 const pairs: Record<string, readonly string[]> = {
   Locale: shared.LOCALES,
   Role: shared.ROLES,
+  AdminPermission: shared.ADMIN_PERMISSIONS,
   SpeakerArea: shared.SPEAKER_AREAS,
   SpeakerFormat: shared.SPEAKER_FORMATS,
   SpeakerKind: shared.SPEAKER_KINDS,

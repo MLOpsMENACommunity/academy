@@ -23,6 +23,16 @@ enum Role {
   SPEAKER
 }
 
+/// What an ADMIN account may do (one or more presets). SUPER can do everything.
+enum AdminPermission {
+  SUPER
+  ACADEMIC
+  CONTENT
+  ADMISSIONS
+  SPEAKERS
+  FINANCE
+}
+
 enum EmploymentStatus {
   EMPLOYED_FULL_TIME
   EMPLOYED_PART_TIME
@@ -298,6 +308,8 @@ model User {
   googleId        String?   @unique
   emailVerifiedAt DateTime?
   role            Role      @default(STUDENT)
+  /// ADMIN accounts only (empty otherwise): what this admin may do. Checked on every request.
+  adminPermissions AdminPermission[] @default([])
   locale          Locale    @default(en)
   lastLoginAt     DateTime?
   /// Embedded in access tokens; bumping it invalidates every issued token at once.

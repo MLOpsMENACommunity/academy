@@ -4,7 +4,7 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { cleanSpeakerDetails, eventInputSchema, toCsv, type EventInput, type PublicEventDto } from '@academy/shared';
 import type { Response } from 'express';
 import { AuditService } from '../audit/audit.service';
-import { CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { EventsService } from './events.service';
 
@@ -74,6 +74,7 @@ const toData = ({ coSpeakers: _coSpeakers, details, ...e }: EventInput) => ({
 
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ACADEMIC')
 @Controller('admin/events')
 export class AdminEventsController {
   constructor(

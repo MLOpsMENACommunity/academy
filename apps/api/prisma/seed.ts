@@ -30,6 +30,8 @@ async function seedAdmin(): Promise<void> {
       email,
       passwordHash,
       role: 'ADMIN',
+      // The first admin manages the team (Admin → Team), so it is a super admin.
+      adminPermissions: ['SUPER'],
       emailVerifiedAt: new Date(),
       profile: { create: { fullNameEn: 'Academy Admin' } },
     },

@@ -14,6 +14,14 @@ export const ROLES = ['STUDENT', 'ADMIN', 'SPEAKER'] as const;
 export const Role = defineEnum(ROLES);
 export type Role = (typeof ROLES)[number];
 
+/**
+ * What an ADMIN account may do (presets; an admin has one or more). SUPER can do everything,
+ * including managing the team, settings and the audit log. See admin-permissions.ts.
+ */
+export const ADMIN_PERMISSIONS = ['SUPER', 'ACADEMIC', 'CONTENT', 'ADMISSIONS', 'SPEAKERS', 'FINANCE'] as const;
+export const AdminPermission = defineEnum(ADMIN_PERMISSIONS);
+export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
+
 // ---------------------------------------------------------------- Profile
 
 export const EMPLOYMENT_STATUSES = [

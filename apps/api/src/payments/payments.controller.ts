@@ -12,7 +12,7 @@ import {
   type PaymentStatus,
 } from '@academy/shared';
 import { z } from 'zod';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { PaymentsService } from './payments.service';
@@ -55,30 +55,35 @@ export class PaymentsController {
   // ------------------------------------------------------------------ admin
 
   @Roles('ADMIN')
+  @AdminCan('FINANCE')
   @Get('admin/payments')
   queue(@Query(new ZodPipe(queueQuerySchema)) q: { status: PaymentStatus; page: number }): Promise<AdminPaymentDto[]> {
     return this.payments.queue(q.status, q.page);
   }
 
   @Roles('ADMIN')
+  @AdminCan('FINANCE')
   @Get('admin/payments-count')
   async count(@Query(new ZodPipe(queueQuerySchema)) q: { status: PaymentStatus }): Promise<{ count: number }> {
     return { count: await this.payments.count(q.status) };
   }
 
   @Roles('ADMIN')
+  @AdminCan('FINANCE')
   @Get('admin/payments/:id')
   get(@Param('id') id: string): Promise<AdminPaymentDto> {
     return this.payments.adminGet(id);
   }
 
   @Roles('ADMIN')
+  @AdminCan('FINANCE')
   @Get('admin/payments/:id/screenshot')
   screenshot(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payments.screenshotUrl(id, user);
   }
 
   @Roles('ADMIN')
+  @AdminCan('FINANCE')
   @Post('admin/payments/:id/approve')
   @HttpCode(200)
   approve(
@@ -90,6 +95,7 @@ export class PaymentsController {
   }
 
   @Roles('ADMIN')
+  @AdminCan('FINANCE')
   @Post('admin/payments/:id/reject')
   @HttpCode(200)
   reject(
