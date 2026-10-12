@@ -166,7 +166,8 @@
       "COURSE_NOT_INVITABLE": "Draft and archived courses can't take anyone. Publish or reopen the course first.",
       "LAST_SUPER": "There must always be at least one super admin.",
       "ALREADY_ADMIN": "This account is already an admin.",
-      "ADMIN_PERMISSION": "Your admin account doesn't have access to this."
+      "ADMIN_PERMISSION": "Your admin account doesn't have access to this.",
+      "EMAIL_UNVERIFIED": "This account hasn't confirmed its email address yet. Ask them to confirm it, then add them again."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",

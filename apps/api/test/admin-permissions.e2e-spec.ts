@@ -171,6 +171,10 @@ describe('admin permissions (e2e)', () => {
       await prisma.user.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
       expect((await http().post('/api/admin/team').set('Cookie', s).send({ email: gone.email, permissions: ['CONTENT'] }).expect(409)).body.code).toBe('EMAIL_TAKEN');
       await http().put(`/api/admin/team/${gone.id}`).set('Cookie', s).send({ permissions: ['CONTENT'] }).expect(404);
+      // An account that never confirmed its address can't be promoted (anyone can register any address).
+      const squatter = await createUser(app, prisma, { prefix: 'perm-squat', verified: false });
+      expect((await http().post('/api/admin/team').set('Cookie', s).send({ email: squatter.email, permissions: ['SUPER'] }).expect(409)).body.code).toBe('EMAIL_UNVERIFIED');
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: squatter.id } })).role).toBe('STUDENT');
       // Only admins are edited here.
       const other = await createUser(app, prisma, { prefix: 'perm-not-admin' });
       await http().put(`/api/admin/team/${other.id}`).set('Cookie', s).send({ permissions: ['SUPER'] }).expect(404);

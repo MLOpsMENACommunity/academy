@@ -59,7 +59,7 @@ export class AdminTeamService {
   async add(input: AddAdminInput, actorId: string): Promise<AddAdminResultDto> {
     const existing = await this.prisma.user.findFirst({
       where: { email: { equals: input.email, mode: 'insensitive' } },
-      select: { id: true, role: true, deletedAt: true },
+      select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true },
     });
     if (!existing) {
       try {
@@ -77,10 +77,15 @@ export class AdminTeamService {
     }
     if (existing.deletedAt) throw new ConflictException({ code: 'EMAIL_TAKEN', message: 'This address belongs to a deleted account' });
     if (existing.role === 'ADMIN') throw new ConflictException({ code: 'ALREADY_ADMIN', message: 'This account is already an admin' });
+    // Anyone can register any address: only an account that proved it owns the address may
+    // become an admin (otherwise whoever registered sessionsadmin@… first would get the access).
+    if (!existing.emailVerifiedAt) {
+      throw new ConflictException({ code: 'EMAIL_UNVERIFIED', message: "This account hasn't confirmed its email address yet: ask them to, then add them again" });
+    }
 
     // Only if it is still the same non-admin, live account (a concurrent change wins).
     const promoted = await this.prisma.user.updateMany({
-      where: { id: existing.id, role: existing.role, deletedAt: null },
+      where: { id: existing.id, role: existing.role, deletedAt: null, emailVerifiedAt: { not: null } },
       data: { role: 'ADMIN', adminPermissions: input.permissions },
     });
     if (!promoted.count) throw new ConflictException({ code: 'CHANGED', message: 'This account just changed: try again' });
