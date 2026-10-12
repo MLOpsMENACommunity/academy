@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { assessmentInputSchema, gradeInputSchema, submissionFilterSchema, type AssessmentInput, type GradeInput } from '@academy/shared';
+import { assessmentInputSchema, assessmentOrderSchema, gradeInputSchema, submissionFilterSchema, type AssessmentInput, type AssessmentOrderInput, type GradeInput } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
@@ -22,6 +22,12 @@ export class AdminAssessmentsController {
   @Post('courses/:id/assessments')
   create(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(assessmentInputSchema)) body: AssessmentInput) {
     return this.assessments.create(id, body, user);
+  }
+
+  /** The ↑/↓ buttons: the course's assessment ids in their new order. */
+  @Put('courses/:id/assessments/order')
+  reorder(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(assessmentOrderSchema)) body: AssessmentOrderInput) {
+    return this.assessments.reorder(id, body.ids, user);
   }
 
   @Get('courses/:id/gradebook.csv')

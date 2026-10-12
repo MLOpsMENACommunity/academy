@@ -82,6 +82,8 @@ export type EmailTemplate =
   | { name: 'assessmentGraded'; courseTitle: string; title: string; score: number; maxScore: number; url: string }
   /** 24 hours before an assessment is due, to students who haven't submitted. */
   | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string }
+  /** A quiz, lab or assignment was published (sent once per assessment), to enrolled students who get course reminders. */
+  | { name: 'assessmentPublished'; courseTitle: string; title: string; kind: 'QUIZ' | 'LAB' | 'ASSIGNMENT'; dueAt: string | null; url: string; unsubscribeUrl: string }
   /** Points and badges: a badge was awarded (automatically or by the team). */
   | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string }
   /** Enrol by email: an admin enrolled this account directly (no application, no payment). */
@@ -856,6 +858,26 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             paragraphs={[
               ar ? `موعد تسليم «${t.title}» في ${t.courseTitle} هو ${t.dueAt}.` : `"${t.title}" in ${t.courseTitle} is due ${t.dueAt}.`,
               ar ? 'لم تسلّمه بعد. سلّمه قبل الموعد ليُحتسب في وقته.' : "You haven't submitted it yet. Hand it in before then so it counts as on time.",
+            ]}
+            cta={{ label: ar ? 'افتح التقييم' : 'Open the assessment', url: t.url }}
+            note={ar ? `لإيقاف تذكيرات هذه الدورة: ${t.unsubscribeUrl}` : `To stop reminders for this course: ${t.unsubscribeUrl}`}
+          />
+        ),
+      };
+    }
+    case 'assessmentPublished': {
+      const what = ar ? { QUIZ: 'اختبار', LAB: 'تمرين عملي', ASSIGNMENT: 'واجب' }[t.kind] : { QUIZ: 'quiz', LAB: 'lab', ASSIGNMENT: 'assignment' }[t.kind];
+      const subject = ar ? `${what} جديد: ${t.title}` : `New ${what}: ${t.title}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={t.title}
+            paragraphs={[
+              ar ? `نُشر ${what} جديد في ${t.courseTitle}: «${t.title}».` : `A new ${what} is up in ${t.courseTitle}: "${t.title}".`,
+              t.dueAt ? (ar ? `موعد التسليم: ${t.dueAt}.` : `It's due ${t.dueAt}.`) : ar ? 'ليس له موعد تسليم.' : 'It has no due date.',
             ]}
             cta={{ label: ar ? 'افتح التقييم' : 'Open the assessment', url: t.url }}
             note={ar ? `لإيقاف تذكيرات هذه الدورة: ${t.unsubscribeUrl}` : `To stop reminders for this course: ${t.unsubscribeUrl}`}
