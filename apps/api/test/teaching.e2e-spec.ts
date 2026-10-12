@@ -349,7 +349,10 @@ describe('speakers teach their assigned courses (e2e)', () => {
     expect(row).toMatchObject({ titleEn: 'Session 1', liveUrl: 'https://meet.google.com/abc-defg-hij', durationMin: 90 });
     expect(row.startsAt.toISOString()).toBe('2030-01-05T17:00:00.000Z');
     await http().put(`${base(course.id)}/sessions/${s.id}/materials`).set('Cookie', spk.cookie).send({ materials: [{ labelEn: 'x', labelAr: 'x', url: 'javascript:alert(1)' }] }).expect(400);
-    expect(await prisma.auditLog.count({ where: { action: 'session.materials_updated', entityId: s.id, actorId: spk.id } })).toBe(1);
+    // A partial save keeps what wasn't sent; null clears.
+    const partial = (await http().put(`${base(course.id)}/sessions/${s.id}/materials`).set('Cookie', spk.cookie).send({ assignmentUrl: null }).expect(200)).body;
+    expect(partial).toMatchObject({ descriptionEn: 'We cover MLflow tracking.', recordingUrl: 'https://youtu.be/abc', assignmentUrl: null, materials: [expect.objectContaining({ labelEn: 'Slides' })] });
+    expect(await prisma.auditLog.count({ where: { action: 'session.materials_updated', entityId: s.id, actorId: spk.id } })).toBe(2);
 
     // The course page lists sessions without their live link.
     const detail = (await http().get(base(course.id)).set('Cookie', spk.cookie).expect(200)).body;

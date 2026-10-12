@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { sessionInputSchema } from './admin';
-import type { Material } from './course-content';
+import { materialSchema, type Material } from './course-content';
 import type { CourseStatus, PointsReason } from './enums';
 import { manualPointsSchema } from './points';
 
@@ -52,14 +52,11 @@ export interface TeachingCourseDetailDto {
 /**
  * What a speaker may change on a session: its "what we cover" text and its links. Dates,
  * titles, the live link and everything else stay with the admins (unknown keys are dropped).
+ * A field that isn't sent keeps its stored value; null clears it.
  */
-export const sessionMaterialsSchema = sessionInputSchema.pick({
-  descriptionEn: true,
-  descriptionAr: true,
-  recordingUrl: true,
-  assignmentUrl: true,
-  materials: true,
-});
+export const sessionMaterialsSchema = sessionInputSchema
+  .pick({ descriptionEn: true, descriptionAr: true, recordingUrl: true, assignmentUrl: true })
+  .extend({ materials: z.array(materialSchema).max(20).optional() });
 export type SessionMaterialsInput = z.infer<typeof sessionMaterialsSchema>;
 
 /** Course points from a speaker: always tagged with their course, for an enrolled student. */

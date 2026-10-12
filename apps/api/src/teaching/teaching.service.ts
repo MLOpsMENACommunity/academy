@@ -110,12 +110,13 @@ export class TeachingService {
 
   /** Only the session's text and links: dates, titles and the live link stay with the admins. */
   async updateMaterials(courseId: string, sessionId: string, input: SessionMaterialsInput, actor: Actor): Promise<TeachingSessionDto> {
+    // Fields that weren't sent keep their stored value (undefined leaves a column alone in Prisma).
     const data = {
-      descriptionEn: input.descriptionEn ?? null,
-      descriptionAr: input.descriptionAr ?? null,
-      recordingUrl: input.recordingUrl ?? null,
-      assignmentUrl: input.assignmentUrl ?? null,
-      materials: input.materials as unknown as Prisma.InputJsonValue,
+      descriptionEn: input.descriptionEn,
+      descriptionAr: input.descriptionAr,
+      recordingUrl: input.recordingUrl,
+      assignmentUrl: input.assignmentUrl,
+      materials: input.materials as unknown as Prisma.InputJsonValue | undefined,
     };
     await this.prisma.$transaction(async (tx) => {
       const r = await tx.courseSession.updateMany({ where: { id: sessionId, courseId }, data });
@@ -123,7 +124,7 @@ export class TeachingService {
       // Edited here now: a later archive import must not overwrite it (as for admin edits).
       await tx.course.updateMany({ where: { id: courseId, importHash: { not: null } }, data: { importHash: null } });
       await this.audit.log(
-        { actorId: actor.id, action: 'session.materials_updated', entityType: 'CourseSession', entityId: sessionId, metadata: { courseId, materials: input.materials.length } },
+        { actorId: actor.id, action: 'session.materials_updated', entityType: 'CourseSession', entityId: sessionId, metadata: { courseId, materials: input.materials?.length ?? null } },
         tx,
       );
     });
