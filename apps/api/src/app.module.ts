@@ -17,6 +17,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
+import { CourseAccessModule } from './course-access/course-access.module';
 import { CoursesModule } from './courses/courses.module';
 import { EmailModule } from './email/email.module';
 import { FunnelModule } from './funnel/funnel.module';
@@ -34,6 +35,7 @@ import { SettingsModule } from './settings/settings.module';
 import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-announcements.module';
 import { SpeakerPortalModule } from './speaker-portal/speaker-portal.module';
 import { StorageModule } from './storage/storage.module';
+import { TeachingModule } from './teaching/teaching.module';
 import { UsersModule } from './users/users.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 
@@ -45,6 +47,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     AuditModule,
+    CourseAccessModule,
     EmailModule,
     StorageModule,
     FunnelModule,
@@ -66,6 +69,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     EventsModule,
     SpeakerPortalModule,
     SpeakerAnnouncementsModule,
+    TeachingModule,
     AdminModule,
     AdminTeamModule,
     MediaModule,

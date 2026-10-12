@@ -336,6 +336,7 @@ model User {
   sessionFeedback         SessionFeedback[]
   submissions             Submission[]             @relation("SubmissionStudent")
   submissionsGraded       Submission[]             @relation("SubmissionGrader")
+  assessmentsEdited       Assessment[]             @relation("AssessmentEditor")
   assessmentReminders     AssessmentReminderLog[]
   pointsEntries           PointsEntry[]            @relation("PointsStudent")
   pointsAwarded           PointsEntry[]            @relation("PointsAwarder")
@@ -1451,6 +1452,9 @@ model Assessment {
   shuffle              Boolean          @default(false)
   /// Set once, the first time it is published: enrolled students were told (in-app and by email).
   publishedNotifiedAt  DateTime?
+  /// Who saved it last (an admin or a teaching speaker): admins see "by {name}".
+  updatedById          String?
+  updatedBy            User?            @relation("AssessmentEditor", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 

@@ -13,6 +13,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { AnnouncementDelivery } from '../announcements/announcement-delivery.service';
 import { AuditService } from '../audit/audit.service';
+import { CourseAccessService } from '../course-access/course-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DAY_MS = 86_400_000;
@@ -48,7 +49,7 @@ function limitReached(scope: 'target' | 'day'): HttpException {
  * to their account by Instructor.userId) is one of the course's instructors (CourseInstructor):
  * the same link that lists them on the course page. They can then message the course's
  * ENROLLED students; and the registrants of any published live session they speak at, host
- * or guest. Nothing else (no materials, assessments or grading).
+ * or guest. Teaching the course (assessments, grading, points, materials) is in teaching/.
  *
  * Messages reuse the course announcement queue (Announcement + AnnouncementRecipient,
  * AnnouncementDelivery's bulk email lane, in-app notifications, the learn page), go out at
@@ -60,6 +61,7 @@ export class SpeakerAnnouncementsService {
     private readonly prisma: PrismaService,
     private readonly delivery: AnnouncementDelivery,
     private readonly audit: AuditService,
+    private readonly access: CourseAccessService,
   ) {}
 
   // ------------------------------------------------------------------ who may reach whom
@@ -68,8 +70,9 @@ export class SpeakerAnnouncementsService {
     return this.prisma.instructor.findUnique({ where: { userId }, select: { id: true, name: true, nameAr: true } });
   }
 
+  /** The courses the speaker teaches: the shared rule (CourseAccessService). */
   private courseWhere(instructorId: string): Prisma.CourseWhereInput {
-    return { status: { not: 'ARCHIVED' }, instructors: { some: { instructorId } } };
+    return this.access.teachingWhere(instructorId);
   }
 
   private sessionWhere(instructorId: string, now: Date): Prisma.LiveEventWhereInput {

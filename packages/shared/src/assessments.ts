@@ -628,6 +628,8 @@ export interface AdminAssessmentRow {
   /** Students with a submitted attempt / waiting to be graded. */
   submitted: number;
   toGrade: number;
+  /** Who saved it last (an admin's or a teaching speaker's name), when known. */
+  updatedBy: string | null;
 }
 
 export interface AdminAssessmentDto extends Omit<AssessmentInput, 'dueAt' | 'order' | 'titleAr' | 'instructionsAr' | 'questions'> {
@@ -645,6 +647,8 @@ export interface AdminAssessmentDto extends Omit<AssessmentInput, 'dueAt' | 'ord
     options: (Omit<QuizOptionInput, 'labelAr'> & { id: string; labelAr: string })[];
   })[];
   submissionCount: number;
+  /** Who saved it last, when known. */
+  updatedBy: string | null;
 }
 
 export interface GradebookRow {
@@ -662,6 +666,8 @@ export interface GradebookRow {
   repoCheck: RepoCheck | null;
   url: string | null;
   hasFile: boolean;
+  /** Who graded the counted submission (an admin's or a teaching speaker's name). */
+  gradedBy: string | null;
 }
 
 export interface AdminSubmissionDto {
