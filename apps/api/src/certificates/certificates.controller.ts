@@ -12,7 +12,7 @@ import {
 } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
-import { CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { CertificatesService } from './certificates.service';
 
@@ -76,6 +76,7 @@ export class CertificatesController {
 /** Admin: the course's Certificates tab. */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ACADEMIC')
 @Controller('admin')
 export class AdminCertificatesController {
   constructor(private readonly certificates: CertificatesService) {}

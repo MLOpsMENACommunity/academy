@@ -29,3 +29,5 @@ export * from './certificates';
 export * from './invites';
 export * from './speaker-announcements';
 export * from './speaker-course';
+export * from './admin-permissions';
+export * from './media';

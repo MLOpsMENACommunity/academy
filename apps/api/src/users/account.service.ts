@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { verifyPassword } from '../auth/password-hasher';
-import { confirmMatches, type AddStudentInput, type Locale } from '@academy/shared';
+import { confirmMatches, type AddStudentInput, type AdminPermission, type Locale } from '@academy/shared';
 import { randomToken, sha256 } from '../common/crypto';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
@@ -20,6 +20,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpeakerPortalService } from '../speaker-portal/speaker-portal.service';
 import { ProfileService, toProfileDto } from './profile.service';
+import { assertNotLastSuper } from '../admin-team/last-super';
 
 export const ANONYMIZE_AFTER_DAYS = 30;
 /** "Add student": how long the choose-your-password link works (then "Forgot password" does). */
@@ -252,6 +253,15 @@ export class AccountService {
   /** Soft delete: sign-in is blocked now; personal data is anonymised after 30 days. */
   async deleteAccount(session: AuthUser, password: string | undefined): Promise<void> {
     await this.checkPassword(session, password);
+    // The last super admin can't leave: nobody could manage the team any more. Checked and
+    // marked deleted under the super admins' row locks (see AdminTeamService), so two super
+    // admins deleting themselves at once can't both succeed.
+    if (session.role === 'ADMIN') {
+      await this.prisma.$transaction(async (tx) => {
+        await assertNotLastSuper(tx, session.id);
+        await tx.user.update({ where: { id: session.id }, data: { deletedAt: new Date() } });
+      });
+    }
     await this.softDelete(session.id, session.id);
   }
 
@@ -275,7 +285,12 @@ export class AccountService {
    * gets a link to choose their own password (a password-reset token, which also confirms the
    * address and so claims any course invites for it). Nobody else ever sets it.
    */
-  async createByAdmin(input: AddStudentInput, adminId: string): Promise<{ id: string; email: string }> {
+  async createByAdmin(
+    input: AddStudentInput,
+    adminId: string,
+    /** Admin → Team → Add admin: the new account is an admin with these presets. */
+    asAdmin?: { adminPermissions: AdminPermission[] },
+  ): Promise<{ id: string; email: string }> {
     const existing = await this.prisma.user.findFirst({ where: { email: { equals: input.email, mode: 'insensitive' } }, select: { id: true, deletedAt: true } });
     if (existing) {
       throw new ConflictException({
@@ -289,12 +304,19 @@ export class AccountService {
       data: {
         email: input.email,
         locale: input.locale,
-        role: 'STUDENT',
+        role: asAdmin ? 'ADMIN' : 'STUDENT',
+        adminPermissions: asAdmin?.adminPermissions ?? [],
         profile: { create: { preferredLanguage: input.locale, fullNameEn: input.fullNameEn } },
         passwordResetTokens: { create: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + WELCOME_LINK_DAYS * 86_400_000) } },
       },
     });
-    await this.audit.log({ actorId: adminId, action: 'user.created_by_admin', entityType: 'User', entityId: user.id });
+    await this.audit.log({
+      actorId: adminId,
+      action: asAdmin ? 'admin.invited' : 'user.created_by_admin',
+      entityType: 'User',
+      entityId: user.id,
+      ...(asAdmin ? { metadata: { permissions: asAdmin.adminPermissions } } : {}),
+    });
     void this.email
       .send(user.email, user.locale, { name: 'accountCreated', url: this.email.url(user.locale, `/reset-password?token=${token}&welcome=1`), days: WELCOME_LINK_DAYS })
       .catch(() => undefined);

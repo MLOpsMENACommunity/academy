@@ -242,7 +242,7 @@ export class SpeakerPortalService {
         bodyEn: `${saved.fullName}: ${saved.sessionTitle}`,
         bodyAr: `${saved.fullName}: ${saved.sessionTitle}`,
         link: `/admin/speakers/applications/${saved.id}`,
-      });
+      }, ['SPEAKERS']);
     }
     return toApplicationDto(saved, user.email);
   }
@@ -475,7 +475,7 @@ export class SpeakerPortalService {
       bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
       bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
       link,
-    });
+    }, ['SPEAKERS']);
   }
 
   /**
@@ -697,7 +697,7 @@ export class SpeakerPortalService {
       bodyEn: kept ? `${name}: ${title}. ${keptNote}` : `${name}: ${title}`,
       bodyAr: kept ? `${name}: ${title}. الدورة منشورة بالفعل، فبقيت كما هي: راجعها في الدورات.` : `${name}: ${title}`,
       link: kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability',
-    });
+    }, ['SPEAKERS']);
   }
 
   /** The speaker cancels until N days before: the slot opens again and the session goes. */

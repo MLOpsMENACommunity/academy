@@ -3,13 +3,14 @@ import { ApiTags } from '@nestjs/swagger';
 import { assessmentInputSchema, gradeInputSchema, submissionFilterSchema, type AssessmentInput, type GradeInput } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { AdminAssessmentsService } from './admin-assessments.service';
 
 /** Admin: the course's Assessments tab, the quiz builder and the gradebook. */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ACADEMIC')
 @Controller('admin')
 export class AdminAssessmentsController {
   constructor(private readonly assessments: AdminAssessmentsService) {}

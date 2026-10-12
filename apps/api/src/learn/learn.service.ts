@@ -8,6 +8,7 @@ import {
   type LearnCourseDto,
   type Material,
   type NextSessionDto,
+  hasAdminPermission,
 } from '@academy/shared';
 import type { Course } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
@@ -38,7 +39,8 @@ export class LearnService {
   private async access(user: AuthUser, slug: string, mode: 'read' | 'write' = 'read'): Promise<Course> {
     const course = await this.prisma.course.findUnique({ where: { slug } });
     if (!course) throw new NotFoundException('Course not found');
-    if (user.role === 'ADMIN' && mode === 'read') return course;
+    // The academic preset previews (reads) any course; other admins only as enrolled students.
+    if (mode === 'read' && hasAdminPermission(user, ['ACADEMIC'])) return course;
     const enrolled = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
       select: { id: true },
@@ -64,7 +66,7 @@ export class LearnService {
       this.prisma.announcement.findMany({
         where: {
           courseId: course.id,
-          ...(user.role === 'ADMIN' ? {} : { OR: [{ statuses: { array_contains: ['ENROLLED'] } }, { recipients: { some: { userId: user.id } } }] }),
+          ...(hasAdminPermission(user, ['ACADEMIC']) ? {} : { OR: [{ statuses: { array_contains: ['ENROLLED'] } }, { recipients: { some: { userId: user.id } } }] }),
         },
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -104,7 +106,7 @@ export class LearnService {
         fromAr: a.fromName ? a.fromNameAr || a.fromName : null,
       })),
       sessions: sessions.map((x) => {
-        const visible = user.role === 'ADMIN' || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
+        const visible = hasAdminPermission(user, ['ACADEMIC']) || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
         const fb = fbBySession.get(x.id);
         return {
           id: x.id,

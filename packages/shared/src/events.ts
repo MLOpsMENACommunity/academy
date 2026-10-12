@@ -12,6 +12,7 @@ import {
   type EventSpeakerRole,
   type EventStatus,
 } from './enums';
+import { optionalImageUrlSchema } from './media';
 import { eventDetailsInputSchema, type SpeakerDetailsDto, type SpeakerKind } from './speaker-details';
 
 /** Links people click: http(s) only. */
@@ -46,7 +47,7 @@ export const eventInputSchema = z
     speakerNameAr: z.string().trim().max(120).default(''),
     speakerTitleEn: z.string().trim().max(160).default(''),
     speakerTitleAr: z.string().trim().max(160).default(''),
-    speakerPhotoUrl: optionalUrl,
+    speakerPhotoUrl: optionalImageUrlSchema,
     speakerLinkedinUrl: optionalUrl,
     /** The speaker's profile (an instructor), for the link to /speakers/{slug}. */
     speakerId: z
@@ -88,7 +89,7 @@ export const eventInputSchema = z
     platform: z.enum(DELIVERY_PLATFORMS),
     liveUrl: optionalUrl,
     recordingUrl: optionalUrl,
-    coverImageUrl: optionalUrl,
+    coverImageUrl: optionalImageUrlSchema,
     capacity: z.coerce.number().int().min(1).max(100_000).nullish().or(z.literal('').transform(() => null)),
     /**
      * Session, course or podcast, and its optional details (filled by the speaker when booking,

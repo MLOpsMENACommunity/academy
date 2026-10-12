@@ -15,7 +15,7 @@ import {
   type PointsImportInput,
 } from '@academy/shared';
 import type { Response } from 'express';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { BadgesService } from './badges.service';
 import { LeaderboardService } from './leaderboard.service';
@@ -24,6 +24,7 @@ import { PointsService } from './points.service';
 /** Admin: manual points, the CSV import, badges, and the full course leaderboard. Everything that changes data is audited. */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ACADEMIC')
 @Controller('admin')
 export class AdminPointsController {
   constructor(

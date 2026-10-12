@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
+  ADMIN_PERMISSIONS,
   adminTransitionSchema,
   applySchema,
   type AdminTransitionInput,
@@ -9,7 +10,7 @@ import {
   type MyApplicationDetailDto,
   type MyApplicationDto,
 } from '@academy/shared';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { ApplicationsService } from './applications.service';
 import { ApplicationWorkflow } from './workflow.service';
@@ -24,6 +25,8 @@ export class ApplicationsController {
 
   /** Students (and admins testing). One account, one role: a speaker asks the team to switch the account to study. */
   @Roles('STUDENT', 'ADMIN')
+  // Any admin may try the student flow on their own account.
+  @AdminCan(...ADMIN_PERMISSIONS)
   @Post('applications')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   apply(@CurrentUser() user: AuthUser, @Body(new ZodPipe(applySchema)) body: ApplyInput): Promise<MyApplicationDetailDto> {
@@ -42,6 +45,7 @@ export class ApplicationsController {
 
   /** Single-application status change by an admin (the admin panel adds bulk actions). */
   @Roles('ADMIN')
+  @AdminCan('ADMISSIONS')
   @Post('admin/applications/:id/transition')
   @HttpCode(200)
   async transition(

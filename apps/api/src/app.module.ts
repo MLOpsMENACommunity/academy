@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
+import { AdminTeamModule } from './admin-team/admin-team.module';
 import { ArchiveModule } from './archive/archive.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { ApplicationsModule } from './applications/applications.module';
@@ -24,6 +25,7 @@ import { InvitesModule } from './invites/invites.module';
 import { JobsModule } from './jobs/jobs.module';
 import { EventsModule } from './events/events.module';
 import { LearnModule } from './learn/learn.module';
+import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PointsModule } from './points/points.module';
@@ -65,6 +67,8 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     SpeakerPortalModule,
     SpeakerAnnouncementsModule,
     AdminModule,
+    AdminTeamModule,
+    MediaModule,
     JobsModule,
   ],
   controllers: [HealthController],

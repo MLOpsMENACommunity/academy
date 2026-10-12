@@ -13,6 +13,7 @@ import {
   type LeaderboardQuery,
   type Ranked,
   type Standing,
+  hasAdminPermission,
 } from '@academy/shared';
 import type { Course } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
@@ -145,7 +146,7 @@ export class LeaderboardService {
     const course = await this.prisma.course.findUnique({ where: { slug } });
     if (!course) throw new NotFoundException('Course not found');
     const enrolled = Boolean(await this.prisma.enrollment.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } }, select: { id: true } }));
-    if (!enrolled && user.role !== 'ADMIN') throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
+    if (!enrolled && !hasAdminPermission(user, ['ACADEMIC'])) throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
     const { clock, week, standings, optedIn, total } = await this.load(course, q, now);
     const shown = rankStandings(standings.filter((s) => optedIn.has(s.userId)));
     const top = shown.slice(0, LEADERBOARD_SIZE);

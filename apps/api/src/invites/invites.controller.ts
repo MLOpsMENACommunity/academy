@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { inviteApplySchema, invitePreviewSchema, type InviteApplyInput, type InvitePreviewInput } from '@academy/shared';
 import type { Response } from 'express';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { InvitesService } from './invites.service';
 
@@ -17,6 +17,7 @@ function sendCsv(res: Response, name: string, csv: string): void {
 /** The course admin's "Enrol by email" tab. */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ADMISSIONS')
 @Controller('admin/courses/:id/invites')
 export class AdminInvitesController {
   constructor(private readonly invites: InvitesService) {}

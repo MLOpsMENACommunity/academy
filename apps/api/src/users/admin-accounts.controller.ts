@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ADMIN_PROFILE_SECTIONS, addStudentSchema, typedConfirmSchema, type AddStudentInput, type AdminProfileSection, type ProfileDto } from '@academy/shared';
 import type { z } from 'zod';
-import { CurrentUser, Roles, type AuthUser } from '../common/decorators';
+import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountService } from './account.service';
@@ -15,6 +15,7 @@ import { ProfileService } from './profile.service';
  */
 @ApiTags('admin')
 @Roles('ADMIN')
+@AdminCan('ADMISSIONS')
 @Controller('admin/students')
 export class AdminAccountsController {
   constructor(
