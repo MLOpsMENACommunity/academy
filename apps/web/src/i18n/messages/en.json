@@ -1404,7 +1404,8 @@
         },
         "open": "Open",
         "file": "PDF",
-        "none": "No students match."
+        "none": "No students match.",
+        "by": "by {name}"
       },
       "grading": {
         "title": "Submission",
@@ -1472,7 +1473,9 @@
           "TOO_LONG": "The {column} is too long ({max} characters max).",
           "INVALID": "This row isn’t a valid question."
         }
-      }
+      },
+      "lastEditedBy": "Last edited by {name}",
+      "preview": "Preview"
     },
     "points": {
       "nav": "Points & badges",
@@ -1884,7 +1887,8 @@
       "SPEAKER_TARGET_LIMIT": "You've reached the limit for this course or session today. You can send again tomorrow.",
       "SPEAKER_DAILY_LIMIT": "You've reached today's limit of announcements. You can send again tomorrow.",
       "IDEMPOTENCY_KEY_REUSED": "This message was already sent. Reload the page."
-    }
+    },
+    "courseTitle": "Announcements to this course"
   },
   "speakerAssignments": {
     "title": "Assigned courses",
@@ -2564,6 +2568,49 @@
       "serial": "Serial number",
       "issuer": "Issued by",
       "issuerValue": "MLOps MENA Community"
+    }
+  },
+  "speakerTeaching": {
+    "myCourses": "My courses",
+    "myCoursesIntro": "The courses you teach: create quizzes and assignments, grade work, give points and share session materials.",
+    "students": "{count, plural, one {# student} other {# students}}",
+    "assessments": "{count, plural, one {# assessment} other {# assessments}}",
+    "open": "Open course",
+    "back": "Speaker portal",
+    "intro": "You teach this course. Enrolled students see what you publish, and every change is recorded with your name. Certificates and enrolments stay with the academy team.",
+    "notSpeaker": "This page is for speakers who teach a course.",
+    "notYours": "You aren't assigned to this course (or it was archived). Ask the academy team if this looks wrong.",
+    "tabs": {
+      "assessments": "Assessments",
+      "gradebook": "Gradebook",
+      "points": "Points",
+      "materials": "Materials",
+      "announcements": "Announcements"
+    },
+    "gradebook": {
+      "intro": "Pick an assessment to see every enrolled student and grade their work. The export has every published assessment."
+    },
+    "points": {
+      "title": "Give or take away points",
+      "intro": "Course points for your enrolled students. They count on the course leaderboard, and the student sees the note.",
+      "student": "Student",
+      "pickStudent": "Choose a student",
+      "noStudents": "No students are enrolled yet.",
+      "saved": "Saved: {points} for {name}.",
+      "standings": "Course points",
+      "history": "Latest changes",
+      "noHistory": "No points given by hand yet.",
+      "by": "by {name}"
+    },
+    "materials": {
+      "intro": "What each session covers, its recording and its links. Dates, titles and the live link are set by the academy team.",
+      "none": "No sessions yet.",
+      "edit": "Edit materials",
+      "close": "Close",
+      "save": "Save materials",
+      "saved": "Saved.",
+      "hasRecording": "Recording",
+      "materialsInvalid": "Each material needs an English and an Arabic label and an http(s) link."
     }
   }
 }

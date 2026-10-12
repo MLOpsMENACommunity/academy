@@ -36,6 +36,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { detectFileType, MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
 import { PointsService } from '../points/points.service';
+import { CourseAccessService } from '../course-access/course-access.service';
 import { GithubRepoChecker } from './github-repo-check';
 
 type QuestionWithOptions = QuizQuestion & { options: QuizOption[] };
@@ -138,13 +139,18 @@ export class AssessmentsService {
     private readonly storage: StorageService,
     private readonly github: GithubRepoChecker,
     private readonly points: PointsService,
+    private readonly courseAccess: CourseAccessService,
   ) {}
 
-  /** Same rule as the course player: admins may read (preview); writes need an enrolment. */
+  /**
+   * Whoever teaches the course may read (preview) its published assessments: SUPER and
+   * ACADEMIC admins, and the speakers assigned to it (CourseAccessService). Other admins only
+   * as enrolled students. Writes (starting, submitting) always need an enrolment.
+   */
   private async access(user: AuthUser, slug: string, mode: 'read' | 'write' = 'read'): Promise<Course> {
     const course = await this.prisma.course.findUnique({ where: { slug } });
     if (!course) throw new NotFoundException('Course not found');
-    if (user.role === 'ADMIN' && mode === 'read') return course;
+    if (mode === 'read' && (await this.courseAccess.canTeach(user, course.id))) return course;
     const enrolled = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
       select: { id: true },

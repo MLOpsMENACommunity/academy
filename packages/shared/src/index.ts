@@ -34,3 +34,4 @@ export * from './speaker-announcements';
 export * from './speaker-course';
 export * from './admin-permissions';
 export * from './media';
+export * from './teaching';

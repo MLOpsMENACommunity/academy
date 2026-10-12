@@ -17,7 +17,8 @@ import { GITHUB_FETCH, GithubRepoChecker, type FetchLike } from './github-repo-c
     GithubRepoChecker,
     { provide: GITHUB_FETCH, useValue: ((url, init) => fetch(url, init)) satisfies FetchLike },
   ],
-  // AssessmentsService.courseResults is the shared score rule for certificates and points.
-  exports: [AssessmentsService, AssessmentReminderJobs],
+  // AssessmentsService.courseResults is the shared score rule for certificates and points;
+  // teaching speakers reuse AdminAssessmentsService with course scoping (teaching/).
+  exports: [AssessmentsService, AdminAssessmentsService, AssessmentReminderJobs],
 })
 export class AssessmentsModule {}

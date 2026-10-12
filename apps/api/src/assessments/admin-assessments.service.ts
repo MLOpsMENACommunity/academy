@@ -25,6 +25,22 @@ import { formatDueAt } from './due-format';
 
 const questionsInclude = { questions: { orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } } } as const;
 
+/** Enough of a staff account (admin or speaker) to say who did something. */
+const staffSelect = { email: true, profile: { select: { fullNameEn: true } }, speakerProfile: { select: { name: true } } } satisfies Prisma.UserSelect;
+type Staff = Prisma.UserGetPayload<{ select: typeof staffSelect }>;
+
+/**
+ * "by {name}": a speaker's public name, else the account's name, else (for admins only) the
+ * email. Speakers never see another staff member's email.
+ */
+function staffName(u: Staff | null | undefined, withEmail = true): string | null {
+  if (!u) return null;
+  return u.speakerProfile?.name || u.profile?.fullNameEn || (withEmail ? u.email : null);
+}
+
+/** One answer for "doesn't exist" and "belongs to another course". */
+const notInCourse = (what: 'Assessment' | 'Submission') => new NotFoundException(`${what} not found`);
+
 /** Saving a long quiz is many statements: more than Prisma's 5-second default. */
 const QUESTIONS_TX_TIMEOUT_MS = 30_000;
 
@@ -93,12 +109,32 @@ export class AdminAssessmentsService {
     if (!s) throw new BadRequestException({ statusCode: 400, message: 'Validation failed', errors: [{ path: 'sessionId', message: 'Not a session of this course' }] });
   }
 
-  async list(courseId: string): Promise<AdminAssessmentRow[]> {
+  // ------------------------------------------------------------------ course scoping (teaching speakers)
+
+  /** 404 unless the assessment is one of this course's. */
+  async assertAssessmentInCourse(courseId: string, id: string): Promise<void> {
+    const a = await this.prisma.assessment.findFirst({ where: { id, courseId }, select: { id: true } });
+    if (!a) throw notInCourse('Assessment');
+  }
+
+  /** 404 unless the submission answers one of this course's assessments. */
+  async assertSubmissionInCourse(courseId: string, id: string): Promise<void> {
+    const s = await this.prisma.submission.findFirst({ where: { id, assessment: { courseId } }, select: { id: true } });
+    if (!s) throw notInCourse('Submission');
+  }
+
+  /** 404 unless every id is one of this course's assessments. */
+  async assertAssessmentsInCourse(courseId: string, ids: string[]): Promise<void> {
+    const n = await this.prisma.assessment.count({ where: { id: { in: ids }, courseId } });
+    if (n !== new Set(ids).size) throw notInCourse('Assessment');
+  }
+
+  async list(courseId: string, staffEmails = true): Promise<AdminAssessmentRow[]> {
     await this.course(courseId);
     const items = await this.prisma.assessment.findMany({
       where: { courseId },
       orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
-      include: { _count: { select: { questions: true } } },
+      include: { _count: { select: { questions: true } }, updatedBy: { select: staffSelect } },
     });
     const counts = await this.prisma.submission.groupBy({
       by: ['assessmentId', 'userId'],
@@ -125,17 +161,22 @@ export class AdminAssessmentsService {
       questionCount: a._count.questions,
       submitted: counts.filter((c) => c.assessmentId === a.id).length,
       toGrade: pending.find((p) => p.assessmentId === a.id)?._count._all ?? 0,
+      updatedBy: staffName(a.updatedBy, staffEmails),
     }));
   }
 
-  async get(id: string): Promise<AdminAssessmentDto> {
-    const a = await this.prisma.assessment.findUnique({ where: { id }, include: { ...questionsInclude, _count: { select: { submissions: true } } } });
+  async get(id: string, staffEmails = true): Promise<AdminAssessmentDto> {
+    const a = await this.prisma.assessment.findUnique({
+      where: { id },
+      include: { ...questionsInclude, _count: { select: { submissions: true } }, updatedBy: { select: staffSelect } },
+    });
     if (!a) throw new NotFoundException('Assessment not found');
-    const { questions, _count, createdAt: _c, updatedAt: _u, publishedNotifiedAt: _p, ...rest } = a;
+    const { questions, _count, createdAt: _c, updatedAt: _u, publishedNotifiedAt: _p, updatedById: _ub, updatedBy, ...rest } = a;
     return {
       ...rest,
       dueAt: a.dueAt?.toISOString() ?? null,
       submissionCount: _count.submissions,
+      updatedBy: staffName(updatedBy, staffEmails),
       questions: questions.map((q) => ({
         id: q.id,
         kind: q.kind,
@@ -150,7 +191,7 @@ export class AdminAssessmentsService {
   }
 
   /** The admin list's ↑/↓ buttons: ids of this course's assessments in their new order. */
-  async reorder(courseId: string, ids: string[], admin: Actor): Promise<AdminAssessmentRow[]> {
+  async reorder(courseId: string, ids: string[], admin: Actor, staffEmails = true): Promise<AdminAssessmentRow[]> {
     await this.course(courseId);
     const all = await this.prisma.assessment.findMany({ where: { courseId }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }], select: { id: true, order: true } });
     const known = new Set(all.map((a) => a.id));
@@ -167,10 +208,10 @@ export class AdminAssessmentsService {
       }
       await this.audit.log({ actorId: admin.id, action: 'assessment.reordered', entityType: 'Course', entityId: courseId, metadata: { count: next.length } }, tx);
     });
-    return this.list(courseId);
+    return this.list(courseId, staffEmails);
   }
 
-  async create(courseId: string, input: AssessmentInput, admin: Actor): Promise<AdminAssessmentDto> {
+  async create(courseId: string, input: AssessmentInput, admin: Actor, staffEmails = true): Promise<AdminAssessmentDto> {
     await this.course(courseId);
     await this.checkSession(courseId, input.sessionId);
     const published = input.status === 'PUBLISHED';
@@ -185,6 +226,7 @@ export class AdminAssessmentsService {
             instructionsAr: input.instructionsAr ?? '',
             order: input.order ?? Math.min((last?._max.order ?? -1) + 1, 999),
             courseId,
+            updatedById: admin.id,
             // Published right away: this request tells the students (once).
             publishedNotifiedAt: published ? new Date() : null,
           },
@@ -196,10 +238,10 @@ export class AdminAssessmentsService {
       { timeout: QUESTIONS_TX_TIMEOUT_MS },
     );
     if (published) this.announcePublished(a.id);
-    return this.get(a.id);
+    return this.get(a.id, staffEmails);
   }
 
-  async update(id: string, input: AssessmentInput, admin: Actor): Promise<AdminAssessmentDto> {
+  async update(id: string, input: AssessmentInput, admin: Actor, staffEmails = true): Promise<AdminAssessmentDto> {
     const current = await this.prisma.assessment.findUnique({ where: { id }, include: { ...questionsInclude, _count: { select: { submissions: true } } } });
     if (!current) throw new NotFoundException('Assessment not found');
     if (current._count.submissions > 0) {
@@ -215,7 +257,7 @@ export class AdminAssessmentsService {
     await this.checkSession(current.courseId, input.sessionId);
     const firstPublish = await this.prisma.$transaction(
       async (tx) => {
-        await tx.assessment.update({ where: { id }, data: fields(input) });
+        await tx.assessment.update({ where: { id }, data: { ...fields(input), updatedById: admin.id } });
         if (input.type === 'QUIZ') await this.saveQuestions(tx, id, input.questions);
         else await tx.quizQuestion.deleteMany({ where: { assessmentId: id } });
         await this.audit.log(
@@ -236,7 +278,7 @@ export class AdminAssessmentsService {
     if (current.status !== input.status || current.scoring !== input.scoring) {
       await this.points.syncAssessmentForAll(id).catch((err: unknown) => this.logger.error(`Points sync failed: ${(err as Error).name}`));
     }
-    return this.get(id);
+    return this.get(id, staffEmails);
   }
 
   /**
@@ -333,7 +375,7 @@ export class AdminAssessmentsService {
   // ------------------------------------------------------------------ gradebook
 
   /** Every enrolled student with their counted (or latest) submission. */
-  async submissions(id: string, filter: SubmissionFilter): Promise<{ assessment: { id: string; type: string; titleEn: string; titleAr: string; maxPoints: number; dueAt: string | null; submissionKind: string | null }; rows: GradebookRow[] }> {
+  async submissions(id: string, filter: SubmissionFilter, staffEmails = true): Promise<{ assessment: { id: string; type: string; titleEn: string; titleAr: string; maxPoints: number; dueAt: string | null; submissionKind: string | null }; rows: GradebookRow[] }> {
     const a = await this.prisma.assessment.findUnique({ where: { id } });
     if (!a) throw new NotFoundException('Assessment not found');
     const [enrolled, subs] = await Promise.all([
@@ -342,7 +384,7 @@ export class AdminAssessmentsService {
         orderBy: { enrolledAt: 'asc' },
         select: { user: { select: { id: true, email: true, profile: { select: { fullNameEn: true } } } } },
       }),
-      this.prisma.submission.findMany({ where: { assessmentId: id }, orderBy: { attempt: 'asc' } }),
+      this.prisma.submission.findMany({ where: { assessmentId: id }, orderBy: { attempt: 'asc' }, include: { gradedBy: { select: staffSelect } } }),
     ]);
     const rows: GradebookRow[] = enrolled.map(({ user }) => {
       const mine = subs.filter((s) => s.userId === user.id);
@@ -363,6 +405,7 @@ export class AdminAssessmentsService {
         repoCheck: pick?.repoCheck ?? null,
         url: pick?.url ?? null,
         hasFile: Boolean(pick?.fileKey),
+        gradedBy: pick?.gradedAt ? staffName(pick.gradedBy, staffEmails) : null,
       };
     });
     const keep = (r: GradebookRow) => {
@@ -385,13 +428,14 @@ export class AdminAssessmentsService {
     };
   }
 
-  async submission(id: string): Promise<AdminSubmissionDto> {
+  /** `staffEmails` false (speakers): the grader is named, never shown by email. */
+  async submission(id: string, staffEmails = true): Promise<AdminSubmissionDto> {
     const s = await this.prisma.submission.findUnique({
       where: { id },
       include: {
         assessment: { include: questionsInclude },
         user: { select: { id: true, email: true, profile: { select: { fullNameEn: true } } } },
-        gradedBy: { select: { email: true, profile: { select: { fullNameEn: true } } } },
+        gradedBy: { select: staffSelect },
       },
     });
     if (!s) throw new NotFoundException('Submission not found');
@@ -420,7 +464,7 @@ export class AdminAssessmentsService {
       score: s.score,
       maxScore: s.maxScore,
       gradedAt: s.gradedAt?.toISOString() ?? null,
-      gradedBy: s.gradedBy ? (s.gradedBy.profile?.fullNameEn ?? s.gradedBy.email) : null,
+      gradedBy: staffName(s.gradedBy, staffEmails),
       feedback: s.feedback,
       rubricNotes: s.rubricNotes,
       review: s.assessment.type === 'QUIZ' && s.submittedAt ? buildReview(s.assessment, s) : null,
@@ -435,7 +479,7 @@ export class AdminAssessmentsService {
   }
 
   /** Score + written feedback. Every change is audited; the student is told in-app and by email. */
-  async grade(id: string, input: GradeInput, admin: Actor): Promise<AdminSubmissionDto> {
+  async grade(id: string, input: GradeInput, admin: Actor, staffEmails = true): Promise<AdminSubmissionDto> {
     const s = await this.prisma.submission.findUnique({
       where: { id },
       include: {
@@ -473,7 +517,7 @@ export class AdminAssessmentsService {
     // Points follow the counted score: a regrade appends the difference.
     await this.points.syncAssessmentSafe(s.assessmentId, s.userId);
     if (!s.user.deletedAt) this.tellStudent(s, input.score);
-    return this.submission(id);
+    return this.submission(id, staffEmails);
   }
 
   private tellStudent(

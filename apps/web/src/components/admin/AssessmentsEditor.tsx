@@ -19,12 +19,12 @@ import {
   type ScoringPolicy,
   type SubmissionKind,
 } from '@academy/shared';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { ZodIssue } from 'zod';
 import { CheckboxField, focusFirstInvalid, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Button, buttonClass } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useI18n } from '@/i18n/client';
 import type { Translate } from '@/i18n/translator';
@@ -33,6 +33,7 @@ import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
+import { adminAssessmentEndpoints, type AssessmentEndpoints } from './assessment-endpoints';
 import { AssessmentGradebook } from './AssessmentGradebook';
 import { fromLocalInput, toLocalInput } from './CourseForm';
 import { MarkdownField } from './MarkdownField';
@@ -287,13 +288,13 @@ function QuestionEditor({
 // ------------------------------------------------------------------ form
 
 function AssessmentForm({
-  courseId,
+  endpoints,
   sessions,
   id,
   onSaved,
   onCancel,
 }: {
-  courseId: string;
+  endpoints: AssessmentEndpoints;
   sessions: AssessmentSessionOption[];
   id: string | null;
   onSaved: () => void;
@@ -303,6 +304,7 @@ function AssessmentForm({
   const f = (k: string, v?: Record<string, string | number>) => t(`admin.assessments.form.${k}`, v);
   const [draft, setDraft] = useState<Draft | null>(id ? null : EMPTY);
   const [submissions, setSubmissions] = useState(0);
+  const [updatedBy, setUpdatedBy] = useState<string | null>(null);
   const [arabic, setArabic] = useState(false);
   const [uploaded, setUploaded] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -313,14 +315,15 @@ function AssessmentForm({
 
   useEffect(() => {
     if (!id) return;
-    api<AdminAssessmentDto>(`/admin/assessments/${id}`)
+    api<AdminAssessmentDto>(endpoints.one(id))
       .then((a) => {
         setDraft(toDraft(a));
         setSubmissions(a.submissionCount);
+        setUpdatedBy(a.updatedBy);
         setArabic(hasArabic(a));
       })
       .catch((err) => setFormError(errorMessage(err, t)));
-  }, [id, t]);
+  }, [endpoints, id, t]);
   useEffect(() => heading.current?.focus(), []);
 
   if (!draft) return formError ? <Alert tone="danger">{formError}</Alert> : <p className="text-muted">{t('admin.common.loading')}</p>;
@@ -344,7 +347,7 @@ function AssessmentForm({
     setErrors({});
     setBusy(true);
     try {
-      await api(id ? `/admin/assessments/${id}` : `/admin/courses/${courseId}/assessments`, { method: id ? 'PUT' : 'POST', json: payload });
+      await api(id ? endpoints.one(id) : endpoints.list, { method: id ? 'PUT' : 'POST', json: payload });
       onSaved();
     } catch (err) {
       setFormError(errorMessage(err, t));
@@ -366,6 +369,7 @@ function AssessmentForm({
         <h2 ref={heading} tabIndex={-1} className="text-xl focus:outline-none">
           {id ? f('editTitle') : f('newTitle')}
         </h2>
+        {updatedBy && <p className="-mt-2 text-sm text-muted">{t('admin.assessments.lastEditedBy', { name: updatedBy })}</p>}
         {formError && <Alert tone="danger">{formError}</Alert>}
         {submissions > 0 && <Alert tone="warning">{t('admin.assessments.hasSubmissions', { count: submissions })}</Alert>}
         <p className="max-w-3xl text-sm text-muted">{f('englishOnly')}</p>
@@ -489,8 +493,21 @@ function AssessmentForm({
 type View = { mode: 'list' } | { mode: 'edit'; id: string | null } | { mode: 'book'; id: string };
 
 /** The course editor's Assessments tab: the list, the editor (quiz builder) and each gradebook. */
-export function AssessmentsEditor({ courseId, sessions }: { courseId: string; sessions: AssessmentSessionOption[] }) {
+export function AssessmentsEditor({
+  courseId,
+  sessions,
+  endpoints: given,
+  previewSlug,
+}: {
+  courseId: string;
+  sessions: AssessmentSessionOption[];
+  /** Where to call the API: the admin routes unless given (a teaching speaker's course routes). */
+  endpoints?: AssessmentEndpoints;
+  /** Show "Preview" on published ones: the student page for this course slug. */
+  previewSlug?: string;
+}) {
   const { locale, t } = useI18n();
+  const endpoints = useMemo(() => given ?? adminAssessmentEndpoints(courseId), [given, courseId]);
   const a = (k: string, v?: Record<string, string | number>) => t(`admin.assessments.${k}`, v);
   const [rows, setRows] = useState<AdminAssessmentRow[] | null>(null);
   const [view, setView] = useState<View>({ mode: 'list' });
@@ -498,10 +515,10 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api<AdminAssessmentRow[]>(`/admin/courses/${courseId}/assessments`)
+    api<AdminAssessmentRow[]>(endpoints.list)
       .then(setRows)
       .catch((err) => setError(errorMessage(err, t)));
-  }, [courseId, t]);
+  }, [endpoints, t]);
   useEffect(load, [load]);
 
   const [moving, setMoving] = useState(false);
@@ -516,7 +533,7 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
     setNotice(null);
     setMoving(true);
     try {
-      setRows(await api<AdminAssessmentRow[]>(`/admin/courses/${courseId}/assessments/order`, { method: 'PUT', json: { ids: next.map((r) => r.id) } }));
+      setRows(await api<AdminAssessmentRow[]>(endpoints.order, { method: 'PUT', json: { ids: next.map((r) => r.id) } }));
       setNotice(a('reordered'));
       // Keep focus on the arrow that was pressed (or its twin at the ends) as the item moves.
       requestAnimationFrame(() => {
@@ -535,7 +552,7 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
     if (!window.confirm(a('deleteConfirm', { title: r.titleEn }))) return;
     setError(null);
     try {
-      await api(`/admin/assessments/${r.id}`, { method: 'DELETE' });
+      await api(endpoints.one(r.id), { method: 'DELETE' });
       load();
     } catch (err) {
       setError(errorMessage(err, t));
@@ -545,7 +562,7 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
   if (view.mode === 'edit') {
     return (
       <AssessmentForm
-        courseId={courseId}
+        endpoints={endpoints}
         sessions={sessions}
         id={view.id}
         onCancel={() => setView({ mode: 'list' })}
@@ -561,6 +578,8 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
     return (
       <AssessmentGradebook
         assessmentId={view.id}
+        courseId={courseId}
+        endpoints={endpoints}
         onBack={() => {
           setView({ mode: 'list' });
           load();
@@ -582,7 +601,7 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
       {notice && <Alert tone="success">{notice}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setView({ mode: 'edit', id: null })}>+ {a('add')}</Button>
-        <Button variant="secondary" onClick={() => downloadViaApi(`/admin/courses/${courseId}/gradebook.csv`, 'gradebook.csv').catch((err: unknown) => setError(errorMessage(err, t)))}>
+        <Button variant="secondary" onClick={() => downloadViaApi(endpoints.gradebookCsv, 'gradebook.csv').catch((err: unknown) => setError(errorMessage(err, t)))}>
           ⬇ {a('exportGradebook')}
         </Button>
       </div>
@@ -637,6 +656,7 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
                       <Badge>{a('submittedCount', { count: r.submitted })}</Badge>
                       {r.toGrade > 0 && <Badge tone="danger">{a('toGrade', { count: r.toGrade })}</Badge>}
                     </div>
+                    {r.updatedBy && <p className="mt-1.5 text-xs text-muted">{a('lastEditedBy', { name: r.updatedBy })}</p>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -646,6 +666,11 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
                   <Button size="sm" variant="secondary" onClick={() => setView({ mode: 'edit', id: r.id })}>
                     {a('edit')}
                   </Button>
+                  {previewSlug && r.status === 'PUBLISHED' && (
+                    <a href={`/${locale}/learn/${previewSlug}/assessments/${r.id}`} target="_blank" rel="noopener noreferrer" className={buttonClass('ghost', 'sm')}>
+                      {a('preview')} <span aria-hidden>↗</span>
+                    </a>
+                  )}
                   <Button size="sm" variant="ghost" className="text-danger" onClick={() => remove(r)}>
                     {a('delete')}
                   </Button>

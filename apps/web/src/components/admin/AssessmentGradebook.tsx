@@ -1,7 +1,7 @@
 'use client';
 
 import { SUBMISSION_FILTERS, type AdminSubmissionDto, type GradebookRow, type SubmissionFilter } from '@academy/shared';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { TextAreaField, TextField } from '@/components/forms/fields';
 import { QuizReview } from '@/components/learn/QuizReview';
 import { Alert } from '@/components/ui/Alert';
@@ -11,6 +11,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/format';
+import { adminAssessmentEndpoints, type AssessmentEndpoints } from './assessment-endpoints';
 
 interface Book {
   assessment: { id: string; type: string; titleEn: string; titleAr: string; maxPoints: number; dueAt: string | null; submissionKind: string | null };
@@ -22,7 +23,7 @@ const repoTone = { PUBLIC: 'success', NOT_PUBLIC: 'danger', UNVERIFIED: 'warning
 const num = (n: number) => String(Number(n.toFixed(2)));
 
 /** One submission: the work (link, PDF, quiz answers) and the grading form. */
-function GradePanel({ id, onSaved, onClose }: { id: string; onSaved: () => void; onClose: () => void }) {
+function GradePanel({ id, endpoints, onSaved, onClose }: { id: string; endpoints: AssessmentEndpoints; onSaved: () => void; onClose: () => void }) {
   const { locale, t } = useI18n();
   const g = (k: string, v?: Record<string, string | number>) => t(`admin.assessments.grading.${k}`, v);
   const [current, setCurrent] = useState(id);
@@ -38,7 +39,7 @@ function GradePanel({ id, onSaved, onClose }: { id: string; onSaved: () => void;
 
   useEffect(() => {
     setS(null);
-    api<AdminSubmissionDto>(`/admin/submissions/${current}`)
+    api<AdminSubmissionDto>(endpoints.submission(current))
       .then((x) => {
         setS(x);
         setScore(x.score !== null ? num(x.score) : '');
@@ -47,13 +48,13 @@ function GradePanel({ id, onSaved, onClose }: { id: string; onSaved: () => void;
         requestAnimationFrame(() => heading.current?.focus());
       })
       .catch((err) => setError(errorMessage(err, t)));
-  }, [current, t]);
+  }, [current, endpoints, t]);
 
   async function openFile() {
     setError(null);
     const tab = window.open('', '_blank');
     try {
-      const { url } = await api<{ url: string }>(`/admin/submissions/${current}/file`);
+      const { url } = await api<{ url: string }>(endpoints.file(current));
       if (tab) tab.location.href = url;
       else window.location.href = url;
     } catch (err) {
@@ -76,7 +77,7 @@ function GradePanel({ id, onSaved, onClose }: { id: string; onSaved: () => void;
     setScoreError(undefined);
     setBusy(true);
     try {
-      setS(await api<AdminSubmissionDto>(`/admin/submissions/${current}/grade`, { method: 'PUT', json: { score: n, feedback: feedback || null, rubricNotes: rubric || null, submittedAt: s.submittedAt ?? undefined } }));
+      setS(await api<AdminSubmissionDto>(endpoints.grade(current), { method: 'PUT', json: { score: n, feedback: feedback || null, rubricNotes: rubric || null, submittedAt: s.submittedAt ?? undefined } }));
       setNotice(g('saved'));
       onSaved();
     } catch (err) {
@@ -196,7 +197,8 @@ function GradePanel({ id, onSaved, onClose }: { id: string; onSaved: () => void;
 }
 
 /** Per assessment: every enrolled student, filters (to grade / graded / late / missing) and grading. */
-export function AssessmentGradebook({ assessmentId, onBack }: { assessmentId: string; onBack: () => void }) {
+export function AssessmentGradebook({ assessmentId, courseId, endpoints: given, onBack }: { assessmentId: string; courseId: string; endpoints?: AssessmentEndpoints; onBack: () => void }) {
+  const endpoints = useMemo(() => given ?? adminAssessmentEndpoints(courseId), [given, courseId]);
   const { locale, t } = useI18n();
   const b = (k: string, v?: Record<string, string | number>) => t(`admin.assessments.book.${k}`, v);
   const [filter, setFilter] = useState<SubmissionFilter>('all');
@@ -205,10 +207,10 @@ export function AssessmentGradebook({ assessmentId, onBack }: { assessmentId: st
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api<Book>(`/admin/assessments/${assessmentId}/submissions?filter=${filter}`)
+    api<Book>(`${endpoints.submissions(assessmentId)}?filter=${filter}`)
       .then(setBook)
       .catch((err) => setError(errorMessage(err, t)));
-  }, [assessmentId, filter, t]);
+  }, [assessmentId, endpoints, filter, t]);
   useEffect(load, [load]);
 
   // The editor is English-only: the gradebook names assessments the same way.
@@ -244,6 +246,7 @@ export function AssessmentGradebook({ assessmentId, onBack }: { assessmentId: st
         <GradePanel
           key={open}
           id={open}
+          endpoints={endpoints}
           onClose={() => setOpen(null)}
           onSaved={load}
         />
@@ -260,7 +263,10 @@ export function AssessmentGradebook({ assessmentId, onBack }: { assessmentId: st
                   {r.email}
                 </p>
               </div>
-              <span className="font-medium tabular-nums">{r.score !== null ? `${num(r.score)}/${r.maxScore}` : '—'}</span>
+              <span className="text-end">
+                <span className="block font-medium tabular-nums">{r.score !== null ? `${num(r.score)}/${r.maxScore}` : '—'}</span>
+                {r.gradedBy && <span className="block text-xs text-muted">{b('by', { name: r.gradedBy })}</span>}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-sm">
               <Badge tone={stateTone[r.state]}>{b(`stateOpt.${r.state}`)}</Badge>
@@ -319,7 +325,10 @@ export function AssessmentGradebook({ assessmentId, onBack }: { assessmentId: st
                   )}
                   {r.attempts > 1 && <p className="text-xs text-muted">{t('assessments.attemptsAllowed', { count: r.attempts })}</p>}
                 </td>
-                <td className="p-3 font-medium tabular-nums">{r.score !== null ? `${num(r.score)}/${r.maxScore}` : '—'}</td>
+                <td className="p-3">
+                  <span className="font-medium tabular-nums">{r.score !== null ? `${num(r.score)}/${r.maxScore}` : '—'}</span>
+                  {r.gradedBy && <p className="text-xs text-muted">{b('by', { name: r.gradedBy })}</p>}
+                </td>
                 <td className="p-3">
                   <div className="flex flex-wrap items-center gap-1">
                     {r.url && (
