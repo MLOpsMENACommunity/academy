@@ -48,7 +48,7 @@ function announcementError(err: unknown, t: Translate): string {
  * assigned course or the registrants of the speaker's own session. Nothing renders for a
  * speaker without a public profile yet (nothing can be assigned to them).
  */
-export function SpeakerAnnouncements() {
+export function SpeakerAnnouncements({ courseId }: { courseId?: string } = {}) {
   const { locale, t } = useI18n();
   const s = useCallback((k: string, v?: Record<string, string | number>) => t(`speakerAnnouncements.${k}`, v), [t]);
   const [data, setData] = useState<SpeakerAnnouncementsDto | null>(null);
@@ -79,7 +79,9 @@ export function SpeakerAnnouncements() {
   if (!data.hasProfile) return null;
   const pick = (en: string, ar: string) => (locale === 'ar' ? ar || en : en);
   const dayFull = data.limits.sentToday >= data.limits.perDay;
-  const courses: (Target & { badge: string })[] = data.courses.map((c) => ({
+  // On a course's page (My courses → {course} → Announcements): that course only.
+  const sent = courseId ? data.sent.filter((a) => a.kind === 'course' && a.targetId === courseId) : data.sent;
+  const courses: (Target & { badge: string })[] = data.courses.filter((c) => !courseId || c.id === courseId).map((c) => ({
     kind: 'course',
     id: c.id,
     title: pick(c.titleEn, c.titleAr),
@@ -87,7 +89,7 @@ export function SpeakerAnnouncements() {
     sentToday: c.sentToday,
     badge: courseStatusLabels[c.status][locale],
   }));
-  const sessions: (Target & { badge: string; when: string })[] = data.sessions.map((e) => ({
+  const sessions: (Target & { badge: string; when: string })[] = (courseId ? [] : data.sessions).map((e) => ({
     kind: 'session',
     id: e.id,
     title: pick(e.titleEn, e.titleAr),
@@ -151,8 +153,8 @@ export function SpeakerAnnouncements() {
   return (
     <section aria-labelledby="speaker-ann-h" className="space-y-4">
       <div>
-        <h2 id="speaker-ann-h" className="text-2xl">
-          {s('title')}
+        <h2 id="speaker-ann-h" className={courseId ? 'text-xl' : 'text-2xl'}>
+          {s(courseId ? 'courseTitle' : 'title')}
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">{s('intro')}</p>
       </div>
@@ -179,11 +181,11 @@ export function SpeakerAnnouncements() {
         </>
       )}
 
-      {data.sent.length > 0 && (
+      {sent.length > 0 && (
         <Card>
           <h3 className="text-lg">{s('history')}</h3>
           <ul className="mt-2 divide-y divide-line text-sm">
-            {data.sent.map((a) => (
+            {sent.map((a) => (
               <li key={a.id} className="py-3">
                 <p className="font-semibold break-words text-fg">{pick(a.subjectEn, a.subjectAr)}</p>
                 <p className="text-xs text-muted">
