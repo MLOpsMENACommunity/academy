@@ -23,7 +23,8 @@ import {
 
 // ------------------------------------------------------------------ limits
 
-export const MAX_QUESTIONS = 100;
+/** Questions per quiz (and per spreadsheet upload). */
+export const MAX_QUESTIONS = 200;
 export const MAX_OPTIONS = 10;
 /** Seconds a quiz answer may arrive after the time limit (network, clock drift). */
 export const QUIZ_GRACE_SECONDS = 60;
@@ -65,6 +66,22 @@ export function isDriveUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ------------------------------------------------------------------ true / false
+
+/** True/false questions store these English labels, "True" first; the student UI shows them in its own language. */
+export const TRUE_FALSE_LABELS = ['True', 'False'] as const;
+
+/**
+ * 'true' or 'false' for an option of a true/false question whose label is the standard
+ * one (in either language), by its position: "True" comes first. Null for custom wording,
+ * which is shown as written.
+ */
+export function trueFalseKey(kind: QuizQuestionKind, labelEn: string, index: number): 'true' | 'false' | null {
+  if (kind !== 'TRUE_FALSE' || index > 1) return null;
+  const l = labelEn.trim().toLowerCase();
+  return ['true', 'false', 'صح', 'صحيح', 'خطأ', 'خطا'].includes(l) ? (index === 0 ? 'true' : 'false') : null;
 }
 
 // ------------------------------------------------------------------ scoring
@@ -349,11 +366,24 @@ const optionalText = (max: number) =>
     .max(max)
     .nullish()
     .transform((v) => v || null);
+/**
+ * Arabic wording is optional: the admin editor is English-only and sends none. Absent
+ * (undefined) means "keep what is stored", so editing never wipes Arabic text written
+ * before; new rows store ''. Students see English wherever the Arabic is empty.
+ */
+const keptText = (max: number) => z.string().trim().max(max).optional();
+const keptOptionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null));
 
 export const quizOptionInputSchema = z.object({
   id: z.string().max(40).optional(),
   labelEn: text(500).min(1),
-  labelAr: text(500).min(1),
+  labelAr: keptText(500),
   correct: z.boolean(),
 });
 export type QuizOptionInput = z.infer<typeof quizOptionInputSchema>;
@@ -363,10 +393,10 @@ export const quizQuestionInputSchema = z
     id: z.string().max(40).optional(),
     kind: z.enum(QUIZ_QUESTION_KINDS),
     promptEn: text(2000).min(1),
-    promptAr: text(2000).min(1),
+    promptAr: keptText(2000),
     weight: z.coerce.number().int().min(1).max(100),
     explanationEn: optionalText(2000),
-    explanationAr: optionalText(2000),
+    explanationAr: keptOptionalText(2000),
     options: z.array(quizOptionInputSchema).min(2).max(MAX_OPTIONS),
   })
   .superRefine((q, ctx) => {
@@ -393,11 +423,12 @@ export const assessmentInputSchema = z
       .max(40)
       .nullish()
       .transform((v) => v || null),
-    order: z.coerce.number().int().min(0).max(999).default(0),
+    /** Position in the course's list (lower first). Absent: new ones go last, edits keep theirs. */
+    order: z.coerce.number().int().min(0).max(999).optional(),
     titleEn: text(200).min(2),
-    titleAr: text(200).min(2),
+    titleAr: keptText(200),
     instructionsEn: text(20_000).default(''),
-    instructionsAr: text(20_000).default(''),
+    instructionsAr: keptText(20_000),
     dueAt: z.coerce.date().nullish().or(z.literal('').transform(() => null)).transform((v) => v ?? null),
     allowLate: z.boolean().default(true),
     maxPoints: z.coerce.number().int().min(1).max(1000).default(100),
@@ -432,6 +463,16 @@ export const assessmentInputSchema = z
     }
   });
 export type AssessmentInput = z.infer<typeof assessmentInputSchema>;
+
+/** The admin list's ↑/↓ buttons: every assessment id of the course, in the new order. */
+export const assessmentOrderSchema = z.object({
+  ids: z
+    .array(z.string().min(1).max(40))
+    .min(1)
+    .max(500)
+    .refine((ids) => new Set(ids).size === ids.length, 'Each assessment once'),
+});
+export type AssessmentOrderInput = z.infer<typeof assessmentOrderSchema>;
 export type AssessmentInputRaw = z.input<typeof assessmentInputSchema>;
 
 export const gradeInputSchema = z.object({
@@ -589,11 +630,20 @@ export interface AdminAssessmentRow {
   toGrade: number;
 }
 
-export interface AdminAssessmentDto extends Omit<AssessmentInput, 'dueAt'> {
+export interface AdminAssessmentDto extends Omit<AssessmentInput, 'dueAt' | 'order' | 'titleAr' | 'instructionsAr' | 'questions'> {
   id: string;
   courseId: string;
+  order: number;
+  /** Stored Arabic wording ('' when none). The admin editor doesn't show or send it. */
+  titleAr: string;
+  instructionsAr: string;
   dueAt: string | null;
-  questions: (QuizQuestionInput & { id: string; options: (QuizOptionInput & { id: string })[] })[];
+  questions: (Omit<QuizQuestionInput, 'promptAr' | 'explanationAr' | 'options'> & {
+    id: string;
+    promptAr: string;
+    explanationAr: string | null;
+    options: (Omit<QuizOptionInput, 'labelAr'> & { id: string; labelAr: string })[];
+  })[];
   submissionCount: number;
 }
 

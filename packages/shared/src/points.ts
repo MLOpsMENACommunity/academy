@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { BadgeKind, PointsReason } from './enums';
+import { parseCsv } from './csv';
 
 /**
  * Points, badges and course leaderboards. The rules here are pure (no database), so the
@@ -183,40 +184,6 @@ export function boardName(fullName: string | null | undefined): string {
 }
 
 // ------------------------------------------------------------------ CSV import
-
-/** RFC 4180-ish CSV: quoted fields, doubled quotes, CRLF or LF, a leading BOM. */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let quoted = false;
-  const s = text.replace(/^\uFEFF/, '');
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i]!;
-    if (quoted) {
-      if (c === '"' && s[i + 1] === '"') {
-        field += '"';
-        i++;
-      } else if (c === '"') quoted = false;
-      else field += c;
-    } else if (c === '"' && field === '') quoted = true;
-    else if (c === ',') {
-      row.push(field);
-      field = '';
-    } else if (c === '\n' || c === '\r') {
-      if (c === '\r' && s[i + 1] === '\n') i++;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = '';
-    } else field += c;
-  }
-  if (field !== '' || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((r) => r.some((f) => f.trim() !== ''));
-}
 
 export const MAX_IMPORT_ROWS = 2000;
 export const POINTS_IMPORT_COLUMNS = ['email', 'points', 'note', 'course'] as const;

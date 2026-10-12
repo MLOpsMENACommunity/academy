@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   answersRevealed,
   assessmentInputSchema,
+  assessmentOrderSchema,
+  MAX_QUESTIONS,
   assessmentResult,
   attemptEnd,
   attemptsLeft,
@@ -220,6 +222,37 @@ describe('assessment input', () => {
     expect(assessmentInputSchema.safeParse({ ...quiz, attemptsAllowed: 0, countsForCertificate: true, revealAnswers: 'NEVER' }).success).toBe(true);
     expect(assessmentInputSchema.safeParse({ ...quiz, type: 'LAB', questions: [] }).success).toBe(false);
     expect(assessmentInputSchema.safeParse({ ...quiz, type: 'LAB', questions: [], submissionKind: 'GITHUB_REPO' }).success).toBe(true);
+  });
+
+  it('takes English only: Arabic left out stays out (kept as stored), and no order means "keep" or "last"', () => {
+    const english = {
+      type: 'QUIZ',
+      titleEn: 'English only',
+      questions: [{ kind: 'SINGLE', promptEn: 'P', weight: 1, explanationEn: 'Why', options: [{ labelEn: 'a', correct: true }, { labelEn: 'b', correct: false }] }],
+    };
+    const r = assessmentInputSchema.parse(english);
+    for (const k of ['titleAr', 'instructionsAr', 'order']) expect(k in r, k).toBe(false);
+    expect('promptAr' in r.questions[0]!).toBe(false);
+    expect('explanationAr' in r.questions[0]!).toBe(false);
+    expect(r.questions[0]!.options.every((o) => !('labelAr' in o))).toBe(true);
+    // Sent on purpose, Arabic is still taken (an empty explanation clears it).
+    const both = assessmentInputSchema.parse({ ...quiz, questions: [{ ...quiz.questions[0]!, explanationAr: '' }] });
+    expect(both).toMatchObject({ titleAr: 'اختبار منتصف الدورة', questions: [{ promptAr: 'P', explanationAr: null, options: [{ labelAr: 'a' }, { labelAr: 'b' }] }] });
+    expect(assessmentInputSchema.safeParse({ ...english, titleEn: 'x' }).success).toBe(false);
+  });
+
+  it('takes up to MAX_QUESTIONS questions', () => {
+    const q = quiz.questions[0]!;
+    expect(assessmentInputSchema.safeParse({ ...quiz, questions: Array.from({ length: MAX_QUESTIONS }, () => q) }).success).toBe(true);
+    expect(assessmentInputSchema.safeParse({ ...quiz, questions: Array.from({ length: MAX_QUESTIONS + 1 }, () => q) }).success).toBe(false);
+  });
+});
+
+describe('assessment order', () => {
+  it('takes each id once', () => {
+    expect(assessmentOrderSchema.safeParse({ ids: ['a', 'b'] }).success).toBe(true);
+    expect(assessmentOrderSchema.safeParse({ ids: ['a', 'a'] }).success).toBe(false);
+    expect(assessmentOrderSchema.safeParse({ ids: [] }).success).toBe(false);
   });
 });
 

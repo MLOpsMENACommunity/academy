@@ -8,6 +8,7 @@ import {
   REVEAL_POLICIES,
   SCORING_POLICIES,
   SUBMISSION_KINDS,
+  TRUE_FALSE_LABELS,
   type AdminAssessmentDto,
   type AdminAssessmentRow,
   type AssessmentStatus,
@@ -35,6 +36,7 @@ import { issuesToErrors } from '@/lib/zod-errors';
 import { AssessmentGradebook } from './AssessmentGradebook';
 import { fromLocalInput, toLocalInput } from './CourseForm';
 import { MarkdownField } from './MarkdownField';
+import { QuizUpload } from './QuizUpload';
 
 export interface AssessmentSessionOption {
   id: string;
@@ -43,18 +45,19 @@ export interface AssessmentSessionOption {
   titleAr: string;
 }
 
-type Option = QuizQuestionInput['options'][number];
-type Question = Omit<QuizQuestionInput, 'explanationEn' | 'explanationAr'> & { explanationEn: string | null; explanationAr: string | null };
+/**
+ * The editor is English-only: it never shows or sends Arabic wording (nor the order,
+ * which the list's arrows set). The server keeps any Arabic stored earlier.
+ */
+type Option = { id?: string; labelEn: string; correct: boolean };
+type Question = { id?: string; kind: QuizQuestionKind; promptEn: string; weight: number; explanationEn: string | null; options: Option[] };
 
 interface Draft {
   type: AssessmentType;
   status: AssessmentStatus;
   sessionId: string | null;
-  order: number;
   titleEn: string;
-  titleAr: string;
   instructionsEn: string;
-  instructionsAr: string;
   dueAt: string;
   allowLate: boolean;
   maxPoints: number;
@@ -69,26 +72,33 @@ interface Draft {
   questions: Question[];
 }
 
-const emptyOption = (): Option => ({ labelEn: '', labelAr: '', correct: false });
+const emptyOption = (): Option => ({ labelEn: '', correct: false });
 const emptyQuestion = (): Question => ({
   kind: 'SINGLE',
   promptEn: '',
-  promptAr: '',
   weight: 1,
   explanationEn: null,
-  explanationAr: null,
   options: [{ ...emptyOption(), correct: true }, emptyOption()],
+});
+/** True/false always stores "True" then "False"; students see them in their own language. */
+const trueFalseOptions = (trueIsCorrect = true): Option[] => [
+  { labelEn: TRUE_FALSE_LABELS[0], correct: trueIsCorrect },
+  { labelEn: TRUE_FALSE_LABELS[1], correct: !trueIsCorrect },
+];
+const fromUpload = (q: QuizQuestionInput): Question => ({
+  kind: q.kind,
+  promptEn: q.promptEn,
+  weight: q.weight,
+  explanationEn: q.explanationEn,
+  options: q.options.map((o) => ({ labelEn: o.labelEn, correct: o.correct })),
 });
 
 const EMPTY: Draft = {
   type: 'QUIZ',
   status: 'DRAFT',
   sessionId: null,
-  order: 0,
   titleEn: '',
-  titleAr: '',
   instructionsEn: '',
-  instructionsAr: '',
   dueAt: '',
   allowLate: true,
   maxPoints: 100,
@@ -108,11 +118,8 @@ function toDraft(a: AdminAssessmentDto): Draft {
     type: a.type,
     status: a.status,
     sessionId: a.sessionId,
-    order: a.order,
     titleEn: a.titleEn,
-    titleAr: a.titleAr,
     instructionsEn: a.instructionsEn,
-    instructionsAr: a.instructionsAr,
     dueAt: toLocalInput(a.dueAt),
     allowLate: a.allowLate,
     maxPoints: a.maxPoints,
@@ -124,8 +131,20 @@ function toDraft(a: AdminAssessmentDto): Draft {
     revealAnswers: a.revealAnswers,
     timeLimitMin: a.timeLimitMin,
     shuffle: a.shuffle,
-    questions: a.questions,
+    questions: a.questions.map((q) => ({
+      id: q.id,
+      kind: q.kind,
+      promptEn: q.promptEn,
+      weight: q.weight,
+      explanationEn: q.explanationEn,
+      options: q.options.map((o) => ({ id: o.id, labelEn: o.labelEn, correct: o.correct })),
+    })),
   };
+}
+
+/** Arabic wording written before the editor became English-only (kept, and shown to Arabic readers). */
+function hasArabic(a: AdminAssessmentDto): boolean {
+  return Boolean(a.titleAr || a.instructionsAr || a.questions.some((q) => q.promptAr || q.explanationAr || q.options.some((o) => o.labelAr)));
 }
 
 /** Field errors in the admin's language; the schema's own rules get specific messages. */
@@ -173,7 +192,7 @@ function QuestionEditor({
   const multi = q.kind === 'MULTIPLE';
   const setKind = (kind: QuizQuestionKind) => {
     if (kind === 'TRUE_FALSE') {
-      onChange({ ...q, kind, options: [{ labelEn: b('true'), labelAr: 'صح', correct: true }, { labelEn: b('false'), labelAr: 'خطأ', correct: false }] });
+      onChange({ ...q, kind, options: trueFalseOptions() });
     } else if (kind === 'SINGLE' && q.options.filter((o) => o.correct).length !== 1) {
       onChange({ ...q, kind, options: q.options.map((o, i) => ({ ...o, correct: i === 0 })) });
     } else {
@@ -212,14 +231,13 @@ function QuestionEditor({
           options={QUIZ_QUESTION_KINDS.map((k) => ({ value: k, label: b(`kindOpt.${k}`) }))}
         />
         <TextField label={b('weight')} required type="number" min={1} max={100} value={String(q.weight)} onChange={(v) => onChange({ ...q, weight: Number(v || 0) })} error={err('weight')} />
-        <TextAreaField label={b('promptEn')} required rows={2} value={q.promptEn} onChange={(v) => onChange({ ...q, promptEn: v })} error={err('promptEn')} />
-        <TextAreaField label={b('promptAr')} required rows={2} dir="rtl" value={q.promptAr} onChange={(v) => onChange({ ...q, promptAr: v })} error={err('promptAr')} />
       </div>
+      <TextAreaField label={b('prompt')} required rows={2} dir="ltr" value={q.promptEn} onChange={(v) => onChange({ ...q, promptEn: v })} error={err('promptEn')} />
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold text-fg">{b('options')}</p>
         {q.options.map((o, i) => (
-          <div key={o.id ?? `new-${i}`} className="grid items-start gap-2 rounded-lg border border-line bg-card p-3 sm:grid-cols-[auto_1fr_1fr_auto]">
-            <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:mt-7">
+          <div key={o.id ?? `new-${i}`} className={`grid items-start gap-2 rounded-lg border border-line bg-card p-3 ${q.kind === 'TRUE_FALSE' ? 'grid-cols-[auto_1fr]' : 'sm:grid-cols-[auto_1fr_auto]'}`}>
+            <label className={`flex min-h-11 items-center gap-2 text-sm font-medium ${q.kind === 'TRUE_FALSE' ? '' : 'sm:mt-7'}`}>
               <input
                 type={multi ? 'checkbox' : 'radio'}
                 name={`${prefix}-correct`}
@@ -231,8 +249,11 @@ function QuestionEditor({
               />
               <span aria-hidden>{b('correct')}</span>
             </label>
-            <TextField label={b('optionEn', { n: i + 1 })} required value={o.labelEn} onChange={(v) => setOption(i, { ...o, labelEn: v })} error={err(`options.${i}.labelEn`)} />
-            <TextField label={b('optionAr', { n: i + 1 })} required dir="rtl" value={o.labelAr} onChange={(v) => setOption(i, { ...o, labelAr: v })} error={err(`options.${i}.labelAr`)} />
+            {q.kind === 'TRUE_FALSE' ? (
+              <p className="flex min-h-11 items-center text-sm font-semibold text-fg">{i === 0 ? b('true') : b('false')}</p>
+            ) : (
+              <TextField label={b('option', { n: i + 1 })} required dir="ltr" value={o.labelEn} onChange={(v) => setOption(i, { ...o, labelEn: v })} error={err(`options.${i}.labelEn`)} />
+            )}
             {q.kind !== 'TRUE_FALSE' && (
               <button
                 type="button"
@@ -246,6 +267,7 @@ function QuestionEditor({
             )}
           </div>
         ))}
+        {q.kind === 'TRUE_FALSE' && <p className="text-xs text-muted">{b('tfHint')}</p>}
         {err('options') && (
           <p id={`${prefix}-options-err`} className="text-sm font-medium text-danger">
             {err('options')}
@@ -257,10 +279,7 @@ function QuestionEditor({
           </Button>
         )}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextAreaField label={b('explanationEn')} rows={2} value={q.explanationEn ?? ''} onChange={(v) => onChange({ ...q, explanationEn: v || null })} />
-        <TextAreaField label={b('explanationAr')} rows={2} dir="rtl" value={q.explanationAr ?? ''} onChange={(v) => onChange({ ...q, explanationAr: v || null })} />
-      </div>
+      <TextAreaField label={b('explanation')} rows={2} dir="ltr" value={q.explanationEn ?? ''} onChange={(v) => onChange({ ...q, explanationEn: v || null })} />
     </fieldset>
   );
 }
@@ -284,6 +303,8 @@ function AssessmentForm({
   const f = (k: string, v?: Record<string, string | number>) => t(`admin.assessments.form.${k}`, v);
   const [draft, setDraft] = useState<Draft | null>(id ? null : EMPTY);
   const [submissions, setSubmissions] = useState(0);
+  const [arabic, setArabic] = useState(false);
+  const [uploaded, setUploaded] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -296,6 +317,7 @@ function AssessmentForm({
       .then((a) => {
         setDraft(toDraft(a));
         setSubmissions(a.submissionCount);
+        setArabic(hasArabic(a));
       })
       .catch((err) => setFormError(errorMessage(err, t)));
   }, [id, t]);
@@ -346,6 +368,8 @@ function AssessmentForm({
         </h2>
         {formError && <Alert tone="danger">{formError}</Alert>}
         {submissions > 0 && <Alert tone="warning">{t('admin.assessments.hasSubmissions', { count: submissions })}</Alert>}
+        <p className="max-w-3xl text-sm text-muted">{f('englishOnly')}</p>
+        {arabic && <Alert tone="info">{f('hasArabic')}</Alert>}
         <div className="grid gap-3 sm:grid-cols-3">
           <SelectField label={f('type')} required value={draft.type} onChange={(v) => v && set('type')(v as AssessmentType)} options={ASSESSMENT_TYPES.map((x) => ({ value: x, label: t(`assessments.type.${x}`) }))} />
           <SelectField label={f('status')} hint={f('statusHint')} required value={draft.status} onChange={(v) => v && set('status')(v as AssessmentStatus)} options={ASSESSMENT_STATUSES.map((x) => ({ value: x, label: t(`admin.assessments.status.${x}`) }))} />
@@ -358,18 +382,13 @@ function AssessmentForm({
             options={sessions.map((s) => ({ value: s.id, label: t('admin.assessments.sessionN', { n: s.order, title: locale === 'ar' ? s.titleAr : s.titleEn }) }))}
             error={errors.sessionId}
           />
-          <TextField label={f('titleEn')} required value={draft.titleEn} onChange={set('titleEn')} error={errors.titleEn} className="sm:col-span-3" />
-          <TextField label={f('titleAr')} required dir="rtl" value={draft.titleAr} onChange={set('titleAr')} error={errors.titleAr} className="sm:col-span-3" />
+          <TextField label={f('title')} required dir="ltr" value={draft.titleEn} onChange={set('titleEn')} error={errors.titleEn} className="sm:col-span-3" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <MarkdownField label={f('instructionsEn')} value={draft.instructionsEn} onChange={set('instructionsEn')} rows={5} />
-          <MarkdownField label={f('instructionsAr')} value={draft.instructionsAr} onChange={set('instructionsAr')} rows={5} dir="rtl" />
-        </div>
+        <MarkdownField label={f('instructions')} value={draft.instructionsEn} onChange={set('instructionsEn')} rows={5} dir="ltr" />
         <div className="grid gap-3 sm:grid-cols-4">
           <TextField label={f('dueAt')} hint={f('dueHint')} type="datetime-local" value={draft.dueAt} onChange={set('dueAt')} error={errors.dueAt} className="sm:col-span-2" />
           <TextField label={f('maxPoints')} required type="number" min={1} max={1000} value={String(draft.maxPoints)} onChange={(v) => set('maxPoints')(Number(v || 0))} error={errors.maxPoints} />
           <TextField label={f('passPercent')} required type="number" min={0} max={100} value={String(draft.passPercent)} onChange={(v) => set('passPercent')(Number(v || 0))} error={errors.passPercent} />
-          <TextField label={f('order')} type="number" min={0} max={999} value={String(draft.order)} onChange={(v) => set('order')(Number(v || 0))} error={errors.order} />
         </div>
         <div className="flex flex-col gap-2">
           <CheckboxField label={f('allowLate')} checked={draft.allowLate} onChange={set('allowLate')} error={errors.allowLate} />
@@ -404,6 +423,18 @@ function AssessmentForm({
                 <h3 className="text-base">{t('admin.assessments.builder.title')}</h3>
                 <p className="text-xs text-muted">{t('admin.assessments.builder.totalWeight', { weight: totalWeight })}</p>
               </div>
+              <QuizUpload
+                current={draft.questions.length}
+                disabled={submissions > 0}
+                onApply={(qs, mode) => {
+                  set('questions')(mode === 'replace' ? qs.map(fromUpload) : [...draft.questions, ...qs.map(fromUpload)]);
+                  setErrors({});
+                  setUploaded(t('admin.assessments.upload.applied', { count: qs.length }));
+                }}
+              />
+              {uploaded && (
+                <Alert tone="success">{uploaded}</Alert>
+              )}
               {errors.questions && (
                 <p className="text-sm font-medium text-danger" role="alert">
                   {errors.questions}
@@ -473,8 +504,35 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
   }, [courseId, t]);
   useEffect(load, [load]);
 
+  const [moving, setMoving] = useState(false);
+  /** ↑/↓: saved at once; the list shows the new order straight away and reloads if saving fails. */
+  async function move(i: number, d: -1 | 1) {
+    if (!rows || moving) return;
+    const next = [...rows];
+    const [x] = next.splice(i, 1);
+    next.splice(i + d, 0, x!);
+    setRows(next);
+    setError(null);
+    setNotice(null);
+    setMoving(true);
+    try {
+      setRows(await api<AdminAssessmentRow[]>(`/admin/courses/${courseId}/assessments/order`, { method: 'PUT', json: { ids: next.map((r) => r.id) } }));
+      setNotice(a('reordered'));
+      // Keep focus on the arrow that was pressed (or its twin at the ends) as the item moves.
+      requestAnimationFrame(() => {
+        const btn = document.getElementById(`move-${x!.id}-${d < 0 ? 'up' : 'down'}`) as HTMLButtonElement | null;
+        (btn && !btn.disabled ? btn : document.getElementById(`move-${x!.id}-${d < 0 ? 'down' : 'up'}`))?.focus();
+      });
+    } catch (err) {
+      setError(errorMessage(err, t));
+      load();
+    } finally {
+      setMoving(false);
+    }
+  }
+
   async function remove(r: AdminAssessmentRow) {
-    if (!window.confirm(a('deleteConfirm', { title: locale === 'ar' ? r.titleAr : r.titleEn }))) return;
+    if (!window.confirm(a('deleteConfirm', { title: r.titleEn }))) return;
     setError(null);
     try {
       await api(`/admin/assessments/${r.id}`, { method: 'DELETE' });
@@ -519,6 +577,7 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
   return (
     <div className="space-y-4">
       <p className="max-w-3xl text-sm text-muted">{a('intro')}</p>
+      {rows && rows.length > 1 && <p className="max-w-3xl text-sm text-muted">{a('orderHint')}</p>}
       {error && <Alert tone="danger">{error}</Alert>}
       {notice && <Alert tone="success">{notice}</Alert>}
       <div className="flex flex-wrap gap-2">
@@ -533,23 +592,51 @@ export function AssessmentsEditor({ courseId, sessions }: { courseId: string; se
         <p className="text-muted">{a('none')}</p>
       ) : (
         <ul className="space-y-3">
-          {rows.map((r) => (
+          {rows.map((r, i) => (
             <li key={r.id}>
               <div className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-line bg-card p-4 sm:p-5">
-                <div className="min-w-0">
-                  <p className="font-semibold text-fg">{locale === 'ar' ? r.titleAr : r.titleEn}</p>
-                  <p className="text-sm text-muted">
-                    {sessionLabel(r.sessionId)}
-                    {r.dueAt && ` · ${t('assessments.due')}: ${formatDateTime(r.dueAt, locale)}`}
-                    {` · ${t('assessments.points', { count: r.maxPoints })}`}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    <Badge tone={r.type === 'QUIZ' ? 'primary' : 'accent'}>{t(`assessments.type.${r.type}`)}</Badge>
-                    <Badge tone={r.status === 'PUBLISHED' ? 'success' : 'warning'}>{a(`status.${r.status}`)}</Badge>
-                    {r.type === 'QUIZ' ? <Badge>{t('assessments.questions', { count: r.questionCount })}</Badge> : r.submissionKind && <Badge>{t(`admin.assessments.form.kind.${r.submissionKind}`)}</Badge>}
-                    {r.countsForCertificate && <Badge tone="info">{t('assessments.certificate')}</Badge>}
-                    <Badge>{a('submittedCount', { count: r.submitted })}</Badge>
-                    {r.toGrade > 0 && <Badge tone="danger">{a('toGrade', { count: r.toGrade })}</Badge>}
+                <div className="flex min-w-0 flex-[1_1_16rem] items-start gap-3">
+                  {rows.length > 1 && (
+                    <div className="flex shrink-0 flex-col gap-1 text-xs">
+                      <button
+                        id={`move-${r.id}-up`}
+                        type="button"
+                        disabled={i === 0 || moving}
+                        onClick={() => void move(i, -1)}
+                        className="min-h-9 min-w-9 rounded border border-line px-2.5 disabled:opacity-40"
+                        aria-label={a('moveUp', { title: r.titleEn })}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        id={`move-${r.id}-down`}
+                        type="button"
+                        disabled={i === rows.length - 1 || moving}
+                        onClick={() => void move(i, 1)}
+                        className="min-h-9 min-w-9 rounded border border-line px-2.5 disabled:opacity-40"
+                        aria-label={a('moveDown', { title: r.titleEn })}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-fg" dir="auto">
+                      {r.titleEn}
+                    </p>
+                    <p className="text-sm text-muted">
+                      {sessionLabel(r.sessionId)}
+                      {r.dueAt && ` · ${t('assessments.due')}: ${formatDateTime(r.dueAt, locale)}`}
+                      {` · ${t('assessments.points', { count: r.maxPoints })}`}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      <Badge tone={r.type === 'QUIZ' ? 'primary' : 'accent'}>{t(`assessments.type.${r.type}`)}</Badge>
+                      <Badge tone={r.status === 'PUBLISHED' ? 'success' : 'warning'}>{a(`status.${r.status}`)}</Badge>
+                      {r.type === 'QUIZ' ? <Badge>{t('assessments.questions', { count: r.questionCount })}</Badge> : r.submissionKind && <Badge>{t(`admin.assessments.form.kind.${r.submissionKind}`)}</Badge>}
+                      {r.countsForCertificate && <Badge tone="info">{t('assessments.certificate')}</Badge>}
+                      <Badge>{a('submittedCount', { count: r.submitted })}</Badge>
+                      {r.toGrade > 0 && <Badge tone="danger">{a('toGrade', { count: r.toGrade })}</Badge>}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">

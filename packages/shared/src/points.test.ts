@@ -10,11 +10,11 @@ import {
   courseWeekStart,
   ledgerDelta,
   manualPointsSchema,
-  parseCsv,
   parsePointsCsv,
   rankStandings,
   zoneOffsetMs,
 } from './points';
+import { parseCsv } from './csv';
 
 const H = 3_600_000;
 

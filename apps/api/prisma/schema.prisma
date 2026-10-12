@@ -1449,6 +1449,8 @@ model Assessment {
   revealAnswers        RevealPolicy     @default(AFTER_SUBMIT)
   timeLimitMin         Int?
   shuffle              Boolean          @default(false)
+  /// Set once, the first time it is published: enrolled students were told (in-app and by email).
+  publishedNotifiedAt  DateTime?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 

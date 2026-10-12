@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { emailSchema } from './auth';
 import { LOCALES, type CourseInviteStatus, type Role } from './enums';
-import { parseCsv } from './points';
+import { parseCsv } from './csv';
 
 /**
  * "Enrol by email": an admin adds people to a course by their email address, without the

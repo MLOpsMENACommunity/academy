@@ -560,8 +560,9 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
           {c('pendingOnly')}
         </label>
       </div>
+      <p className="text-xs text-muted">{c('learnAccessHint')}</p>
       <div className="overflow-x-auto rounded-card border border-line bg-card">
-        <table className="w-full min-w-[46rem] text-sm">
+        <table className="w-full min-w-[52rem] text-sm">
           <thead className="bg-muted-bg text-xs text-muted">
             <tr>
               <th className="p-3 text-start">{t('admin.apps.student')}</th>
@@ -569,12 +570,13 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
               <th className="p-3 text-start">{t('admin.students.joined')}</th>
               <th className="p-3 text-start">{c('progress')}</th>
               <th className="p-3 text-start">{c('driveGranted')}</th>
+              <th className="p-3 text-start">{c('learnAccess')}</th>
             </tr>
           </thead>
           <tbody>
             {rows && active.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-muted">
+                <td colSpan={6} className="p-6 text-center text-muted">
                   {t('admin.common.none')}
                 </td>
               </tr>
@@ -600,6 +602,11 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
                     <input type="checkbox" className="size-5" checked={r.driveAccessGranted} onChange={(e) => toggle(r, e.target.checked)} aria-label={`${c('driveGranted')}: ${r.name ?? r.email}`} />
                     {r.driveAccessGrantedAt && <span className="text-xs text-muted">{formatDate(r.driveAccessGrantedAt, locale)}</span>}
                   </label>
+                </td>
+                {/* Every row here is an enrolment, which is exactly what the learn page checks. */}
+                <td className="p-3 font-semibold whitespace-nowrap text-success">
+                  <span aria-hidden>✓ </span>
+                  {c('learnAccessYes')}
                 </td>
               </tr>
             ))}

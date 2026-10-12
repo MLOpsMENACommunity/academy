@@ -6,8 +6,11 @@ import { AssessmentReminderJobs } from '../src/assessments/assessment-reminders.
 import { AssessmentsService } from '../src/assessments/assessments.service';
 import { GITHUB_FETCH, type FetchLike } from '../src/assessments/github-repo-check';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { AdminAssessmentsService } from '../src/assessments/admin-assessments.service';
+import { randomToken, sha256 } from '../src/common/crypto';
+import { EmailService } from '../src/email/email.service';
 import { configureApp } from '../src/setup';
-import { createCourse, createUser } from './helpers';
+import { cookieHeader, createCourse, createUser, uniqueEmail } from './helpers';
 
 const HOUR = 3_600_000;
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
@@ -20,6 +23,20 @@ const fakeFetch: FetchLike = async (url) => {
   if (v === 'down') throw Object.assign(new Error('timeout'), { name: 'TimeoutError' });
   return { status: v, headers: new Headers(), body: null };
 };
+
+/** The admin editor's payload: English only, no Arabic keys and no order. */
+const englishOnly = (extra: Record<string, unknown> = {}) => ({
+  type: 'QUIZ',
+  status: 'DRAFT',
+  titleEn: 'English quiz',
+  instructionsEn: 'Read carefully.',
+  maxPoints: 10,
+  questions: [
+    { kind: 'SINGLE', promptEn: 'Pick MLflow', weight: 1, explanationEn: 'It tracks runs.', options: [{ labelEn: 'MLflow', correct: true }, { labelEn: 'Nginx', correct: false }] },
+    { kind: 'TRUE_FALSE', promptEn: 'Feast is a feature store.', weight: 1, options: [{ labelEn: 'True', correct: true }, { labelEn: 'False', correct: false }] },
+  ],
+  ...extra,
+});
 
 /** Two single-choice questions (weights 1 and 2) and one multiple-choice (weight 3). */
 const quizInput = (extra: Record<string, unknown> = {}) => ({
@@ -369,5 +386,166 @@ describe('assessments (e2e)', () => {
     expect(logs.map((l) => l.userId)).toEqual([student.id]);
     await jobs.run();
     expect(await prisma.assessmentReminderLog.count({ where: { assessmentId: lab.id } })).toBe(1);
+  });
+
+  // ------------------------------------------------------------------ English only, order, publish notices
+
+  /** Polls until `check` passes: publish notices are sent after the admin's request returns. */
+  async function eventually(check: () => Promise<void>, ms = 5000): Promise<void> {
+    const end = Date.now() + ms;
+    for (;;) {
+      try {
+        return await check();
+      } catch (err) {
+        if (Date.now() > end) throw err;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    }
+  }
+  /** Strips the Arabic keys (and ids' Arabic) from an admin DTO, the way the English-only editor sends it. */
+  function withoutArabic(dto: Record<string, unknown>): Record<string, unknown> {
+    const { titleAr: _t, instructionsAr: _i, order: _o, ...rest } = dto as { titleAr: string; instructionsAr: string; order: number; questions: Record<string, unknown>[] };
+    return {
+      ...rest,
+      questions: (rest as { questions: Record<string, unknown>[] }).questions.map(({ promptAr: _p, explanationAr: _e, options, ...q }) => ({
+        ...q,
+        options: (options as Record<string, unknown>[]).map(({ labelAr: _l, ...o }) => o),
+      })),
+    };
+  }
+
+  it('takes English-only assessments and stores empty Arabic, which students see as English', async () => {
+    const { course, admin, student } = await setup();
+    const created = (await http().post(`/api/admin/courses/${course.id}/assessments`).set('Cookie', admin.cookie).send(englishOnly({ status: 'PUBLISHED' })).expect(201)).body;
+    expect(created).toMatchObject({ titleEn: 'English quiz', titleAr: '', instructionsAr: '', questions: [{ promptAr: '', explanationAr: null, options: [{ labelAr: '' }, { labelAr: '' }] }, { options: [{ labelEn: 'True' }, { labelEn: 'False' }] }] });
+    const list = (await http().get(`/api/learn/${course.slug}/assessments`).set('Cookie', student.cookie).expect(200)).body;
+    expect(list).toEqual([expect.objectContaining({ titleEn: 'English quiz', titleAr: '' })]);
+    const attempt = (await http().post(`/api/learn/${course.slug}/assessments/${created.id}/start`).set('Cookie', student.cookie).expect(200)).body;
+    expect(attempt.questions[1]).toMatchObject({ kind: 'TRUE_FALSE', promptAr: '', options: [{ labelEn: 'True', labelAr: '' }, { labelEn: 'False', labelAr: '' }] });
+  });
+
+  it('keeps Arabic written before when the English-only editor saves', async () => {
+    const { course, admin } = await setup();
+    const created = await createAssessment(course.id, admin.cookie, quizInput({ status: 'DRAFT' }));
+    const full = (await http().get(`/api/admin/assessments/${created.id}`).set('Cookie', admin.cookie).expect(200)).body;
+    const edited = withoutArabic(full) as { titleEn: string; questions: { promptEn: string; explanationEn: string | null; options: { labelEn: string; correct: boolean }[] }[] };
+    edited.titleEn = 'Midpoint quiz (edited)';
+    edited.questions[0]!.promptEn = 'Which tool tracks ML experiments?';
+    edited.questions[0]!.explanationEn = 'Edited explanation';
+    edited.questions[2]!.options.push({ labelEn: 'Hopsworks', correct: true });
+    edited.questions.push({ promptEn: 'New question', explanationEn: null, kind: 'SINGLE', weight: 1, options: [{ labelEn: 'a', correct: true }, { labelEn: 'b', correct: false }] } as never);
+    const saved = (await http().put(`/api/admin/assessments/${created.id}`).set('Cookie', admin.cookie).send(edited).expect(200)).body;
+    expect(saved).toMatchObject({
+      titleEn: 'Midpoint quiz (edited)',
+      titleAr: 'اختبار منتصف الدورة',
+      order: full.order,
+      questions: [
+        { id: full.questions[0].id, promptEn: 'Which tool tracks ML experiments?', promptAr: 'أي أداة تتبع التجارب؟', explanationEn: 'Edited explanation' },
+        { id: full.questions[1].id, promptAr: 'كوبرنيتس يجدول الحاويات.', options: [{ labelAr: 'صحيح' }, { labelAr: 'خطأ' }] },
+        { id: full.questions[2].id, options: [{ labelAr: 'Feast' }, { labelAr: 'Tecton' }, { labelAr: 'Grafana' }, { labelEn: 'Hopsworks', labelAr: '' }] },
+        { promptEn: 'New question', promptAr: '' },
+      ],
+    });
+    // Sending Arabic on purpose still works (API clients, older tabs).
+    const withAr = (await http().put(`/api/admin/assessments/${created.id}`).set('Cookie', admin.cookie).send({ ...saved, titleAr: 'عنوان جديد' }).expect(200)).body;
+    expect(withAr.titleAr).toBe('عنوان جديد');
+  });
+
+  it('adds new assessments last and reorders them with the arrows (course-scoped, admin-only)', async () => {
+    const { course, admin, student } = await setup();
+    const a = await createAssessment(course.id, admin.cookie, englishOnly({ titleEn: 'First' }));
+    const b = await createAssessment(course.id, admin.cookie, englishOnly({ titleEn: 'Second' }));
+    const c = await createAssessment(course.id, admin.cookie, englishOnly({ titleEn: 'Third' }));
+    const titles = async () => ((await http().get(`/api/admin/courses/${course.id}/assessments`).set('Cookie', admin.cookie).expect(200)).body as { titleEn: string; order: number }[]).map((r) => r.titleEn);
+    expect(await titles()).toEqual(['First', 'Second', 'Third']);
+
+    const url = `/api/admin/courses/${course.id}/assessments/order`;
+    const res = await http().put(url).set('Cookie', admin.cookie).send({ ids: [c.id, a.id, b.id] }).expect(200);
+    expect(res.body.map((r: { titleEn: string; order: number }) => [r.titleEn, r.order])).toEqual([['Third', 0], ['First', 1], ['Second', 2]]);
+    // Students see the same order.
+    for (const x of [a, b, c]) await prisma.assessment.update({ where: { id: x.id }, data: { status: 'PUBLISHED' } });
+    expect(((await http().get(`/api/learn/${course.slug}/assessments`).set('Cookie', student.cookie).expect(200)).body as { titleEn: string }[]).map((r) => r.titleEn)).toEqual(['Third', 'First', 'Second']);
+    // Saving an assessment from the English-only editor (no order) keeps its place.
+    const full = (await http().get(`/api/admin/assessments/${a.id}`).set('Cookie', admin.cookie).expect(200)).body;
+    await http().put(`/api/admin/assessments/${a.id}`).set('Cookie', admin.cookie).send(withoutArabic(full)).expect(200);
+    expect(await titles()).toEqual(['Third', 'First', 'Second']);
+    // Ids left out keep their relative order after the listed ones.
+    await http().put(url).set('Cookie', admin.cookie).send({ ids: [b.id] }).expect(200);
+    expect(await titles()).toEqual(['Second', 'Third', 'First']);
+
+    const other = await createCourse(prisma);
+    const foreign = await createAssessment(other.id, admin.cookie, englishOnly());
+    expect((await http().put(url).set('Cookie', admin.cookie).send({ ids: [a.id, foreign.id] }).expect(400)).body.errors[0].path).toBe('ids');
+    await http().put(url).set('Cookie', admin.cookie).send({ ids: [a.id, a.id] }).expect(400);
+    await http().put(url).set('Cookie', admin.cookie).send({ ids: [] }).expect(400);
+    await http().put(url).set('Cookie', student.cookie).send({ ids: [a.id] }).expect(403);
+    await http().put(`/api/admin/courses/nope/assessments/order`).set('Cookie', admin.cookie).send({ ids: [a.id] }).expect(404);
+    expect(await titles()).toEqual(['Second', 'Third', 'First']);
+    expect(await prisma.auditLog.count({ where: { entityId: course.id, action: 'assessment.reordered' } })).toBe(2);
+  });
+
+  it('tells enrolled students once when an assessment is first published (in-app; email unless they opted out)', async () => {
+    const sendSpy = jest.spyOn(app.get(EmailService), 'send');
+    try {
+      const { course, admin, student, other } = await setup();
+      const outsider = await createUser(app, prisma, { prefix: 'outsider' });
+      const gone = await createUser(app, prisma, { prefix: 'gone' });
+      await prisma.enrollment.create({ data: { userId: gone.id, courseId: course.id } });
+      await prisma.user.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
+      // `other` turned this course's reminders off: in-app only.
+      await prisma.reminderPreference.create({ data: { userId: other.id, courseId: course.id, emailReminders: false } });
+      const notes = (assessmentLink: string) => prisma.notification.findMany({ where: { type: 'assessment.published', link: assessmentLink }, orderBy: { userId: 'asc' } });
+      const mails = () => sendSpy.mock.calls.filter((c) => (c[2] as { name: string }).name === 'assessmentPublished');
+
+      const draft = await createAssessment(course.id, admin.cookie, englishOnly({ type: 'LAB', submissionKind: 'LINK', questions: [], dueAt: new Date(Date.now() + 48 * HOUR).toISOString() }));
+      const link = `/learn/${course.slug}/assessments/${draft.id}`;
+      // Saving a draft tells nobody.
+      const full = (await http().get(`/api/admin/assessments/${draft.id}`).set('Cookie', admin.cookie).expect(200)).body;
+      await http().put(`/api/admin/assessments/${draft.id}`).set('Cookie', admin.cookie).send(withoutArabic(full)).expect(200);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(await notes(link)).toHaveLength(0);
+
+      // Two publishes at the same moment: one notice per student.
+      await Promise.all([1, 2].map(() => http().put(`/api/admin/assessments/${draft.id}`).set('Cookie', admin.cookie).send({ ...withoutArabic(full), status: 'PUBLISHED' }).expect(200)));
+      await eventually(async () => expect((await notes(link)).map((n) => n.userId).sort()).toEqual([student.id, other.id].sort()));
+      await eventually(async () => expect(mails()).toHaveLength(1));
+      expect(mails()[0]![0]).toBe(student.email);
+      expect(mails()[0]![2]).toMatchObject({ name: 'assessmentPublished', kind: 'LAB', title: 'English quiz', dueAt: expect.any(String), url: expect.stringContaining(link) });
+      expect(mails()[0]![3]).toEqual({ bulk: true });
+      expect((await notes(link))[0]).toMatchObject({ titleEn: 'New lab: English quiz', bodyEn: expect.stringContaining('Due ') });
+      expect(await prisma.notification.count({ where: { userId: { in: [outsider.id, gone.id] }, type: 'assessment.published' } })).toBe(0);
+      expect((await prisma.assessment.findUniqueOrThrow({ where: { id: draft.id } })).publishedNotifiedAt).toBeInstanceOf(Date);
+
+      // Unpublish and publish again: no second notice.
+      await http().put(`/api/admin/assessments/${draft.id}`).set('Cookie', admin.cookie).send({ ...withoutArabic(full), status: 'DRAFT' }).expect(200);
+      await http().put(`/api/admin/assessments/${draft.id}`).set('Cookie', admin.cookie).send({ ...withoutArabic(full), status: 'PUBLISHED' }).expect(200);
+      await new Promise((r) => setTimeout(r, 200));
+      expect(await notes(link)).toHaveLength(2);
+      expect(mails()).toHaveLength(1);
+
+      // Created as published: told at once. A course that isn't running: nobody.
+      const quiz = await createAssessment(course.id, admin.cookie, englishOnly({ status: 'PUBLISHED' }));
+      await eventually(async () => expect(await notes(`/learn/${course.slug}/assessments/${quiz.id}`)).toHaveLength(2));
+      await prisma.course.update({ where: { id: course.id }, data: { status: 'ARCHIVED' } });
+      const late = await createAssessment(course.id, admin.cookie, englishOnly({ status: 'PUBLISHED' }));
+      expect(await app.get(AdminAssessmentsService).sendPublishedNotices(late.id)).toBe(0);
+    } finally {
+      sendSpy.mockRestore();
+    }
+  });
+
+  it('opens published assessments to students enrolled by email once they verify', async () => {
+    const { course, admin } = await setup();
+    const quiz = await createAssessment(course.id, admin.cookie, englishOnly({ status: 'PUBLISHED' }));
+    const email = uniqueEmail('as-invite');
+    await http().post(`/api/admin/courses/${course.id}/invites`).set('Cookie', admin.cookie).send({ entries: [{ email }] }).expect(200);
+    const reg = await http().post('/api/auth/register').send({ email, password: 'correct-horse-battery', locale: 'en' }).expect(201);
+    const cookie = cookieHeader(reg.headers['set-cookie'] as unknown as string[]);
+    expect((await http().get(`/api/learn/${course.slug}/assessments/${quiz.id}`).set('Cookie', cookie).expect(403)).body.code).toBe('NOT_ENROLLED');
+    const token = randomToken();
+    await prisma.emailVerificationToken.create({ data: { userId: reg.body.id, email, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60_000) } });
+    await http().post('/api/auth/verify-email').set('Cookie', cookie).send({ token }).expect(200);
+    await http().get(`/api/learn/${course.slug}/assessments/${quiz.id}`).set('Cookie', cookie).expect(200);
+    await http().post(`/api/learn/${course.slug}/assessments/${quiz.id}/start`).set('Cookie', cookie).expect(200);
   });
 });

@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DEFAULT_TIMEZONE, isValidTimezone } from '@academy/shared';
 import { Prisma } from '@prisma/client';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { formatDueAt } from './due-format';
 
 /** Due in 22–24 hours: wide enough for the hourly trigger, narrow enough to send once. */
 const WINDOW = { from: 22 * 60, to: 24 * 60 };
@@ -63,16 +63,7 @@ export class AssessmentReminderJobs {
           throw err;
         }
         const ar = user.locale === 'ar';
-        const tz = user.profile?.timezone && isValidTimezone(user.profile.timezone) ? user.profile.timezone : DEFAULT_TIMEZONE;
-        const when = new Intl.DateTimeFormat(ar ? 'ar-EG-u-nu-latn' : 'en-GB', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZone: tz,
-          timeZoneName: 'short',
-        }).format(a.dueAt!);
+        const when = formatDueAt(a.dueAt!, user.locale, user.profile?.timezone);
         const page = this.email.url(user.locale, `/learn/${a.course.slug}`);
         const ok = await this.email.send(
           user.email,

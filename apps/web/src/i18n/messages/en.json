@@ -1016,7 +1016,10 @@
         "badge": "From a speaker booking",
         "title": "Draft course from a speaker booking: not in the catalog yet.",
         "body": "Prefilled from the booking, with the speaker as instructor. Add the Arabic title and description (module titles start in English), check the details, then set Status to Open or Coming soon and save to publish."
-      }
+      },
+      "learnAccess": "Learn page access",
+      "learnAccessHint": "Every enrolled student can open the course’s learn page, quizzes and assignments.",
+      "learnAccessYes": "Yes"
     },
     "settings": {
       "title": "Settings",
@@ -1335,7 +1338,11 @@
           "twoOptions": "A true/false question has exactly two options.",
           "lateWithReveal": "Answers shown after the due date need late work turned off.",
           "practiceCertificate": "A practice quiz (unlimited attempts, answers after each) can't count toward the certificate."
-        }
+        },
+        "title": "Title",
+        "instructions": "Instructions (Markdown)",
+        "englishOnly": "Assessments are written in English only. Students using the Arabic site see the same English text.",
+        "hasArabic": "This assessment also has Arabic text written earlier. Students using Arabic still see that text; your edits here change the English only."
       },
       "builder": {
         "title": "Questions",
@@ -1362,7 +1369,11 @@
         "explanationEn": "Explanation (English)",
         "explanationAr": "Explanation (Arabic)",
         "true": "True",
-        "false": "False"
+        "false": "False",
+        "prompt": "Question",
+        "option": "Option {n}",
+        "explanation": "Explanation (optional, shown with the answers)",
+        "tfHint": "Students see True and False in their own language."
       },
       "book": {
         "title": "Gradebook",
@@ -1414,6 +1425,53 @@
         "gradedBy": "Graded by {name}",
         "answers": "Answers",
         "close": "Close"
+      },
+      "orderHint": "Students see assessments in this order. Use ↑ and ↓ to move one.",
+      "reordered": "Order saved.",
+      "moveUp": "Move “{title}” up",
+      "moveDown": "Move “{title}” down",
+      "upload": {
+        "title": "Upload questions from Excel or CSV",
+        "intro": "One question per row. Download the template, fill it in Excel, Google Sheets or Numbers, then upload it here (.xlsx or .csv, up to {max} questions).",
+        "columns": "Columns: type (single, multiple or true_false), question, option1 to option6, correct (an option number such as 2, several such as 1,3, letters such as B, or true/false), weight (optional, 1 by default) and explanation (optional).",
+        "templateXlsx": "Download the template (.xlsx)",
+        "templateCsv": "Template (.csv)",
+        "choose": "Choose a file",
+        "reading": "Reading the file…",
+        "tooBig": "That file is too big (5 MB max).",
+        "badFile": "That file couldn’t be read. Upload an .xlsx or .csv file (old .xls files: save them as .xlsx first).",
+        "previewTitle": "Preview: {file}",
+        "found": "{count, plural, one {# question ready} other {# questions ready}}",
+        "errorCount": "{count, plural, one {# row needs fixing} other {# rows need fixing}}. Fix the file and upload it again.",
+        "row": "Row",
+        "type": "Type",
+        "question": "Question",
+        "answers": "Options (✓ correct)",
+        "weight": "Weight",
+        "problem": "Problem",
+        "append": "Add after the current questions",
+        "replace": "Replace the current questions",
+        "cancel": "Cancel",
+        "overLimit": "A quiz can have at most {max} questions: this would make {total}.",
+        "replaceConfirm": "Replace the {count} current questions with the {next} from the file?",
+        "applied": "{count, plural, one {# question added} other {# questions added}}. Review them below, then save the assessment.",
+        "lockedNote": "Students have already submitted: changing the questions isn’t possible now, so the upload is off.",
+        "errors": {
+          "EMPTY": "The file has no questions.",
+          "MISSING_COLUMN": "The first row needs a “{column}” column (use the template).",
+          "TOO_MANY_QUESTIONS": "Too many rows: at most {max} questions per upload.",
+          "UNKNOWN_TYPE": "Unknown type “{value}”: use single, multiple or true_false.",
+          "NO_QUESTION": "The question is empty.",
+          "TOO_FEW_OPTIONS": "Give at least two options.",
+          "NO_CORRECT": "Fill in the “correct” column.",
+          "BAD_CORRECT": "“{value}” isn’t an option number or letter (for example 2, 1,3 or B).",
+          "CORRECT_NOT_AN_OPTION": "The correct answer is option {n}, but that option is empty.",
+          "ONE_CORRECT": "A single-choice question has exactly one correct answer (use the type “multiple” for more).",
+          "BAD_TRUE_FALSE": "A true/false answer must be true or false, not “{value}”.",
+          "BAD_WEIGHT": "The weight “{value}” must be a whole number from 1 to 100.",
+          "TOO_LONG": "The {column} is too long ({max} characters max).",
+          "INVALID": "This row isn’t a valid question."
+        }
       }
     },
     "points": {
@@ -2390,7 +2448,9 @@
       "ALREADY_SUBMITTED": "This was already submitted. Reload the page.",
       "NO_OPEN_ATTEMPT": "Start the quiz first.",
       "url": "Enter a full link starting with https://"
-    }
+    },
+    "true": "True",
+    "false": "False"
   },
   "points": {
     "title": "Points & badges",

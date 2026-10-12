@@ -21,21 +21,37 @@ import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.servi
 import { capRows } from '../admin/export';
 import { PointsService } from '../points/points.service';
 import { AssessmentsService, buildReview } from './assessments.service';
+import { formatDueAt } from './due-format';
 
 const questionsInclude = { questions: { orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } } } as const;
 
-/** The assessment's own fields (everything but the questions). */
+/** Saving a long quiz is many statements: more than Prisma's 5-second default. */
+const QUESTIONS_TX_TIMEOUT_MS = 30_000;
+
+/** Would writing `data` change `row`? */
+function changed(row: Record<string, unknown>, data: Record<string, unknown>): boolean {
+  return Object.entries(data).some(([k, v]) => row[k] !== v);
+}
+
+/** Leaves a key out when its value is undefined: Prisma then keeps what is stored. */
+function defined<T extends Record<string, unknown>>(o: T): { [K in keyof T]: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as { [K in keyof T]: Exclude<T[K], undefined> };
+}
+
+/**
+ * The assessment's own fields (everything but the questions). The admin editor is
+ * English-only: Arabic wording and the order are absent unless sent, and absent
+ * fields keep their stored values (create() fills in '' and the next position).
+ */
 function fields(input: AssessmentInput) {
   const quiz = input.type === 'QUIZ';
   return {
+    ...defined({ order: input.order, titleAr: input.titleAr, instructionsAr: input.instructionsAr }),
     type: input.type,
     status: input.status,
     sessionId: input.sessionId,
-    order: input.order,
     titleEn: input.titleEn,
-    titleAr: input.titleAr,
     instructionsEn: input.instructionsEn,
-    instructionsAr: input.instructionsAr,
     dueAt: input.dueAt,
     allowLate: input.allowLate,
     maxPoints: input.maxPoints,
@@ -115,7 +131,7 @@ export class AdminAssessmentsService {
   async get(id: string): Promise<AdminAssessmentDto> {
     const a = await this.prisma.assessment.findUnique({ where: { id }, include: { ...questionsInclude, _count: { select: { submissions: true } } } });
     if (!a) throw new NotFoundException('Assessment not found');
-    const { questions, _count, createdAt: _c, updatedAt: _u, ...rest } = a;
+    const { questions, _count, createdAt: _c, updatedAt: _u, publishedNotifiedAt: _p, ...rest } = a;
     return {
       ...rest,
       dueAt: a.dueAt?.toISOString() ?? null,
@@ -133,15 +149,53 @@ export class AdminAssessmentsService {
     };
   }
 
+  /** The admin list's ↑/↓ buttons: ids of this course's assessments in their new order. */
+  async reorder(courseId: string, ids: string[], admin: Actor): Promise<AdminAssessmentRow[]> {
+    await this.course(courseId);
+    const all = await this.prisma.assessment.findMany({ where: { courseId }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }], select: { id: true, order: true } });
+    const known = new Set(all.map((a) => a.id));
+    if (ids.some((id) => !known.has(id))) {
+      throw new BadRequestException({ statusCode: 400, message: 'Validation failed', errors: [{ path: 'ids', message: 'Not an assessment of this course' }] });
+    }
+    // Any left out (e.g. added in another tab meanwhile) keep their relative order, after these.
+    const listed = new Set(ids);
+    const next = [...ids, ...all.map((a) => a.id).filter((id) => !listed.has(id))];
+    const before = new Map(all.map((a) => [a.id, a.order]));
+    await this.prisma.$transaction(async (tx) => {
+      for (const [order, id] of next.entries()) {
+        if (before.get(id) !== order) await tx.assessment.update({ where: { id }, data: { order } });
+      }
+      await this.audit.log({ actorId: admin.id, action: 'assessment.reordered', entityType: 'Course', entityId: courseId, metadata: { count: next.length } }, tx);
+    });
+    return this.list(courseId);
+  }
+
   async create(courseId: string, input: AssessmentInput, admin: Actor): Promise<AdminAssessmentDto> {
     await this.course(courseId);
     await this.checkSession(courseId, input.sessionId);
-    const a = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.assessment.create({ data: { ...fields(input), courseId } });
-      if (input.type === 'QUIZ') await this.saveQuestions(tx, created.id, input.questions);
-      await this.audit.log({ actorId: admin.id, action: 'assessment.created', entityType: 'Assessment', entityId: created.id, metadata: { courseId, type: input.type, status: input.status } }, tx);
-      return created;
-    });
+    const published = input.status === 'PUBLISHED';
+    const a = await this.prisma.$transaction(
+      async (tx) => {
+        // New ones go last unless an order is sent.
+        const last = input.order === undefined ? await tx.assessment.aggregate({ where: { courseId }, _max: { order: true } }) : null;
+        const created = await tx.assessment.create({
+          data: {
+            ...fields(input),
+            titleAr: input.titleAr ?? '',
+            instructionsAr: input.instructionsAr ?? '',
+            order: input.order ?? Math.min((last?._max.order ?? -1) + 1, 999),
+            courseId,
+            // Published right away: this request tells the students (once).
+            publishedNotifiedAt: published ? new Date() : null,
+          },
+        });
+        if (input.type === 'QUIZ') await this.saveQuestions(tx, created.id, input.questions);
+        await this.audit.log({ actorId: admin.id, action: 'assessment.created', entityType: 'Assessment', entityId: created.id, metadata: { courseId, type: input.type, status: input.status } }, tx);
+        return created;
+      },
+      { timeout: QUESTIONS_TX_TIMEOUT_MS },
+    );
+    if (published) this.announcePublished(a.id);
     return this.get(a.id);
   }
 
@@ -159,15 +213,24 @@ export class AdminAssessmentsService {
       }
     }
     await this.checkSession(current.courseId, input.sessionId);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.assessment.update({ where: { id }, data: fields(input) });
-      if (input.type === 'QUIZ') await this.saveQuestions(tx, id, input.questions);
-      else await tx.quizQuestion.deleteMany({ where: { assessmentId: id } });
-      await this.audit.log(
-        { actorId: admin.id, action: 'assessment.updated', entityType: 'Assessment', entityId: id, metadata: { courseId: current.courseId, status: input.status, statusBefore: current.status } },
-        tx,
-      );
-    });
+    const firstPublish = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.assessment.update({ where: { id }, data: fields(input) });
+        if (input.type === 'QUIZ') await this.saveQuestions(tx, id, input.questions);
+        else await tx.quizQuestion.deleteMany({ where: { assessmentId: id } });
+        await this.audit.log(
+          { actorId: admin.id, action: 'assessment.updated', entityType: 'Assessment', entityId: id, metadata: { courseId: current.courseId, status: input.status, statusBefore: current.status } },
+          tx,
+        );
+        // Published for the first time: whichever request sets publishedNotifiedAt tells the
+        // students, so two saves at once (or unpublish and publish again) never send twice.
+        if (input.status !== 'PUBLISHED' || current.status === 'PUBLISHED') return false;
+        const claim = await tx.assessment.updateMany({ where: { id, publishedNotifiedAt: null }, data: { publishedNotifiedAt: new Date() } });
+        return claim.count === 1;
+      },
+      { timeout: QUESTIONS_TX_TIMEOUT_MS },
+    );
+    if (firstPublish) this.announcePublished(id);
     // Publishing counts its scores as points, unpublishing takes them back, and a new
     // scoring rule (best or last attempt) changes which score counts.
     if (current.status !== input.status || current.scoring !== input.scoring) {
@@ -195,15 +258,23 @@ export class AdminAssessmentsService {
 
   /**
    * Replaces the question list, keeping the ids of questions and options that stay, so
-   * earlier answers still line up. Scores already given are not recalculated.
+   * earlier answers still line up. Scores already given are not recalculated. Arabic
+   * wording that isn't sent keeps its stored value ('' for new rows), and rows that
+   * didn't change aren't written, so a 200-question quiz saves quickly.
    */
   private async saveQuestions(tx: Prisma.TransactionClient, assessmentId: string, questions: QuizQuestionInput[]): Promise<void> {
     const existing = await tx.quizQuestion.findMany({ where: { assessmentId }, include: { options: true } });
     const byId = new Map(existing.map((q) => [q.id, q]));
     const keep = new Set(questions.map((q) => q.id).filter((id): id is string => Boolean(id && byId.has(id))));
     await tx.quizQuestion.deleteMany({ where: { assessmentId, id: { notIn: [...keep] } } });
+    const fresh: { order: number; q: QuizQuestionInput }[] = [];
     for (const [i, q] of questions.entries()) {
-      const data = {
+      const old = q.id ? byId.get(q.id) : undefined;
+      if (!old) {
+        fresh.push({ order: i, q });
+        continue;
+      }
+      const data = defined({
         order: i,
         kind: q.kind,
         promptEn: q.promptEn,
@@ -211,24 +282,42 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr,
-      };
-      const old = q.id ? byId.get(q.id) : undefined;
-      if (!old) {
-        await tx.quizQuestion.create({
-          data: { ...data, assessmentId, options: { create: q.options.map((o, j) => ({ order: j, labelEn: o.labelEn, labelAr: o.labelAr, correct: o.correct })) } },
-        });
-        continue;
-      }
-      await tx.quizQuestion.update({ where: { id: old.id }, data });
-      const oldOptions = new Set(old.options.map((o) => o.id));
+      });
+      if (changed(old, data)) await tx.quizQuestion.update({ where: { id: old.id }, data });
+      const oldOptions = new Map(old.options.map((o) => [o.id, o]));
       const keepOptions = q.options.map((o) => o.id).filter((id): id is string => Boolean(id && oldOptions.has(id)));
-      await tx.quizOption.deleteMany({ where: { questionId: old.id, id: { notIn: keepOptions } } });
+      if (new Set(keepOptions).size !== old.options.length) await tx.quizOption.deleteMany({ where: { questionId: old.id, id: { notIn: keepOptions } } });
       for (const [j, o] of q.options.entries()) {
-        const od = { order: j, labelEn: o.labelEn, labelAr: o.labelAr, correct: o.correct };
-        if (o.id && oldOptions.has(o.id)) await tx.quizOption.update({ where: { id: o.id }, data: od });
-        else await tx.quizOption.create({ data: { ...od, questionId: old.id } });
+        const od = defined({ order: j, labelEn: o.labelEn, labelAr: o.labelAr, correct: o.correct });
+        const prev = o.id ? oldOptions.get(o.id) : undefined;
+        if (prev) {
+          if (changed(prev, od)) await tx.quizOption.update({ where: { id: prev.id }, data: od });
+        } else {
+          await tx.quizOption.create({ data: { ...od, labelAr: o.labelAr ?? '', questionId: old.id } });
+        }
       }
     }
+    if (!fresh.length) return;
+    // New questions in two statements (questions, then all their options) instead of one per row.
+    const created = await tx.quizQuestion.createManyAndReturn({
+      data: fresh.map(({ order, q }) => ({
+        assessmentId,
+        order,
+        kind: q.kind,
+        promptEn: q.promptEn,
+        promptAr: q.promptAr ?? '',
+        weight: q.weight,
+        explanationEn: q.explanationEn,
+        explanationAr: q.explanationAr ?? null,
+      })),
+      select: { id: true, order: true },
+    });
+    const idByOrder = new Map(created.map((c) => [c.order, c.id]));
+    await tx.quizOption.createMany({
+      data: fresh.flatMap(({ order, q }) =>
+        q.options.map((o, j) => ({ questionId: idByOrder.get(order)!, order: j, labelEn: o.labelEn, labelAr: o.labelAr ?? '', correct: o.correct })),
+      ),
+    });
   }
 
   async remove(id: string, admin: Actor): Promise<void> {
@@ -417,6 +506,81 @@ export class AdminAssessmentsService {
       },
       { bulk: true },
     );
+  }
+
+  /**
+   * Tells the course's students about a newly published assessment, after the admin's
+   * request has finished (never blocking it): an in-app notification for each enrolled
+   * student, and an email on the bulk lane for those who haven't turned this course's
+   * reminders off. Called once per assessment (see publishedNotifiedAt). Logs counts only.
+   */
+  private announcePublished(id: string): void {
+    void this.sendPublishedNotices(id).catch((err: unknown) => this.logger.error(`Publish notice failed: ${(err as Error).name}`));
+  }
+
+  /** Returns the number of students told in-app (exposed for tests). */
+  async sendPublishedNotices(id: string): Promise<number> {
+    const a = await this.prisma.assessment.findUnique({
+      where: { id },
+      select: { id: true, courseId: true, status: true, type: true, titleEn: true, titleAr: true, dueAt: true, course: { select: { slug: true, titleEn: true, titleAr: true, status: true } } },
+    });
+    // Unpublished again meanwhile, or a course that is over or not running: nobody to tell.
+    if (!a || a.status !== 'PUBLISHED' || !['OPEN', 'CLOSED'].includes(a.course.status)) return 0;
+    const students = await this.prisma.enrollment.findMany({
+      where: { courseId: a.courseId, user: { deletedAt: null, anonymizedAt: null } },
+      select: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            locale: true,
+            profile: { select: { timezone: true } },
+            reminderPreferences: { where: { courseId: a.courseId, emailReminders: false }, select: { courseId: true } },
+          },
+        },
+      },
+    });
+    if (!students.length) return 0;
+    const path = `/learn/${a.course.slug}/assessments/${a.id}`;
+    const titleAr = a.titleAr || a.titleEn;
+    const courseAr = a.course.titleAr || a.course.titleEn;
+    const kindEn = { QUIZ: 'quiz', LAB: 'lab', ASSIGNMENT: 'assignment' }[a.type];
+    const kindAr = { QUIZ: 'اختبار', LAB: 'تمرين عملي', ASSIGNMENT: 'واجب' }[a.type];
+    await this.prisma.notification.createMany({
+      data: students.map(({ user }) => ({
+        userId: user.id,
+        type: 'assessment.published',
+        titleEn: `New ${kindEn}: ${a.titleEn}`,
+        titleAr: `${kindAr} جديد: ${titleAr}`,
+        bodyEn: a.dueAt ? `In ${a.course.titleEn}. Due ${formatDueAt(a.dueAt, 'en', user.profile?.timezone)}.` : `In ${a.course.titleEn}.`,
+        bodyAr: a.dueAt ? `في ${courseAr}. موعد التسليم: ${formatDueAt(a.dueAt, 'ar', user.profile?.timezone)}.` : `في ${courseAr}.`,
+        link: path,
+      })),
+    });
+    let sent = 0;
+    let failed = 0;
+    for (const { user } of students) {
+      if (user.reminderPreferences.length) continue;
+      const ar = user.locale === 'ar';
+      const ok = await this.email.send(
+        user.email,
+        user.locale,
+        {
+          name: 'assessmentPublished',
+          courseTitle: ar ? courseAr : a.course.titleEn,
+          title: ar ? titleAr : a.titleEn,
+          kind: a.type,
+          dueAt: a.dueAt ? formatDueAt(a.dueAt, user.locale, user.profile?.timezone) : null,
+          url: this.email.url(user.locale, path),
+          unsubscribeUrl: `${this.email.url(user.locale, `/learn/${a.course.slug}`)}#reminders`,
+        },
+        { bulk: true },
+      );
+      if (ok) sent++;
+      else failed++;
+    }
+    this.logger.log(`Publish notice: ${students.length} notified in-app, ${sent} email(s) sent, ${failed} failed`);
+    return students.length;
   }
 
   /** Students × published assessments, with totals: one CSV per course for instructors. */
