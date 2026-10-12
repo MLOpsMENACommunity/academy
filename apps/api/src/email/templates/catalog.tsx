@@ -78,6 +78,20 @@ export type EmailTemplate =
   /** Waiting list ("Notify me"): may go to people without an account, so every one has a leave link. */
   | { name: 'waitlistJoined'; courseTitle: string; courseUrl: string; leaveUrl: string }
   | { name: 'waitlistOpen'; courseTitle: string; subject: string; body: string; url: string; leaveUrl: string }
+  /**
+   * "The course is open" to an entry without an account (joined before the waiting list needed one).
+   * `url`: sign-up with the address prefilled (sign-in when it has an unconfirmed account), back to the course.
+   */
+  | {
+      name: 'waitlistOpenGuest';
+      courseTitle: string;
+      subject: string;
+      body: string;
+      url: string;
+      hasAccount: boolean;
+      courseUrl: string;
+      leaveUrl: string;
+    }
   /** Assessments: a lab or assignment was graded (the feedback stays on the site). */
   | { name: 'assessmentGraded'; courseTitle: string; title: string; score: number; maxScore: number; url: string }
   /** 24 hours before an assessment is due, to students who haven't submitted. */
@@ -610,6 +624,42 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             heading={t.subject}
             paragraphs={t.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)}
             cta={{ label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'waitlistOpenGuest': {
+      const subject = ar
+        ? `${t.courseTitle} مفتوحة الآن: أنشئ حسابك في الأكاديمية للتقديم`
+        : `${t.courseTitle} is open: create your academy account to apply`;
+      return {
+        subject,
+        element: (
+          <Layout
+            locale={locale}
+            footer={waitlistFooter(t.courseTitle, t.leaveUrl, ar)}
+            preview={subject}
+            banner={{ text: ar ? 'هذه الدورة مفتوحة الآن' : 'This course is open', tone: 'success' }}
+            heading={t.subject}
+            paragraphs={t.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)}
+            callout={{
+              title: t.hasAccount
+                ? ar
+                  ? 'سجّل الدخول وأكّد بريدك للتقديم'
+                  : 'Sign in and confirm your email to apply'
+                : ar
+                  ? 'أنشئ حسابك في الأكاديمية للتقديم'
+                  : 'Create your academy account to apply',
+              body: t.hasAccount
+                ? ar
+                  ? 'لديك حساب بهذا العنوان، لكن لم يُؤكَّد بريده بعد. سجّل الدخول وأكّد بريدك الإلكتروني، ثم قدّم من صفحة الدورة.'
+                  : "You have an account with this address, but its email isn't confirmed yet. Sign in, confirm your email, then apply from the course page."
+                : ar
+                  ? 'التقديم على الدورات يحتاج إلى حساب مجاني في الأكاديمية. أنشئه بهذا العنوان نفسه وأكّد بريدك الإلكتروني، وسنعيدك إلى صفحة الدورة.'
+                  : "Applying needs a free academy account. Create it with this same email address and confirm it, and we'll bring you back to the course page.",
+            }}
+            cta={{ label: t.hasAccount ? (ar ? 'سجّل الدخول' : 'Sign in') : ar ? 'أنشئ حسابك' : 'Create your account', url: t.url }}
+            note={ar ? `عن الدورة: ${t.courseUrl}` : `About the course: ${t.courseUrl}`}
           />
         ),
       };

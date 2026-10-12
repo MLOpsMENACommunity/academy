@@ -16,19 +16,20 @@ import { WaitlistService } from './waitlist.service';
 
 type TokenBody = z.infer<typeof waitlistTokenSchema>;
 
-/** "Notify me when this course opens": public join and leave. */
+/**
+ * "Notify me when this course opens". Joining needs a signed-in account with a confirmed
+ * email (like applying); leaving also works through the signed link in every email.
+ */
 @ApiTags('waitlist')
 @Controller()
 export class WaitlistController {
   constructor(private readonly waitlist: WaitlistService) {}
 
-  /** Signed in: no body needed (the account email is used). Signed out: { email }. */
-  @Public()
+  /** Signed in only: the account email is used. Visitors create an account first. */
   @Post('courses/:slug/interest')
   @HttpCode(200)
-  // Per IP for visitors, per account when signed in (see AppThrottlerGuard).
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  join(@Param('slug') slug: string, @Body(new ZodPipe(courseInterestSchema)) body: CourseInterestInput, @CurrentUser() user?: AuthUser) {
+  join(@Param('slug') slug: string, @Body(new ZodPipe(courseInterestSchema)) body: CourseInterestInput, @CurrentUser() user: AuthUser) {
     return this.waitlist.join(slug, body, user);
   }
 

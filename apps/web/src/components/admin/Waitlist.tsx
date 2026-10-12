@@ -2,7 +2,7 @@
 
 import { waitlistNotifySchema, type CourseStatus, type WaitlistDto } from '@academy/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { TextAreaField, TextField } from '@/components/forms/fields';
+import { SelectField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +26,8 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [key, setKey] = useState(newKey);
+  /** '' = everyone; 'guests' = entries without an account (from before joining needed one). */
+  const [show, setShow] = useState<'' | 'students' | 'guests'>('');
   const [msg, setMsg] = useState(() => ({
     subjectEn: 'Applications are open',
     subjectAr: 'التسجيل مفتوح الآن',
@@ -97,6 +99,9 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
 
   if (!data) return error ? <Alert tone="danger">{error}</Alert> : <p className="text-muted">{t('admin.common.loading')}</p>;
 
+  const guests = data.entries.filter((e) => !e.student).length;
+  const entries = show ? data.entries.filter((e) => (show === 'guests' ? !e.student : e.student)) : data.entries;
+
   return (
     <div className="space-y-5">
       {error && <Alert tone="danger">{error}</Alert>}
@@ -149,6 +154,21 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
         </div>
       </Card>
 
+      {data.entries.length > 0 && (
+        <div className="max-w-xs">
+          <SelectField
+            label={w('filter')}
+            value={show}
+            onChange={(v) => setShow(v === 'students' || v === 'guests' ? v : '')}
+            placeholder={w('filterAll', { count: data.entries.length })}
+            options={[
+              { value: 'students', label: w('filterStudents', { count: data.entries.length - guests }) },
+              { value: 'guests', label: w('filterGuests', { count: guests }) },
+            ]}
+          />
+        </div>
+      )}
+
       {/* relative: keeps the sr-only header inside the scroll box (it would widen the page otherwise). */}
       <div className="relative overflow-x-auto rounded-card border border-line bg-card">
         <table className="w-full min-w-[40rem] text-sm">
@@ -164,14 +184,14 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
             </tr>
           </thead>
           <tbody>
-            {data.entries.length === 0 && (
+            {entries.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-muted">
-                  {w('empty')}
+                  {data.entries.length === 0 ? w('empty') : w('filterEmpty')}
                 </td>
               </tr>
             )}
-            {data.entries.map((e) => (
+            {entries.map((e) => (
               <tr key={e.id} className="border-t border-line">
                 <td className="p-3">
                   <p className="font-medium text-fg" dir="ltr">

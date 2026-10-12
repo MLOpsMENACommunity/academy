@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { JSON_HEADERS } from './support';
+import { JSON_HEADERS, latestEmail } from './support';
 
 /**
  * Public pages are static (ISR) and Cloudflare caches their HTML for anonymous visitors,
@@ -94,6 +94,11 @@ test("the waiting list's joined state loads after the page and is never in its H
     data: { email, password: 'Cache-Test-2026!', locale: 'en' },
   });
   expect(reg.status(), 'register').toBeLessThan(300);
+  // Joining needs a confirmed email, like applying.
+  const token = /verify-email\?token=([^"&<\s]+)/.exec(await latestEmail(student.request, email))?.[1];
+  expect(token, 'verification token').toBeTruthy();
+  const verified = await student.request.post('/api/auth/verify-email', { headers: JSON_HEADERS, data: { token: decodeURIComponent(token!) } });
+  expect(verified.ok(), 'verify email').toBeTruthy();
 
   // Signed in: one click joins, and the joined state comes back on the next visit (from my-status).
   const page = await student.newPage();
@@ -116,7 +121,8 @@ test("the waiting list's joined state loads after the page and is never in its H
   expect(html).not.toContain(email);
   const visitor = await anon.newPage();
   await visitor.goto(path);
-  await expect(visitor.locator('aside').getByRole('button', { name: 'Notify me when it opens' }).or(visitor.locator('aside').getByRole('textbox')).first()).toBeVisible();
+  // Visitors get a link to sign up first (no email box: the waiting list needs an account).
+  await expect(visitor.locator('aside').getByRole('link', { name: 'Notify me when it opens' })).toBeVisible();
   await expect(visitor.getByText("You're on the waiting list")).toHaveCount(0);
 
   await student.close();

@@ -1,40 +1,33 @@
 'use client';
 
-import { courseInterestSchema } from '@academy/shared';
-import { useEffect, useId, useState, useSyncExternalStore, type FormEvent } from 'react';
+import Link from 'next/link';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
-import { inputClass } from '@/components/ui/input';
+import { Button, buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { withReturnTo } from '@/lib/use-return-to';
 
-/**
- * Joined state per course, shared by the two copies of the CTA on a course page (side
- * card and phone bar). Visitors without an account are remembered in this browser only,
- * as a convenience: the list itself lives on the server.
- */
+/** Joined state per course, shared by the two copies of the CTA on a course page (side card and phone bar). */
 const joined = new Map<string, boolean>();
 /** Courses joined or left on this page visit: newer than a cached my-status answer. */
 const changedHere = new Set<string>();
 const listeners = new Set<() => void>();
-const storageKey = (slug: string) => `academy.waitlist.${slug}`;
-function setJoined(slug: string, value: boolean, remember: boolean) {
+function setJoined(slug: string, value: boolean) {
   joined.set(slug, value);
-  if (remember) {
-    try {
-      if (value) localStorage.setItem(storageKey(slug), '1');
-      else localStorage.removeItem(storageKey(slug));
-    } catch {
-      // Storage blocked: the state just isn't remembered across visits.
-    }
-  }
   listeners.forEach((l) => l());
 }
 function subscribe(l: () => void) {
   listeners.add(l);
   return () => listeners.delete(l);
+}
+
+/** Joined from elsewhere (the /notify page a signed-out visitor comes back to): show it on the course page at once. */
+export function markWaitlistJoined(slug: string): void {
+  changedHere.add(slug);
+  setJoined(slug, true);
 }
 
 interface Props {
@@ -45,52 +38,37 @@ interface Props {
   compact?: boolean;
 }
 
-/** "Notify me when it opens": the waiting list for courses that aren't open. */
+/**
+ * "Notify me when it opens": the waiting list for courses that aren't open. Like applying, it
+ * needs an account with a confirmed email: visitors go to sign-up (or sign-in) and come back
+ * through /courses/<slug>/notify, which adds them (see NotifyIntent).
+ */
 export function NotifyMe({ slug, interested, compact = false }: Props) {
   const { locale, t } = useI18n();
   const { user, loading } = useAuth();
-  const id = useId();
   const isJoined = useSyncExternalStore(
     subscribe,
     () => joined.get(slug) ?? false,
     () => false,
   );
-  const [email, setEmail] = useState('');
-  const [website, setWebsite] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (loading) return;
-    if (user) {
-      if (interested !== undefined && !changedHere.has(slug)) setJoined(slug, interested, false);
-      return;
-    }
-    let remembered = false;
-    try {
-      remembered = localStorage.getItem(storageKey(slug)) === '1';
-    } catch {
-      // ignore
-    }
-    setJoined(slug, remembered, false);
+    if (!user) return setJoined(slug, false);
+    if (interested !== undefined && !changedHere.has(slug)) setJoined(slug, interested);
   }, [slug, user, loading, interested]);
 
-  async function join(e?: FormEvent) {
-    e?.preventDefault();
+  async function join() {
     setError(null);
-    const body = user ? { locale, website } : { email, locale, website };
-    const parsed = courseInterestSchema.safeParse(body);
-    if (!parsed.success || (!user && !parsed.data.email)) {
-      setError(t('waitlist.invalidEmail'));
-      return;
-    }
     setBusy(true);
     try {
-      await api(`/courses/${slug}/interest`, { method: 'POST', json: parsed.data });
+      await api(`/courses/${slug}/interest`, { method: 'POST', json: { locale } });
       changedHere.add(slug);
-      setJoined(slug, true, !user);
+      setJoined(slug, true);
     } catch (err) {
-      setError(errorMessage(err, t));
+      setError(err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED' ? t('waitlist.verifyFirst', { email: user?.email ?? '' }) : errorMessage(err, t));
     } finally {
       setBusy(false);
     }
@@ -98,16 +76,11 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
 
   async function leave() {
     setError(null);
-    if (!user) {
-      // Visitors leave through the link in their email; here we only forget this browser's note.
-      setJoined(slug, false, true);
-      return;
-    }
     setBusy(true);
     try {
       await api(`/courses/${slug}/interest`, { method: 'DELETE' });
       changedHere.add(slug);
-      setJoined(slug, false, false);
+      setJoined(slug, false);
     } catch (err) {
       setError(errorMessage(err, t));
     } finally {
@@ -121,16 +94,14 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
     </Alert>
   );
 
-  if (isJoined) {
+  if (user && isJoined) {
     return (
       <div className="space-y-2" aria-live="polite">
         <p className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-logo-green-soft px-4 text-center font-semibold text-success">
           <span aria-hidden>✓</span>
           {t('waitlist.joined')}
         </p>
-        {!compact && (
-          <p className="text-center text-sm leading-relaxed text-muted">{user ? t('waitlist.joinedNoteUser') : t('waitlist.joinedNoteGuest')}</p>
-        )}
+        {!compact && <p className="text-center text-sm leading-relaxed text-muted">{t('waitlist.joinedNoteUser')}</p>}
         {errorBox}
         <div className="text-center">
           <button
@@ -139,7 +110,7 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
             disabled={busy}
             className="inline-flex min-h-11 items-center px-2 text-sm font-medium text-muted underline underline-offset-4 hover:text-fg"
           >
-            {user ? t('waitlist.leave') : t('waitlist.otherEmail')}
+            {t('waitlist.leave')}
           </button>
         </div>
       </div>
@@ -149,7 +120,7 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
   if (user) {
     return (
       <div className="space-y-2">
-        <Button variant="accent" size="lg" className="w-full" loading={busy} onClick={() => join()}>
+        <Button variant="accent" size="lg" className="w-full" loading={busy} onClick={join}>
           {t('waitlist.cta')}
         </Button>
         {errorBox}
@@ -158,38 +129,16 @@ export function NotifyMe({ slug, interested, compact = false }: Props) {
     );
   }
 
+  // Signed out: create an account (or sign in) first; they come back to /notify, which adds them.
   return (
-    <form onSubmit={join} noValidate className="space-y-2">
-      <label htmlFor={`${id}-email`} className={compact ? 'sr-only' : 'block text-sm font-medium text-fg'}>
-        {t('waitlist.emailLabel')}
-      </label>
-      <div className={compact ? 'flex gap-2' : 'space-y-2'}>
-        <input
-          id={`${id}-email`}
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          dir="ltr"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={t('waitlist.emailPlaceholder')}
-          aria-invalid={Boolean(error) || undefined}
-          className={`${inputClass} ${compact ? 'min-w-0 flex-1' : ''}`}
-        />
-        {/* Honeypot: hidden from people and screen readers; bots fill it in. */}
-        <div aria-hidden className="absolute -start-[9999px] h-px w-px overflow-hidden">
-          <label>
-            Website
-            <input tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} name="website" />
-          </label>
-        </div>
-        <Button type="submit" variant="accent" size="lg" className={compact ? 'shrink-0' : 'w-full'} loading={busy}>
-          {compact ? t('waitlist.ctaShort') : t('waitlist.cta')}
-        </Button>
-      </div>
-      {errorBox}
+    <div className="space-y-2">
+      <Link
+        href={withReturnTo(`/${locale}/register`, `/${locale}/courses/${slug}/notify`)}
+        className={buttonClass('accent', 'lg', 'w-full')}
+      >
+        {t('waitlist.cta')}
+      </Link>
       {!compact && <p className="text-center text-sm leading-relaxed text-muted">{t('waitlist.noteGuest')}</p>}
-    </form>
+    </div>
   );
 }

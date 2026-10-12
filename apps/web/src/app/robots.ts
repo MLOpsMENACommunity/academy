@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           ...['admin', 'dashboard', 'profile', 'learn', 'onboarding'].flatMap((p) => [`/en/${p}`, `/ar/${p}`]),
           '/*/courses/*/apply',
+          '/*/courses/*/notify',
         ],
       },
     ],

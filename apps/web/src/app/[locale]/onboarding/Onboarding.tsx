@@ -33,6 +33,8 @@ function Stepper() {
   const [done, setDone] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const courseSlug = courseSlugFromPath(returnTo);
+  /** On the way to applying (the complete profile is required there), not e.g. to a course's waiting list. */
+  const applying = /\/courses\/[^/]+\/apply(?:$|[?#])/.test(returnTo);
 
   const [loadError, setLoadError] = useState(false);
   useEffect(() => {
@@ -142,7 +144,7 @@ function Stepper() {
           {isRequiredSection(section) && <span className="text-xs font-semibold text-danger">{t('onboarding.requiredStep')}</span>}
         </div>
         <p className="-mt-4 mb-6 text-sm text-muted">{t(`profile.sectionHints.${section}`)}</p>
-        {isRequiredSection(section) && returnTo && courseSlug && !profile.coreComplete && (
+        {isRequiredSection(section) && applying && !profile.coreComplete && (
           <Alert tone="info" className="mb-6">
             {t('profile.coreMissing')}
           </Alert>
