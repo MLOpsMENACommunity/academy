@@ -43,6 +43,23 @@ test('build assets are cacheable for everyone', () => {
   assert.equal(storableCacheControl('asset', new Response('x', { headers: { 'cache-control': 'public, max-age=0' } })), null);
 });
 
+test('uploaded images are cached like build assets, for everyone', () => {
+  const img = '/api/media/0f8fad5b-d9cb-469f-a165-70867728950e.webp';
+  assert.equal(cacheKind(req(img)), 'asset');
+  assert.equal(cacheKind(req(img, { headers: { cookie: 'has_session=1; access_token=x' } })), 'asset');
+  // Not an image name, a query string, a cross-origin caller or a write: straight to the API, not stored.
+  for (const p of ['/api/media/x.webp', '/api/media/0f8fad5b-d9cb-469f-a165-70867728950e.svg', '/api/media/', '/api/admin/media/library', `${img}?v=2`]) {
+    assert.equal(cacheKind(req(p)), null, p);
+  }
+  assert.equal(cacheKind(req(img, { headers: { origin: 'https://example.com' } })), null);
+  assert.equal(cacheKind(req(img, { method: 'POST' })), null);
+  // Stored only as the API marks it (immutable, a year); a 404 never is.
+  const ok = new Response('x', { headers: { 'content-type': 'image/webp', 'cache-control': 'public, max-age=31536000, immutable' } });
+  assert.equal(storableCacheControl('asset', ok), 'public, max-age=31536000, immutable');
+  assert.equal(browserCacheControl('asset', 'public, max-age=31536000, immutable'), 'public, max-age=31536000, immutable');
+  assert.equal(storableCacheControl('asset', new Response('{}', { status: 404, headers: { 'cache-control': 'public, max-age=31536000, immutable' } })), null);
+});
+
 test('only shared-cacheable, cookie-free, fresh 200 HTML is stored, capped at PAGE_TTL', () => {
   assert.equal(storableCacheControl('page', html(isr)), `public, max-age=0, s-maxage=${PAGE_TTL}`);
   assert.equal(storableCacheControl('page', html({ ...isr, 'cache-control': 's-maxage=30, stale-while-revalidate=1' })), 'public, max-age=0, s-maxage=30');
