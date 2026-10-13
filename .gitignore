@@ -1,9 +1,5 @@
-# Local-only spec and notes (not tracked), except the published guides
-/docs/*
-!/docs/FEATURES.md
-!/docs/ENGINEERING.md
-!/docs/ADMIN-ROLES.md
-!/docs/POINTS.md
+# Local-only spec and notes (not tracked)
+/docs/
 
 node_modules/
 dist/
