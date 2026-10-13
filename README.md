@@ -9,6 +9,19 @@ Live; recordings live on YouTube (free courses) or a private Google Drive folder
 registration, screening applicants, manual payment verification, enrolment, and
 showing each enrolled student their session links.
 
+## Documentation
+
+| Document | For | What's in it |
+|---|---|---|
+| [docs/FEATURES.md](docs/FEATURES.md) | The owner, the team, partners, sponsors | Every feature: who uses it, how, its rules, emails and status (live, staging, pending), plus a changelog |
+| [docs/ENGINEERING.md](docs/ENGINEERING.md) | Developers | Architecture, data model, auth, jobs, email, storage, caching, testing, CI/CD, how to add a feature |
+| [docs/ADMIN-ROLES.md](docs/ADMIN-ROLES.md) | Super admins | Permission presets, every admin route, adding and removing admins, passwords |
+| [docs/POINTS.md](docs/POINTS.md) | The owner, course teams | The points rules as built, and the proposed scheme for the current courses |
+
+Operations: [DEPLOY.md](DEPLOY.md), [OPERATIONS.md](OPERATIONS.md), [INTEGRATION.md](INTEGRATION.md),
+[ROADMAP.md](ROADMAP.md). A PR that changes a user-visible feature updates docs/FEATURES.md in the
+same PR.
+
 ## Repository layout
 
 ```
