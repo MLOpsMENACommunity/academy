@@ -80,7 +80,7 @@ types (one account, one role); an **admin** has one or more permission presets. 
 | Enrol by email, waiting lists, saved views | | | | ✓ | | | ✓ | | |
 | Enrolled students list, Drive access | | | | ✓ | ✓ | | ✓ | | |
 | Payments: review, approve, reject | | | | ✓ | | | | | ✓ |
-| Speaker profiles, applications, availability, bookings, assign courses | | | | ✓ | read profiles | | | ✓ | |
+| Speaker profiles, applications, availability, bookings, assign courses | | | | ✓ | | | | ✓ | |
 | Switch an account between student and speaker | | | | ✓ | | | ✓ | ✓ | |
 | Admin → Media (image uploads, covers, photos, recording links) | | | | ✓ | upload | ✓ (S) | | upload | |
 | Admin dashboard (funnel and counts) | | | | ✓ | ✓ | | ✓ | | ✓ |
@@ -647,7 +647,7 @@ on their first section. The sections:
 | Points & badges | ACADEMIC | Badge catalog and points CSV import (8) |
 | Courses | ACADEMIC (edit), ADMISSIONS (read) | New course, duplicate, edit, archive/delete; tabs below |
 | Sessions | ACADEMIC | Free live sessions (10) |
-| Speakers | SPEAKERS (ACADEMIC read) | Profiles (photo, bio, LinkedIn, assigned courses), Applications, Availability and bookings (9) |
+| Speakers | SPEAKERS | Profiles (photo, bio, LinkedIn, assigned courses), Applications, Availability and bookings (9) |
 | Media | CONTENT | Staging. Upload images and set course and session covers, speaker photos, recording and playlist links; no student data |
 | Team | SUPER | Staging. Admins and their presets ([ADMIN-ROLES.md](ADMIN-ROLES.md)) |
 | Settings | SUPER | Payment details, support email and WhatsApp, live link window (60 min), retention days (180), session points (5), certificate points (50), session team emails, speaker booking limit (2) and cancel window (3 days) |
