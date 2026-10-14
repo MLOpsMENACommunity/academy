@@ -21,3 +21,6 @@ test-results/
 
 # Python (loadtest/)
 __pycache__/
+
+# Left by scripts/ci-test.sh on Workers Builds when it skips a superseded commit
+.ci-test-skipped

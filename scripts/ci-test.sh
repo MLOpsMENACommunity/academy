@@ -38,6 +38,20 @@ if [ "$have_pnpm" != "$want_pnpm" ]; then
 fi
 echo "node $(node --version), pnpm $have_pnpm, ${WORKERS_CI:+Workers Builds }commit ${WORKERS_CI_COMMIT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 
+# On Workers Builds, don't spend minutes testing a commit that won't be deployed: if the
+# branch has moved on, the newer push's build tests and deploys instead. The marker file
+# makes deploy/cloudflare/build.sh refuse to deploy this checkout untested, whatever happens.
+rm -f .ci-test-skipped
+if [ -n "${WORKERS_CI:-}" ] && [ -n "${WORKERS_CI_BRANCH:-}" ]; then
+  # shellcheck source=lib/superseded.sh
+  . scripts/lib/superseded.sh
+  if superseded "$WORKERS_CI_BRANCH" "$(git rev-parse HEAD)"; then
+    echo "$WORKERS_CI_BRANCH is at ${SUPERSEDED_BY:0:12} now: skipping the tests of this older commit (its build tests and deploys instead)."
+    touch .ci-test-skipped
+    exit 0
+  fi
+fi
+
 step "Install"
 pnpm install --frozen-lockfile
 

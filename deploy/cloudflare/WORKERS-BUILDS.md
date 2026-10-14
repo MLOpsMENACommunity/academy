@@ -31,9 +31,16 @@ scripts/promote.sh <sha> ──► branch `production` ──► Worker mlops-ac
   and `build.sh production` refuses any commit without a staging release record. That
   record is written only after the commit was deployed to staging and passed the smoke
   test. It lives in the R2 bucket `academy-releases`, which no app credential can reach.
+- **Staging never runs on production's database.** The staging Worker checks its own
+  `DATABASE_URL` and `DIRECT_DATABASE_URL` on every request (staging role, staging
+  database, as the GitHub deploy did). If they're wrong it answers 503 and never starts a
+  container (`deploy/cloudflare/src/staging-guard.ts`).
 - **Each Worker builds only itself.** A build checks the branch, the `ACADEMY_ENVIRONMENT`
   build variable and the Worker it's connected to. A build configured on the wrong Worker
   stops before it deploys anything.
+- **Overlapping builds can't roll the site back.** A build whose commit is no longer the tip
+  of its branch skips its tests and its deploy (checked before the tests, before the deploy
+  and during the smoke test); the newer commit's build deploys.
 - **Runtime secrets stay on the Workers.** They're already there (every GitHub deploy set
   them), and a deploy never changes them. The build itself needs no secrets: the tests use
   an in-memory database, and the API runs its migrations when its container starts.
@@ -115,10 +122,12 @@ The app keeps working after the repository goes private.
 | Root directory | *(empty: the repository root; the images build from it)* |
 | API token | `workers-builds-academy` |
 | Build cache | **Enable** |
-| Build watch paths → Include | `*` |
-| Build watch paths → Exclude | `README.md`, `DEPLOY.md`, `OPERATIONS.md`, `ROADMAP.md`, `INTEGRATION.md`, `deploy/cloudflare/WORKERS-BUILDS.md`, `docs/*`, `loadtest/*`, `.github/*` |
+| Build watch paths | Include `*`, exclude nothing |
 
-Don't exclude `*.md`: the web app ships Markdown content (`apps/web/src/content/`).
+Keep the watch paths at "everything": a build whose commit is no longer the tip of `main`
+skips its tests and deploy, because the newer commit's build deploys instead. If the newer
+commit didn't build (say it only touched docs and docs were excluded), nothing would deploy
+and neither commit would get a staging release record.
 
 **Settings → Build → Variables and secrets** (build-time only; the Worker never sees them):
 
@@ -302,8 +311,9 @@ builds took 3.5 to 4 minutes, with no layer cache in either case.
 | Launch-week pace all month (12 merges a day) | 360 × 9 = 3,240 | 30 × 6 = 180 | ≈ 3,400, plus retries ≈ **3,800** | $0 |
 | Same, with preview builds on (30 PR pushes a day, ~5 min each) | | | ≈ 8,300 | ≈ $11 over |
 
-All of it fits in the 6,000 included minutes as long as preview builds stay off. Merges
-that only touch docs don't build at all (watch paths). Overage would be $0.005 a minute.
+All of it fits in the 6,000 included minutes as long as preview builds stay off. A build
+that is superseded while it waits or tests stops early (a minute or two instead of 9), so
+bursts of merges cost less than the table. Overage would be $0.005 a minute.
 Check the Workers Builds minutes on the account's billing/usage page in the Cloudflare
 dashboard once a month. GitHub Actions drops to the nightly backup, about 31 minutes a month.
 
@@ -330,9 +340,11 @@ are about 850 minutes a month, inside the free 2,000. Tests and deploys stay on 
 | `ACADEMY_ENVIRONMENT is '…', expected '…'` | The build variable is missing or belongs to the other Worker. |
 | `deploys only from the '…' branch` | Branch control points at the wrong branch, or preview builds run `build.sh`. |
 | `this build belongs to the Worker '…'` | The deploy command names the other environment. |
-| `… is at … now, not …: skipping this deploy` | A newer commit landed while this one built; its build deploys. Not an error. |
+| `… is at … now …: skipping` / `moved on to …` | A newer commit landed while this one built; its build deploys. Not an error. |
 | `has no staging release record` | That commit never passed on staging. Merge to `main`, let staging release it, then promote it. |
 | `is missing the secrets: …` | Set them with `set-worker-secret.sh`, then retry the build. |
-| `still reports another release after 5 minutes` | The new containers didn't start. Look at **Containers** in the dashboard and `wrangler tail`. |
+| `never reported release … (gave up after 8 minutes)` | The new containers didn't start. Look at **Containers** in the dashboard and `wrangler tail`. |
+| `the tests of … were skipped` | The tests were skipped because the branch had moved on, then it moved back (a force push). Retry the build of the branch's latest commit. |
+| Staging answers 503 "Staging is misconfigured" | Its database secrets aren't staging's own (Worker logs say which). Fix them with `set-worker-secret.sh staging DATABASE_URL DIRECT_DATABASE_URL`. |
 | `Build was timed out` | Over 20 minutes. Check for a hung test or a slow image build, and retry. |
 | `The name in your Wrangler configuration file … must match` | The deploy command lacks the right environment (`build.sh staging` on `mlops-academy-staging`). |

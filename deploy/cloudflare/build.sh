@@ -8,7 +8,8 @@
 # What it does, in order (it stops at the first failure):
 #   1. checks that the build is the right one: target vs. branch, the ACADEMY_ENVIRONMENT
 #      build variable, the connected Worker's name, the commit;
-#   2. skips the deploy when the branch has already moved on (a newer build deploys instead);
+#   2. skips the deploy when the branch has already moved on (a newer build deploys instead),
+#      checked again right before step 7; refuses a checkout whose tests were skipped;
 #   3. production only: refuses a commit that has no staging release record (step 9), so
 #      production only ever gets code that already passed on staging;
 #   4. checks that the Worker already has its runtime secrets (they live on the Worker, set
@@ -16,7 +17,7 @@
 #   5. points wrangler.jsonc at the environment's hostname (configure-host.mjs);
 #   6. creates the environment's private R2 bucket if missing;
 #   7. `wrangler deploy` (builds both container images, pushes them, rolls out);
-#   8. smoke-tests the environment's host;
+#   8. smoke-tests the environment's host (8 minutes at most, to fit the 20-minute build limit);
 #   9. writes the release record <target>/<sha>.json to the R2 bucket academy-releases.
 #
 # Build variables it reads (Worker → Settings → Build → Variables and secrets):
@@ -76,16 +77,16 @@ echo "$TARGET: Worker $WORKER, branch $BRANCH, commit $SHA"
 # Builds can overlap (several merges in a row). A build whose commit is no longer the tip of
 # its branch doesn't deploy, so an older build can't finish last and roll the site back.
 # Best effort: if the remote can't be read here, the deploy goes ahead.
+# shellcheck source=../../scripts/lib/superseded.sh
+. ../../scripts/lib/superseded.sh
 step "Checking $SHORT is still the tip of $BRANCH"
-if tip=$(GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=15 ls-remote --heads origin "refs/heads/$BRANCH" 2>/dev/null | cut -f1) && [ -n "$tip" ]; then
-  if [ "$tip" != "$SHA" ]; then
-    echo "$BRANCH is at ${tip:0:12} now, not $SHORT: skipping this deploy (the build of ${tip:0:12} deploys instead)."
-    exit 0
-  fi
-  echo "Yes."
-else
-  echo "Couldn't read origin/$BRANCH from here; deploying anyway."
+if superseded "$BRANCH" "$SHA"; then
+  echo "$BRANCH is at ${SUPERSEDED_BY:0:12} now, not $SHORT: skipping this deploy (the build of ${SUPERSEDED_BY:0:12} deploys instead)."
+  exit 0
 fi
+echo "Yes (or the remote can't be read from here; then the deploy goes ahead)."
+# scripts/ci-test.sh leaves this marker when it skipped the tests of a superseded commit.
+[ ! -e ../../.ci-test-skipped ] || fail "the tests of $SHORT were skipped (it looked superseded), so it can't be deployed. Retry the build of the branch's latest commit."
 
 step "Installing the deploy tools"
 (cd ../.. && pnpm install --frozen-lockfile --filter @academy/deploy-cloudflare...)
@@ -111,11 +112,18 @@ required="DATABASE_URL JWT_ACCESS_SECRET JOBS_TOKEN RESEND_API_KEY S3_ENDPOINT S
 if [ "$DRY_RUN" = 1 ]; then
   echo "[dry run] wrangler secret list --env=$WRANGLER_ENV (needs: $required)"
 else
-  # Only the JSON array is read, in case wrangler prints anything around it.
+  # Only the JSON array is read, in case wrangler prints anything (even "[WARNING]") before it.
   names=$(wrangler secret list --env="$WRANGLER_ENV" --format json | node -e '
     let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
-      const list = JSON.parse(s.slice(s.indexOf("["), s.lastIndexOf("]") + 1));
-      console.log(list.map((x) => x.name).join(" "));
+      const end = s.lastIndexOf("]") + 1;
+      for (let i = s.indexOf("["); i >= 0 && i < end; i = s.indexOf("[", i + 1)) {
+        try {
+          const list = JSON.parse(s.slice(i, end));
+          if (Array.isArray(list)) return console.log(list.map((x) => x.name).join(" "));
+        } catch {}
+      }
+      console.error("could not read the secret list from wrangler");
+      process.exit(1);
     });')
   missing=""
   for k in $required; do grep -qw "$k" <<<"$names" || missing="$missing $k"; done
@@ -144,6 +152,10 @@ for b in "$BUCKET" "$RELEASES_BUCKET"; do
 done
 
 # --- 7. Deploy -----------------------------------------------------------------------------
+if superseded "$BRANCH" "$SHA"; then
+  echo "$BRANCH moved on to ${SUPERSEDED_BY:0:12} while this build ran: skipping this deploy."
+  exit 0
+fi
 step "Deploying $SHORT to $WORKER (builds and pushes both images)"
 cf wrangler deploy --env="$WRANGLER_ENV" --tag "$SHORT" --message "$TARGET release of $SHA${WORKERS_CI_BUILD_UUID:+ (build $WORKERS_CI_BUILD_UUID)}"
 
@@ -152,24 +164,31 @@ step "Smoke-testing https://$HOST"
 if [ "$DRY_RUN" = 1 ]; then
   echo "[dry run] curl https://$HOST/api/health, /en, http→https redirect, alias redirects"
 else
-  # The first request cold-starts both containers (migrations run when the API starts).
-  for i in $(seq 1 30); do
-    if health=$(curl -fsS "https://$HOST/api/health"); then echo "$health"; break; fi
-    [ "$i" = 30 ] && fail "https://$HOST/api/health never came up"
-    sleep 10
-  done
-  # The API reports the release it runs: make sure it is this one, not the old container.
-  for i in $(seq 1 30); do
-    grep -q "$SHORT" <<<"$health" && break
-    [ "$i" = 30 ] && fail "https://$HOST/api/health still reports another release after 5 minutes: $health"
-    sleep 10
-    health=$(curl -fsS "https://$HOST/api/health" || true)
-  done
-  for i in $(seq 1 30); do
-    curl -fsS -o /dev/null "https://$HOST/en" && break
-    [ "$i" = 30 ] && fail "https://$HOST/en never came up"
-    sleep 10
-  done
+  # One deadline for the whole smoke test: tests (~4 min) + deploy (~4 min) + 8 min stays
+  # under Workers Builds' 20-minute limit, so a failure is reported here, not as a timeout.
+  deadline=$((SECONDS + 480))
+  wait_for() { # description, then a command that succeeds when ready
+    local what=$1; shift
+    until "$@"; do
+      [ "$SECONDS" -lt "$deadline" ] || fail "$what (gave up after 8 minutes)"
+      sleep 10
+    done
+  }
+  # The first request cold-starts both containers (migrations run when the API starts), and
+  # the API must report this release, not the previous container's.
+  health_is_this_release() {
+    health=$(curl -fsS --max-time 20 "https://$HOST/api/health" 2>/dev/null) || return 1
+    grep -q "\"release\":\"$SHORT\"" <<<"$health" && return 0
+    # Another release is live: if the branch moved on, a newer build deployed over this one.
+    if superseded "$BRANCH" "$SHA"; then
+      echo "$BRANCH moved on to ${SUPERSEDED_BY:0:12}, whose deploy replaced this one: no release record for $SHORT."
+      exit 0
+    fi
+    return 1
+  }
+  wait_for "https://$HOST/api/health never reported release $SHORT" health_is_this_release
+  echo "$health"
+  wait_for "https://$HOST/en never came up" curl -fsS --max-time 20 -o /dev/null "https://$HOST/en"
   # Plain http never reaches the containers (private calendar feed URLs carry a token).
   code=$(curl -s -o /dev/null -w '%{http_code}' "http://$HOST/api/health" || true)
   [ "$code" = 301 ] || fail "http://$HOST returned $code, expected a 301 to https"

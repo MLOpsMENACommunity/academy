@@ -8,7 +8,8 @@
 #   printf %s "$value" | deploy/cloudflare/set-worker-secret.sh staging DATABASE_URL   (one name)
 #
 # Keeps the guard the GitHub deploy had: staging's DATABASE_URL / DIRECT_DATABASE_URL must be
-# the staging role on a staging database, and production's must not be a staging one.
+# the staging role on a staging database, and production's must not be a staging one. (The
+# staging Worker checks the same rules on every request too: src/staging-guard.ts.)
 # Cloudflare credentials: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from the environment,
 # or else from ~/.config/mlops-academy/deploy.env (only those two lines are read).
 # No redeploy needed: setting a secret deploys a new Worker version, and the Worker restarts a
@@ -38,7 +39,7 @@ check_database_url() { # name value: refuse a URL that points at the other envir
   [[ "$path" == */* ]] || { echo "$1 has no database name" >&2; return 1; }
   db=${path##*/}
   if [ "$TARGET" = staging ]; then
-    [[ "$db" == *staging* && "$role" == *staging* ]] \
+    [[ "$db" =~ ^[A-Za-z0-9_-]+$ && "$db" == *staging* && "$role" == *staging* ]] \
       || { echo "STOP: staging's $1 must be the staging role on a staging database (see setup-staging.sh)" >&2; return 1; }
   elif [[ "$db" == *staging* || "$role" == *staging* ]]; then
     echo "STOP: production's $1 points at a staging database or role" >&2; return 1

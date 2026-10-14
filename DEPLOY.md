@@ -386,6 +386,9 @@ runtime secrets (they stay on each Worker, and it only checks that the required 
 change them with `deploy/cloudflare/set-worker-secret.sh`, which keeps the staging-database
 check); and it writes a release record to the R2 bucket `academy-releases`, which a
 production build requires. It also waits until `/api/health` reports the new release.
+Because staging's database secrets are no longer checked by each deploy, the staging Worker
+checks them itself on every request and answers 503 rather than start a container on a
+non-staging database (`deploy/cloudflare/src/staging-guard.ts`; production never runs it).
 
 ## Change a hostname
 

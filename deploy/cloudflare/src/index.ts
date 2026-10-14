@@ -4,6 +4,7 @@ import { browserCacheControl, cacheKind, localeCookie, storableCacheControl, sto
 import { isManualJobsTick, tokenMatches } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 import { disallowAllRobots, isProduction, withNoindex } from './robots';
+import { stagingDatabaseProblem, stagingMisconfigured } from './staging-guard';
 
 /**
  * Entry Worker for academy on Cloudflare.
@@ -296,6 +297,13 @@ export default {
     if (isProduction(env.ACADEMY_ENVIRONMENT)) return route(request, env, ctx);
     // Staging (anything not production): never indexed. See robots.ts.
     if (new URL(request.url).pathname === '/robots.txt') return disallowAllRobots();
+    // Staging never runs against production's database: no container starts until its
+    // database secrets are staging's own (staging-guard.ts).
+    const problem = env.ACADEMY_ENVIRONMENT === 'staging' ? stagingDatabaseProblem(env) : null;
+    if (problem) {
+      console.error(`staging guard: ${problem}; set it with deploy/cloudflare/set-worker-secret.sh staging`);
+      return withNoindex(stagingMisconfigured());
+    }
     // Staging has no cron: jobs run on demand, with the jobs token (see jobs.ts and DEPLOY.md).
     if (isManualJobsTick(request)) {
       if (!tokenMatches(request.headers.get('x-jobs-token'), env.JOBS_TOKEN)) return new Response('Forbidden', { status: 403 });
