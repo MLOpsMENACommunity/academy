@@ -200,7 +200,7 @@ export function StudentPoints({ studentId }: { studentId: string }) {
           <SelectField label={t('pointsLedger.filter')} value={courseFilter} onChange={(v) => setCourseFilter(v ?? '')} options={courseOptions} placeholder={t('pointsLedger.allCourses')} />
         </div>
       )}
-      <div className="mt-2 max-h-[32rem] overflow-y-auto">
+      <div className="mt-2">
         <PointsLedger
           entries={courseFilter ? data.entries.filter((e) => data.enrolledCourses.find((c) => c.id === courseFilter)?.slug === e.course?.slug) : data.entries}
           cap={data.cap}

@@ -477,8 +477,56 @@ function AttendanceTable({
   const { t } = useI18n();
   const a = (k: string, v?: Record<string, string | number>) => t(`attendance.${k}`, v);
   const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+  const flags = (r: AttendanceRowDto) => (
+    <>
+      {r.matchedBy === 'NAME' && <Badge tone="warning">{a('byName')}</Badge>}
+      {r.matchedBy === 'MANUAL' && <Badge tone="info">{a('byHand')}</Badge>}
+      {r.source === 'MANUAL' && <Badge tone="info">{a('markedByHand')}</Badge>}
+      {preview && r.matchedBy === 'NAME' && onIgnore && (
+        <button type="button" className="min-h-8 text-xs text-primary underline" onClick={() => onIgnore(r.records)}>
+          {a('notThem')}
+        </button>
+      )}
+    </>
+  );
+  const statusSelect = (r: AttendanceRowDto, extra = '') => (
+    <select aria-label={a('statusFor', { name: r.name ?? r.email })} className={`${inputClass} ${extra}`} value={r.status} onChange={(e) => onStatus(r.userId, e.target.value as AttendanceStatus)}>
+      {ATTENDANCE_STATUSES.map((s) => (
+        <option key={s} value={s}>
+          {t(`attendance.statuses.${s}`)}
+        </option>
+      ))}
+    </select>
+  );
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-card">
+    <>
+    {/* Phones: one card per student, nothing to scroll sideways. */}
+    <ul className="flex flex-col gap-2 sm:hidden">
+      {rows.map((r) => (
+        <li key={r.userId} className="flex flex-col gap-2 rounded-xl border border-line bg-card p-3 text-sm">
+          <span className="min-w-0">
+            <bdi className="block font-medium break-words">{r.name ?? r.email}</bdi>
+            <span className="block text-xs break-all text-muted ltr-embed">{r.email}</span>
+          </span>
+          <span className="flex flex-wrap items-center gap-1.5">{flags(r)}</span>
+          <span className="flex flex-wrap gap-x-4 gap-y-1 text-muted">
+            <span>
+              {a('minutes')}: <span className="font-medium text-fg tabular-nums">{r.minutes}</span>
+            </span>
+            <span>
+              %: <span className="font-medium text-fg tabular-nums" dir="ltr">{r.percent}%</span>
+            </span>
+            <span>
+              {a('points')}: <span className="font-medium text-fg tabular-nums" dir="ltr">{r.points}</span>
+              {preview && r.change !== 0 && <span className={`ms-1 tabular-nums ${r.change < 0 ? 'text-danger' : 'text-success'}`} dir="ltr">({signed(r.change)})</span>}
+            </span>
+          </span>
+          {statusSelect(r)}
+        </li>
+      ))}
+      {rows.length === 0 && <li className="text-sm text-muted">{a('noStudents')}</li>}
+    </ul>
+    <div className="hidden overflow-x-auto rounded-xl border border-line bg-card sm:block">
       <table className="w-full min-w-[36rem] text-sm">
         <thead className="bg-muted-bg text-muted">
           <tr>
@@ -505,16 +553,7 @@ function AttendanceTable({
               <td className="px-3 py-2">
                 <bdi className="block font-medium break-words">{r.name ?? r.email}</bdi>
                 <span className="block text-xs text-muted ltr-embed">{r.email}</span>
-                <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                  {r.matchedBy === 'NAME' && <Badge tone="warning">{a('byName')}</Badge>}
-                  {r.matchedBy === 'MANUAL' && <Badge tone="info">{a('byHand')}</Badge>}
-                  {r.source === 'MANUAL' && <Badge tone="info">{a('markedByHand')}</Badge>}
-                  {preview && r.matchedBy === 'NAME' && onIgnore && (
-                    <button type="button" className="min-h-8 text-xs text-primary underline" onClick={() => onIgnore(r.records)}>
-                      {a('notThem')}
-                    </button>
-                  )}
-                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">{flags(r)}</span>
               </td>
               <td className="px-3 py-2 text-end tabular-nums" dir="ltr">
                 {r.minutes}
@@ -523,18 +562,7 @@ function AttendanceTable({
                 {r.percent}%
               </td>
               <td className="px-3 py-2">
-                <select
-                  aria-label={a('statusFor', { name: r.name ?? r.email })}
-                  className={`${inputClass} w-auto min-w-32`}
-                  value={r.status}
-                  onChange={(e) => onStatus(r.userId, e.target.value as AttendanceStatus)}
-                >
-                  {ATTENDANCE_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {t(`attendance.statuses.${s}`)}
-                    </option>
-                  ))}
-                </select>
+                {statusSelect(r, 'w-auto min-w-32')}
               </td>
               <td className="px-3 py-2 text-end tabular-nums" dir="ltr">
                 {r.points}
@@ -552,5 +580,6 @@ function AttendanceTable({
         </tbody>
       </table>
     </div>
+    </>
   );
 }

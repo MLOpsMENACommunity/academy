@@ -102,7 +102,11 @@ export function PointsLedger({
                 {e.voided && (
                   <span className="mt-1 block text-xs text-muted">
                     {p('removedBy', { name: e.voided.by ?? '—', date: formatDate(e.voided.at, locale) })}
-                    {e.voided.why && <>: <bdi>{e.voided.why}</bdi></>}
+                    {e.voided.why && (
+                      <bdi dir="auto" className="block">
+                        “{e.voided.why}”
+                      </bdi>
+                    )}
                   </span>
                 )}
               </span>
