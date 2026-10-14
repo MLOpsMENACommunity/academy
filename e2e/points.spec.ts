@@ -15,9 +15,21 @@ const beta = { email: `e2e-pts-b-${stamp}@example.test`, name: 'Omar Farouk' };
 let admin: APIRequestContext;
 let courseId: string;
 
+/** Sign-ups are limited per IP (10 a minute) and the suite signs up many accounts: wait out a 429. */
+async function register(api: APIRequestContext, data: Record<string, string>): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await api.post('/api/auth/register', { headers: JSON_HEADERS, data });
+    if (res.status() !== 429 || attempt >= 3) {
+      expect(res.ok(), await res.text()).toBeTruthy();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, (Number(res.headers()['retry-after']) || 30) * 1000));
+  }
+}
+
 async function enrolledStudent(s: { email: string; name: string }): Promise<{ api: APIRequestContext; id: string }> {
   const api = await playwrightRequest.newContext({ baseURL: BASE });
-  expect((await api.post('/api/auth/register', { headers: JSON_HEADERS, data: { email: s.email, password } })).ok()).toBeTruthy();
+  await register(api, { email: s.email, password });
   const html = await latestEmail(api, s.email);
   const token = /verify-email\?token=([^"&<\s]+)/.exec(html)?.[1];
   expect(token, 'verification token').toBeTruthy();
@@ -103,6 +115,8 @@ test.afterAll(async () => {
 });
 
 test('a student opts in and appears on the course leaderboard; others stay hidden', async ({ browser }) => {
+  // Room to wait out the sign-up limit (see register).
+  test.setTimeout(240_000);
   const a = await enrolledStudent(alpha);
   const b = await enrolledStudent(beta);
   for (const [s, points] of [
