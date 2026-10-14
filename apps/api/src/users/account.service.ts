@@ -438,6 +438,8 @@ export class AccountService {
       this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
       // Points, badges and leaderboard choices are personal: removed (boards never showed deleted accounts).
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
+      // Attendance (minutes per session) is personal too; course counts never included deleted accounts.
+      this.prisma.sessionAttendance.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
       // Certificates stay on record (serial, course, dates: the public page says "no longer

@@ -268,7 +268,8 @@ export class AttendanceService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey(sessionId)}))`;
       // Read under the lock: the points each student holds right now, not at preview time.
       const before = await this.held(tx, sessionId, ids);
-      const stale = await tx.sessionAttendance.findMany({ where: { sessionId, userId: { notIn: ids } }, select: { userId: true } });
+      // Deleted accounts are left alone: they never gain (or lose) points again, and anonymisation removes theirs.
+      const stale = await tx.sessionAttendance.findMany({ where: { sessionId, userId: { notIn: ids }, user: { deletedAt: null } }, select: { userId: true } });
       await tx.sessionAttendance.deleteMany({ where: { sessionId } });
       await tx.sessionAttendance.createMany({ data: planned.map((p) => ({ sessionId, ...p.row, uploadedById: actor.id, createdAt: now, updatedAt: now })) });
       for (const p of planned) {
