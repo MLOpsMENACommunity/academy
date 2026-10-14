@@ -167,7 +167,10 @@
       "LAST_SUPER": "يجب أن يبقى مسؤول عام واحد على الأقل دائمًا.",
       "ALREADY_ADMIN": "هذا الحساب مسؤول بالفعل.",
       "ADMIN_PERMISSION": "لا يملك حسابك الإداري صلاحية الوصول إلى هذا.",
-      "EMAIL_UNVERIFIED": "لم يؤكد هذا الحساب عنوان بريده الإلكتروني بعد. اطلب منه تأكيده، ثم أضفه مرة أخرى."
+      "EMAIL_UNVERIFIED": "لم يؤكد هذا الحساب عنوان بريده الإلكتروني بعد. اطلب منه تأكيده، ثم أضفه مرة أخرى.",
+      "POINTS_CAP": "هذا يتجاوز حد النقاط للمتحدثين. اطلب التغييرات الأكبر من مشرف.",
+      "AUTOMATIC_ENTRY": "النقاط التلقائية تتغيّر مع مصدرها. أضف تصحيحًا بدلًا من ذلك.",
+      "ENTRY_VOIDED": "حُذف هذا الإدخال أو عُدِّل من قبل. أعد التحميل لترى الأحدث."
     },
     "termsNotice": "بإنشاء حساب فإنك توافق على {terms} و{privacy}.",
     "googleHint": "إذا أنشأت حسابك عبر Google، استخدم «المتابعة باستخدام Google».",
@@ -1539,7 +1542,8 @@
       "settings": {
         "points": "النقاط",
         "sessionCompletedPoints": "نقاط كل جلسة مكتملة",
-        "certificatePoints": "نقاط إضافية للشهادة"
+        "certificatePoints": "نقاط إضافية للشهادة",
+        "speakerPointsCap": "أكبر إدخال نقاط يمكن للمتحدث إضافته أو تعديله أو حذفه"
       },
       "importedBefore": "سبق استيراد هذا الملف نفسه في {date}. استيراده مرة أخرى يضيف النقاط مرة ثانية.",
       "applyAgain": "استيراد مرة أخرى على أي حال ({count} صفًا، {points} نقطة)"
@@ -2473,7 +2477,9 @@
       "assessmentUpdated": "تحديث الدرجة: {title}",
       "session": "أكملت الجلسة: {title}",
       "sessionUndone": "ألغيت إكمال الجلسة: {title}",
-      "certificate": "شهادة: {course}"
+      "certificate": "شهادة: {course}",
+      "attendance": "الحضور: {title}",
+      "attendanceUpdated": "تحديث الحضور: {title}"
     },
     "reasons": {
       "ASSESSMENT": "تقييم",
@@ -2481,7 +2487,8 @@
       "CERTIFICATE": "شهادة",
       "MANUAL_COMMUNITY": "مساعدة المجتمع",
       "MANUAL_OTHER": "أخرى",
-      "ADJUSTMENT": "تصحيح"
+      "ADJUSTMENT": "تصحيح",
+      "ATTENDANCE": "الحضور"
     }
   },
   "badges": {
@@ -2585,7 +2592,8 @@
       "gradebook": "سجل الدرجات",
       "points": "النقاط",
       "materials": "المواد",
-      "announcements": "الإعلانات"
+      "announcements": "الإعلانات",
+      "attendance": "الحضور"
     },
     "gradebook": {
       "intro": "اختر تقييمًا لترى كل الطلاب المسجلين وتقيّم أعمالهم. يتضمن التصدير كل التقييمات المنشورة."
@@ -2600,7 +2608,10 @@
       "standings": "نقاط الدورة",
       "history": "آخر التغييرات",
       "noHistory": "لم تُمنح نقاط يدويًا بعد.",
-      "by": "بواسطة {name}"
+      "by": "بواسطة {name}",
+      "cap": "حدّك: {cap} نقطة لكل إدخال.",
+      "studentTitle": "النقاط: {name}",
+      "studentHint": "{total} نقطة في هذه الدورة. يمكنك تعديل الإدخالات اليدوية أو حذفها حتى {cap} نقطة؛ أما التلقائية (التقييمات والحضور) فتُصحَّح بإدخال تصحيح."
     },
     "materials": {
       "intro": "ما تغطيه كل جلسة وتسجيلها وروابطها. يحدد فريق الأكاديمية المواعيد والعناوين ورابط البث المباشر.",
@@ -2612,5 +2623,105 @@
       "hasRecording": "التسجيل",
       "materialsInvalid": "تحتاج كل مادة إلى عنوان بالإنجليزية والعربية ورابط http(s)."
     }
+  },
+  "attendance": {
+    "tab": "الحضور",
+    "intro": "ارفع ملف حضور Google Meet لجلسة (‎.csv أو ‎.xlsx). نطابق الطلاب بالبريد الإلكتروني ثم بالاسم الكامل نفسه، وتراجع المعاينة قبل حفظ أي شيء. نقاط الحضور تُحسب في لوحة صدارة الدورة.",
+    "allSessions": "كل الجلسات",
+    "sessions": "الجلسات",
+    "export": "ملف الحضور CSV",
+    "noSessions": "لا توجد جلسات في هذه الدورة بعد.",
+    "notRecorded": "لم يُسجَّل",
+    "countPresent": "حاضر: {count}",
+    "countPartial": "حضور جزئي: {count}",
+    "countAbsent": "غائب: {count}",
+    "rule": "قاعدة الحضور ونقاطه",
+    "ruleSummary": "حاضر عند {percent}% من مدة الجلسة أو أكثر. النقاط لكل جلسة: حاضر {present}، جزئي {partial}، غائب {absent}.",
+    "ruleHint": "الحضور الجزئي: دقيقة على الأقل وأقل من الحد. يُطبَّق التغيير عند حفظ حضور الجلسة في المرة القادمة.",
+    "ruleSaved": "تم الحفظ.",
+    "saveRule": "احفظ القاعدة",
+    "settings": {
+      "presentPercent": "حاضر من (%)",
+      "presentPoints": "النقاط: حاضر",
+      "partialPoints": "النقاط: جزئي",
+      "absentPoints": "النقاط: غائب"
+    },
+    "upload": "ارفع ملف حضور Meet",
+    "uploadIntro": "نزّل تقرير الحضور من Google Meet (أو من إضافة حضور Meet) واختره هنا. لا يُحفظ شيء قبل أن تؤكد. الرفع مرة أخرى يستبدل حضور هذه الجلسة ويعدّل النقاط بالفرق فقط.",
+    "formats": "الصيغ المدعومة: تقرير Google Workspace (First name, Last name, Email, Duration, Time joined, Time exited) وإضافات حضور Meet (Name, Email, First seen, Last seen, Time in call، أو عمود لكل وقت).",
+    "choose": "اختر ملفًا",
+    "reading": "جارٍ القراءة…",
+    "override": "حاضر من (%) لهذه الجلسة فقط (الدورة: {percent}%)",
+    "tooBig": "الملف كبير جدًا (5 ميغابايت على الأكثر).",
+    "badFile": "تعذّرت قراءة الملف. استخدم ملف ‎.csv أو ‎.xlsx من Google Meet.",
+    "fileErrors": {
+      "EMPTY": "الملف فارغ.",
+      "NO_HEADER": "لم نجد صف العناوين. يحتاج الملف إلى عمود الاسم (أو الاسم الأول واسم العائلة) أو البريد الإلكتروني.",
+      "NO_DURATION": "لم نجد المدة. يحتاج الملف إلى عمود Duration أو Time in call، أو وقتَي الدخول والخروج، أو عمود لكل وقت.",
+      "TOO_MANY_ROWS": "عدد الصفوف كبير جدًا (2000 على الأكثر).",
+      "BAD_DURATION": "تعذّرت قراءة مدة.",
+      "NO_IDENTITY": "صف بلا اسم أو بريد إلكتروني."
+    },
+    "previewTitle": "معاينة: {file}",
+    "previewSummary": "حاضر {present} · جزئي {partial} · غائب {absent} (حاضر من {percent}%)",
+    "pointsChange": "الحفظ يغيّر النقاط بمقدار {points}.",
+    "skipped": "تخطّينا {count} من الصفوف (بلا اسم أو بريد، أو بمدة لا تُقرأ): الصفوف {rows}.",
+    "unmatched": "لم يُطابَق مع طالب ({count})",
+    "unmatchedHint": "اختر الطالب المسجّل، أو تجاهل الصف (ضيف). الصفوف غير المطابقة لا تُحفظ أبدًا ولا يُنشأ أي حساب.",
+    "matchTo": "طابِق {name} مع",
+    "pickStudent": "اختر طالبًا…",
+    "ignore": "تجاهل",
+    "notThem": "ليس هو: تجاهل",
+    "save": "احفظ الحضور",
+    "replace": "استبدل الحضور",
+    "replaceHint": "لهذه الجلسة حضور مسجّل: الحفظ يستبدله ويعدّل النقاط بالفرق.",
+    "saved": "تم الحفظ: حاضر {present}، جزئي {partial}، غائب {absent}.",
+    "recorded": "الحضور المسجّل",
+    "nothingYet": "لم يُسجَّل شيء بعد. ارفع ملف Meet أعلاه.",
+    "updated": "حُدِّث {date}",
+    "student": "الطالب",
+    "minutes": "الدقائق",
+    "status": "الحالة",
+    "points": "النقاط",
+    "statusFor": "حالة {name}",
+    "byName": "طوبق بالاسم: راجعه",
+    "byHand": "طوبق يدويًا",
+    "markedByHand": "حُدِّد يدويًا",
+    "noStudents": "لا يوجد طلاب مسجّلون.",
+    "statuses": {
+      "PRESENT": "حاضر",
+      "PARTIAL": "حضور جزئي",
+      "ABSENT": "غائب"
+    },
+    "mine": {
+      "PRESENT": "حاضر · {minutes} دقيقة",
+      "PARTIAL": "حضور جزئي · {minutes} دقيقة",
+      "ABSENT": "غائب"
+    }
+  },
+  "pointsLedger": {
+    "title": "سجل النقاط",
+    "add": "أضف نقاطًا",
+    "filter": "الدورة",
+    "allCourses": "كل الدورات",
+    "by": "بواسطة {name}",
+    "automatic": "تلقائي",
+    "edited": "معدَّل",
+    "removed": "محذوف",
+    "removedBy": "حذفه {name} في {date}",
+    "edit": "تعديل",
+    "remove": "حذف",
+    "editLabel": "تعديل: {text}",
+    "removeLabel": "حذف: {text}",
+    "override": "تصحيح",
+    "overrideNote": "تصحيح لـ: {text}",
+    "overCap": "{cap} نقطة على الأكثر بالزيادة أو النقص.",
+    "overCapNote": "أكبر من حدّك ({cap} نقطة): اطلب ذلك من مشرف.",
+    "capHint": "عدد صحيح، {cap} على الأكثر بالزيادة أو النقص.",
+    "removeIntro": "يبقى الإدخال في السجل مشطوبًا ولا يُحسب بعد الآن.",
+    "why": "السبب",
+    "whyHint": "يُحفظ مع الإدخال للتوثيق.",
+    "saveEdit": "احفظ التغيير",
+    "confirmRemove": "احذف النقاط"
   }
 }
