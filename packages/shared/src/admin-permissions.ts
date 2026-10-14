@@ -66,6 +66,7 @@ export const COURSE_TAB_PERMISSIONS = {
   questions: ['ACADEMIC'],
   applications: ['ADMISSIONS'],
   sessions: ['ACADEMIC'],
+  attendance: ['ACADEMIC'],
   assessments: ['ACADEMIC'],
   leaderboard: ['ACADEMIC'],
   enrolled: ['ADMISSIONS', 'ACADEMIC'],

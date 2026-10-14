@@ -87,4 +87,6 @@ export interface TeachingPointsEntryDto {
 export interface TeachingPointsDto {
   students: TeachingStudentDto[];
   entries: TeachingPointsEntryDto[];
+  /** The largest single entry a speaker may add, set or remove (either sign). */
+  cap: number;
 }

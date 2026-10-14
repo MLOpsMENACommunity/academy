@@ -154,8 +154,10 @@ export class TeachingService {
       }),
     ]);
     const total = new Map(sums.map((s) => [s.userId, s._sum.points ?? 0]));
+    const cap = await this.pointsCap();
     const people = new Map(enrolled.map(({ user }) => [user.id, user]));
     return {
+      cap,
       students: enrolled.map(({ user }) => ({ userId: user.id, name: user.profile?.fullNameEn ?? null, email: user.email, points: total.get(user.id) ?? 0 })),
       entries: entries.map((e) => {
         const u = people.get(e.userId);

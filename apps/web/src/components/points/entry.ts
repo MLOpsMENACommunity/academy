@@ -13,6 +13,9 @@ export function entryText(e: PointsEntryDto, locale: Locale, t: Translate): stri
     case 'SESSION_COMPLETED':
       text = t(e.points < 0 ? 'points.reason.sessionUndone' : 'points.reason.session', { title: title ?? '' });
       break;
+    case 'ATTENDANCE':
+      text = t(e.adjustment ? 'points.reason.attendanceUpdated' : 'points.reason.attendance', { title: title ?? '' });
+      break;
     case 'CERTIFICATE':
       text = t('points.reason.certificate', { course: course ?? '' });
       break;
