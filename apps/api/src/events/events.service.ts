@@ -315,6 +315,16 @@ export class EventsService {
         })
       : null;
     if (id && !before) throw new NotFoundException('Session not found');
+    // Back to draft hides a public session: people who registered would never hear. Cancel tells them.
+    if (before?.status === 'PUBLISHED' && input.status === 'DRAFT' && !eventEnded(before.startsAt, before.durationMin)) {
+      const registered = await this.prisma.eventRegistration.count({ where: { eventId: before.id, user: { deletedAt: null } } });
+      if (registered > 0) {
+        throw new ConflictException({
+          code: 'EVENT_UNPUBLISH_HAS_REGISTRATIONS',
+          message: `${registered} people registered for this session. Set its status to Cancelled instead: they will be told by email.`,
+        });
+      }
+    }
     let saved: LiveEvent;
     try {
       saved = await this.prisma.$transaction(async (tx) => {
@@ -448,6 +458,13 @@ export class EventsService {
    */
   async remove(id: string, actorId: string): Promise<void> {
     const e = await this.adminGet(id);
+    // A speaker's booking holds this session: deleting it would leave the slot booked for nothing.
+    if (e.speakingSlot) {
+      throw new ConflictException({
+        code: 'EVENT_FROM_BOOKING',
+        message: "This session was made from a speaker's booking. Release the booking in Speakers → Availability instead: the speaker and the team are told.",
+      });
+    }
     const registrations = e._count.registrations;
     if (registrations > 0 && e.status !== 'CANCELLED') {
       throw new ConflictException({

@@ -33,7 +33,7 @@ describe('attendance and points editing (e2e)', () => {
     return s;
   }
   const session = (courseId: string, order = 1) =>
-    prisma.courseSession.create({ data: { courseId, order, titleEn: `Session ${order}`, titleAr: `الجلسة ${order}`, startsAt: new Date('2030-01-05T17:00:00Z'), durationMin: 90 } });
+    prisma.courseSession.create({ data: { courseId, order, titleEn: `Session ${order}`, titleAr: `الجلسة ${order}`, startsAt: new Date('2025-01-05T17:00:00Z'), durationMin: 90 } });
   const ledger = async (userId: string, courseId: string) =>
     (await prisma.pointsEntry.aggregate({ where: { userId, courseId, voidedAt: null }, _sum: { points: true } }))._sum.points ?? 0;
   const board = async (courseId: string) =>
@@ -128,6 +128,19 @@ describe('attendance and points editing (e2e)', () => {
     const audit = await prisma.auditLog.findMany({ where: { action: { startsWith: 'attendance.' }, entityId: s1.id } });
     expect(audit.length).toBeGreaterThanOrEqual(4);
     expect(JSON.stringify(audit.map((a) => a.metadata))).not.toMatch(/@|Layla|Omar|Guest/);
+  });
+
+  it("refuses to save or mark attendance for a session that hasn't started (a preview is fine)", async () => {
+    const course = await createCourse(prisma);
+    const later = await prisma.courseSession.create({ data: { courseId: course.id, order: 1, titleEn: 'Later', titleAr: 'لاحقة', startsAt: new Date(Date.now() + 86_400_000), durationMin: 90 } });
+    const layla = await student(course.id, 'Layla Haddad');
+    const url = `/api/admin/courses/${course.id}/sessions/${later.id}/attendance`;
+    const records = [{ name: 'Layla H', email: layla.email, minutes: 80 }];
+    await http().post(url).set('Cookie', admin.cookie).send({ records }).expect(200);
+    expect((await http().post(url).set('Cookie', admin.cookie).send({ records, dryRun: false }).expect(409)).body.code).toBe('SESSION_NOT_STARTED');
+    expect((await http().put(`${url}/${layla.id}`).set('Cookie', admin.cookie).send({ status: 'PRESENT' }).expect(409)).body.code).toBe('SESSION_NOT_STARTED');
+    expect(await prisma.sessionAttendance.count({ where: { sessionId: later.id } })).toBe(0);
+    expect(await ledger(layla.id, course.id)).toBe(0);
   });
 
   it('rejects hand matches to someone outside the course', async () => {

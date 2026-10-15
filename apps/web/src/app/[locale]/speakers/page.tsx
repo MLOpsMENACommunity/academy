@@ -12,7 +12,7 @@ import { loadSpeakers } from '@/lib/speakers';
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
@@ -31,7 +31,7 @@ export default async function SpeakersPage({ params }: Props) {
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
   // The list itself through serverGet: an API failure fails the render instead of caching "no speakers".
-  await serverGet<unknown>('/speakers', 300);
+  await serverGet<unknown>('/speakers');
   const speakers = await loadSpeakers(60);
 
   return (

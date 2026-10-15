@@ -18,6 +18,12 @@
  *     personal field (apps/api/src/common/public-cache.ts). Kept for at most API_TTL seconds.
  *     Requests with an Origin header (cross-origin callers) are not cached (CORS headers vary).
  *
+ * How fast an admin edit shows: the API asks the Worker to revalidate (revalidate.ts), which
+ * re-renders the pages in every running web container and purges every copy stored here
+ * (they carry Cache-Tag EDGE_TAG) when the purge is configured; otherwise a copy lives at most
+ * PAGE_TTL / API_TTL. The web app's own server-side reads skip this cache (x-skip-edge-cache),
+ * so a page re-rendered after an edit never picks up an older copy of the API's answer.
+ *
  * Never cached, always sent to the container:
  *   - anything from a browser with a session (access_token / has_session / refresh_token cookie),
  *   - every other /api/* endpoint (personal ones, writes, auth, uploads…), non-GET requests,
@@ -33,10 +39,17 @@
  * is part of the key too (?ref=, utm_* get their own entries).
  */
 
-/** Edge lifetime of a cached page. Next revalidates every 60–300 s behind this. */
-export const PAGE_TTL = 60;
-/** Edge lifetime of a cached public API read (the API asks for s-maxage=60). */
-export const API_TTL = 60;
+/**
+ * Edge lifetime of a cached page: the most an edit can lag at the edge when the purge isn't
+ * configured (or fails). Next revalidates on demand and every 60 s behind this.
+ */
+export const PAGE_TTL = 30;
+/** Edge lifetime of a cached public API read (the API asks for s-maxage=60; the edge keeps less). */
+export const API_TTL = 30;
+/** Cache-Tag on every stored page and API answer: one purge clears them all (revalidate.ts). */
+export const EDGE_TAG = 'academy-public';
+/** Sent by the web app's server-side reads (apps/web/src/lib/server-api.ts): never from the edge cache. */
+export const SKIP_EDGE_CACHE_HEADER = 'x-skip-edge-cache';
 
 const SESSION_COOKIES = ['access_token', 'has_session', 'refresh_token'];
 
@@ -88,6 +101,9 @@ export function cacheKind(request: Request): CacheKind | null {
   const url = new URL(request.url);
   const path = url.pathname;
   if (path === '/api' || path.startsWith('/api/')) {
+    // The web app's own reads. Anyone may send it: it only costs the API a read from its
+    // in-process cache (a query string already gets past the edge the same way).
+    if (request.headers.has(SKIP_EDGE_CACHE_HEADER)) return null;
     // Public, immutable images: the same bytes for everyone, so a session doesn't matter. No query
     // string (it would only multiply cache entries) and no cross-origin callers (CORS headers vary).
     if (MEDIA.test(path)) return url.search || request.headers.has('origin') || request.headers.has('authorization') ? null : 'asset';
@@ -124,8 +140,8 @@ export function parseCacheControl(value: string | null): CacheControl {
 
 /**
  * The Cache-Control to store a response under, or null when it must not be cached.
- * Pages are capped at PAGE_TTL so admin edits show within ~2 minutes (Next's 60 s ISR
- * window plus this one); assets keep their own (immutable, a year).
+ * Pages are capped at PAGE_TTL so an edit shows within that even without the purge; assets
+ * keep their own (immutable, a year).
  */
 export function storableCacheControl(kind: CacheKind, response: Response): string | null {
   if (response.status !== 200) return null;
@@ -193,10 +209,14 @@ export function onlySetsLocaleCookie(response: Response): boolean {
  * The copy to put in the edge cache: with the storable Cache-Control and never a Set-Cookie
  * (the only one storableCacheControl lets through is NEXT_LOCALE, which the Worker sets per
  * visitor itself: the miss passes the middleware's on, and hits add it with localeCookie).
+ * Pages and API answers are tagged EDGE_TAG so an admin edit can purge them all; build
+ * assets and images never change, so they aren't.
  */
-export function storedCopy(response: Response, cacheControl: string): Response {
+export function storedCopy(response: Response, cacheControl: string, kind: CacheKind = 'page'): Response {
   const out = new Response(response.body, response);
   out.headers.delete('set-cookie');
   out.headers.set('cache-control', cacheControl);
+  if (kind === 'asset') out.headers.delete('cache-tag');
+  else out.headers.set('cache-tag', EDGE_TAG);
   return out;
 }

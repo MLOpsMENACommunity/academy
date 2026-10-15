@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   liveLinkVisible,
   recordingKind,
@@ -143,8 +143,14 @@ export class LearnService {
     return { course, session };
   }
 
-  async setProgress(user: AuthUser, slug: string, sessionId: string, completed: boolean): Promise<void> {
-    await this.sessionOf(user, slug, sessionId, 'write');
+  async setProgress(user: AuthUser, slug: string, sessionId: string, completed: boolean, now = new Date()): Promise<void> {
+    const { session } = await this.sessionOf(user, slug, sessionId, 'write');
+    // A session can only be done once it has started (the learn page hides the box until then):
+    // otherwise marking every session at once would hand out session points, "Finisher" and
+    // the certificate's sessions requirement. Unmarking is always allowed.
+    if (completed && session.startsAt > now) {
+      throw new ConflictException({ code: 'NOT_STARTED', message: 'You can mark a session done once it has started' });
+    }
     if (completed) {
       await this.prisma.sessionProgress.upsert({
         where: { userId_sessionId: { userId: user.id, sessionId } },

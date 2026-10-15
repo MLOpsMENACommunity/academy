@@ -241,7 +241,9 @@ describe('live sessions (e2e)', () => {
     const e = await create(ended, { capacity: null, startsAt: minutes(-180), durationMin: 60 });
     await register(upcoming, me.cookie).expect(201);
     await register(draft, me.cookie).expect(201);
-    await update(d.id, draft, { status: 'DRAFT' }).expect(200);
+    // The editor refuses to unpublish a session people registered for (cancel tells them): set it directly.
+    await update(d.id, draft, { status: 'DRAFT' }).expect(409);
+    await prisma.liveEvent.update({ where: { id: d.id }, data: { status: 'DRAFT' } });
     await prisma.eventRegistration.create({ data: { eventId: e.id, userId: me.id } });
 
     const mine = await http().get('/api/me/events').set('Cookie', me.cookie).expect(200);

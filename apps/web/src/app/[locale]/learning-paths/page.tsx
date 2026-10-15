@@ -14,7 +14,7 @@ import { serverGet } from '@/lib/server-api';
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
@@ -33,8 +33,8 @@ export default async function LearningPathsPage({ params }: Props) {
   if (!isLocale(locale)) notFound();
   const t = createTranslator(locale);
   const [courses, recordings] = await Promise.all([
-    serverGet<CourseSummaryDto[]>('/courses', 300).then((c) => c ?? []),
-    serverGet<RecordingsDto>('/recordings', 300).then((r) => r?.items ?? []),
+    serverGet<CourseSummaryDto[]>('/courses').then((c) => c ?? []),
+    serverGet<RecordingsDto>('/recordings').then((r) => r?.items ?? []),
   ]);
   const paths = LEARNING_PATHS.map((p) => ({ path: p, steps: resolveSteps(p, courses, recordings, locale) })).filter((p) => p.steps.length > 0);
   const courseSlugs = paths.flatMap((p) => p.steps.filter((s) => s.kind === 'course').map((s) => s.slug));

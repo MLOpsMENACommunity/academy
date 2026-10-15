@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assessmentResult, summarizeResults, type ResultAssessment, type ResultSubmission } from './assessments';
 import {
+  reissueCertificateSchema,
   certificateEligibility,
   certificateRuleSchema,
   describeRule,
@@ -183,5 +184,14 @@ describe('rule input and wording', () => {
     expect(issueCertificatesSchema.parse({ userIds: ['a'] })).toEqual({ userIds: ['a'], grade: null, force: false });
     expect(issueCertificatesSchema.parse({ userIds: ['a'], grade: '  Distinction ' }).grade).toBe('Distinction');
     expect(issueCertificatesSchema.safeParse({ userIds: [] }).success).toBe(false);
+  });
+});
+
+describe('reissueCertificateSchema', () => {
+  it('keeps the grade when none is sent, and clears it on null or empty', () => {
+    expect(reissueCertificateSchema.parse({}).grade).toBeUndefined();
+    expect(reissueCertificateSchema.parse({ grade: null }).grade).toBeNull();
+    expect(reissueCertificateSchema.parse({ grade: '  ' }).grade).toBeNull();
+    expect(reissueCertificateSchema.parse({ grade: ' Merit ' }).grade).toBe('Merit');
   });
 });

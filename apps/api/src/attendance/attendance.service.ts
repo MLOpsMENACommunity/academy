@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   attendancePoints,
   attendanceStatus,
@@ -55,6 +55,11 @@ function counts(rows: { status: AttendanceStatus }[]) {
 
 /** "Attendance changed for this session": one at a time, so a re-upload never races a hand edit. */
 const lockKey = (sessionId: string) => `attendance:${sessionId}`;
+
+/** Attendance (and its points) is only saved for a session that has started; a preview is fine. */
+function assertStarted(s: CourseSession, now: Date): void {
+  if (s.startsAt > now) throw new ConflictException({ code: 'SESSION_NOT_STARTED', message: "This session hasn't started yet: record its attendance once it has" });
+}
 
 /**
  * Attendance from Google Meet, per course session, and the points it is worth.
@@ -263,6 +268,7 @@ export class AttendanceService {
     };
 
     if (input.dryRun) return result(await this.held(this.prisma, sessionId, ids), true);
+    assertStarted(session, now);
 
     const held = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey(sessionId)}))`;
@@ -303,6 +309,7 @@ export class AttendanceService {
   /** Marks one enrolled student by hand (with or without an upload). Points follow; audited. */
   async mark(courseId: string, sessionId: string, userId: string, status: AttendanceStatus, actor: Actor, now = new Date()): Promise<AttendanceRowDto> {
     const [course, session] = await Promise.all([this.courseRow(courseId), this.sessionIn(courseId, sessionId)]);
+    assertStarted(session, now);
     const student = (await this.enrolled(courseId)).find((s) => s.userId === userId);
     if (!student) throw new NotFoundException('Student not found');
     const settings = settingsOf(course);

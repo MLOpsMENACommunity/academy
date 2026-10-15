@@ -179,7 +179,11 @@
       "TOO_MANY_ROLES": "A course can have at most 30 roles.",
       "COURSE_PERMISSION": "Your role in this course doesn’t include this.",
       "NOT_YOUR_COURSE": "You aren’t on this course’s staff.",
-      "OWN_APPLICATION": "You can’t change the status of your own application."
+      "OWN_APPLICATION": "You can’t change the status of your own application.",
+      "BOOKING_ENDED": "This session has already taken place, so its booking stays as it is.",
+      "EVENT_UNPUBLISH_HAS_REGISTRATIONS": "People registered for this session. Set its status to Cancelled instead: they will be told by email.",
+      "EVENT_FROM_BOOKING": "This session was made from a speaker's booking. Release the booking in Speakers → Availability instead: the speaker and the team are told.",
+      "SPEAKER_HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",

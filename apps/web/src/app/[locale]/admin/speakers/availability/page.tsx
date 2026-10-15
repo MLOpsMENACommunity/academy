@@ -159,7 +159,8 @@ export default function AdminAvailability() {
                         {t('admin.slots.editBooking')}
                       </Button>
                     )}
-                    {s.status === 'BOOKED' && (
+                    {/* A session that already took place keeps its booking (the API refuses too). */}
+                    {s.status === 'BOOKED' && new Date(s.startsAt).getTime() + s.durationMin * 60_000 > Date.now() && (
                       <Button variant="ghost" size="sm" onClick={() => act(s, 'release')}>
                         {t('admin.slots.release')}
                       </Button>

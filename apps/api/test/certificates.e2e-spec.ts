@@ -173,9 +173,11 @@ describe('certificates (e2e)', () => {
     const bulk = await http().post(`/api/admin/courses/${course.id}/certificates`).set('Cookie', admin.cookie).send({ userIds: [ready.id] }).expect(201);
     expect(bulk.body.results[0].outcome).toBe('REVOKED');
 
+    await prisma.certificate.update({ where: { id: c.id }, data: { grade: 'Distinction' } });
     await http().post(`/api/admin/certificates/${c.id}/reissue`).set('Cookie', admin.cookie).send({}).expect(204);
     const back = await http().get(`/api/certificates/${c.serial}`).expect(200);
-    expect(back.body).toMatchObject({ status: 'VALID', serial: c.serial, revokedAt: null });
+    // No grade sent: the grade stays.
+    expect(back.body).toMatchObject({ status: 'VALID', serial: c.serial, revokedAt: null, grade: 'Distinction' });
     expect(await prisma.auditLog.count({ where: { action: 'certificate.reissued', entityId: c.id } })).toBe(1);
     expect(await prisma.userBadge.count({ where: { userId: ready.id, badge: { code: 'certified' } } })).toBe(1);
     expect(events.filter((e) => e.certificateId === c.id).map((e) => e.reissued)).toEqual([false, true]);

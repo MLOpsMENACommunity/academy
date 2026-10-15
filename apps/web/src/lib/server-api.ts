@@ -1,8 +1,18 @@
 import 'server-only';
+import { PUBLIC_TAG } from './revalidate';
 
 const base = () => process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
 
 export class ApiUnavailableError extends Error {}
+
+/**
+ * On Cloudflare these reads go back through the Worker (API_INTERNAL_URL is the public host),
+ * and the Worker keeps anonymous catalog reads at the edge for a few seconds. A page that is
+ * being re-rendered because an admin just changed something must read the API itself, not
+ * that copy: this header makes the Worker skip its edge cache (the API's own in-process
+ * cache, which every admin write clears, still shields the database).
+ */
+export const SKIP_EDGE_CACHE = { 'x-skip-edge-cache': '1' } as const;
 
 /**
  * `next build` prerenders pages while the API is unreachable (the image build has no API).
@@ -12,7 +22,8 @@ export class ApiUnavailableError extends Error {}
 const building = () => process.env.NEXT_PHASE === 'phase-production-build';
 
 /**
- * Server-side GET to the API for public pages (cached, revalidated by ISR).
+ * Server-side GET to the API for public pages (cached, revalidated by ISR, and at once after
+ * an admin edit: every read is tagged PUBLIC_TAG, see lib/revalidate.ts).
  *
  * Returns null only for a real 404. Any other failure throws, so Next keeps
  * serving the last good version of an ISR page instead of caching a 404 for a
@@ -23,7 +34,7 @@ const building = () => process.env.NEXT_PHASE === 'phase-production-build';
 export async function serverGet<T>(path: string, revalidate = 60): Promise<T | null> {
   let res: Response;
   try {
-    res = await fetch(`${base()}/api${path}`, { next: { revalidate, tags: ['courses'] } });
+    res = await fetch(`${base()}/api${path}`, { headers: SKIP_EDGE_CACHE, next: { revalidate, tags: [PUBLIC_TAG] } });
   } catch (err) {
     if (building()) return null;
     console.error(`[server-api] GET ${path} failed: ${(err as Error).name}`);
@@ -78,6 +89,7 @@ export async function serverGetFresh<T>(path: string): Promise<T | null> {
   let res: Response;
   try {
     res = await fetch(`${base()}/api${path}`, {
+      headers: SKIP_EDGE_CACHE,
       cache: 'no-store',
       signal: AbortSignal.timeout(8_000),
     });
