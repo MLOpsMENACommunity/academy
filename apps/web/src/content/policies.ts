@@ -28,9 +28,9 @@ interface Policy {
 
 const UPDATED_EN = 'Last updated: 10 October 2026';
 const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
-/** The privacy policy changed later (course invitations). */
-const PRIVACY_UPDATED_EN = 'Last updated: 11 October 2026';
-const PRIVACY_UPDATED_AR = 'آخر تحديث: 11 أكتوبر 2026';
+/** The privacy policy changed later (course invitations; waiting lists need an account). */
+const PRIVACY_UPDATED_EN = 'Last updated: 12 October 2026';
+const PRIVACY_UPDATED_AR = 'آخر تحديث: 12 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
@@ -52,7 +52,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'Profile data you choose to give us: name, phone, country and city, professional background, education, skills, learning goals, links (LinkedIn, GitHub and similar) and an optional CV.',
             'Course data: your applications and answers to screening questions, your enrolment, session progress and the feedback you submit through the academy. Quizzes and assignment forms linked from a course are run on the services they are hosted on (for example Google Forms).',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
-            'Waiting lists: if you ask to be told when a course opens ("Notify me"), your email address and language, with or without an account.',
+            'Waiting lists: if you ask to be told when a course opens ("Notify me"), your account email address and language. Joining needs an academy account; an entry made without one before that is kept, and linked to your account when you confirm the same address.',
             'Course invitations: if the academy team adds you to a course by your email address, that address, the course, who added you and when, and whether you joined. If you have no account yet, we email you to invite you, a few times at most; you are enrolled only after you sign up and confirm that same address.',
             'Accounts the team creates: the academy team can create a student account for your email address (for example after accepting you outside the site). We email you a link to choose your own password; nobody else sets or knows it. You can delete the account from your profile at any time.',
             'Technical data: basic request logs (page or API route, status and timing) used to keep the service secure and working. Our own logs do not contain your email address, IP address or the content you submit. Our hosting provider (Cloudflare) processes IP addresses to deliver and protect the site.',
@@ -155,7 +155,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والدولة والمدينة والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط (مثل LinkedIn وGitHub) وسيرة ذاتية اختيارية.',
             'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية. أما الاختبارات ونماذج الواجبات المرتبطة بالدورة فتعمل على الخدمات المستضافة عليها (مثل Google Forms).',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
-            'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريدك الإلكتروني ولغتك، سواء كان لديك حساب أم لا.',
+            'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريد حسابك الإلكتروني ولغتك. الانضمام يحتاج إلى حساب في الأكاديمية؛ وما سُجّل قبل ذلك بدون حساب نحتفظ به، ونربطه بحسابك عندما تؤكد العنوان نفسه.',
             'دعوات الدورات: إذا أضافك فريق الأكاديمية إلى دورة بعنوان بريدك الإلكتروني، نحفظ هذا العنوان والدورة ومن أضافك ومتى، وهل انضممت. إن لم يكن لديك حساب بعد، نراسلك لدعوتك بضع مرات على الأكثر، ولا نسجّلك إلا بعد أن تنشئ حسابًا وتؤكد العنوان نفسه.',
             'الحسابات التي ينشئها الفريق: يمكن لفريق الأكاديمية إنشاء حساب طالب بعنوان بريدك (مثلًا بعد قبولك خارج الموقع). نرسل إليك رابطًا لتختار كلمة مرورك بنفسك، ولا أحد غيرك يضعها أو يعرفها. ويمكنك حذف الحساب من ملفك الشخصي في أي وقت.',
             'بيانات تقنية: سجلات طلبات أساسية (الصفحة أو مسار الواجهة البرمجية، وحالة الطلب، ومدته) لإبقاء الخدمة آمنة وتعمل. لا تتضمن سجلاتنا بريدك الإلكتروني أو عنوان IP أو المحتوى الذي ترسله. ويعالج مزود الاستضافة لدينا (Cloudflare) عناوين IP لتقديم الموقع وحمايته.',

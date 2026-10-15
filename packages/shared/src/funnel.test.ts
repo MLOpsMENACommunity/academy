@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FUNNEL_EVENTS } from './enums';
-import { funnelBars } from './funnel';
+import { clientFunnelEventSchema, funnelBars } from './funnel';
 
 describe('funnelBars (QA M6: no percentage above 100%)', () => {
   // The staging numbers from the QA report: later steps hold more people than earlier ones.
@@ -31,5 +31,17 @@ describe('funnelBars (QA M6: no percentage above 100%)', () => {
 
   it('handles an empty funnel', () => {
     expect(funnelBars({}).every((b) => b.count === 0 && b.width === 0)).toBe(true);
+  });
+});
+
+describe('clientFunnelEventSchema (public endpoint: no personal data)', () => {
+  const base = { courseSlug: 'mlops', event: 'COURSE_VIEW' } as const;
+  it('accepts a browser id', () => {
+    expect(clientFunnelEventSchema.safeParse({ ...base, anonymousId: crypto.randomUUID() }).success).toBe(true);
+    expect(clientFunnelEventSchema.safeParse(base).success).toBe(true);
+  });
+  it('refuses anything that could be an email or free text', () => {
+    expect(clientFunnelEventSchema.safeParse({ ...base, anonymousId: 'someone@example.com' }).success).toBe(false);
+    expect(clientFunnelEventSchema.safeParse({ ...base, anonymousId: 'Mona Ali' }).success).toBe(false);
   });
 });

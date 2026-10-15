@@ -1,16 +1,12 @@
 import { z } from 'zod';
-import { emailSchema } from './auth';
 import { LOCALES } from './enums';
 
 /**
- * Joining a course's waiting list. Signed-in students send nothing (their account
- * email is used); visitors send an email. `website` is a honeypot: people never see
- * it, so a filled-in value means a bot.
+ * Joining a course's waiting list. Only signed-in accounts with a confirmed email can join
+ * (their account email is used), so the body only carries the language for the emails.
  */
 export const courseInterestSchema = z.object({
-  email: emailSchema.optional(),
   locale: z.enum(LOCALES).optional(),
-  website: z.string().max(200).optional(),
 });
 export type CourseInterestInput = z.infer<typeof courseInterestSchema>;
 
@@ -33,7 +29,10 @@ export interface WaitlistEntryDto {
   id: string;
   email: string;
   name: string | null;
-  /** Has an academy account (joined while signed in). */
+  /**
+   * Linked to an academy account. False only for entries from before the waiting list
+   * needed an account ("No account"); they are linked when someone confirms that email.
+   */
   student: boolean;
   locale: 'en' | 'ar';
   joinedAt: string;

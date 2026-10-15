@@ -8,6 +8,7 @@ import { EmailService } from '../email/email.service';
 import { courseSlugFromPath, FunnelService } from '../funnel/funnel.service';
 import { InvitesService } from '../invites/invites.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WaitlistService } from '../waitlist/waitlist.service';
 import type { GoogleIdentity } from './google.service';
 import { FailureLimiter } from './failure-limiter';
 import { assertPasswordCapacity, hashPassword, verifyPassword } from './password-hasher';
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly storage: StorageService,
     private readonly invites: InvitesService,
+    private readonly waitlist: WaitlistService,
   ) {}
 
   hashPassword(password: string): Promise<string> {
@@ -78,7 +80,10 @@ export class AuthService {
     const updated = await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     // Safety net: a verified account picks up any invite still waiting (normally claimed at verification).
     // Not awaited: signing in never waits on a course lock (claimFor never throws).
-    if (updated.emailVerifiedAt) void this.invites.claimFor(updated.id);
+    if (updated.emailVerifiedAt) {
+      void this.invites.claimFor(updated.id);
+      void this.waitlist.claimGuestEntries(updated.id);
+    }
     return updated;
   }
 
@@ -91,6 +96,7 @@ export class AuthService {
       if (byGoogle.deletedAt) throw new UnauthorizedException('Account deleted');
       const user = await this.touch(byGoogle.id);
       void this.invites.claimFor(user.id); // not awaited: see login()
+      void this.waitlist.claimGuestEntries(user.id);
       return { user, isNew: false };
     }
     const byEmail = await this.prisma.user.findUnique({ where: { email: g.email } });
@@ -135,6 +141,7 @@ export class AuthService {
       });
       // Google verified the address: invites to it can be claimed now (not awaited: see login()).
       void this.invites.claimFor(user.id);
+      void this.waitlist.claimGuestEntries(user.id);
       return { user, isNew: false };
     }
     const user = await this.prisma.user.create({
@@ -149,6 +156,7 @@ export class AuthService {
       },
     });
     void this.invites.claimFor(user.id); // not awaited: see login()
+    void this.waitlist.claimGuestEntries(user.id);
     return { user, isNew: true };
   }
 
@@ -212,6 +220,8 @@ export class AuthService {
     // The address is proven now: enrol it in any course it was invited to ("Enrol by email").
     // Awaited, unlike at sign-in: the page redirects to the course (returnTo) and it must be ready.
     await this.invites.claimFor(updated.id);
+    // And any waiting-list entry this address made before joining needed an account.
+    await this.waitlist.claimGuestEntries(updated.id);
     return { returnTo: record.returnTo, user: updated };
   }
 
@@ -253,6 +263,7 @@ export class AuthService {
     this.loginLimiter.reset(record.user.email);
     // The reset link proved the address too (see above): pending invites can be claimed.
     await this.invites.claimFor(record.userId);
+    await this.waitlist.claimGuestEntries(record.userId);
   }
 
   // ------------------------------------------------------------------ me

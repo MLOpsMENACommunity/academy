@@ -75,11 +75,13 @@ export class CoursesService {
         where: { userId, course: { slug } },
         select: { id: true, status: true, enrollment: { select: { id: true } } },
       }),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, emailVerifiedAt: true } }),
     ]);
-    // On the waiting list from this account, or with this email before signing in.
+    // On the waiting list from this account, or (once the address is confirmed) with this email before it needed an account.
     const interested = user
-      ? (await this.prisma.courseInterest.count({ where: { course: { slug }, OR: [{ userId }, { email: user.email.toLowerCase() }] } })) > 0
+      ? (await this.prisma.courseInterest.count({
+          where: { course: { slug }, OR: user.emailVerifiedAt ? [{ userId }, { email: user.email.toLowerCase() }] : [{ userId }] },
+        })) > 0
       : false;
     return { applicationId: app?.id ?? null, status: app?.status ?? null, enrolled: Boolean(app?.enrollment), interested };
   }

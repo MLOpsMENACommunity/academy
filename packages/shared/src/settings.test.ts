@@ -38,9 +38,10 @@ describe('public contact', () => {
 });
 
 describe('waiting list inputs', () => {
-  it('normalises the email and keeps the honeypot field', () => {
-    expect(courseInterestSchema.parse({ email: ' A@B.co ', website: 'x' })).toEqual({ email: 'a@b.co', website: 'x' });
-    expect(courseInterestSchema.safeParse({ email: 'nope' }).success).toBe(false);
+  it('takes no email: joining is for signed-in accounts only', () => {
+    // An email in the body (an old client) is dropped, never stored.
+    expect(courseInterestSchema.parse({ email: 'a@b.co', website: 'x', locale: 'ar' })).toEqual({ locale: 'ar' });
+    expect(courseInterestSchema.safeParse({ locale: 'fr' }).success).toBe(false);
   });
 
   it('only accepts well-formed leave tokens', () => {
