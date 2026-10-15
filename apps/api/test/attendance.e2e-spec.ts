@@ -2,6 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { EmailService } from '../src/email/email.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { setCourseInstructors } from '../src/course-staff/staff-sync';
 import { createCourse, createTestApp, createUser } from './helpers';
 
 /**
@@ -26,7 +27,9 @@ describe('attendance and points editing (e2e)', () => {
   async function speakerOn(courseId: string): Promise<Account> {
     const s = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'att-spk', coreComplete: false });
     const i = await prisma.instructor.create({ data: { slug: `att-spk-${Date.now()}-${++n}`, name: `Speaker ${n}`, titleEn: 'Engineer', bioEn: '', userId: s.id } });
-    await prisma.courseInstructor.create({ data: { courseId, instructorId: i.id } });
+    // On the course staff (Main instructor, or Co-instructor), as an admin assignment does.
+    const ids = (await prisma.courseStaff.findMany({ where: { courseId, instructorId: { not: null } }, orderBy: { order: 'asc' } })).map((r) => r.instructorId!);
+    await prisma.$transaction((tx) => setCourseInstructors(tx, courseId, [...ids, i.id]));
     return s;
   }
   const session = (courseId: string, order = 1) =>
