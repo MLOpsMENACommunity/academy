@@ -55,3 +55,21 @@ for (const [path, title] of [
     await expect(page).toHaveTitle(title);
   });
 }
+
+test('deleting the account lands on the homepage with a confirmation (ACC-09)', async ({ page }) => {
+  const email = `audit-del-${Date.now()}@example.test`;
+  const res = await page.request.post('/api/auth/register', { headers: JSON_HEADERS, data: { email, password: 'Audit-Passw0rd-1', locale: 'en' } });
+  expect(res.ok()).toBe(true);
+  await page.goto('/en/profile?tab=account');
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await page.getByLabel('Current password').last().fill('Audit-Passw0rd-1');
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await page.waitForURL(/\/en\?deleted=1$/);
+  await expect(page.getByText('Your account has been deleted')).toBeVisible();
+  // Signing up again with the address explains why it can't be used yet (ACC-10).
+  await page.goto('/en/register');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('Audit-Passw0rd-1');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByText(/belongs to an account that was deleted/)).toBeVisible();
+});

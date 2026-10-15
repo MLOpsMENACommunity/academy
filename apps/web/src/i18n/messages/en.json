@@ -223,7 +223,9 @@
     "calendarReset": "Reset link",
     "calendarResetConfirm": "Reset your calendar link? Calendars that use the old link stop updating, and you'll need to add the new one.",
     "calendarResetDone": "Your calendar link was reset. Add the new link to your calendar app.",
-    "calendarLastFetched": "Last checked by a calendar app: {date}"
+    "calendarLastFetched": "Last checked by a calendar app: {date}",
+    "deletedTitle": "Your account has been deleted",
+    "deletedBody": "You're signed out and can't sign in to it any more. Your personal data will be anonymised within 30 days. We've sent you a confirmation email."
   },
   "onboarding": {
     "title": "Complete your profile",
