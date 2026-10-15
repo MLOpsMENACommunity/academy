@@ -46,8 +46,10 @@ type Source = { kind: 'text' } | { kind: 'csv'; name: string; entries: InviteEnt
  * The course admin's "Enrol by email" tab: paste addresses or upload a CSV, preview what will
  * happen to each one, confirm, and follow the invites (resend, revoke, export).
  */
-export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; paid: boolean; onChange?: () => void }) {
+export function EnrolByEmail({ courseId, paid, onChange, apiBase }: { courseId: string; paid: boolean; onChange?: () => void; apiBase?: string }) {
   const { locale, t } = useI18n();
+  /** /admin/courses/{id}, or /teach/courses/{id} for course staff with ENROL. */
+  const courseApi = apiBase ?? `/admin/courses/${courseId}`;
   const v = (k: string, vars?: Record<string, string | number>) => t(`admin.courses.inv.${k}`, vars);
   const [text, setText] = useState('');
   const [source, setSource] = useState<Source>({ kind: 'text' });
@@ -62,10 +64,10 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
   const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api<CourseInvitesDto>(`/admin/courses/${courseId}/invites`)
+    api<CourseInvitesDto>(`${courseApi}/invites`)
       .then(setList)
       .catch((err) => setError(errorMessage(err, t)));
-  }, [courseId, t]);
+  }, [courseApi, t]);
   useEffect(load, [load]);
 
   function entries(): InviteEntryInput[] {
@@ -96,7 +98,7 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
     if (list.length > MAX_INVITE_BATCH) return setError(v('tooMany', { max: MAX_INVITE_BATCH }));
     setBusy(true);
     try {
-      setPreview(await api<InvitePreviewDto>(`/admin/courses/${courseId}/invites/preview`, { method: 'POST', json: { entries: list } }));
+      setPreview(await api<InvitePreviewDto>(`${courseApi}/invites/preview`, { method: 'POST', json: { entries: list } }));
       setSkipPayment(false);
     } catch (err) {
       setError(errorMessage(err, t));
@@ -110,7 +112,7 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
     setError(null);
     setBusy(true);
     try {
-      const r = await api<InviteApplyResultDto>(`/admin/courses/${courseId}/invites`, {
+      const r = await api<InviteApplyResultDto>(`${courseApi}/invites`, {
         method: 'POST',
         json: { entries: entries(), sendEmail, skipPayment: paid && skipPayment, locale: inviteLocale },
       });
@@ -133,7 +135,7 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
     setDone(null);
     setRowBusy(invite.id);
     try {
-      await api(`/admin/courses/${courseId}/invites/${invite.id}/${action}`, { method: 'POST' });
+      await api(`${courseApi}/invites/${invite.id}/${action}`, { method: 'POST' });
       setDone(v(action === 'resend' ? 'resent' : 'revoked', { email: invite.email }));
       load();
     } catch (err) {
@@ -146,7 +148,7 @@ export function EnrolByEmail({ courseId, paid, onChange }: { courseId: string; p
   async function exportCsv() {
     setError(null);
     try {
-      await downloadViaApi(`/admin/courses/${courseId}/invites/export.csv`, 'course-invites.csv');
+      await downloadViaApi(`${courseApi}/invites/export.csv`, 'course-invites.csv');
     } catch (err) {
       setError(errorMessage(err, t));
     }

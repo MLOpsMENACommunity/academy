@@ -31,14 +31,14 @@ export function TeachingPoints({ courseId }: { courseId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   const load = useCallback(() => {
-    api<TeachingPointsDto>(`/speaker/courses/${courseId}/points`)
+    api<TeachingPointsDto>(`/teach/courses/${courseId}/points`)
       .then(setData)
       .catch((err: unknown) => setError(errorMessage(err, t)));
   }, [courseId, t]);
   useEffect(load, [load]);
   const loadStudent = useCallback(() => {
     if (!selected) return setStudent(null);
-    api<CourseStudentPointsDto>(`/speaker/courses/${courseId}/students/${selected}/points`)
+    api<CourseStudentPointsDto>(`/teach/courses/${courseId}/students/${selected}/points`)
       .then(setStudent)
       .catch((err: unknown) => setError(errorMessage(err, t)));
   }, [courseId, selected, t]);
@@ -64,7 +64,7 @@ export function TeachingPoints({ courseId }: { courseId: string }) {
     setErrors({});
     setBusy(true);
     try {
-      await api(`/speaker/courses/${courseId}/points`, { method: 'POST', json: parsed.data });
+      await api(`/teach/courses/${courseId}/points`, { method: 'POST', json: parsed.data });
       const who = data?.students.find((s) => s.userId === parsed.data.userId);
       setDone(p('saved', { points: signed(parsed.data.points, locale), name: who?.name || who?.email || '' }));
       setForm({ ...EMPTY, reason: form.reason });
@@ -176,7 +176,7 @@ export function TeachingPoints({ courseId }: { courseId: string }) {
                 entries={student.entries}
                 cap={student.cap}
                 showCourse={false}
-                url={(id) => `/speaker/courses/${courseId}/points/${id}`}
+                url={(id) => `/teach/courses/${courseId}/points/${id}`}
                 onChanged={refreshAll}
                 onOverride={(e) => {
                   setForm({ userId: student.student.userId, points: '', reason: 'ADJUSTMENT', note: t('pointsLedger.overrideNote', { text: entryText(e, locale, t) }).slice(0, 500) });

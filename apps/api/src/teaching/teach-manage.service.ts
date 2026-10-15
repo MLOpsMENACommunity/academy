@@ -31,13 +31,14 @@ export class TeachManageService {
   }
 
   /**
-   * The admin detail without what stays with the admins: internal notes, payments and the CV
-   * file (whether there is one is still shown).
+   * The admin detail without what stays with the admins: internal notes, payments, who made
+   * each change, and the CV file (whether there is one is still shown).
    */
   async applicationDetail(courseId: string, id: string, viewer: Actor) {
     await this.application(courseId, id);
-    const { notes: _notes, payments: _payments, ...rest } = await this.applications.detail(id, viewer.id);
-    return { ...rest, notes: [], payments: [] };
+    const { notes: _notes, payments: _payments, history, ...rest } = await this.applications.detail(id, viewer.id);
+    // Who changed it stays with the team (their emails aren't for course staff).
+    return { ...rest, history: history.map((h) => ({ ...h, actor: null })), notes: [], payments: [] };
   }
 
   async transition(courseId: string, id: string, event: AdminApplicationEvent, actor: Actor, reason?: string) {

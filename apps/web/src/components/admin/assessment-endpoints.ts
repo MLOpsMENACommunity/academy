@@ -29,7 +29,7 @@ export function adminAssessmentEndpoints(courseId: string): AssessmentEndpoints 
 
 /** The speaker portal: everything under one course. */
 export function speakerAssessmentEndpoints(courseId: string): AssessmentEndpoints {
-  const base = `/speaker/courses/${courseId}`;
+  const base = `/teach/courses/${courseId}`;
   return {
     list: `${base}/assessments`,
     order: `${base}/assessments/order`,

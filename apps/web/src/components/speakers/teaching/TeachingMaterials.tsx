@@ -52,7 +52,7 @@ function SessionMaterials({ courseId, session, onSaved }: { courseId: string; se
     setErrors({});
     setBusy(true);
     try {
-      const next = await api<TeachingSessionDto>(`/speaker/courses/${courseId}/sessions/${session.id}/materials`, { method: 'PUT', json: parsed.data });
+      const next = await api<TeachingSessionDto>(`/teach/courses/${courseId}/sessions/${session.id}/materials`, { method: 'PUT', json: parsed.data });
       setDraft(draftOf(next));
       setSaved(true);
       onSaved(next);

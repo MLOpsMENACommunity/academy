@@ -35,7 +35,7 @@ const matches = (r: CertificateRosterRow, f: Filter) =>
   (f === 'revoked' && Boolean(r.certificate?.revokedAt));
 
 /** The course's certificate rule: minimum sessions, required assessments, optional wording. */
-function RuleForm({ courseId, rule, onSaved }: { courseId: string; rule: CertificateRule; onSaved: () => void }) {
+function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: CertificateRule; onSaved: () => void }) {
   const { locale, t } = useI18n();
   const r = (k: string, v?: Record<string, string | number>) => t(`admin.certificates.rule.${k}`, v);
   const [min, setMin] = useState(rule.minSessionsPercent === null ? '' : String(rule.minSessionsPercent));
@@ -59,7 +59,7 @@ function RuleForm({ courseId, rule, onSaved }: { courseId: string; rule: Certifi
     setMinError(undefined);
     setBusy(true);
     try {
-      await api(`/admin/courses/${courseId}/certificate-rule`, { method: 'PUT', json: { minSessionsPercent: n, requireAssessments, textEn, textAr } });
+      await api(`${courseApi}/certificate-rule`, { method: 'PUT', json: { minSessionsPercent: n, requireAssessments, textEn, textAr } });
       setSaved(true);
       onSaved();
     } catch (err) {
@@ -109,7 +109,7 @@ function RuleForm({ courseId, rule, onSaved }: { courseId: string; rule: Certifi
 }
 
 /** Revoke (with a reason) or re-issue one certificate. */
-function ActionPanel({ row, kind, onDone, onClose }: { row: CertificateRosterRow; kind: 'revoke' | 'reissue'; onDone: (msg: string) => void; onClose: () => void }) {
+function ActionPanel({ certBase, row, kind, onDone, onClose }: { certBase: string; row: CertificateRosterRow; kind: 'revoke' | 'reissue'; onDone: (msg: string) => void; onClose: () => void }) {
   const { t } = useI18n();
   const a = (k: string, v?: Record<string, string | number>) => t(`admin.certificates.${kind}.${k}`, v);
   const [reason, setReason] = useState('');
@@ -129,7 +129,7 @@ function ActionPanel({ row, kind, onDone, onClose }: { row: CertificateRosterRow
     setBusy(true);
     setError(null);
     try {
-      await api(`/admin/certificates/${cert.id}/${kind}`, { method: 'POST', json: kind === 'revoke' ? { reason } : { grade: grade || null } });
+      await api(`${certBase}/${cert.id}/${kind}`, { method: 'POST', json: kind === 'revoke' ? { reason } : { grade: grade || null } });
       onDone(a('done', { name: row.name ?? row.email }));
     } catch (err) {
       setError(certError(err, t));
@@ -165,8 +165,11 @@ function ActionPanel({ row, kind, onDone, onClose }: { row: CertificateRosterRow
 }
 
 /** Admin › course › Certificates: eligibility per enrolled student, bulk issue, revoke and re-issue, CSV. */
-export function CertificatesPanel({ courseId }: { courseId: string }) {
+export function CertificatesPanel({ courseId, apiBase }: { courseId: string; apiBase?: string }) {
   const { locale, t } = useI18n();
+  /** /admin/courses/{id} (certificates at /admin/certificates/{id}), or /teach/courses/{id} for staff with ISSUE_CERTIFICATES. */
+  const courseApi = apiBase ?? `/admin/courses/${courseId}`;
+  const certBase = apiBase ? `${apiBase}/certificates` : '/admin/certificates';
   const c = (k: string, v?: Record<string, string | number>) => t(`admin.certificates.${k}`, v);
   const [data, setData] = useState<CertificateRosterDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -179,13 +182,13 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
   const [action, setAction] = useState<{ row: CertificateRosterRow; kind: 'revoke' | 'reissue' } | null>(null);
 
   const load = useCallback(() => {
-    api<CertificateRosterDto>(`/admin/courses/${courseId}/certificates`)
+    api<CertificateRosterDto>(`${courseApi}/certificates`)
       .then((d) => {
         setData(d);
         setError(null);
       })
       .catch((err) => setError(certError(err, t)));
-  }, [courseId, t]);
+  }, [courseApi, t]);
   useEffect(load, [load]);
 
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => matches(r, filter)), [data, filter]);
@@ -222,7 +225,7 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
       // In batches the API accepts (a large cohort selected at once).
       const r: IssueResultDto = { results: [], issued: 0 };
       for (let i = 0; i < targets.length; i += MAX_BULK_CERTIFICATES) {
-        const part = await api<IssueResultDto>(`/admin/courses/${courseId}/certificates`, {
+        const part = await api<IssueResultDto>(`${courseApi}/certificates`, {
           method: 'POST',
           json: { userIds: targets.slice(i, i + MAX_BULK_CERTIFICATES).map((x) => x.userId), grade: grade || null, force },
         });
@@ -241,7 +244,7 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
 
   async function exportCsv() {
     try {
-      await downloadViaApi(`/admin/courses/${courseId}/certificates.csv`, `certificates-${new Date().toISOString().slice(0, 10)}.csv`);
+      await downloadViaApi(`${courseApi}/certificates.csv`, `certificates-${new Date().toISOString().slice(0, 10)}.csv`);
     } catch (err) {
       setError(certError(err, t));
     }
@@ -310,7 +313,7 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <RuleForm key={JSON.stringify(data.rule)} courseId={courseId} rule={data.rule} onSaved={load} />
+      <RuleForm key={JSON.stringify(data.rule)} courseApi={courseApi} rule={data.rule} onSaved={load} />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-body">
         <span>{c('counts.enrolled', { count: data.counts.enrolled })}</span>
@@ -380,6 +383,7 @@ export function CertificatesPanel({ courseId }: { courseId: string }) {
       {action && (
         <ActionPanel
           key={`${action.kind}-${action.row.userId}`}
+          certBase={certBase}
           row={action.row}
           kind={action.kind}
           onClose={() => setAction(null)}

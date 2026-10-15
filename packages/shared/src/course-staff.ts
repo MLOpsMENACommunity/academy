@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { emailSchema } from './auth';
 import {
-  BUILTIN_COURSE_ROLES,
   COURSE_PERMISSIONS,
   STAFF_VISIBILITIES,
   type BuiltinCourseRole,

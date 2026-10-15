@@ -52,8 +52,24 @@ const PAGE_SIZE = 50;
  * Admin → Courses → {course} → Applications: this course's applications, on the
  * same API, bulk actions and CSV export as Admin → Applications (filtered by course).
  */
-export function CourseApplications({ courseId, slug, paid = false, onChange }: { courseId: string; slug: string; paid?: boolean; onChange?: () => void }) {
+export function CourseApplications({
+  courseId,
+  slug,
+  paid = false,
+  onChange,
+  apiBase,
+}: {
+  courseId: string;
+  slug: string;
+  paid?: boolean;
+  onChange?: () => void;
+  /** Course staff with MANAGE_APPLICATIONS: /teach/courses/{id} (this course only; detail pages under /teach). */
+  apiBase?: string;
+}) {
   const { locale, t } = useI18n();
+  const staff = Boolean(apiBase);
+  const listUrl = apiBase ? `${apiBase}/applications` : '/admin/applications';
+  const detailHref = (id: string) => (apiBase ? `/${locale}/teach/courses/${courseId}/applications/${id}` : `/${locale}/admin/applications/${id}`);
   const [status, setStatus] = useState<ApplicationStatus | null>(null);
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
@@ -75,14 +91,14 @@ export function CourseApplications({ courseId, slug, paid = false, onChange }: {
   useEffect(() => {
     let current = true;
     setError(false);
-    api<Page>(`/admin/applications?${listQuery}`)
+    api<Page>(`${listUrl}?${listQuery}`)
       .then((d) => current && (setData(d), setSelected(new Set())))
       .catch(() => current && setError(true));
     return () => {
       current = false;
     };
     // `version` reloads the same page after a bulk action.
-  }, [listQuery, version]);
+  }, [listUrl, listQuery, version]);
 
   const pick = (s: ApplicationStatus | null) => {
     setStatus(s);
@@ -130,15 +146,17 @@ export function CourseApplications({ courseId, slug, paid = false, onChange }: {
           </Button>
         </form>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href={mainHref} className="text-sm text-primary underline" title={t('admin.courses.apps.openInMainHint')}>
-            {t('admin.courses.apps.openInMain')}
-          </Link>
+          {!staff && (
+            <Link href={mainHref} className="text-sm text-primary underline" title={t('admin.courses.apps.openInMainHint')}>
+              {t('admin.courses.apps.openInMain')}
+            </Link>
+          )}
           <Button
             variant="secondary"
             size="sm"
             onClick={() => {
               setExportError(null);
-              downloadViaApi(`/admin/applications.csv?${query()}`, `applications-${slug}.csv`).catch((err: unknown) => setExportError(errorMessage(err, t)));
+              downloadViaApi(`${apiBase ? `${apiBase}/applications.csv` : '/admin/applications.csv'}?${query()}`, `applications-${slug}.csv`).catch((err: unknown) => setExportError(errorMessage(err, t)));
             }}
           >
             ⬇ {t('admin.common.export')}
@@ -146,9 +164,11 @@ export function CourseApplications({ courseId, slug, paid = false, onChange }: {
         </div>
       </div>
       {exportError && <Alert tone="danger" className="mt-4">{exportError}</Alert>}
-      <div className="mt-4">
-        <AddAcceptedEmails courseId={courseId} paid={paid} onChange={onChange} />
-      </div>
+      {!staff && (
+        <div className="mt-4">
+          <AddAcceptedEmails courseId={courseId} paid={paid} onChange={onChange} />
+        </div>
+      )}
 
       {/* Scrolls sideways on narrow screens instead of wrapping into many rows. */}
       <div role="group" aria-label={t('admin.courses.apps.statusFilter')} className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -157,6 +177,7 @@ export function CourseApplications({ courseId, slug, paid = false, onChange }: {
       </div>
 
       <ApplicationBulkBar
+        bulkUrl={apiBase ? `${apiBase}/applications/bulk` : undefined}
         selected={selected}
         names={new Map(data?.items.map((i) => [i.id, i.student.name ?? i.student.email]))}
         onDone={async () => {
@@ -225,7 +246,7 @@ export function CourseApplications({ courseId, slug, paid = false, onChange }: {
                   />
                 </td>
                 <td className="p-3">
-                  <Link href={`/${locale}/admin/applications/${r.id}`} className="font-semibold text-primary hover:underline">
+                  <Link href={detailHref(r.id)} className="font-semibold text-primary hover:underline">
                     {r.student.name ?? r.student.email}
                   </Link>
                   {r.student.name && <p className="ltr-embed text-xs text-muted">{r.student.email}</p>}
