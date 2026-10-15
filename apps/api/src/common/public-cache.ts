@@ -59,13 +59,13 @@ const PUBLIC_DATA_WRITES = /^\/api\/(events\/[^/]+\/registration|speaker\/slots\
 
 /**
  * Non-admin writes that change what public pages show, besides admin ones (any /api/admin/*
- * write, or any write by an ADMIN): a speaker editing a lesson's materials (its description
- * and public recording), a speaker's application (it can update their linked public profile),
+ * write, or any write by an ADMIN): course staff editing a lesson's materials (its description
+ * and public recording), the course details or its sessions (Teaching → {course}), a speaker's application (it can update their linked public profile),
  * a speaker cancelling a booking (it can cancel a published session), an account deletion
  * (releases bookings, unlinks a speaker profile).
  */
 export const REVALIDATING_WRITES =
-  /^\/api\/(speaker\/courses\/[^/]+\/sessions\/[^/]+\/materials|speaker\/application|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
+  /^\/api\/((speaker|teach)\/courses\/[^/]+\/sessions\/[^/]+\/materials|teach\/courses\/[^/]+\/(details|sessions(\/[^/]+)?)|speaker\/application|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
 
 /** Whether a successful write should revalidate the public pages (not just clear this cache). */
 export function revalidatesPublicPages(req: { method: string; path: string; user?: { role?: string } | null }): boolean {

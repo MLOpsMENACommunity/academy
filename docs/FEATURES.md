@@ -55,6 +55,8 @@ types (one account, one role); an **admin** has one or more permission presets. 
 **Staging** (PR #59): in production today every admin can do everything, like `SUPER`.
 
 ✓ = can do it. "own" = only for themselves. "assigned" = only for courses they are assigned to.
+"staff³" = course staff (any account: student, speaker or admin) in the courses whose staff they are
+on, when their role there has the permission (see [9.4](#94-course-staff-and-the-teaching-area)).
 "S" = staging only.
 
 | Feature | Visitor | Student | Speaker | SUPER | ACADEMIC | CONTENT | ADMISSIONS | SPEAKERS | FINANCE |
@@ -65,13 +67,15 @@ types (one account, one role); an **admin** has one or more permission presets. 
 | Join a course waiting list | ✓ (account needed once #62 ships) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Apply to a course, pay, learn | | ✓ | | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ |
 | Take quizzes, submit work, see own grades, points, certificates | | own | | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
-| Preview any course's learn page and assessments | | | assigned (S) | ✓ | ✓ | | | | |
+| Preview any course's learn page and assessments | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Speaker application, slots, bookings | | | own | | | | | | |
-| Announce to enrolled students / session registrants | | | assigned / own sessions | ✓ (courses) | ✓ (courses) | | | | |
-| Create and grade assessments, gradebook | | | assigned (S) | ✓ | ✓ | | | | |
-| Award or remove course points | | | assigned (S) | ✓ | ✓² | | | | |
-| Edit session materials (what we cover, recording, links) | | | assigned (S) | ✓ | ✓ | ✓ (media fields only, S) | | | |
+| Announce to enrolled students / session registrants | | staff³ | staff³ / own sessions | ✓ (courses) | ✓ (courses) | | | | |
+| Create and grade assessments, gradebook | | staff³ | staff³ | ✓ | ✓ | | | | |
+| Award or remove course points | | staff³ | staff³ | ✓ | ✓² | | | | |
+| Edit session materials (what we cover, recording, links) | | staff³ | staff³ | ✓ | ✓ | ✓ (media fields only, S) | | | |
 | Courses: create, edit, sessions, questions, status | | | | ✓ | ✓ | | read | | |
+| Course staff and roles (Staff tab) | | | | ✓ | ✓ | | | | |
+| Course details, sessions, applications, enrolment, certificates, roster of one course | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Live sessions: create, edit, publish, registrations | | | | ✓ | ✓ | covers only (S) | | | |
 | Certificates: rule, issue, revoke, re-issue | | | | ✓ | ✓ | | | | |
 | Points CSV import, badges, leaderboards (admin) | | | | ✓ | ✓ | | | | |
@@ -88,7 +92,9 @@ types (one account, one role); an **admin** has one or more permission presets. 
 
 ¹ An admin can try the student flow on their own account. ² Award through the points CSV import; the
 per-student "Award or adjust points" box sits on the student page, which needs ADMISSIONS too (see
-[ADMIN-ROLES.md](ADMIN-ROLES.md#known-gaps)).
+[ADMIN-ROLES.md](ADMIN-ROLES.md#known-gaps)). ³ Pending (this PR): course staff with per-course roles
+replace "assigned speakers"; an assigned speaker becomes their course's Main instructor or a
+Co-instructor.
 
 ---
 
@@ -591,22 +597,64 @@ session and 20 per speaker per 24 hours; subject 120 and message 3,000 character
 see counts only, never who. Delivered in-app, by email (bulk lane) and on the learn page as "From
 {name}"; audited.
 
-### 9.4 Teaching assigned courses
+### 9.4 Course staff and the Teaching area
 
-**Status:** Staging (PR #61). Admin → Speakers → speaker → **Assigned courses** (SPEAKERS preset)
-assigns a speaker to a course; this also lists them publicly as an instructor. The speaker's portal
-then shows **My courses → {course}** with five tabs:
+**Status:** Pending (PR #69). Replaces "assigned speakers" (PR #54, #61).
 
-- **Assessments:** the admin editor, quiz upload, ordering, publish (students notified once), Preview.
-- **Gradebook:** grade with feedback (student emailed), signed file links, `gradebook.csv`.
-- **Points:** give or take away course points for an enrolled student, with a reason and a note.
-- **Materials:** each session's "what we cover", recording link, assignment link and materials list
-  (not dates, titles, status or the live link).
-- **Announcements:** as in 9.3.
+**Who:** every course has a **staff**: a Main instructor (expected, one person), optional
+Co-instructors, optional Moderators (course admins), and any other role the team creates for that
+course ("Teaching assistant", "Guest lecturer", …). Anyone with an academy account can be on a
+course's staff (a speaker, an admin, or a student, e.g. a past top student as a moderator), and they
+reach only the courses they are on.
 
-Speakers can't issue certificates, see payments, applications or enrolments, or see student data beyond
-name, email and submitted work. Limits: 30 writes a minute, 60 grading/file actions a minute, 30 new
-assessments per 24 hours. Unassigning or archiving the course removes access at once.
+**Roles are per course.** Admin → Courses → {course} → **Staff** (ACADEMIC or SUPER):
+
+- **Roles:** each course starts with three editable built-in roles. *Main instructor* (every
+  permission; can be renamed and changed, never deleted), *Co-instructor* (assessments, grading,
+  materials, roster, attendance, points, announcements) and *Moderator* (roster, attendance, points,
+  announcements; anonymous). Add any role: an English and Arabic name, the permission checkboxes,
+  **Shown** or **Anonymous**, and an order. A role can be deleted once nobody is in it.
+- **People:** add an existing account by email, or pick a public speaker profile; choose the role;
+  change it or remove the person later. An account's own speaker profile comes with it (the course
+  page shows it); a profile without an account is shown on the page and can do nothing.
+- A warning shows when nobody is in the Main instructor role.
+- The course editor's **Instructors** field and Admin → Speakers → speaker → **Assigned courses** are
+  shortcuts to the same staff list (the first instructor is the Main instructor, the rest
+  Co-instructors), not a second list.
+
+**Permissions** (the checkboxes):
+
+| Group | Permission | What it opens |
+|---|---|---|
+| Teaching | Manage assessments | Create, edit, publish and upload quizzes and assignments |
+| Teaching | Grade | Submissions, feedback, the gradebook and its CSV |
+| Course material | Manage materials | Session materials, recordings, assignment links, descriptions |
+| Students and attendance | See the roster | Enrolled students' name, email (Telegram and Discord once profiles have them) |
+| Students and attendance | Upload attendance | Google Meet attendance files, marking by hand |
+| Students and attendance | Manage points | Add, edit and remove course points (within the speaker points cap) |
+| Communication | Send announcements | Messages to enrolled students, sent at once, "From" the sender |
+| Course management | Edit the course | Course details (not status, address, type, price or who teaches) |
+| Course management | Manage sessions | Dates, Meet links, the session list |
+| Course management | Review applications | This course's applications: review and move them (never one's own) |
+| Course management | Enrol students | Enrol by email, invites, the waiting list |
+| Course management | Issue certificates | The rule, issue, revoke, re-issue |
+
+**The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
+courses whose staff you are on, with your role. Each course shows only the tabs your role opens:
+Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Details, Sessions,
+Applications, Enrolment, Certificates. They are the admin screens, limited to that course. The old
+`/speaker/courses/…` pages redirect there.
+
+**Public course page:** the people in Shown roles, grouped by role (Main instructor first), with the
+name, title and photo of their public speaker profile, or else their account name. Anonymous staff
+never appear, and no email is ever shown.
+
+**Rules:** checked by the API on every request, from the database: SUPER and ACADEMIC admins can do
+everything in every course; anyone else needs a staff row in that course whose role has the
+permission, and the course must not be archived. An id from another course is "not found". Every
+change is in the audit log with the person's name. Limits as before: 30 writes a minute, 60 grading
+actions a minute, 30 new assessments per 24 hours, 5 announcements per course and 20 in total per
+24 hours per person.
 
 ---
 
@@ -745,6 +793,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #69 | Course staff: per-course roles (Main instructor, Co-instructor, Moderator, custom) with permissions, Shown or Anonymous; Admin → Courses → Staff tab; Teaching area at /teach for any account; public course page shows staff by role | Pending |
 | #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Pending |
 | #61 | Speakers teach their assigned courses: assessments, grading, gradebook, points, materials; assessment preview limited to SUPER/ACADEMIC and assigned speakers; "Last edited by" | Staging |
 | #60 | Assessments: English-only editor, ↑/↓ ordering, quiz upload from Excel/CSV, publish notices; "Learn page access" column | Staging |

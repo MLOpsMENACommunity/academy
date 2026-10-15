@@ -45,7 +45,7 @@ use both sets of pages. `SUPER` can do everything.
 
 | Tab | Presets |
 |---|---|
-| Details, Questions, Sessions, Assessments, Leaderboard, Certificates, Announcements, Feedback | ACADEMIC |
+| Details, Staff, Questions, Sessions, Assessments, Leaderboard, Certificates, Announcements, Feedback | ACADEMIC |
 | Applications, Enrol by email, Waiting list | ADMISSIONS |
 | Enrolled students | ADMISSIONS, ACADEMIC |
 
@@ -67,8 +67,11 @@ booking alerts to SPEAKERS; SUPER gets all of them.
   students, with a dry-run preview), and see standings in each course's **Leaderboard** tab. Give the
   person both presets if they need the per-student box, or wait for the attendance upload (see
   [POINTS.md](POINTS.md)).
-- **Speakers are not admins.** Assigned speakers grade, award course points and edit materials from
-  their own speaker portal (PR #61), not from the admin panel.
+- **Course staff are not admins.** People on a course's staff (any account: speaker, student or
+  admin) work in the **Teaching** area (`/teach`), limited to the courses they are on and to their
+  role's permissions there (Admin → Courses → {course} → **Staff**; see FEATURES.md §9.4). An admin
+  without ACADEMIC (e.g. ADMISSIONS only) who is on a course's staff gets exactly that role there.
+  SUPER and ACADEMIC can do everything in every course, staff or not.
 
 ## 2. Recommended team mapping
 
@@ -180,7 +183,9 @@ their own admins with the same presets.
 
 Generated from the controllers (`@Roles('ADMIN')` + `@AdminCan(...)`), the same discovery the
 route test uses. SUPER may use every route. Speaker-portal routes (`/api/speaker/*`) are for SPEAKER
-accounts, not admins, and are not listed.
+accounts, and the Teaching routes (`/api/teach/courses/:courseId/*`, also `/api/speaker/courses/*`)
+are for course staff by course permission (`@CourseCan`, checked by `teaching-routes.spec.ts`); neither
+is listed.
 
 | Area | Method | Route | Presets allowed (SUPER always) |
 |---|---|---|---|
@@ -275,6 +280,13 @@ accounts, not admins, and are not listed.
 | Waiting list | GET | `/api/admin/courses/:id/waitlist/export.csv` | ADMISSIONS |
 | Waiting list | POST | `/api/admin/courses/:id/waitlist/notify` | ADMISSIONS |
 | Waiting list | DELETE | `/api/admin/courses/:id/waitlist/:entryId` | ADMISSIONS |
+| Course staff | GET | `/api/admin/courses/:id/staff` | ACADEMIC |
+| Course staff | POST | `/api/admin/courses/:id/staff` | ACADEMIC |
+| Course staff | PUT | `/api/admin/courses/:id/staff/:staffId` | ACADEMIC |
+| Course staff | DELETE | `/api/admin/courses/:id/staff/:staffId` | ACADEMIC |
+| Course staff | POST | `/api/admin/courses/:id/staff/roles` | ACADEMIC |
+| Course staff | PUT | `/api/admin/courses/:id/staff/roles/:roleId` | ACADEMIC |
+| Course staff | DELETE | `/api/admin/courses/:id/staff/roles/:roleId` | ACADEMIC |
 | Live sessions | GET | `/api/admin/events` | ACADEMIC |
 | Live sessions | GET | `/api/admin/events/:id` | ACADEMIC |
 | Live sessions | POST | `/api/admin/events` | ACADEMIC |

@@ -1,6 +1,6 @@
 /**
  * Where the assessment editor and gradebook talk to the API. Admins use /admin/…; a speaker
- * teaching the course uses the same screens under /speaker/courses/:courseId/…, where every id
+ * teaching the course uses the same screens under /teach/courses/:courseId/…, where every id
  * is checked against that course.
  */
 export interface AssessmentEndpoints {

@@ -33,7 +33,7 @@ export const STATUS_TONE: Record<AttendanceStatus, Tone> = { PRESENT: 'success',
 /**
  * Attendance from Google Meet for one course: the course's rule and points, each session's
  * counts, an upload with a preview (match unmatched rows by hand, mark students by hand), and
- * the CSV export. `base` is the course's API path: /admin/courses/{id} or /speaker/courses/{id}.
+ * the CSV export. `base` is the course's API path: /admin/courses/{id} or /teach/courses/{id}.
  * Only admins change the course's rule (`canEditSettings`); anyone here can override the
  * threshold for one upload.
  */

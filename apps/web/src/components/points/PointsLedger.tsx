@@ -30,7 +30,7 @@ export function PointsLedger({
 }: {
   entries: LedgerEntryDto[];
   cap: number;
-  /** The API path of an entry: /admin/points/{id} or /speaker/courses/{course}/points/{id}. */
+  /** The API path of an entry: /admin/points/{id} or /teach/courses/{course}/points/{id}. */
   url: (id: string) => string;
   showCourse?: boolean;
   onChanged: () => void;

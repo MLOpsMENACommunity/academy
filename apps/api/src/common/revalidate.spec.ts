@@ -102,6 +102,15 @@ describe('which writes revalidate the public pages', () => {
     expect(w('PUT', '/api/speaker/application', 'SPEAKER')).toBe(true);
     expect(w('DELETE', '/api/speaker/slots/s1/booking', 'SPEAKER')).toBe(true);
     expect(w('POST', '/api/me/delete', 'STUDENT')).toBe(true);
+    // Course staff (any account role) changing what the public course page shows.
+    expect(w('PUT', '/api/teach/courses/c1/sessions/s1/materials', 'STUDENT')).toBe(true);
+    expect(w('PUT', '/api/teach/courses/c1/details', 'STUDENT')).toBe(true);
+    expect(w('POST', '/api/teach/courses/c1/sessions', 'SPEAKER')).toBe(true);
+    expect(w('PUT', '/api/teach/courses/c1/sessions/order', 'SPEAKER')).toBe(true);
+    expect(w('DELETE', '/api/teach/courses/c1/sessions/s1', 'SPEAKER')).toBe(true);
+    // Not grading, attendance or points.
+    expect(w('PUT', '/api/teach/courses/c1/submissions/x/grade', 'STUDENT')).toBe(false);
+    expect(w('POST', '/api/teach/courses/c1/sessions/s1/attendance', 'STUDENT')).toBe(false);
   });
   it('not reads, student writes, seat counts or the hourly job tick', () => {
     expect(w('GET', '/api/admin/courses')).toBe(false);
