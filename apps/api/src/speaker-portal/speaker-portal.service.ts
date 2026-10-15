@@ -633,11 +633,11 @@ export class SpeakerPortalService {
     slotId: string,
     actorId: string | null,
     action: string,
-    check: (locked: { bookedById: string | null; startsAt: Date }, event: LiveEvent | null) => void,
+    check: (locked: { bookedById: string | null; startsAt: Date; durationMin: number }, event: LiveEvent | null) => void,
   ): Promise<Released> {
     return this.prisma.$transaction(async (tx) => {
-      const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; eventId: string | null; courseId: string | null }[]>`
-        SELECT status::text AS status, "bookedById", "startsAt", "eventId", "courseId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
+      const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; durationMin: number; eventId: string | null; courseId: string | null }[]>`
+        SELECT status::text AS status, "bookedById", "startsAt", "durationMin", "eventId", "courseId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
       if (!locked || locked.status !== 'BOOKED') throw new NotFoundException('Booking not found');
       const event = locked.eventId ? await tx.liveEvent.findUnique({ where: { id: locked.eventId } }) : null;
       const course = locked.courseId
@@ -715,9 +715,17 @@ export class SpeakerPortalService {
     await this.afterRelease(r);
   }
 
-  /** The team frees a booked slot at any time (speaker unavailable, session moved or deleted). */
-  async adminRelease(slotId: string, actorId: string): Promise<void> {
-    const r = await this.release(slotId, actorId, 'speaking_slot.released_by_admin', () => undefined);
+  /**
+   * The team frees a booked slot until its session ends (speaker unavailable, session moved).
+   * Never after: the session took place, and releasing it would cancel it, tell every registrant
+   * it was called off and take its recording out of the archive.
+   */
+  async adminRelease(slotId: string, actorId: string, now = new Date()): Promise<void> {
+    const r = await this.release(slotId, actorId, 'speaking_slot.released_by_admin', (locked, event) => {
+      if (eventEnded(event?.startsAt ?? locked.startsAt, event?.durationMin ?? locked.durationMin, now)) {
+        throw new ConflictException({ code: 'BOOKING_ENDED', message: 'This session has already taken place, so its booking stays as it is.' });
+      }
+    });
     await this.afterRelease(r);
   }
 
