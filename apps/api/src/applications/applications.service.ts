@@ -11,6 +11,7 @@ import {
   initialStatus,
   missingCommunityHandles,
   pickSourceParams,
+  SELF_WITHDRAWABLE_STATUSES,
   type Answers,
   type ApplyInput,
   type MyApplicationDetailDto,
@@ -22,7 +23,7 @@ import { Prisma, type Application, type ApplicationStatusHistory, type Course, t
 import { FunnelService } from '../funnel/funnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toProfileDto } from '../users/profile.service';
-import { ApplicationWorkflow } from './workflow.service';
+import { ApplicationWorkflow, type Actor } from './workflow.service';
 
 type AppWithCourse = Application & {
   course: Pick<Course, 'slug' | 'titleEn' | 'titleAr' | 'type' | 'price' | 'currency' | 'startDate'>;
@@ -133,20 +134,28 @@ export class ApplicationsService {
         const locked = await this.workflow.lockCourse(tx, course.id);
         const ctx = await this.workflow.context(tx, locked);
         const status = initialStatus(locked.requiresApproval, ctx);
-        const created = await tx.application.create({
-          data: {
-            userId,
-            courseId: course.id,
-            status,
-            answers: parsed.data as Prisma.InputJsonValue,
-            // Admins review what the applicant had at application time; filters use the live profile.
-            profileSnapshot: toProfileDto(user.profile) as unknown as Prisma.InputJsonValue,
-            source: source as Prisma.InputJsonValue,
-            ref: source.ref ?? null,
-          },
+        const data = {
+          status,
+          answers: parsed.data as Prisma.InputJsonValue,
+          // Admins review what the applicant had at application time; filters use the live profile.
+          profileSnapshot: toProfileDto(user.profile) as unknown as Prisma.InputJsonValue,
+          source: source as Prisma.InputJsonValue,
+          ref: source.ref ?? null,
+        };
+        // Applying again after withdrawing reopens the same application (one per course and
+        // student); its history keeps the withdrawal. Read under the course lock.
+        const previous = await tx.application.findUnique({
+          where: { userId_courseId: { userId, courseId: course.id } },
+          select: { id: true, status: true },
         });
-        const h = await this.workflow.recordChange(tx, created, null, status, { id: userId, role: user.role });
-        return { app: created, history: h };
+        if (previous && previous.status !== 'WITHDRAWN') {
+          throw new ConflictException({ code: 'ALREADY_APPLIED', message: 'You have already applied to this course' });
+        }
+        const saved = previous
+          ? await tx.application.update({ where: { id: previous.id }, data: { ...data, rejectionReason: null, createdAt: new Date() } })
+          : await tx.application.create({ data: { userId, courseId: course.id, ...data } });
+        const h = await this.workflow.recordChange(tx, saved, previous?.status ?? null, status, { id: userId, role: user.role });
+        return { app: saved, history: h };
       }));
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -163,16 +172,37 @@ export class ApplicationsService {
 
     // Built from the rows in hand (same mapping as GET), rather than reading the application back.
     const { slug, titleEn, titleAr, type, price, currency, startDate } = course;
+    // A reopened application keeps its earlier history.
+    const earlier = history.fromStatus
+      ? await this.prisma.applicationStatusHistory.findMany({ where: { applicationId: app.id, id: { not: history.id } } })
+      : [];
     return toMyApplicationDetail(
       {
         ...app,
         course: { slug, titleEn, titleAr, type, price, currency, startDate },
-        history: [history],
+        history: [...earlier, history],
         // recordChange creates the enrolment in the same transaction when the status is ENROLLED.
         enrollment: app.status === 'ENROLLED' ? { id: app.id } : null,
       },
       course.screeningQuestions,
     );
+  }
+
+  /**
+   * The student withdraws: the seat goes back to the course (and to the waitlist). Not while a
+   * payment is under review (the team settles it, refund included) and never once enrolled.
+   */
+  async withdraw(user: Actor, id: string): Promise<MyApplicationDetailDto> {
+    const app = await this.prisma.application.findFirst({ where: { id, userId: user.id }, select: { id: true, status: true } });
+    if (!app) throw new NotFoundException('Application not found');
+    if (app.status === 'PAYMENT_SUBMITTED') {
+      throw new ConflictException({ code: 'PAYMENT_UNDER_REVIEW', message: 'Your payment is being verified: contact the team to withdraw' });
+    }
+    if (!SELF_WITHDRAWABLE_STATUSES.includes(app.status)) {
+      throw new ConflictException({ code: 'NOT_WITHDRAWABLE', message: "This application can't be withdrawn" });
+    }
+    await this.workflow.transition(app.id, 'WITHDRAW', user);
+    return this.getMine(user.id, app.id);
   }
 
   async listMine(userId: string): Promise<MyApplicationDto[]> {

@@ -166,6 +166,7 @@ export default async function CoursePage({ params }: Props) {
     <ApplyCta
       slug={c.slug}
       availability={c.availability}
+      applicationDeadline={c.applicationDeadline}
       isFree={c.type === 'FREE'}
       requiresApproval={c.requiresApproval}
       full={full}

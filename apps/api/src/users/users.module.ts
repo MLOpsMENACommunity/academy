@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ApplicationsModule } from '../applications/applications.module';
 import { AuthModule } from '../auth/auth.module';
 import { InvitesModule } from '../invites/invites.module';
 import { SpeakerPortalModule } from '../speaker-portal/speaker-portal.module';
@@ -8,7 +9,7 @@ import { MeController } from './me.controller';
 import { ProfileService } from './profile.service';
 
 @Module({
-  imports: [AuthModule, SpeakerPortalModule, InvitesModule],
+  imports: [AuthModule, SpeakerPortalModule, InvitesModule, ApplicationsModule],
   controllers: [MeController, AdminAccountsController],
   providers: [ProfileService, AccountService],
   exports: [ProfileService, AccountService],

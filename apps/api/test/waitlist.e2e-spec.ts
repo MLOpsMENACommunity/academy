@@ -284,7 +284,23 @@ describe('waiting list (e2e)', () => {
       .expect(400);
     expect(early.body.code).toBe('COURSE_NOT_OPEN');
 
-    await prisma.course.update({ where: { id: course.id }, data: { status: 'OPEN' } });
+    // OPEN but applications only open next week, or the deadline already passed: still refused
+    // (the email says "it's open" and each person is only told once).
+    for (const dates of [
+      { applicationsOpenAt: new Date(Date.now() + 7 * 86_400_000), applicationDeadline: null },
+      { applicationsOpenAt: null, applicationDeadline: new Date(Date.now() - 60_000) },
+    ]) {
+      await prisma.course.update({ where: { id: course.id }, data: { status: 'OPEN', ...dates } });
+      const notYet = await http()
+        .post(`/api/admin/courses/${course.id}/waitlist/notify`)
+        .set('Cookie', admin.cookie)
+        .send({ subjectEn: 'Open', bodyEn: 'Apply now.', idempotencyKey: `wl-dates-${Date.now()}-abcdef` })
+        .expect(400);
+      expect(notYet.body.code).toBe('COURSE_NOT_OPEN');
+    }
+    expect(await prisma.courseInterest.count({ where: { courseId: course.id, deliveryStatus: { not: null } } })).toBe(0);
+
+    await prisma.course.update({ where: { id: course.id }, data: { status: 'OPEN', applicationsOpenAt: null, applicationDeadline: null } });
     sendSpy.mockClear();
     const key = `wl-notify-${Date.now()}-abcdef`;
     const body = { subjectEn: 'Applications are open', bodyEn: 'Apply now.', idempotencyKey: key };

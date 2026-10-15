@@ -255,6 +255,8 @@ enum ApplicationStatus {
   ENROLLED
   REJECTED
   WAITLISTED
+  /// The student withdrew (or deleted their account) before being enrolled; the seat is free.
+  WITHDRAWN
 }
 
 enum PaymentMethod {
