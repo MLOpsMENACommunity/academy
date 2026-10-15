@@ -59,3 +59,14 @@ export const waitlistNotifySchema = z.object({
   idempotencyKey: z.string().regex(/^[\w-]{16,64}$/),
 });
 export type WaitlistNotifyInput = z.infer<typeof waitlistNotifySchema>;
+
+/** One-click unsubscribe links (feedback emails or course reminders): `<f|r>.<userId>.<courseId>.<signature>`. */
+export const emailOptOutTokenSchema = z.object({ token: z.string().max(200).regex(/^[fr]\.[\w-]{1,64}\.[\w-]{1,64}\.[\w-]{20,64}$/) });
+
+export interface EmailOptOutDto {
+  /** feedback: "How was the session?" emails. reminders: session/assessment reminders and publish notices. */
+  kind: 'feedback' | 'reminders';
+  course: { slug: string; titleEn: string; titleAr: string };
+  /** Whether these emails are still on for this course. */
+  subscribed: boolean;
+}

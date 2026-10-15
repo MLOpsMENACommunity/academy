@@ -10,11 +10,14 @@ import { AssessmentReminderJobs } from '../assessments/assessment-reminders.jobs
 import { PointsJobs } from '../points/points.jobs';
 import { AccountJobs } from './account.jobs';
 import { EventReminderJobs } from './event-reminders.jobs';
+import { JobsRegistry } from './jobs-registry';
 import { ReminderJobs } from './reminders.jobs';
 import { RetentionJobs } from './retention.jobs';
 
 /**
- * Runs all scheduled jobs once. Used where in-process cron can't be relied on
+ * Runs all scheduled jobs once: the jobs listed here, then every @ScheduledJob provider
+ * (JobsRegistry). New jobs register themselves with the decorator and only enqueue work
+ * (outbox rows), so the tick stays well inside the Worker's 5-minute fetch timeout. Used where in-process cron can't be relied on
  * (Cloudflare Containers sleep when idle): a Cron Trigger on the Worker calls
  * this every hour with a shared secret. Every job is idempotent.
  */
@@ -31,6 +34,7 @@ export class JobsController {
     private readonly assessmentReminders: AssessmentReminderJobs,
     private readonly announcements: AnnouncementDelivery,
     private readonly pointsJobs: PointsJobs,
+    private readonly registry: JobsRegistry,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -71,6 +75,7 @@ export class JobsController {
       if (pending) void this.announcements.process().catch(() => undefined);
       return pending;
     });
+    Object.assign(results, await this.registry.runAll());
     return results;
   }
 }

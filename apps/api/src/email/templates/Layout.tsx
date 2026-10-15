@@ -10,6 +10,8 @@ export interface LayoutProps {
   heading: string;
   paragraphs: ReactNode[];
   cta?: { label: string; url: string };
+  /** A second, outlined button next to the main one. */
+  secondaryCta?: { label: string; url: string };
   note?: string;
   footer: string;
   /** Big coloured banner above the heading (e.g. "Congratulations, you're in!"). */
@@ -28,7 +30,7 @@ const tones = {
   neutral: { bg: '#f1f5fa', fg: '#08142e' },
 };
 
-export function Layout({ locale, preview, heading, paragraphs, cta, note, footer, banner, list, callout, after = [] }: LayoutProps) {
+export function Layout({ locale, preview, heading, paragraphs, cta, secondaryCta, note, footer, banner, list, callout, after = [] }: LayoutProps) {
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const font =
     locale === 'ar'
@@ -106,6 +108,23 @@ export function Layout({ locale, preview, heading, paragraphs, cta, note, footer
               >
                 {cta.label}
               </Button>
+              {secondaryCta && (
+                <Button
+                  href={secondaryCta.url}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: brand.ink,
+                    border: `1px solid ${brand.ink}`,
+                    borderRadius: 8,
+                    padding: '11px 19px',
+                    fontWeight: 600,
+                    fontSize: 15,
+                    margin: locale === 'ar' ? '8px 12px 0 0' : '8px 0 0 12px',
+                  }}
+                >
+                  {secondaryCta.label}
+                </Button>
+              )}
             </Section>
           )}
           {note && (

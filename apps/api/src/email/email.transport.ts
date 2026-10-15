@@ -7,7 +7,21 @@ export interface EmailMessage {
   subject: string;
   html: string;
   text: string;
+  /** Extra headers, e.g. List-Unsubscribe on bulk mail. */
+  headers?: Record<string, string>;
 }
+
+/** Per-send options a provider may honour. */
+export interface SendOptions {
+  /**
+   * The provider sends at most one email per key (Resend keeps keys for 24 hours), so a
+   * retry after a crash can't send the same outbox row twice. SMTP and log ignore it.
+   */
+  idempotencyKey?: string;
+}
+
+/** What a failed send means for the next try (see OutboxProcessor). */
+export type SendErrorKind = 'retryable' | 'permanent' | 'quota';
 
 /** A provider rejection with enough detail to decide whether to retry (no addresses in it). */
 export class EmailSendError extends Error {
@@ -21,8 +35,33 @@ export class EmailSendError extends Error {
 
   /** Too many requests right now: worth retrying shortly. A daily quota is not. */
   get retryable(): boolean {
-    return this.statusCode === 429 && this.code !== 'daily_quota_exceeded';
+    return this.statusCode === 429 && !isQuotaCode(this.code);
   }
+}
+
+function isQuotaCode(code: string): boolean {
+  return code === 'daily_quota_exceeded' || code === 'monthly_quota_exceeded';
+}
+
+/**
+ * Sorts a send failure into what to do next:
+ * - quota: the provider's daily (or monthly) limit; try again tomorrow, it isn't the email's fault.
+ * - permanent: the provider rejected this email (invalid address, validation, a 5xx SMTP reply);
+ *   retrying sends the same bad request again.
+ * - retryable: rate limits, provider outages, network errors and anything unrecognised.
+ */
+export function classifySendError(err: unknown): SendErrorKind {
+  if (err instanceof EmailSendError) {
+    if (isQuotaCode(err.code)) return 'quota';
+    // 429: rate limited. 409: the same idempotency key is still being processed.
+    if (err.statusCode === 429 || err.statusCode === 409) return 'retryable';
+    if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500) return 'permanent';
+    return 'retryable';
+  }
+  // nodemailer: responseCode is the SMTP reply (5xx = permanent rejection, 4xx = try later).
+  const smtp = (err as { responseCode?: number } | null)?.responseCode;
+  if (typeof smtp === 'number' && smtp >= 500) return 'permanent';
+  return 'retryable';
 }
 
 /**
@@ -30,7 +69,7 @@ export class EmailSendError extends Error {
  * class here and one case in email.module.ts; nothing else changes.
  */
 export abstract class EmailTransport {
-  abstract send(message: EmailMessage): Promise<void>;
+  abstract send(message: EmailMessage, options?: SendOptions): Promise<void>;
 }
 
 export class SmtpTransport extends EmailTransport {
@@ -46,7 +85,7 @@ export class SmtpTransport extends EmailTransport {
   }
 
   async send(m: EmailMessage): Promise<void> {
-    await this.transporter.sendMail({ from: this.from, to: m.to, subject: m.subject, html: m.html, text: m.text });
+    await this.transporter.sendMail({ from: this.from, to: m.to, subject: m.subject, html: m.html, text: m.text, headers: m.headers });
   }
 }
 
@@ -61,14 +100,18 @@ export class ResendTransport extends EmailTransport {
     this.client = new Resend(apiKey);
   }
 
-  async send(m: EmailMessage): Promise<void> {
-    const { error } = await this.client.emails.send({
-      from: this.from,
-      to: m.to,
-      subject: m.subject,
-      html: m.html,
-      text: m.text,
-    });
+  async send(m: EmailMessage, options: SendOptions = {}): Promise<void> {
+    const { error } = await this.client.emails.send(
+      {
+        from: this.from,
+        to: m.to,
+        subject: m.subject,
+        html: m.html,
+        text: m.text,
+        ...(m.headers ? { headers: m.headers } : {}),
+      },
+      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined,
+    );
     if (error) throw new EmailSendError(error.name, (error as { statusCode?: number }).statusCode ?? undefined);
   }
 }
@@ -116,14 +159,14 @@ export class GuardedTransport extends EmailTransport {
     return this.addresses.has(address) || this.domains.has(address.slice(address.lastIndexOf('@') + 1));
   }
 
-  async send(m: EmailMessage): Promise<void> {
-    if (this.allows(m.to)) return this.inner.send(m);
+  async send(m: EmailMessage, options?: SendOptions): Promise<void> {
+    if (this.allows(m.to)) return this.inner.send(m, options);
     if (!this.redirectTo) {
       // Never log the address itself.
       this.logger.warn(`[email guard] dropped "${m.subject}": recipient not on EMAIL_ALLOWLIST`);
       return;
     }
-    await this.inner.send({ ...m, to: this.redirectTo, subject: `[to ${m.to}] ${m.subject}` });
+    await this.inner.send({ ...m, to: this.redirectTo, subject: `[to ${m.to}] ${m.subject}` }, options);
   }
 }
 

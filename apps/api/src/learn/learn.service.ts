@@ -4,6 +4,7 @@ import {
   recordingKind,
   sessionPhase,
   youtubeId,
+  type FeedbackDueDto,
   type FeedbackInput,
   type LearnCourseDto,
   type Material,
@@ -17,6 +18,9 @@ import { PointsService } from '../points/points.service';
 import { SettingsService } from '../settings/settings.service';
 import { buildIcs } from './ics';
 import { courseSessionEvent } from './session-event';
+
+/** How long after a session the dashboard keeps asking for its rating. */
+const FEEDBACK_DUE_DAYS = 14;
 
 /**
  * Enrolled-student course content. Every method checks enrolment on the
@@ -213,6 +217,59 @@ export class LearnService {
       sessions.map((x) => courseSessionEvent(x, course, locale, webUrl)),
     );
     return { filename: `${course.slug}${sessionId ? `-session-${sessions[0]!.order}` : ''}.ics`, body };
+  }
+
+  /**
+   * "Rate your last session" on the dashboard, computed on page load (no job): per course,
+   * the latest session that ended in the last 14 days and isn't rated yet. Courses that are
+   * Open, Closed or Completed, like the feedback emails. At most 3 courses.
+   */
+  async feedbackDue(userId: string, now = new Date()): Promise<FeedbackDueDto[]> {
+    const rows = await this.prisma.courseSession.findMany({
+      where: {
+        startsAt: { gte: new Date(now.getTime() - FEEDBACK_DUE_DAYS * 86_400_000 - 10 * 3600_000), lte: now },
+        course: { status: { in: ['OPEN', 'CLOSED', 'COMPLETED'] }, enrollments: { some: { userId } } },
+      },
+      select: {
+        id: true,
+        courseId: true,
+        order: true,
+        titleEn: true,
+        titleAr: true,
+        startsAt: true,
+        durationMin: true,
+        feedback: { where: { userId }, select: { id: true } },
+        course: { select: { slug: true, titleEn: true, titleAr: true } },
+      },
+      orderBy: { startsAt: 'desc' },
+      take: 60,
+    });
+    const ended = (r: (typeof rows)[number]) => r.startsAt.getTime() + r.durationMin * 60_000;
+    const from = now.getTime() - FEEDBACK_DUE_DAYS * 86_400_000;
+    const picked = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) {
+      if (picked.has(r.courseId) || r.feedback.length || ended(r) > now.getTime() || ended(r) < from) continue;
+      picked.set(r.courseId, r);
+    }
+    if (!picked.size) return [];
+    const courseIds = [...picked.keys()];
+    const [lasts, rated] = await Promise.all([
+      this.prisma.courseSession.groupBy({ by: ['courseId'], where: { courseId: { in: courseIds } }, _max: { startsAt: true } }),
+      this.prisma.sessionFeedback.findMany({ where: { userId, courseId: { in: courseIds }, scopeKey: 'course' }, select: { courseId: true } }),
+    ]);
+    const lastStart = new Map(lasts.map((g) => [g.courseId, g._max.startsAt?.getTime()]));
+    const courseRated = new Set(rated.map((r) => r.courseId));
+    return [...picked.values()].slice(0, 3).map((r) => ({
+      courseSlug: r.course.slug,
+      courseTitleEn: r.course.titleEn,
+      courseTitleAr: r.course.titleAr,
+      sessionId: r.id,
+      order: r.order,
+      titleEn: r.titleEn,
+      titleAr: r.titleAr,
+      startsAt: r.startsAt.toISOString(),
+      courseFeedbackDue: lastStart.get(r.courseId) === r.startsAt.getTime() && !courseRated.has(r.courseId),
+    }));
   }
 
   /** Upcoming sessions across the user's enrolments (for "what's next" on the dashboard). */

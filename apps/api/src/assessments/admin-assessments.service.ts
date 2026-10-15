@@ -16,6 +16,7 @@ import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Outbox } from '../outbox/outbox.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
 import { capRows } from '../admin/export';
@@ -95,6 +96,7 @@ export class AdminAssessmentsService {
     private readonly storage: StorageService,
     private readonly assessments: AssessmentsService,
     private readonly points: PointsService,
+    private readonly outbox: Outbox,
   ) {}
 
   private async course(courseId: string) {
@@ -233,11 +235,13 @@ export class AdminAssessmentsService {
         });
         if (input.type === 'QUIZ') await this.saveQuestions(tx, created.id, input.questions);
         await this.audit.log({ actorId: admin.id, action: 'assessment.created', entityType: 'Assessment', entityId: created.id, metadata: { courseId, type: input.type, status: input.status } }, tx);
+        // Published right away: the students' notices commit with it (sent by the outbox).
+        if (published) await this.sendPublishedNotices(created.id, tx);
         return created;
       },
       { timeout: QUESTIONS_TX_TIMEOUT_MS },
     );
-    if (published) this.announcePublished(a.id);
+    if (published) this.outbox.kick();
     return this.get(a.id, staffEmails);
   }
 
@@ -268,11 +272,13 @@ export class AdminAssessmentsService {
         // students, so two saves at once (or unpublish and publish again) never send twice.
         if (input.status !== 'PUBLISHED' || current.status === 'PUBLISHED') return false;
         const claim = await tx.assessment.updateMany({ where: { id, publishedNotifiedAt: null }, data: { publishedNotifiedAt: new Date() } });
-        return claim.count === 1;
+        if (claim.count !== 1) return false;
+        await this.sendPublishedNotices(id, tx);
+        return true;
       },
       { timeout: QUESTIONS_TX_TIMEOUT_MS },
     );
-    if (firstPublish) this.announcePublished(id);
+    if (firstPublish) this.outbox.kick();
     // Publishing counts its scores as points, unpublishing takes them back, and a new
     // scoring rule (best or last attempt) changes which score counts.
     if (current.status !== input.status || current.scoring !== input.scoring) {
@@ -556,30 +562,27 @@ export class AdminAssessmentsService {
   }
 
   /**
-   * Tells the course's students about a newly published assessment, after the admin's
-   * request has finished (never blocking it): an in-app notification for each enrolled
-   * student, and an email on the bulk lane for those who haven't turned this course's
-   * reminders off. Called once per assessment (see publishedNotifiedAt). Logs counts only.
+   * Tells the course's students about a newly published assessment: an in-app notification
+   * for each enrolled student, and an email on the bulk lane for those who haven't turned this
+   * course's reminders off. Called once per assessment (see publishedNotifiedAt), inside the
+   * publishing transaction: the notices are written to the outbox with the publish, so a
+   * restart or a sleeping container can't drop them. The caller kicks the outbox after commit.
+   * Returns the number of students told in-app (exposed for tests).
    */
-  private announcePublished(id: string): void {
-    void this.sendPublishedNotices(id).catch((err: unknown) => this.logger.error(`Publish notice failed: ${(err as Error).name}`));
-  }
-
-  /** Returns the number of students told in-app (exposed for tests). */
-  async sendPublishedNotices(id: string): Promise<number> {
-    const a = await this.prisma.assessment.findUnique({
+  async sendPublishedNotices(id: string, tx?: Prisma.TransactionClient): Promise<number> {
+    const db = tx ?? this.prisma;
+    const a = await db.assessment.findUnique({
       where: { id },
       select: { id: true, courseId: true, status: true, type: true, titleEn: true, titleAr: true, dueAt: true, course: { select: { slug: true, titleEn: true, titleAr: true, status: true } } },
     });
     // Unpublished again meanwhile, or a course that is over or not running: nobody to tell.
     if (!a || a.status !== 'PUBLISHED' || !['OPEN', 'CLOSED'].includes(a.course.status)) return 0;
-    const students = await this.prisma.enrollment.findMany({
+    const students = await db.enrollment.findMany({
       where: { courseId: a.courseId, user: { deletedAt: null, anonymizedAt: null } },
       select: {
         user: {
           select: {
             id: true,
-            email: true,
             locale: true,
             profile: { select: { timezone: true } },
             reminderPreferences: { where: { courseId: a.courseId, emailReminders: false }, select: { courseId: true } },
@@ -593,7 +596,7 @@ export class AdminAssessmentsService {
     const courseAr = a.course.titleAr || a.course.titleEn;
     const kindEn = { QUIZ: 'quiz', LAB: 'lab', ASSIGNMENT: 'assignment' }[a.type];
     const kindAr = { QUIZ: 'اختبار', LAB: 'تمرين عملي', ASSIGNMENT: 'واجب' }[a.type];
-    await this.prisma.notification.createMany({
+    await db.notification.createMany({
       data: students.map(({ user }) => ({
         userId: user.id,
         type: 'assessment.published',
@@ -604,29 +607,31 @@ export class AdminAssessmentsService {
         link: path,
       })),
     });
-    let sent = 0;
-    let failed = 0;
-    for (const { user } of students) {
-      if (user.reminderPreferences.length) continue;
-      const ar = user.locale === 'ar';
-      const ok = await this.email.send(
-        user.email,
-        user.locale,
-        {
-          name: 'assessmentPublished',
-          courseTitle: ar ? courseAr : a.course.titleEn,
-          title: ar ? titleAr : a.titleEn,
-          kind: a.type,
-          dueAt: a.dueAt ? formatDueAt(a.dueAt, user.locale, user.profile?.timezone) : null,
-          url: this.email.url(user.locale, path),
-          unsubscribeUrl: `${this.email.url(user.locale, `/learn/${a.course.slug}`)}#reminders`,
-        },
-        { bulk: true },
-      );
-      if (ok) sent++;
-      else failed++;
-    }
-    this.logger.log(`Publish notice: ${students.length} notified in-app, ${sent} email(s) sent, ${failed} failed`);
+    const emailed = students.filter(({ user }) => !user.reminderPreferences.length);
+    await this.outbox.enqueue(
+      emailed.map(({ user }) => {
+        const locale = user.locale === 'ar' ? 'ar' : 'en';
+        const ar = locale === 'ar';
+        return {
+          userId: user.id,
+          locale,
+          category: 'assessment-published' as const,
+          courseId: a.courseId,
+          dedupeKey: `assessment-published:${a.id}:${user.id}`,
+          template: {
+            name: 'assessmentPublished' as const,
+            courseTitle: ar ? courseAr : a.course.titleEn,
+            title: ar ? titleAr : a.titleEn,
+            kind: a.type,
+            dueAt: a.dueAt ? formatDueAt(a.dueAt, locale, user.profile?.timezone) : null,
+            url: this.email.url(locale, path),
+            unsubscribeUrl: `${this.email.url(locale, `/learn/${a.course.slug}`)}#reminders`,
+          },
+        };
+      }),
+      tx,
+    );
+    this.logger.log(`Publish notice: ${students.length} notified in-app, ${emailed.length} email(s) queued`);
     return students.length;
   }
 

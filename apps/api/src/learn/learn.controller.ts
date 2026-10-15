@@ -4,6 +4,7 @@ import {
   feedbackSchema,
   progressSchema,
   reminderPreferenceSchema,
+  type FeedbackDueDto,
   type FeedbackInput,
   type LearnCourseDto,
   type NextSessionDto,
@@ -27,6 +28,13 @@ export class LearnController {
   @Get('me/next-sessions')
   next(@CurrentUser() user: AuthUser): Promise<NextSessionDto[]> {
     return this.learn.nextSessions(user.id);
+  }
+
+  /** The dashboard's "Rate your last session" card. */
+  @Get('me/feedback-due')
+  @Header('Cache-Control', 'private, no-store')
+  feedbackDue(@CurrentUser() user: AuthUser): Promise<FeedbackDueDto[]> {
+    return this.learn.feedbackDue(user.id);
   }
 
   @Get('learn/:slug')
