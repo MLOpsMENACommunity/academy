@@ -284,7 +284,8 @@ export class AdminAssessmentsService {
   /**
    * What can't change once students have submitted, because stored scores and reviews
    * depend on it: the type, max points, and the questions' set, kinds, weights and key.
-   * Wording (prompts, options, explanations) and everything else stays editable.
+   * Wording (prompts, options, explanations), the order of questions and options, and
+   * everything else stays editable.
    */
   private lockedChange(
     current: { type: string; maxPoints: number; questions: { id: string; kind: string; weight: number; options: { id: string; correct: boolean }[] }[] },
@@ -293,8 +294,10 @@ export class AdminAssessmentsService {
     if (current.type !== input.type) return 'the type';
     if (current.maxPoints !== input.maxPoints) return 'the max points';
     if (input.type !== 'QUIZ') return null;
+    // Order doesn't matter (answers are graded by id): moving questions or options up and down stays allowed.
+    const byId = (a: { id?: string }, b: { id?: string }) => (a.id ?? '').localeCompare(b.id ?? '');
     const sig = (qs: { id?: string; kind: string; weight: number; options: { id?: string; correct: boolean }[] }[]) =>
-      JSON.stringify(qs.map((q) => [q.id ?? null, q.kind, q.weight, q.options.map((o) => [o.id ?? null, o.correct])]));
+      JSON.stringify([...qs].sort(byId).map((q) => [q.id ?? null, q.kind, q.weight, [...q.options].sort(byId).map((o) => [o.id ?? null, o.correct])]));
     return sig(current.questions) === sig(input.questions) ? null : 'the questions, weights or answer key';
   }
 

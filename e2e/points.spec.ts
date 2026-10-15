@@ -172,6 +172,11 @@ test('a student opts in and appears on the course leaderboard; others stay hidde
   const table = adm.getByRole('table');
   await expect(table.getByRole('row').filter({ hasText: beta.email })).toContainText('Hidden');
   await expect(table.getByRole('row').filter({ hasText: alpha.email })).toContainText('Shown');
+  // A name opens the student's points under Points & badges (the academic preset can't open the admissions student page).
+  await table.getByRole('link', { name: alpha.name }).click();
+  await expect(adm).toHaveURL(/\/en\/admin\/points\/students\//);
+  await expect(adm.getByRole('heading', { level: 1, name: alpha.name })).toBeVisible();
+  await expect(adm.locator('#points')).toBeVisible();
   await adminContext.close();
   await a.api.dispose();
   await b.api.dispose();

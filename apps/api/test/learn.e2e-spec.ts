@@ -67,6 +67,17 @@ describe('learn (e2e)', () => {
     expect(JSON.stringify(res.body)).not.toContain('later-link');
   });
 
+  it('refuses to mark a session done before it starts (no free points, Finisher or certificate progress)', async () => {
+    const { course, student, later } = await setup();
+    const slug = await slugOf(course.id);
+    const r = await http().put(`/api/learn/${slug}/sessions/${later.id}/progress`).set('Cookie', student.cookie).send({ completed: true }).expect(409);
+    expect(r.body.code).toBe('NOT_STARTED');
+    expect(await prisma.sessionProgress.count({ where: { userId: student.id } })).toBe(0);
+    expect(await prisma.pointsEntry.count({ where: { userId: student.id } })).toBe(0);
+    // Unmarking is always allowed (and harmless).
+    await http().put(`/api/learn/${slug}/sessions/${later.id}/progress`).set('Cookie', student.cookie).send({ completed: false }).expect(204);
+  });
+
   it('tracks progress and feedback', async () => {
     const { course, student, past, later } = await setup();
     const slug = await slugOf(course.id);
