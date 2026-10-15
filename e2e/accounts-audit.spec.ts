@@ -73,3 +73,14 @@ test('deleting the account lands on the homepage with a confirmation (ACC-09)', 
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByText(/belongs to an account that was deleted/)).toBeVisible();
 });
+
+test('the notifications panel says when it could not load, instead of "Loading…" forever (ACC-11)', async ({ page }) => {
+  const email = `audit-bell-${Date.now()}@example.test`;
+  const res = await page.request.post('/api/auth/register', { headers: JSON_HEADERS, data: { email, password: 'Audit-Passw0rd-1', locale: 'en' } });
+  expect(res.ok()).toBe(true);
+  await page.route('**/api/notifications', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"statusCode":500}' }));
+  await page.goto('/en/dashboard');
+  await page.getByRole('button', { name: /^Notifications/ }).click();
+  await expect(page.getByText('Something went wrong. Please try again.')).toBeVisible();
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+});
