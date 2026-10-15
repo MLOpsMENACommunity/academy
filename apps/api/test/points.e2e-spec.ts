@@ -154,7 +154,8 @@ describe('points, badges and leaderboards (e2e)', () => {
   });
 
   it('gives session points, takes them back when unmarked, and awards "Finisher"', async () => {
-    const { course, sessions, students } = await setup();
+    // Every session has started (a session that hasn't can't be marked done).
+    const { course, sessions, students } = await setup({ startedDaysAgo: 20 });
     const [s] = students;
     const mark = (id: string, completed: boolean) => http().put(`/api/learn/${course.slug}/sessions/${id}/progress`).set('Cookie', s!.cookie).send({ completed }).expect(204);
     await mark(sessions[0]!.id, true);
