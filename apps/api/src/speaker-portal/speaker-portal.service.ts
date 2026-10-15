@@ -9,6 +9,7 @@ import {
   googleCalendarLink,
   hasAdminPermission,
   MAX_GENERATED_SLOTS,
+  PUBLIC_COURSE_STATUSES,
   readSpeakerDetails,
   slugify,
   speakerKindLabels,
@@ -157,7 +158,16 @@ export class SpeakerPortalService {
           email: true,
           locale: true,
           speakerApplication: true,
-          speakerProfile: { select: { slug: true, events: { where: { status: 'PUBLISHED' }, select: { id: true }, take: 1 } } },
+          // The same rule as the public page (ArchiveService.publicSpeaker): a session they speak at,
+          // host or guest (published or cancelled), or a public course they teach.
+          speakerProfile: {
+            select: {
+              slug: true,
+              events: { where: { status: { in: ['PUBLISHED', 'CANCELLED'] } }, select: { id: true }, take: 1 },
+              coSpeaking: { where: { event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } }, select: { eventId: true }, take: 1 },
+              courses: { where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } }, select: { courseId: true }, take: 1 },
+            },
+          },
         },
       }),
       this.settings.get(),
@@ -172,7 +182,7 @@ export class SpeakerPortalService {
     const profile = user.speakerProfile;
     return {
       application: user.speakerApplication ? toApplicationDto(user.speakerApplication, user.email) : null,
-      speakerPageSlug: profile?.slug && profile.events.length ? profile.slug : null,
+      speakerPageSlug: profile?.slug && (profile.events.length || profile.coSpeaking.length || profile.courses.length) ? profile.slug : null,
       bookings: slots.map((s) => this.toBookingDto(s, settings.speakerCancelDays, locale, now)),
       rules: { maxOpenBookings: settings.speakerMaxOpenBookings, cancelDays: settings.speakerCancelDays },
     };
@@ -754,7 +764,8 @@ export class SpeakerPortalService {
         url,
         start: s.event?.startsAt ?? s.startsAt,
         durationMin: s.event?.durationMin ?? s.durationMin,
-        updatedAt: s.updatedAt,
+        // The later of the two: the team moving the session (or cancelling it) must update the calendar.
+        updatedAt: s.event && s.event.updatedAt > s.updatedAt ? s.event.updatedAt : s.updatedAt,
         cancelled: s.event?.status === 'CANCELLED',
       },
     ]);

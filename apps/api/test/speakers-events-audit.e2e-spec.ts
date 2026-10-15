@@ -180,4 +180,27 @@ describe('speakers and live sessions: audit regressions (e2e)', () => {
       [academic.id]: '/admin/sessions',
     });
   });
+  it("SPK-07: the speaker's calendar file changes when the team moves the session", async () => {
+    const s = await approvedSpeaker('Moved');
+    const { slot, eventId } = await booked(s);
+    const seq = async () => /SEQUENCE:(\d+)/.exec((await http().get(`/api/speaker/slots/${slot.id}/calendar.ics`).set('Cookie', s.cookie).expect(200)).text)![1];
+    const before = await seq();
+    await new Promise((r) => setTimeout(r, 1100));
+    const moved = new Date(Date.now() + 25 * DAY);
+    await prisma.liveEvent.update({ where: { id: eventId }, data: { startsAt: moved } });
+    const ics = (await http().get(`/api/speaker/slots/${slot.id}/calendar.ics`).set('Cookie', s.cookie).expect(200)).text;
+    expect(Number(await seq())).toBeGreaterThan(Number(before));
+    expect(ics).toContain(`DTSTART:${moved.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`);
+  });
+
+  it('SPK-08: the portal links the public page of a speaker who is only a guest on a session', async () => {
+    const s = await approvedSpeaker('Guest');
+    expect((await http().get('/api/speaker').set('Cookie', s.cookie).expect(200)).body.speakerPageSlug).toBeNull();
+    await prisma.liveEvent.create({
+      data: { slug: `aud-guest-${Date.now()}`, status: 'PUBLISHED', titleEn: 'With a guest', titleAr: 'جلسة', startsAt: new Date(Date.now() + 6 * DAY), coSpeakers: { create: { instructorId: s.instructorId, role: 'GUEST' } } },
+    });
+    const slug = (await http().get('/api/speaker').set('Cookie', s.cookie).expect(200)).body.speakerPageSlug;
+    expect(slug).toBeTruthy();
+    await http().get(`/api/speakers/${slug}`).expect(200);
+  });
 });
