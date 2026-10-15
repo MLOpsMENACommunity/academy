@@ -136,4 +136,24 @@ describe('speakers and live sessions: audit regressions (e2e)', () => {
     const own = await prisma.liveEvent.create({ data: { slug: `aud-own-${Date.now()}`, titleEn: 'Own draft', startsAt: new Date(Date.now() + 9 * DAY) } });
     await http().delete(`/api/admin/events/${own.id}`).set('Cookie', admin.cookie).expect(204);
   });
+  it('SPK-04: a speaker with upcoming bookings is not promoted, and a speaker removed from the team is a speaker again', async () => {
+    const s = await approvedSpeaker('Promoted');
+    const { slot } = await booked(s);
+    const refused = await http().post('/api/admin/team').set('Cookie', admin.cookie).send({ email: s.email, permissions: ['CONTENT'] }).expect(409);
+    expect(refused.body.code).toBe('SPEAKER_HAS_BOOKINGS');
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: s.id } })).role).toBe('SPEAKER');
+
+    await http().post(`/api/admin/speaking-slots/${slot.id}/release`).set('Cookie', admin.cookie).expect(204);
+    await http().post('/api/admin/team').set('Cookie', admin.cookie).send({ email: s.email, permissions: ['CONTENT'] }).expect(201);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: s.id } })).role).toBe('ADMIN');
+    await http().post(`/api/admin/team/${s.id}/remove`).set('Cookie', admin.cookie).expect(200);
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: s.id }, select: { role: true, adminPermissions: true } })).toEqual({ role: 'SPEAKER', adminPermissions: [] });
+    await http().get('/api/speaker').set('Cookie', s.cookie).expect(200);
+
+    // Anyone else goes back to a student account, as before.
+    const student = await createUser(app, prisma, { prefix: 'aud-promo' });
+    await http().post('/api/admin/team').set('Cookie', admin.cookie).send({ email: student.email, permissions: ['FINANCE'] }).expect(201);
+    await http().post(`/api/admin/team/${student.id}/remove`).set('Cookie', admin.cookie).expect(200);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: student.id } })).role).toBe('STUDENT');
+  });
 });
