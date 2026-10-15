@@ -1,7 +1,7 @@
 import { Container } from '@cloudflare/containers';
 import { fetchContainer, timeoutFor } from './container-fetch';
 import { browserCacheControl, cacheKind, EDGE_TAG, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
-import { isManualJobsTick, tokenMatches } from './jobs';
+import { isInternalApiPath, isManualJobsTick, tokenMatches } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 import { isRevalidateRequest, purgeRequest, REVALIDATE_HEADER, REVALIDATE_PATH, revalidateToken, WEB_REVALIDATE_URL } from './revalidate';
 import { disallowAllRobots, isProduction, withNoindex } from './robots';
@@ -368,7 +368,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (isRevalidateRequest(request)) return revalidateSite(request, env);
   const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
-  if (isApi && url.pathname.startsWith('/api/internal/')) {
+  if (isApi && isInternalApiPath(url.pathname)) {
     // Internal endpoints are only reachable from the cron handler below. Same body as the API's own 404.
     return Response.json({ statusCode: 404, message: 'Not found' }, { status: 404 });
   }

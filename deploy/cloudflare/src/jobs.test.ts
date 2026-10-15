@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
-import { isManualJobsTick, MANUAL_TICK_PATH, tokenMatches } from './jobs.ts';
+import { isInternalApiPath, isManualJobsTick, MANUAL_TICK_PATH, tokenMatches } from './jobs.ts';
 
 const TOKEN = 'a'.repeat(48);
 
@@ -32,4 +32,11 @@ test('staging has no Cron Trigger (it only wakes when used); production keeps it
   assert.deepEqual(config.triggers.crons, ['0 * * * *']);
   // An env without "triggers" would inherit production's crons: it must say [] explicitly.
   assert.deepEqual(config.env.staging.triggers, { crons: [] });
+});
+
+test('internal API paths are blocked whatever their case (Express routes ignore case)', () => {
+  for (const p of ['/api/internal/jobs/tick', '/api/Internal/jobs/tick', '/API/INTERNAL/jobs/tick', '/api/iNtErNaL/x']) {
+    assert.equal(isInternalApiPath(p), true, p);
+  }
+  for (const p of ['/api/courses', '/api/internals', '/internal/jobs/tick', '/en/api/internal/x']) assert.equal(isInternalApiPath(p), false, p);
 });
