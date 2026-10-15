@@ -497,7 +497,7 @@ describe('speaker portal (e2e)', () => {
       spy.mockRestore();
       expect((await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id } })).status).toBe('OPEN');
       // A failure after the booking is saved (telling the team) doesn't turn it into an error.
-      const notify = jest.spyOn(app.get(NotificationsService), 'notifyAdmins').mockRejectedValueOnce(new Error('down'));
+      const notify = jest.spyOn(app.get(NotificationsService), 'notifyAdminsWithLink').mockRejectedValueOnce(new Error('down'));
       await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', s.cookie).send(booking).expect(201);
       notify.mockRestore();
     });

@@ -167,6 +167,15 @@ export const speakerApplicationFields = z.object({
     .trim()
     .max(500)
     .regex(/^https:\/\/[^\s]+$/i, 'Use an https:// link to an image')
+    // A real address: a host with a dot, no user name or password ("https://x" is not a photo).
+    .refine((v) => {
+      try {
+        const u = new URL(v);
+        return u.protocol === 'https:' && !u.username && !u.password && u.hostname.includes('.');
+      } catch {
+        return false;
+      }
+    }, 'Use an https:// link to an image')
     .nullish()
     .or(z.literal('').transform(() => null)),
   areas: z

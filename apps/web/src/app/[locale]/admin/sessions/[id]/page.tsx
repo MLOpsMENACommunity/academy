@@ -1,9 +1,10 @@
 'use client';
 
-import { courseStatusLabels, eventStatusLabels, speakerKindLabels, type CourseDraftResultDto, type CourseStatus, type EventStatus } from '@academy/shared';
+import { courseStatusLabels, eventStatusLabels, hasAdminPermission, speakerKindLabels, type CourseDraftResultDto, type CourseStatus, type EventStatus } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { DeleteEvent, EventForm, eventStatusTone, toEventForm, type AdminEvent } from '@/components/admin/EventForm';
 import { speakerError } from '@/components/speakers/shared';
 import { Alert } from '@/components/ui/Alert';
@@ -16,6 +17,7 @@ export default function EditSession() {
   const { locale, t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
   const [event, setEvent] = useState<AdminEvent | null>(null);
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
   const [version, setVersion] = useState(0);
@@ -49,9 +51,12 @@ export default function EditSession() {
       {booking?.bookedBy && (
         <p className="mt-2 max-w-2xl text-sm break-words text-muted">
           {t('admin.sessions.bookedBy', { name: booking.bookedBy.speakerApplication?.fullName ?? booking.bookedBy.email })}{' '}
-          <Link href={`/${locale}/admin/speakers/availability`} className="text-primary underline">
-            {t('admin.sessions.openAvailability')}
-          </Link>
+          {/* Availability is the speakers team's page: other presets would only get a 403. */}
+          {hasAdminPermission(user, ['SPEAKERS']) && (
+            <Link href={`/${locale}/admin/speakers/availability`} className="text-primary underline">
+              {t('admin.sessions.openAvailability')}
+            </Link>
+          )}
         </p>
       )}
       {notice && (
