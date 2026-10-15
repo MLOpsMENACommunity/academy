@@ -7,12 +7,12 @@ import { serverGetOr } from './server-api';
  * given plus courses taught). Optional page content: an empty list if the API is down.
  */
 export async function loadSpeakers(limit = 24): Promise<PublicSpeakerDto[]> {
-  const slugs = await serverGetOr<{ slug: string }[]>('/speakers', [], 300);
+  const slugs = await serverGetOr<{ slug: string }[]>('/speakers', []);
   const all = await Promise.all(
     slugs
       .filter((s) => /^[a-z0-9-]{1,80}$/.test(s.slug))
       .slice(0, 60)
-      .map((s) => serverGetOr<PublicSpeakerDto | null>(`/speakers/${s.slug}`, null, 300)),
+      .map((s) => serverGetOr<PublicSpeakerDto | null>(`/speakers/${s.slug}`, null)),
   );
   return all
     .filter((s): s is PublicSpeakerDto => s !== null)

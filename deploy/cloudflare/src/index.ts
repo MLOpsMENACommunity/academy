@@ -1,8 +1,9 @@
 import { Container } from '@cloudflare/containers';
 import { fetchContainer, timeoutFor } from './container-fetch';
-import { browserCacheControl, cacheKind, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
+import { browserCacheControl, cacheKind, EDGE_TAG, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
 import { isManualJobsTick, tokenMatches } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
+import { isRevalidateRequest, purgeRequest, REVALIDATE_HEADER, REVALIDATE_PATH, revalidateToken, WEB_REVALIDATE_URL } from './revalidate';
 import { disallowAllRobots, isProduction, withNoindex } from './robots';
 import { stagingDatabaseProblem, stagingMisconfigured } from './staging-guard';
 
@@ -18,7 +19,9 @@ import { stagingDatabaseProblem, stagingMisconfigured } from './staging-guard';
  *
  * One API instance (max_instances: 1): rate limits and the login lockout are in-memory
  * in the API. The web app is stateless, so requests are spread over WEB_INSTANCES
- * containers (each with its own ISR cache; they converge within the revalidate window).
+ * containers, each with its own ISR cache: after an admin edit the API calls
+ * POST /_internal/revalidate here, which revalidates every running one and purges the edge
+ * (revalidate.ts), so the edit shows within seconds.
  * Anonymous page views of static/ISR pages, and anonymous reads of the public catalog API,
  * are answered from Cloudflare's edge cache when possible: see edge-cache.ts for exactly
  * what is and isn't cached. Container failures and stuck requests become a 503 with
@@ -61,6 +64,12 @@ export interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   SENTRY_DSN?: string;
   SENTRY_ENVIRONMENT?: string;
+  /** Optional: the revalidation secret (otherwise derived from JOBS_TOKEN, see revalidate.ts). */
+  REVALIDATE_TOKEN?: string;
+  /** Optional var (configure-host.mjs): the zone of ACADEMY_HOSTNAME, for purging the edge cache after an edit. */
+  EDGE_PURGE_ZONE_ID?: string;
+  /** Optional secret: a Cloudflare API token with Zone → Cache Purge on that zone. */
+  EDGE_PURGE_API_TOKEN?: string;
 }
 
 const optional = (pairs: Record<string, string | undefined>): Record<string, string> =>
@@ -133,6 +142,8 @@ export class ApiContainer extends Container<Env> {
       SEED_ADMIN_PASSWORD: env.SEED_ADMIN_PASSWORD,
       RUN_MIGRATIONS: 'true',
       RUN_SEED: 'true',
+      // After an admin edit the API asks this Worker to revalidate the public pages (revalidate.ts).
+      REVALIDATE_URL: `https://${env.ACADEMY_HOSTNAME}${REVALIDATE_PATH}`,
       ...optional({
         SEED_PLACEHOLDER_STATUS: env.SEED_PLACEHOLDER_STATUS,
         GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
@@ -145,8 +156,17 @@ export class ApiContainer extends Container<Env> {
         EMAIL_REDIRECT_TO: env.EMAIL_REDIRECT_TO,
       }),
     };
-    void ctx.blockConcurrencyWhile(() => restartIfConfigChanged(this, ctx));
+    void ctx.blockConcurrencyWhile(async () => {
+      await withRevalidateToken(this, env);
+      await restartIfConfigChanged(this, ctx);
+    });
   }
+}
+
+/** Adds REVALIDATE_TOKEN to a container's environment (async: it may be derived with Web Crypto). */
+async function withRevalidateToken(container: Container<Env>, env: Env): Promise<void> {
+  const token = await revalidateToken(env);
+  if (token) container.envVars = { ...container.envVars, REVALIDATE_TOKEN: token };
 }
 
 export class WebContainer extends Container<Env> {
@@ -161,7 +181,32 @@ export class WebContainer extends Container<Env> {
       API_INTERNAL_URL: `https://${env.ACADEMY_HOSTNAME}`,
       ...optional({ ACADEMY_RELEASE: env.ACADEMY_RELEASE }),
     };
-    void ctx.blockConcurrencyWhile(() => restartIfConfigChanged(this, ctx));
+    void ctx.blockConcurrencyWhile(async () => {
+      await withRevalidateToken(this, env);
+      await restartIfConfigChanged(this, ctx);
+    });
+  }
+
+  /**
+   * Revalidates this container's pages if it is running (RPC from the Worker). A sleeping one
+   * is left asleep: it starts from its image with nothing cached. Talks to the port directly,
+   * so it neither starts the container nor counts as activity that keeps it awake.
+   */
+  async revalidate(token: string): Promise<string> {
+    const running = this.ctx.container;
+    if (!running?.running) return 'asleep';
+    try {
+      const res = await running.getTcpPort(this.defaultPort).fetch(WEB_REVALIDATE_URL, {
+        method: 'POST',
+        headers: { [REVALIDATE_HEADER]: token },
+        signal: AbortSignal.timeout(10_000),
+      });
+      await res.body?.cancel();
+      return String(res.status);
+    } catch (err) {
+      // Still starting (it will render fresh anyway), or stuck: its pages catch up within 60 s.
+      return `unreachable (${(err as Error).name})`;
+    }
   }
 }
 
@@ -233,18 +278,21 @@ async function throughEdgeCache(
   const key = new Request(request.url, { method: 'GET' });
   const hit = await cache.match(key);
   if (hit) {
-    return withHeaders(
+    const out = withHeaders(
       hit,
       { 'x-edge-cache': 'HIT', 'cache-control': browserCacheControl(kind, hit.headers.get('cache-control')) },
       { 'set-cookie': kind === 'page' ? localeCookie(request) : null },
     );
+    // The purge tag is for Cloudflare, not for visitors.
+    out.headers.delete('cache-tag');
+    return out;
   }
 
   const response = await origin(kind);
   const cacheControl = storableCacheControl(kind, response);
   if (!cacheControl) return withHeaders(response, { 'x-edge-cache': 'MISS' });
   // Stored without Set-Cookie; the visitor still gets the response as the container sent it.
-  const stored = storedCopy(response.clone(), cacheControl);
+  const stored = storedCopy(response.clone(), cacheControl, kind);
   ctx.waitUntil(cache.put(key, stored));
   return withHeaders(response, { 'x-edge-cache': 'MISS', 'cache-control': browserCacheControl(kind, response.headers.get('cache-control')) });
 }
@@ -269,6 +317,41 @@ async function jobsTick(env: Env): Promise<Response> {
   return response;
 }
 
+/**
+ * POST /_internal/revalidate from the API after an admin edit (revalidate.ts): every running web
+ * container drops its cached pages, then the edge copies are purged, in that order (purging
+ * first could let a visitor put a page from a not-yet-revalidated container back at the edge).
+ */
+async function revalidateSite(request: Request, env: Env): Promise<Response> {
+  const token = await revalidateToken(env);
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { allow: 'POST' } });
+  if (!token || !tokenMatches(request.headers.get(REVALIDATE_HEADER), token)) return new Response('Forbidden', { status: 403 });
+  const count = webInstanceCount(env.WEB_INSTANCES);
+  const web: Record<string, string> = {};
+  await Promise.all(
+    Array.from({ length: count }, async (_, i) => {
+      const name = webInstanceName(i);
+      web[name] = await env.WEB.getByName(name)
+        .revalidate(token)
+        .catch((err: unknown) => `failed (${(err as Error).name})`);
+    }),
+  );
+  let edge = 'not configured: edge copies expire within 30 s';
+  const purge = purgeRequest(env, EDGE_TAG);
+  if (purge) {
+    try {
+      const res = await fetch(purge);
+      edge = res.ok ? 'purged' : `purge failed (${res.status})`;
+      await res.body?.cancel();
+    } catch (err) {
+      edge = `purge failed (${(err as Error).name})`;
+    }
+  }
+  const failed = Object.values(web).some((s) => s !== '200' && s !== 'asleep') || edge.startsWith('purge failed');
+  if (failed) console.warn(`revalidate: ${JSON.stringify({ web, edge })}`);
+  return Response.json({ web, edge }, { headers: { 'cache-control': 'no-store' } });
+}
+
 /** Routes one request. Non-production deployments are kept out of search engines in fetch() below. */
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -283,6 +366,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     const permanent = request.method === 'GET' || request.method === 'HEAD' ? 301 : 308;
     return Response.redirect(url.toString(), permanent);
   }
+  if (isRevalidateRequest(request)) return revalidateSite(request, env);
   const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
   if (isApi && url.pathname.startsWith('/api/internal/')) {
     // Internal endpoints are only reachable from the cron handler below. Same body as the API's own 404.

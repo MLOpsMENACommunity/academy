@@ -61,6 +61,9 @@ services:
       ALLOW_INSECURE_PRODUCTION: 'true'
       RUN_MIGRATIONS: 'true'
       RUN_SEED: 'true'
+      # Admin edits re-render the public pages at once (apps/api/src/common/revalidate.ts).
+      REVALIDATE_URL: http://web:3000/api/internal/revalidate
+      REVALIDATE_TOKEN: local-compose-revalidate-not-for-production-0123
     # Healthy once the API answers and the background seed is over (it runs after the API
     # listens, see apps/api/docker-entrypoint.sh), so `up --wait` and the tests see seeded data.
     healthcheck:
@@ -84,6 +87,7 @@ services:
         NEXT_PUBLIC_SITE_URL: http://localhost:3000
     environment:
       API_INTERNAL_URL: http://api:4000
+      REVALIDATE_TOKEN: local-compose-revalidate-not-for-production-0123
     depends_on: [api]
     ports: ['127.0.0.1:3000:3000']
 
