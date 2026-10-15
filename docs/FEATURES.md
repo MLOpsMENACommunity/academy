@@ -276,6 +276,8 @@ community (with consent).
 - **Delete my account:** needs the password (or a recent Google sign-in) and typing to confirm.
   Sign-in is blocked immediately, sessions are revoked, upcoming live-session seats, waiting lists,
   leaderboard opt-ins and unused invites are removed, speaker bookings released (the team is told).
+  Open applications are withdrawn (their seats go back to the course; a payment under review is
+  closed and finance is told).
   Personal data is **anonymised 30 days later**. Payment and application records stay (anonymised) for
   accounting; certificates keep the serial but lose the name. The last super admin can't delete their
   account.
@@ -308,6 +310,13 @@ copy of the profile is saved with the application. If the course needs no approv
 enrols at once and a paid one goes straight to payment, unless capacity is full (then waitlisted).
 Emails: "application received" and every status change (`applicationStatus`). The student follows
 progress on the dashboard and `/dashboard/applications/<id>` (timeline, answers, next step).
+When a course is full, the course page and the form say so before applying ("Join the waitlist" for
+courses without approval). The course page's **Apply** button closes by itself at the deadline.
+
+**Withdrawing:** on `/dashboard/applications/<id>`, **Withdraw application** (confirmation) frees the
+seat. Allowed before enrolment, except while a payment is under review (the student contacts the team,
+see the refund policy); enrolled students go through the team. Applying again reopens the same
+application. Deleting an account withdraws its open applications too (see 3.6).
 
 ### 4.2 Application statuses
 
@@ -321,8 +330,10 @@ progress on the dashboard and `/dashboard/applications/<id>` (timeline, answers,
 | Payment rejected | Proof refused, with a reason | Student resubmits, or reject |
 | Enrolled | In the course: learn page, calendar, reminders | — |
 | Rejected | Not admitted, with a reason | — |
+| Withdrawn | The student withdrew (or deleted their account) | Apply again; or Enrol by email |
 
-Seats are held by Shortlisted, Awaiting payment, Payment submitted, Payment rejected and Enrolled.
+Seats are held by Shortlisted, Awaiting payment, Payment submitted, Payment rejected and Enrolled
+(accounts pending deletion hold none).
 
 ### 4.3 Reviewing applications (admin)
 
@@ -354,7 +365,13 @@ the retention period (Settings, default 180 days); the student is told and can u
 3. Admin → Payments (FINANCE): pending proofs with flags for **duplicate reference**, **duplicate
    screenshot** and **amount mismatch**. Open the screenshot (5-minute link, audited), check the real
    transaction history, tick **"I verified it in the transaction history"** (required) and **Approve**
-   → Enrolled, or **Reject** with a reason → the student can resubmit.
+   → Enrolled (email: "your seat is confirmed"), or **Reject** with a reason → the student can
+   resubmit. The queue pages through pending, approved and rejected payments, and each payment links to
+   its application (for ADMISSIONS).
+4. Amount, reference and phone accept digits typed on an Arabic keyboard (١٥٠٠ is read as 1500).
+5. If the student deletes their account while a payment is under review, it is closed ("Closed: the
+   student deleted their account") and FINANCE gets a notification (refund if the money arrived); a
+   deleted account's payment can't be approved.
 
 Card payments (Paymob) are not built (see ROADMAP.md). Screenshots are deleted after the retention
 period; payment records stay.
@@ -401,7 +418,8 @@ The list shows status, who invited, last emailed; **Resend** (once a minute, at 
   email when the course opens. Leaving still works without signing in.
 - **Admin** (ADMISSIONS): Admin → Courses → course → **Waiting list**: entries, CSV export, remove an
   entry, and **Notify everyone** with a message when the course opens (in-app notification for
-  accounts, `waitlistOpen` email on the bulk lane; each person is told once).
+  accounts, `waitlistOpen` email on the bulk lane; each person is told once). Notifying is refused
+  unless applications are actually open (status Open, opening date reached, deadline not passed).
 
 ---
 
