@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, type CallHandler, type ExecutionContext, type NestInterceptor } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type CallHandler, type ExecutionContext, type NestInterceptor } from '@nestjs/common';
 import { catalogQuerySchema, recordingsQuerySchema } from '@academy/shared';
 import type { Request, Response } from 'express';
 import { from, lastValueFrom, tap, type Observable } from 'rxjs';
@@ -6,6 +6,7 @@ import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE } from '../auth/cookies';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import type { AuthedRequest } from './decorators';
+import { PublicRevalidator } from './revalidate';
 
 /**
  * Caching of the public, read-only catalog API (courses, live sessions, speakers, recordings).
@@ -23,8 +24,11 @@ import type { AuthedRequest } from './decorators';
  *   - A response that holds a personal field (PERSONAL_KEYS) is never cached or marked public,
  *     whatever the route list says: defence in depth against a future controller change.
  *   - Any successful admin write (or internal job tick), and any registration change for a live
- *     session (seat counts), clears the in-process cache, so admins see their edits at once; the
- *     edge copy (at most 60 s old) catches up by itself.
+ *     session (seat counts), clears the in-process cache at once. Admin writes, and the few
+ *     non-admin writes that change what public pages show (REVALIDATING_WRITES), also ask the
+ *     site to revalidate its pages and purge the edge (common/revalidate.ts), so the change is
+ *     on the public pages within seconds; seat counts and job results follow the pages' own
+ *     60 s revalidation instead (frequent, and not worth re-rendering every page for).
  *   - The in-process key is the path plus only the query parameters the handler reads (from its
  *     schema), so random query strings can't bypass it or evict the real entries.
  */
@@ -52,6 +56,22 @@ export const PUBLIC_CACHE_ROUTES: ReadonlyMap<string, readonly string[]> = new M
  * releases their bookings) can cancel a published session.
  */
 const PUBLIC_DATA_WRITES = /^\/api\/(events\/[^/]+\/registration|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
+
+/**
+ * Non-admin writes that change what public pages show, besides admin ones (any /api/admin/*
+ * write, or any write by an ADMIN): a speaker editing a lesson's materials (its description
+ * and public recording), a speaker's application (it can update their linked public profile),
+ * a speaker cancelling a booking (it can cancel a published session), an account deletion
+ * (releases bookings, unlinks a speaker profile).
+ */
+export const REVALIDATING_WRITES =
+  /^\/api\/(speaker\/courses\/[^/]+\/sessions\/[^/]+\/materials|speaker\/application|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
+
+/** Whether a successful write should revalidate the public pages (not just clear this cache). */
+export function revalidatesPublicPages(req: { method: string; path: string; user?: { role?: string } | null }): boolean {
+  if (!MUTATING.has(req.method)) return false;
+  return req.user?.role === 'ADMIN' || req.path.startsWith('/api/admin/') || REVALIDATING_WRITES.test(req.path);
+}
 
 /** Cache key: the path plus only the allowed query parameters, sorted. */
 export function cacheKey(originalUrl: string, allowed: readonly string[]): string {
@@ -146,7 +166,10 @@ export class PublicCache {
 export class PublicCacheInterceptor implements NestInterceptor {
   private readonly logger = new Logger('PublicCache');
 
-  constructor(private readonly cache: PublicCache) {}
+  constructor(
+    private readonly cache: PublicCache,
+    @Optional() private readonly revalidator?: PublicRevalidator,
+  ) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (ctx.getType() !== 'http') return next.handle();
@@ -157,7 +180,15 @@ export class PublicCacheInterceptor implements NestInterceptor {
       // Admin edits (and the job tick, which publishes/ends things) make cached catalog reads stale.
       const changesPublicData =
         req.user?.role === 'ADMIN' || req.path.startsWith('/api/admin/') || req.path.startsWith('/api/internal/') || PUBLIC_DATA_WRITES.test(req.path);
-      return changesPublicData ? next.handle().pipe(tap(() => this.cache.clear())) : next.handle();
+      const revalidate = revalidatesPublicPages(req);
+      if (!changesPublicData && !revalidate) return next.handle();
+      return next.handle().pipe(
+        tap(() => {
+          // Cleared first: the pages the revalidation re-renders must read the new data.
+          this.cache.clear();
+          if (revalidate) this.revalidator?.changed();
+        }),
+      );
     }
 
     const route = routeOf(req);

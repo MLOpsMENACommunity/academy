@@ -7,11 +7,14 @@ import {
   eventEnded,
   generateSlotTimes,
   googleCalendarLink,
+  hasAdminPermission,
   MAX_GENERATED_SLOTS,
+  PUBLIC_COURSE_STATUSES,
   readSpeakerDetails,
   slugify,
   speakerKindLabels,
   type SpeakerKind,
+  type AdminPermission,
   type AdminSlotDto,
   type AdminSpeakerApplicationDto,
   type CourseDraftResultDto,
@@ -155,7 +158,16 @@ export class SpeakerPortalService {
           email: true,
           locale: true,
           speakerApplication: true,
-          speakerProfile: { select: { slug: true, events: { where: { status: 'PUBLISHED' }, select: { id: true }, take: 1 } } },
+          // The same rule as the public page (ArchiveService.publicSpeaker): a session they speak at,
+          // host or guest (published or cancelled), or a public course they teach.
+          speakerProfile: {
+            select: {
+              slug: true,
+              events: { where: { status: { in: ['PUBLISHED', 'CANCELLED'] } }, select: { id: true }, take: 1 },
+              coSpeaking: { where: { event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } }, select: { eventId: true }, take: 1 },
+              courses: { where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } }, select: { courseId: true }, take: 1 },
+            },
+          },
         },
       }),
       this.settings.get(),
@@ -170,7 +182,7 @@ export class SpeakerPortalService {
     const profile = user.speakerProfile;
     return {
       application: user.speakerApplication ? toApplicationDto(user.speakerApplication, user.email) : null,
-      speakerPageSlug: profile?.slug && profile.events.length ? profile.slug : null,
+      speakerPageSlug: profile?.slug && (profile.events.length || profile.coSpeaking.length || profile.courses.length) ? profile.slug : null,
       bookings: slots.map((s) => this.toBookingDto(s, settings.speakerCancelDays, locale, now)),
       rules: { maxOpenBookings: settings.speakerMaxOpenBookings, cancelDays: settings.speakerCancelDays },
     };
@@ -468,14 +480,19 @@ export class SpeakerPortalService {
       when: formatWhen(slot.startsAt, 'en'),
       url: this.email.url('en', link),
     });
-    await this.notifications.notifyAdmins({
-      type: 'speaker_booking',
-      titleEn: made.course ? 'New course from a speaker: a draft course is ready' : 'New speaker booking',
-      titleAr: made.course ? 'دورة جديدة من متحدث: مسودة الدورة جاهزة' : 'حجز جديد من متحدث',
-      bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
-      bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
-      link,
-    }, ['SPEAKERS']);
+    // The academic team prepares and publishes the draft; the speakers team follows the booking.
+    // Each admin gets a page they can open: the draft, or Availability.
+    await this.notifications.notifyAdminsWithLink(
+      {
+        type: 'speaker_booking',
+        titleEn: made.course ? 'New course from a speaker: a draft course is ready' : 'New speaker booking',
+        titleAr: made.course ? 'دورة جديدة من متحدث: مسودة الدورة جاهزة' : 'حجز جديد من متحدث',
+        bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
+        bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
+      },
+      ['SPEAKERS', 'ACADEMIC'],
+      (perms) => (canAdmin(perms, ['ACADEMIC']) ? link : AVAILABILITY),
+    );
   }
 
   /**
@@ -633,11 +650,11 @@ export class SpeakerPortalService {
     slotId: string,
     actorId: string | null,
     action: string,
-    check: (locked: { bookedById: string | null; startsAt: Date }, event: LiveEvent | null) => void,
+    check: (locked: { bookedById: string | null; startsAt: Date; durationMin: number }, event: LiveEvent | null) => void,
   ): Promise<Released> {
     return this.prisma.$transaction(async (tx) => {
-      const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; eventId: string | null; courseId: string | null }[]>`
-        SELECT status::text AS status, "bookedById", "startsAt", "eventId", "courseId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
+      const [locked] = await tx.$queryRaw<{ status: string; bookedById: string | null; startsAt: Date; durationMin: number; eventId: string | null; courseId: string | null }[]>`
+        SELECT status::text AS status, "bookedById", "startsAt", "durationMin", "eventId", "courseId" FROM "SpeakingSlot" WHERE id = ${slotId} FOR UPDATE`;
       if (!locked || locked.status !== 'BOOKED') throw new NotFoundException('Booking not found');
       const event = locked.eventId ? await tx.liveEvent.findUnique({ where: { id: locked.eventId } }) : null;
       const course = locked.courseId
@@ -690,14 +707,18 @@ export class SpeakerPortalService {
       when: formatWhen(r.slot.startsAt, 'en'),
       url: this.email.url('en', kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability'),
     });
-    await this.notifications.notifyAdmins({
-      type: 'speaker_booking_cancelled',
-      titleEn: 'A speaker booking was cancelled',
-      titleAr: 'أُلغي حجز متحدث',
-      bodyEn: kept ? `${name}: ${title}. ${keptNote}` : `${name}: ${title}`,
-      bodyAr: kept ? `${name}: ${title}. الدورة منشورة بالفعل، فبقيت كما هي: راجعها في الدورات.` : `${name}: ${title}`,
-      link: kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability',
-    }, ['SPEAKERS']);
+    await this.notifications.notifyAdminsWithLink(
+      {
+        type: 'speaker_booking_cancelled',
+        titleEn: 'A speaker booking was cancelled',
+        titleAr: 'أُلغي حجز متحدث',
+        bodyEn: kept ? `${name}: ${title}. ${keptNote}` : `${name}: ${title}`,
+        bodyAr: kept ? `${name}: ${title}. الدورة منشورة بالفعل، فبقيت كما هي: راجعها في الدورات.` : `${name}: ${title}`,
+      },
+      ['SPEAKERS', 'ACADEMIC'],
+      (perms) =>
+        kept && canAdmin(perms, ['ACADEMIC']) ? `/admin/courses/${kept.id}` : canAdmin(perms, ['SPEAKERS']) ? AVAILABILITY : kept ? `/admin/courses/${kept.id}` : '/admin/sessions',
+    );
   }
 
   /** The speaker cancels until N days before: the slot opens again and the session goes. */
@@ -715,9 +736,17 @@ export class SpeakerPortalService {
     await this.afterRelease(r);
   }
 
-  /** The team frees a booked slot at any time (speaker unavailable, session moved or deleted). */
-  async adminRelease(slotId: string, actorId: string): Promise<void> {
-    const r = await this.release(slotId, actorId, 'speaking_slot.released_by_admin', () => undefined);
+  /**
+   * The team frees a booked slot until its session ends (speaker unavailable, session moved).
+   * Never after: the session took place, and releasing it would cancel it, tell every registrant
+   * it was called off and take its recording out of the archive.
+   */
+  async adminRelease(slotId: string, actorId: string, now = new Date()): Promise<void> {
+    const r = await this.release(slotId, actorId, 'speaking_slot.released_by_admin', (locked, event) => {
+      if (eventEnded(event?.startsAt ?? locked.startsAt, event?.durationMin ?? locked.durationMin, now)) {
+        throw new ConflictException({ code: 'BOOKING_ENDED', message: 'This session has already taken place, so its booking stays as it is.' });
+      }
+    });
     await this.afterRelease(r);
   }
 
@@ -735,7 +764,8 @@ export class SpeakerPortalService {
         url,
         start: s.event?.startsAt ?? s.startsAt,
         durationMin: s.event?.durationMin ?? s.durationMin,
-        updatedAt: s.updatedAt,
+        // The later of the two: the team moving the session (or cancelling it) must update the calendar.
+        updatedAt: s.event && s.event.updatedAt > s.updatedAt ? s.event.updatedAt : s.updatedAt,
         cancelled: s.event?.status === 'CANCELLED',
       },
     ]);
@@ -1007,6 +1037,13 @@ export class SpeakerPortalService {
     if (released) this.logger.log(`Released ${released} speaker booking(s) of a deleted account`);
     return released;
   }
+}
+
+const AVAILABILITY = '/admin/speakers/availability';
+
+/** Whether an admin with these presets may open pages of `allowed` (SUPER always may). */
+function canAdmin(adminPermissions: AdminPermission[], allowed: AdminPermission[]): boolean {
+  return hasAdminPermission({ role: 'ADMIN', adminPermissions }, allowed);
 }
 
 /** A draft the team published (or changed) while this request ran: nothing was changed. */

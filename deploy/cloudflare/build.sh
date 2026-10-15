@@ -23,6 +23,7 @@
 # Build variables it reads (Worker → Settings → Build → Variables and secrets):
 #   ACADEMY_ENVIRONMENT     required, must equal the target (staging | production)
 #   ACADEMY_HOSTNAME, ACADEMY_REDIRECT_HOSTS, SENTRY_ENVIRONMENT    optional, as before
+#   EDGE_PURGE_ZONE_ID      optional: purge the edge cache after admin edits (configure-host.mjs)
 #   EMAIL_ALLOWLIST, EMAIL_REDIRECT_TO                              optional, staging only
 # Workers Builds provides WORKERS_CI, WORKERS_CI_BRANCH, WORKERS_CI_COMMIT_SHA, the API token
 # and the account. Outside Workers Builds, set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.

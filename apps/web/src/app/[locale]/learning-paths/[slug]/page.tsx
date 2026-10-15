@@ -19,7 +19,7 @@ import { absoluteUrl } from '@/lib/site';
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
 // Static (ISR): the same HTML for everyone. A signed-in student's progress is added in the browser.
-export const revalidate = 300;
+export const revalidate = 60;
 // true, like every ISR page here: build-time renders are dropped (scripts/drop-isr-prerenders.mjs),
 // so each path renders on its first request. Unknown slugs get notFound() below.
 export const dynamicParams = true;
@@ -56,8 +56,8 @@ export default async function LearningPathPage({ params }: Props) {
   const t = createTranslator(locale);
   // serverGet: an API failure fails the render (Next keeps the last good copy) instead of caching a path with no steps.
   const [courses, recordings] = await Promise.all([
-    serverGet<CourseSummaryDto[]>('/courses', 300).then((c) => c ?? []),
-    serverGet<RecordingsDto>('/recordings', 300).then((r) => r?.items ?? []),
+    serverGet<CourseSummaryDto[]>('/courses').then((c) => c ?? []),
+    serverGet<RecordingsDto>('/recordings').then((r) => r?.items ?? []),
   ]);
   const steps = resolveSteps(path, courses, recordings, locale);
   const courseSlugs = steps.filter((s) => s.kind === 'course').map((s) => s.slug);

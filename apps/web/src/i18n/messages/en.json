@@ -170,7 +170,11 @@
       "EMAIL_UNVERIFIED": "This account hasn't confirmed its email address yet. Ask them to confirm it, then add them again.",
       "POINTS_CAP": "That is over the points limit for speakers. Ask an admin for bigger changes.",
       "AUTOMATIC_ENTRY": "Automatic points change with their source. Add a correction instead.",
-      "ENTRY_VOIDED": "This entry was already removed or changed. Reload to see the latest."
+      "ENTRY_VOIDED": "This entry was already removed or changed. Reload to see the latest.",
+      "BOOKING_ENDED": "This session has already taken place, so its booking stays as it is.",
+      "EVENT_UNPUBLISH_HAS_REGISTRATIONS": "People registered for this session. Set its status to Cancelled instead: they will be told by email.",
+      "EVENT_FROM_BOOKING": "This session was made from a speaker's booking. Release the booking in Speakers → Availability instead: the speaker and the team are told.",
+      "SPEAKER_HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",

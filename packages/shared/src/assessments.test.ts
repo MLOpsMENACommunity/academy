@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  QUIZ_GRACE_SECONDS,
   answersRevealed,
   assessmentInputSchema,
   assessmentOrderSchema,
@@ -105,6 +106,13 @@ describe('reveal rules', () => {
     expect(answersRevealed({ ...r, dueAt: new Date('2026-11-11T00:00:00Z') })).toBe(false);
     expect(answersRevealed({ ...r, dueAt: new Date('2026-11-09T00:00:00Z') })).toBe(true);
     expect(answersRevealed({ ...r, dueAt: new Date('2026-11-09T00:00:00Z'), submitted: 0 })).toBe(false);
+  });
+
+  it('AFTER_DUE keeps the key hidden through the grace period, while attempts opened before the due date can still be submitted', () => {
+    const r = { ...base, revealAnswers: 'AFTER_DUE' as const, now };
+    expect(answersRevealed({ ...r, dueAt: new Date(now.getTime() - 1000) })).toBe(false);
+    expect(answersRevealed({ ...r, dueAt: new Date(now.getTime() - QUIZ_GRACE_SECONDS * 1000) })).toBe(false);
+    expect(answersRevealed({ ...r, dueAt: new Date(now.getTime() - QUIZ_GRACE_SECONDS * 1000 - 1) })).toBe(true);
   });
 
   it('closes a quiz once answers are out after the due date', () => {

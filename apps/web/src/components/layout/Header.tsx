@@ -21,7 +21,7 @@ import { UserNav } from './UserNav';
  */
 export async function Header({ locale }: { locale: Locale }) {
   const t = createTranslator(locale);
-  const courses = await serverGetOr<CourseSummaryDto[] | null>('/courses', null, 300);
+  const courses = await serverGetOr<CourseSummaryDto[] | null>('/courses', null);
   const data = buildMenuData(
     courses,
     locale,

@@ -30,7 +30,7 @@ export class AdminTeamController {
     return this.team.update(id, body.permissions, user.id);
   }
 
-  /** Back to a student account. */
+  /** Back to the account they had (a speaker keeps the speaker portal, anyone else becomes a student). */
   @Post(':id/remove')
   @HttpCode(200)
   async remove(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<{ ok: true }> {

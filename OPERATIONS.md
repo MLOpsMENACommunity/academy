@@ -163,7 +163,9 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 | `JWT_ACCESS_SECRET` | Access tokens become invalid; sessions renew silently via the refresh cookie. **Every private calendar link is revoked at once** (feed tokens are derived from this secret and checked on each request): subscriptions return 404 and stop updating. Students see their new link the next time they open the calendar menu or Profile → Account, and must add it to their calendar again. Tell enrolled students when you rotate | New value in GitHub env → redeploy |
 | `RESEND_API_KEY` | None, if the new key is set before the old one is revoked | Create a new key in Resend → GitHub env → redeploy → revoke the old one |
 | R2 keys (`S3_*`) | None, as above | New R2 API token → GitHub env → redeploy → delete the old token |
-| `JOBS_TOKEN` | None | GitHub env → redeploy (the Worker and the API read the same value) |
+| `JOBS_TOKEN` | None. Unless `REVALIDATE_TOKEN` is set, the revalidation token derived from it changes too, and the containers restart with the new one | GitHub env → redeploy (the Worker and the API read the same value) |
+| `REVALIDATE_TOKEN` (optional) | None: the Worker hands the new value to both containers, which restart | GitHub env → redeploy |
+| `EDGE_PURGE_API_TOKEN` (optional) | None, if the new token is set before the old one is revoked. Without a working token, admin edits take up to 30 s at the edge instead of seconds | New Cloudflare API token (Zone → Cache Purge on the academy's zone) → GitHub env → redeploy → delete the old token |
 | `BACKUP_PASSPHRASE` | Only new dumps use it | **Keep the old passphrase** until every dump encrypted with it has aged out |
 | Admin password | — | Sign in → Profile → Account → change password |
 

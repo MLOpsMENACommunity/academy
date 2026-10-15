@@ -33,6 +33,23 @@ export class NotificationsService {
     return admins;
   }
 
+  /**
+   * Like notifyAdmins, but each admin's link depends on their presets: a page they can open
+   * (an admin page outside their presets would only answer 403).
+   */
+  async notifyAdminsWithLink(
+    n: Omit<NotificationInput, 'link'>,
+    permissions: AdminPermission[],
+    linkFor: (adminPermissions: AdminPermission[]) => string,
+  ): Promise<number> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN', deletedAt: null, adminPermissions: { hasSome: ['SUPER', ...permissions] } },
+      select: { id: true, adminPermissions: true },
+    });
+    await this.prisma.notification.createMany({ data: admins.map((a) => ({ userId: a.id, ...n, link: linkFor(a.adminPermissions) })) });
+    return admins.length;
+  }
+
   async list(userId: string): Promise<{ items: Notification[]; unread: number }> {
     const [items, unread] = await Promise.all([
       this.prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 30 }),
