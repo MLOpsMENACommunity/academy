@@ -79,7 +79,9 @@ describe('auth & profile (e2e)', () => {
     await http().post('/api/auth/verify-email').send({ token }).expect(401);
     const res = await http().post('/api/auth/verify-email').set('Cookie', cookies).send({ token }).expect(200);
     expect(res.body.returnTo).toBe('/ar/courses/kubernetes');
-    await http().post('/api/auth/verify-email').set('Cookie', cookies).send({ token }).expect(400);
+    // Clicking it again once verified is not an error (ACC-07); nobody else can use it.
+    const again = await http().post('/api/auth/verify-email').set('Cookie', cookies).send({ token }).expect(200);
+    expect(again.body.returnTo).toBe('/ar/courses/kubernetes');
     const me = await http().get('/api/auth/me').set('Cookie', cookies).expect(200);
     expect(me.body.emailVerified).toBe(true);
   });

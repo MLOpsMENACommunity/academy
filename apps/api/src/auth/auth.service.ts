@@ -45,6 +45,9 @@ export class AuthService {
     // Deliberate trade-off: telling people their email already has an account is
     // worth more to students than hiding it. Login and reset don't reveal it.
     const existing = await this.prisma.user.findUnique({ where: { email: input.email } });
+    // A deleted account keeps its address until it is anonymised (up to 30 days): "try logging
+    // in" would be a dead end (sign-in and reset refuse it), so say what is going on.
+    if (existing?.deletedAt) throw new ConflictException({ code: 'ACCOUNT_DELETED', message: 'This address belongs to an account that was deleted. It can be used again once that account is removed, within 30 days.' });
     if (existing) throw new ConflictException({ code: 'EMAIL_TAKEN', message: 'An account with this email already exists' });
 
     const user = await this.prisma.user.create({
@@ -97,7 +100,7 @@ export class AuthService {
     if (!g.emailVerified) throw new UnauthorizedException('Google email is not verified');
     const byGoogle = await this.prisma.user.findUnique({ where: { googleId: g.sub } });
     if (byGoogle) {
-      if (byGoogle.deletedAt) throw new UnauthorizedException('Account deleted');
+      if (byGoogle.deletedAt) throw new UnauthorizedException({ code: 'ACCOUNT_DELETED', message: 'Account deleted' });
       const user = await this.touch(byGoogle.id);
       void this.invites.claimFor(user.id); // not awaited: see login()
       void this.waitlist.claimGuestEntries(user.id);
@@ -105,7 +108,7 @@ export class AuthService {
     }
     const byEmail = await this.prisma.user.findUnique({ where: { email: g.email } });
     if (byEmail) {
-      if (byEmail.deletedAt) throw new UnauthorizedException('Account deleted');
+      if (byEmail.deletedAt) throw new UnauthorizedException({ code: 'ACCOUNT_DELETED', message: 'Account deleted' });
       const wasVerified = Boolean(byEmail.emailVerifiedAt);
       let staleCvKey: string | null = null;
       // Google has proven who owns this inbox. If the account was never verified,
@@ -203,7 +206,15 @@ export class AuthService {
       where: { tokenHash: sha256(token) },
       include: { user: true },
     });
-    if (!record || record.usedAt || record.expiresAt < new Date() || record.user.deletedAt) {
+    if (!record || record.expiresAt < new Date() || record.user.deletedAt) {
+      throw new BadRequestException({ code: 'TOKEN_INVALID', message: 'This link is invalid or has expired' });
+    }
+    if (record.usedAt) {
+      // Clicking the link again (a second tab, the email opened twice) is not an error once the
+      // address is verified: same answer as the first time, nothing changes.
+      if (record.userId === sessionUserId && record.user.emailVerifiedAt && record.email === record.user.email) {
+        return { returnTo: record.returnTo, user: record.user };
+      }
       throw new BadRequestException({ code: 'TOKEN_INVALID', message: 'This link is invalid or has expired' });
     }
     if (record.userId !== sessionUserId) {
