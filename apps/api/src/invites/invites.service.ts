@@ -226,6 +226,9 @@ export class InvitesService {
       return { rows, enrolled, invited };
     }, BATCH_TX);
 
+    // After the commit: the course pages' enrolled count and seats left (the admin route
+    // revalidates too; this also clears the cache for a batch that only enrolled).
+    if (enrolled.length) this.workflow.publicCountsChanged(null, 'ENROLLED');
     // After the commit: tell people. Never fails the request (sends are queued; errors logged).
     for (const e of enrolled) {
       await this.funnel.record({ id: courseId }, 'ENROLLED', { userId: e.userId });
@@ -367,6 +370,8 @@ export class InvitesService {
             return { claimed: true, enrolled };
           }, CLAIM_TX);
           if (res.enrolled) {
+            // Claimed at sign-in, not by an admin request: the course pages need telling.
+            this.workflow.publicCountsChanged(res.enrolled.from, 'ENROLLED');
             await this.funnel.record({ id: inv.courseId }, 'ENROLLED', { userId: user.id });
             await this.tellEnrolled(user.id, inv.courseId, true);
             slugs.push(inv.course.slug);

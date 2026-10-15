@@ -182,6 +182,13 @@ export interface CourseSummaryDto {
   availability: CourseAvailability;
   /** Null when the course has no capacity limit. */
   seatsRemaining: number | null;
+  /**
+   * Students enrolled (active enrolments of accounts that aren't deleted): only the number,
+   * never who. Null when the course hides it (Course.showEnrolledCount).
+   */
+  enrolledCount: number | null;
+  /** Seats still free, only while applications are open and the course has a capacity (0 = full); otherwise null. */
+  seatsLeft: number | null;
   instructorNames: string[];
   /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
   completed: boolean;

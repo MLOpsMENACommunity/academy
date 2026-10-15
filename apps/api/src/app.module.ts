@@ -13,8 +13,8 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
 import { ApiExceptionFilter } from './common/exception.filter';
-import { PublicCache, PublicCacheInterceptor } from './common/public-cache';
-import { PublicRevalidator } from './common/revalidate';
+import { PublicCacheInterceptor } from './common/public-cache';
+import { PublicDataModule } from './common/public-data';
 import { CalendarModule } from './calendar/calendar.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
@@ -46,6 +46,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     SentryModule.forRoot(),
     ConfigModule,
     PrismaModule,
+    PublicDataModule,
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     AuditModule,
@@ -88,9 +89,8 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
     // Public catalog reads: edge-cacheable headers for anonymous visitors, a short in-process
-    // cache, and invalidation on admin writes (common/public-cache.ts).
-    PublicCache,
-    PublicRevalidator,
+    // cache, and invalidation on admin writes (common/public-cache.ts; the cache and the
+    // revalidator come from PublicDataModule, so services can report other public changes).
     { provide: APP_INTERCEPTOR, useClass: PublicCacheInterceptor },
   ],
 })

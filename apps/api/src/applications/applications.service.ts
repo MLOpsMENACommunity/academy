@@ -162,6 +162,8 @@ export class ApplicationsService {
       throw err;
     }
 
+    // Instant enrolment (or a seat taken): the course pages show the new numbers within seconds.
+    this.workflow.publicCountsChanged(history.fromStatus, app.status);
     // Independent side effects, side by side; neither throws, and the email is only queued.
     await Promise.all([
       this.funnel.record({ id: course.id }, 'APPLICATION_SUBMITTED', { userId }),
