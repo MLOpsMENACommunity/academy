@@ -128,8 +128,9 @@ describe('feedback prompts and the email outbox (e2e)', () => {
     const u = await student('fb-window', { enrolledAt: new Date(Date.now() - 48 * HOUR) });
     const jobs = app.get(FeedbackPromptJobs);
     const end = s1.startsAt.getTime() + 90 * MIN;
-    expect(await jobs.run(new Date(end + 20 * MIN))).toBe(0);
-    expect(await jobs.run(new Date(end + 73 * HOUR))).toBe(0);
+    // (Other suites' sessions share the database: look at this session's rows only.)
+    await jobs.run(new Date(end + 20 * MIN));
+    await jobs.run(new Date(end + 73 * HOUR));
     expect(await rows(s1.id)).toHaveLength(0);
     await jobs.run(new Date(end + 71 * HOUR));
     expect((await rows(s1.id)).map((r) => r.userId)).toEqual([u.id]);
