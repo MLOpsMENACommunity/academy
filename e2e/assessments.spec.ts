@@ -1,6 +1,6 @@
 import { expect, request as playwrightRequest, test, type APIRequestContext } from '@playwright/test';
 import { writeXlsx } from '../packages/shared/src/xlsx';
-import { ADMIN, apiLogin, BASE, JSON_HEADERS, latestEmail, MAILPIT } from './support';
+import { ADMIN, apiLogin, BASE, JSON_HEADERS, latestEmail, MAILPIT, registerAccount } from './support';
 
 /**
  * Assessments: an admin builds a weighted quiz in the course editor, an enrolled
@@ -16,7 +16,7 @@ let courseId: string;
 
 /** Registers, confirms the email, completes the profile and enrols in the test course (all through the API). */
 async function enrolStudent(api: APIRequestContext, email: string, name: string): Promise<void> {
-  expect((await api.post('/api/auth/register', { headers: JSON_HEADERS, data: { email, password: student.password } })).ok()).toBeTruthy();
+  await registerAccount(api, { email, password: student.password });
   const html = await latestEmail(api, email);
   const token = /verify-email\?token=([^"&<\s]+)/.exec(html)?.[1];
   expect(token, 'verification token').toBeTruthy();
@@ -177,7 +177,7 @@ test('admin uploads questions from .xlsx and .csv, reorders, publishes; enrolled
   // An enrolled student (Arabic site) and an account that isn't enrolled.
   await enrolStudent(page.request, reader.email, 'Arabic Reader');
   const out = await playwrightRequest.newContext({ baseURL: BASE });
-  expect((await out.post('/api/auth/register', { headers: JSON_HEADERS, data: { email: outsider.email, password: student.password } })).ok()).toBeTruthy();
+  await registerAccount(out, { email: outsider.email, password: student.password });
 
   const adminContext = await browser.newContext();
   const ap = await adminContext.newPage();
