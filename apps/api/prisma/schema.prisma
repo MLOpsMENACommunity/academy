@@ -340,6 +340,9 @@ model User {
   assessmentReminders     AssessmentReminderLog[]
   pointsEntries           PointsEntry[]            @relation("PointsStudent")
   pointsAwarded           PointsEntry[]            @relation("PointsAwarder")
+  pointsVoided            PointsEntry[]            @relation("PointsVoider")
+  attendance              SessionAttendance[]      @relation("AttendanceStudent")
+  attendanceUploaded      SessionAttendance[]      @relation("AttendanceUploader")
   badges                  UserBadge[]              @relation("BadgeHolder")
   badgesAwarded           UserBadge[]              @relation("BadgeAwarder")
   leaderboardOptIns       LeaderboardOptIn[]
@@ -626,6 +629,12 @@ model Course {
   /// Optional wording of the rule shown to students (otherwise generated from the fields above).
   certRuleEn             String        @default("")
   certRuleAr             String        @default("")
+  /// Attendance from Google Meet: PRESENT at or above this share of a session (1–100).
+  attendancePresentPercent Int         @default(50)
+  /// Attendance points per session for each status.
+  attendancePresentPoints  Int         @default(10)
+  attendancePartialPoints  Int         @default(5)
+  attendanceAbsentPoints   Int         @default(0)
 
   instructors        CourseInstructor[]
   screeningQuestions ScreeningQuestion[]
@@ -703,6 +712,7 @@ model CourseSession {
   feedback    SessionFeedback[]
   reminders   ReminderLog[]
   assessments Assessment[]
+  attendance  SessionAttendance[]
 
   @@index([courseId, order])
   @@index([startsAt])
@@ -865,6 +875,43 @@ model SessionProgress {
   completedAt DateTime      @default(now())
 
   @@id([userId, sessionId])
+}
+
+/// Who attended a live session, from the Google Meet attendance file (or set by hand). One row
+/// per enrolled student per session; a new upload for the session replaces them. Points for it
+/// are in the ledger (sourceType "ATTENDANCE", sourceId = the session id).
+model SessionAttendance {
+  id           String           @id @default(cuid())
+  sessionId    String
+  session      CourseSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User             @relation("AttendanceStudent", fields: [userId], references: [id], onDelete: Cascade)
+  /// Minutes in the call (rows for the same person added up).
+  minutes      Int              @default(0)
+  /// Share of the session's duration, 0–100.
+  percent      Int              @default(0)
+  status       AttendanceStatus
+  source       AttendanceSource @default(CSV)
+  /// EMAIL, NAME (review it) or MANUAL (picked by the uploader); null when not in the file.
+  matchedBy    String?
+  uploadedById String?
+  uploadedBy   User?            @relation("AttendanceUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([sessionId, userId])
+  @@index([userId])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  PARTIAL
+  ABSENT
+}
+
+enum AttendanceSource {
+  CSV
+  MANUAL
 }
 
 model SessionFeedback {
@@ -1558,6 +1605,7 @@ enum PointsReason {
   MANUAL_COMMUNITY
   MANUAL_OTHER
   ADJUSTMENT
+  ATTENDANCE
 }
 
 enum BadgeKind {
@@ -1586,6 +1634,13 @@ model PointsEntry {
   awardedById String?
   awardedBy   User?        @relation("PointsAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())
+  /// Removed or replaced by an edit: kept for the record, never counted (totals, boards, sources).
+  voidedAt    DateTime?
+  voidedById  String?
+  voidedBy    User?        @relation("PointsVoider", fields: [voidedById], references: [id], onDelete: SetNull)
+  voidReason  String?
+  /// The entry this one replaced when it was edited.
+  replacesId  String?
 
   @@unique([userId, sourceType, sourceId, sourceSeq])
   @@index([userId, createdAt])

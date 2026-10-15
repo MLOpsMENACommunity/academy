@@ -51,7 +51,7 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const course = await this.access(user, slug);
-    const [sessions, progress, feedback, pref, profile, s, enrollment, announcements] = await Promise.all([
+    const [sessions, progress, feedback, pref, profile, s, enrollment, announcements, attendance] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
@@ -72,7 +72,10 @@ export class LearnService {
         take: 20,
         select: { id: true, createdAt: true, subjectEn: true, subjectAr: true, bodyEn: true, bodyAr: true, fromName: true, fromNameAr: true },
       }),
+      // Their own attendance only (from the Meet file or set by the team).
+      this.prisma.sessionAttendance.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true, status: true, minutes: true, percent: true } }),
     ]);
+    const attended = new Map(attendance.map((a) => [a.sessionId, { status: a.status, minutes: a.minutes, percent: a.percent }]));
     const done = new Set(progress.map((p) => p.sessionId));
     const fbBySession = new Map(feedback.filter((f) => f.sessionId).map((f) => [f.sessionId!, f]));
     const courseFb = feedback.find((f) => !f.sessionId) ?? null;
@@ -126,6 +129,7 @@ export class LearnService {
           materials: (x.materials as Material[] | null) ?? [],
           assignmentUrl: x.assignmentUrl,
           completed: done.has(x.id),
+          attendance: attended.get(x.id) ?? null,
           myFeedback: fb ? { rating: fb.rating, comment: fb.comment } : null,
         };
       }),

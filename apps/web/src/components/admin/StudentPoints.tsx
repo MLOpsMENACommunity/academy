@@ -1,10 +1,12 @@
 'use client';
 
 import { MANUAL_POINTS_REASONS, manualPointsSchema, type AdminStudentPointsDto, type BadgeDto, type ManualPointsReason } from '@academy/shared';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { SelectField, TextField } from '@/components/forms/fields';
 import { BadgeIcon, badgeName } from '@/components/points/BadgeIcon';
 import { entryText, signed } from '@/components/points/entry';
+import { PointsLedger } from '@/components/points/PointsLedger';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -29,6 +31,13 @@ export function StudentPoints({ studentId }: { studentId: string }) {
   const [done, setDone] = useState<string | null>(null);
   const [award, setAward] = useState({ badgeId: '', courseId: '', reason: '' });
   const [awardError, setAwardError] = useState<string | null>(null);
+  // From a course leaderboard: that course's entries first.
+  const [courseFilter, setCourseFilter] = useState(useSearchParams().get('course') ?? '');
+  const formRef = useRef<HTMLFormElement>(null);
+  const focusForm = () => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    formRef.current?.querySelector('input')?.focus({ preventScroll: true });
+  };
 
   const load = useCallback(() => {
     api<AdminStudentPointsDto>(`/admin/students/${studentId}/points`)
@@ -154,7 +163,7 @@ export function StudentPoints({ studentId }: { studentId: string }) {
         </Button>
       </form>
 
-      <form onSubmit={submit} className="mt-5 flex flex-col gap-3 rounded-xl bg-muted-bg p-4" noValidate aria-labelledby="award-points">
+      <form ref={formRef} onSubmit={submit} className="mt-5 flex flex-col gap-3 rounded-xl bg-muted-bg p-4" noValidate aria-labelledby="award-points">
         <h4 id="award-points" className="text-sm font-semibold">
           {a('awardPoints')}
         </h4>
@@ -180,26 +189,31 @@ export function StudentPoints({ studentId }: { studentId: string }) {
         </Button>
       </form>
 
-      <h3 className="mt-5 text-base">{a('history')}</h3>
-      {data.entries.length === 0 ? (
-        <p className="mt-1 text-sm text-muted">{t('admin.common.none')}</p>
-      ) : (
-        <ul className="mt-2 flex max-h-96 flex-col divide-y divide-line-soft overflow-y-auto text-sm">
-          {data.entries.map((e) => (
-            <li key={e.id} className="flex items-start justify-between gap-3 py-2">
-              <span className="min-w-0">
-                <span className="block text-fg">{entryText(e, locale, t)}</span>
-                <span className="block text-xs text-muted">
-                  {[formatDate(e.createdAt, locale), t(`points.reasons.${e.reason}`), e.awardedBy].filter(Boolean).join(' · ')}
-                </span>
-              </span>
-              <span className={`shrink-0 font-semibold tabular-nums ${e.points < 0 ? 'text-danger' : 'text-success'}`} dir="ltr">
-                {signed(e.points, locale)}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <h3 className="text-base">{a('history')}</h3>
+        <Button type="button" size="sm" variant="secondary" className="ms-auto" onClick={focusForm}>
+          + {t('pointsLedger.add')}
+        </Button>
+      </div>
+      {courseOptions.length > 0 && (
+        <div className="mt-2 max-w-sm">
+          <SelectField label={t('pointsLedger.filter')} value={courseFilter} onChange={(v) => setCourseFilter(v ?? '')} options={courseOptions} placeholder={t('pointsLedger.allCourses')} />
+        </div>
       )}
+      <div className="mt-2">
+        <PointsLedger
+          entries={courseFilter ? data.entries.filter((e) => data.enrolledCourses.find((c) => c.id === courseFilter)?.slug === e.course?.slug) : data.entries}
+          cap={data.cap}
+          url={(id) => `/admin/points/${id}`}
+          onChanged={load}
+          onOverride={(e) => {
+            const course = data.enrolledCourses.find((c) => c.slug === e.course?.slug);
+            setForm({ points: '', reason: 'ADJUSTMENT', courseId: course?.id ?? '', note: t('pointsLedger.overrideNote', { text: entryText(e, locale, t) }).slice(0, 500) });
+            setDone(null);
+            focusForm();
+          }}
+        />
+      </div>
     </Card>
   );
 }

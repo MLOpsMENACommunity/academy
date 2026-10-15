@@ -358,9 +358,20 @@ export type RepoCheck = (typeof REPO_CHECKS)[number];
 
 // ---------------------------------------------------------------- Points and badges
 
-export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT'] as const;
+export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT', 'ATTENDANCE'] as const;
 export const PointsReason = defineEnum(POINTS_REASONS);
 export type PointsReason = (typeof POINTS_REASONS)[number];
+
+// ---------------------------------------------------------------- Attendance
+
+export const ATTENDANCE_STATUSES = ['PRESENT', 'PARTIAL', 'ABSENT'] as const;
+export const AttendanceStatus = defineEnum(ATTENDANCE_STATUSES);
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+/** CSV: from an uploaded Meet attendance file; MANUAL: set by hand afterwards. */
+export const ATTENDANCE_SOURCES = ['CSV', 'MANUAL'] as const;
+export const AttendanceSource = defineEnum(ATTENDANCE_SOURCES);
+export type AttendanceSource = (typeof ATTENDANCE_SOURCES)[number];
 
 export const BADGE_KINDS = ['AUTO', 'MANUAL'] as const;
 export const BadgeKind = defineEnum(BADGE_KINDS);

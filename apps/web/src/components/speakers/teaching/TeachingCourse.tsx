@@ -14,12 +14,13 @@ import { Container } from '@/components/ui/Container';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
+import { AttendancePanel } from '@/components/attendance/AttendancePanel';
 import { SpeakerAnnouncements } from '../SpeakerAnnouncements';
 import { TeachingGradebook } from './TeachingGradebook';
 import { TeachingMaterials } from './TeachingMaterials';
 import { TeachingPoints } from './TeachingPoints';
 
-const TABS = ['assessments', 'gradebook', 'points', 'materials', 'announcements'] as const;
+const TABS = ['assessments', 'gradebook', 'points', 'attendance', 'materials', 'announcements'] as const;
 type Tab = (typeof TABS)[number];
 
 /** /speaker/courses/{id}: a speaker teaching an assigned course. */
@@ -128,6 +129,14 @@ function Course({ courseId }: { courseId: string }) {
         {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} endpoints={endpoints} previewSlug={course.slug} />}
         {tab === 'gradebook' && <TeachingGradebook courseId={course.id} endpoints={endpoints} />}
         {tab === 'points' && <TeachingPoints courseId={course.id} />}
+        {tab === 'attendance' && (
+          <AttendancePanel
+            base={`/speaker/courses/${course.id}`}
+            canEditSettings={false}
+            sessionId={search.get('session')}
+            onSession={(sid) => router.replace(`/${locale}/speaker/courses/${courseId}?tab=attendance${sid ? `&session=${encodeURIComponent(sid)}` : ''}`, { scroll: false })}
+          />
+        )}
         {tab === 'materials' && <TeachingMaterials courseId={course.id} sessions={course.sessions} onChange={updateSession} />}
         {tab === 'announcements' && <SpeakerAnnouncements courseId={course.id} />}
       </div>

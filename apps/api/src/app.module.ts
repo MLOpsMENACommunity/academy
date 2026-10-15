@@ -8,6 +8,7 @@ import { AdminTeamModule } from './admin-team/admin-team.module';
 import { ArchiveModule } from './archive/archive.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { ApplicationsModule } from './applications/applications.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
@@ -65,6 +66,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     LearnModule,
     AssessmentsModule,
     PointsModule,
+    AttendanceModule,
     CertificatesModule,
     EventsModule,
     SpeakerPortalModule,

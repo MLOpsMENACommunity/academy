@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
 import { Announcements } from '@/components/admin/Announcements';
+import { AttendancePanel } from '@/components/attendance/AttendancePanel';
 import { AssessmentsEditor } from '@/components/admin/AssessmentsEditor';
 import { CertificatesPanel } from '@/components/admin/CertificatesPanel';
 import { CourseApplications } from '@/components/admin/CourseApplications';
@@ -21,7 +22,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'applications', 'sessions', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
+const TABS = ['details', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
@@ -208,7 +209,7 @@ function CourseEditor() {
             onClick={() => go(k)}
             className={`min-h-10 border-b-2 px-3 text-sm font-semibold whitespace-nowrap ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'}`}
           >
-            {k === 'assessments' ? t('admin.assessments.tab') : k === 'leaderboard' ? t('admin.points.boardTab') : k === 'certificates' ? t('admin.certificates.tab') : t(`admin.courses.${k}`)}
+            {k === 'attendance' ? t('attendance.tab') : k === 'assessments' ? t('admin.assessments.tab') : k === 'leaderboard' ? t('admin.points.boardTab') : k === 'certificates' ? t('admin.certificates.tab') : t(`admin.courses.${k}`)}
             {k === 'sessions' && ` (${course.sessions.length})`}
             {k === 'questions' && ` (${course.questions.length})`}
             {k === 'waitlist' && waiting && ` (${waiting.count})`}
@@ -222,6 +223,14 @@ function CourseEditor() {
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
         {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} paid={course.type === 'PAID'} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}
+        {tab === 'attendance' && (
+          <AttendancePanel
+            base={`/admin/courses/${course.id}`}
+            canEditSettings={academic}
+            sessionId={search.get('session')}
+            onSession={(sid) => router.replace(`/${locale}/admin/courses/${id}?tab=attendance${sid ? `&session=${encodeURIComponent(sid)}` : ''}`, { scroll: false })}
+          />
+        )}
         {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} />}
         {tab === 'leaderboard' && <CourseLeaderboard courseId={course.id} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}

@@ -91,6 +91,11 @@ export function SessionCard({
           <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
             {total ? t('learn.sessionOf', { n: s.order, total }) : t('learn.session', { n: s.order })}
             <Badge tone={s.phase === 'live' ? 'danger' : s.phase === 'upcoming' ? 'info' : 'neutral'}>{t(`learn.${s.phase}`)}</Badge>
+            {s.attendance && (
+              <Badge tone={s.attendance.status === 'PRESENT' ? 'success' : s.attendance.status === 'PARTIAL' ? 'warning' : 'neutral'}>
+                {t(`attendance.mine.${s.attendance.status}`, { minutes: s.attendance.minutes })}
+              </Badge>
+            )}
           </p>
           <h2 id={`session-${s.id}-title`} className="text-[1.5rem] leading-snug sm:text-[1.75rem]">
             {title}

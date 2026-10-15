@@ -167,7 +167,10 @@
       "LAST_SUPER": "There must always be at least one super admin.",
       "ALREADY_ADMIN": "This account is already an admin.",
       "ADMIN_PERMISSION": "Your admin account doesn't have access to this.",
-      "EMAIL_UNVERIFIED": "This account hasn't confirmed its email address yet. Ask them to confirm it, then add them again."
+      "EMAIL_UNVERIFIED": "This account hasn't confirmed its email address yet. Ask them to confirm it, then add them again.",
+      "POINTS_CAP": "That is over the points limit for speakers. Ask an admin for bigger changes.",
+      "AUTOMATIC_ENTRY": "Automatic points change with their source. Add a correction instead.",
+      "ENTRY_VOIDED": "This entry was already removed or changed. Reload to see the latest."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -1544,7 +1547,8 @@
       "settings": {
         "points": "Points",
         "sessionCompletedPoints": "Points for each completed session",
-        "certificatePoints": "Bonus points for a certificate"
+        "certificatePoints": "Bonus points for a certificate",
+        "speakerPointsCap": "Largest points entry a speaker can add, change or remove"
       },
       "importedBefore": "This exact file was already imported on {date}. Importing it again adds the points a second time.",
       "applyAgain": "Import again anyway ({count} rows, {points} points)"
@@ -2474,7 +2478,9 @@
       "assessmentUpdated": "Score updated: {title}",
       "session": "Session done: {title}",
       "sessionUndone": "Session unmarked: {title}",
-      "certificate": "Certificate: {course}"
+      "certificate": "Certificate: {course}",
+      "attendance": "Attendance: {title}",
+      "attendanceUpdated": "Attendance updated: {title}"
     },
     "reasons": {
       "ASSESSMENT": "Assessment",
@@ -2482,7 +2488,8 @@
       "CERTIFICATE": "Certificate",
       "MANUAL_COMMUNITY": "Community help",
       "MANUAL_OTHER": "Other",
-      "ADJUSTMENT": "Correction"
+      "ADJUSTMENT": "Correction",
+      "ATTENDANCE": "Attendance"
     }
   },
   "badges": {
@@ -2586,7 +2593,8 @@
       "gradebook": "Gradebook",
       "points": "Points",
       "materials": "Materials",
-      "announcements": "Announcements"
+      "announcements": "Announcements",
+      "attendance": "Attendance"
     },
     "gradebook": {
       "intro": "Pick an assessment to see every enrolled student and grade their work. The export has every published assessment."
@@ -2601,7 +2609,10 @@
       "standings": "Course points",
       "history": "Latest changes",
       "noHistory": "No points given by hand yet.",
-      "by": "by {name}"
+      "by": "by {name}",
+      "cap": "Your limit: {cap} points per entry.",
+      "studentTitle": "Points: {name}",
+      "studentHint": "{total} points in this course. You can edit or remove manual entries up to {cap} points; automatic ones (assessments, attendance) get a correction instead."
     },
     "materials": {
       "intro": "What each session covers, its recording and its links. Dates, titles and the live link are set by the academy team.",
@@ -2613,5 +2624,105 @@
       "hasRecording": "Recording",
       "materialsInvalid": "Each material needs an English and an Arabic label and an http(s) link."
     }
+  },
+  "attendance": {
+    "tab": "Attendance",
+    "intro": "Upload the Google Meet attendance file of a session (.csv or .xlsx). Students are matched by email, then by exact name; you check the preview before anything is saved. Attendance points count toward the course leaderboard.",
+    "allSessions": "All sessions",
+    "sessions": "Sessions",
+    "export": "Attendance CSV",
+    "noSessions": "This course has no sessions yet.",
+    "notRecorded": "Not recorded",
+    "countPresent": "{count} present",
+    "countPartial": "{count} partial",
+    "countAbsent": "{count} absent",
+    "rule": "Attendance rule and points",
+    "ruleSummary": "Present at {percent}% of the session or more. Points per session: present {present}, partial {partial}, absent {absent}.",
+    "ruleHint": "Partial: at least a minute, below the threshold. A change applies the next time a session's attendance is saved.",
+    "ruleSaved": "Saved.",
+    "saveRule": "Save the rule",
+    "settings": {
+      "presentPercent": "Present from (%)",
+      "presentPoints": "Points: present",
+      "partialPoints": "Points: partial",
+      "absentPoints": "Points: absent"
+    },
+    "upload": "Upload the Meet attendance file",
+    "uploadIntro": "Download the attendance report from Google Meet (or a Meet attendance extension) and choose it here. Nothing is saved until you confirm. Uploading again replaces this session's attendance and adjusts points by the difference.",
+    "formats": "Understood: the Google Workspace report (First name, Last name, Email, Duration, Time joined, Time exited) and the Meet attendance extensions (Name, Email, First seen, Last seen, Time in call, or one column per time).",
+    "choose": "Choose a file",
+    "reading": "Reading…",
+    "override": "Present from (%) for this session only (course: {percent}%)",
+    "tooBig": "That file is too big (5 MB at most).",
+    "badFile": "That file can't be read. Use the .csv or .xlsx from Google Meet.",
+    "fileErrors": {
+      "EMPTY": "The file is empty.",
+      "NO_HEADER": "No header row found. The file needs a Name (or First name / Last name) or Email column.",
+      "NO_DURATION": "No duration found. The file needs a Duration or Time in call column, joined and left times, or one column per time.",
+      "TOO_MANY_ROWS": "Too many rows (2,000 at most).",
+      "BAD_DURATION": "A duration can't be read.",
+      "NO_IDENTITY": "A row has no name or email."
+    },
+    "previewTitle": "Preview: {file}",
+    "previewSummary": "{present} present · {partial} partial · {absent} absent (present from {percent}%)",
+    "pointsChange": "Saving changes points by {points}.",
+    "skipped": "{count} rows were skipped (no name or email, or a duration that can't be read): rows {rows}.",
+    "unmatched": "Not matched to a student ({count})",
+    "unmatchedHint": "Pick the enrolled student, or ignore the row (a guest). Unmatched rows are never saved and no account is created.",
+    "matchTo": "Match {name} to",
+    "pickStudent": "Pick a student…",
+    "ignore": "Ignore",
+    "notThem": "Not them: ignore",
+    "save": "Save attendance",
+    "replace": "Replace attendance",
+    "replaceHint": "This session already has attendance: saving replaces it and adjusts points by the difference.",
+    "saved": "Saved: {present} present, {partial} partial, {absent} absent.",
+    "recorded": "Recorded attendance",
+    "nothingYet": "Nothing recorded yet. Upload the Meet file above.",
+    "updated": "updated {date}",
+    "student": "Student",
+    "minutes": "Minutes",
+    "status": "Status",
+    "points": "Points",
+    "statusFor": "Status for {name}",
+    "byName": "Matched by name: check",
+    "byHand": "Matched by hand",
+    "markedByHand": "Set by hand",
+    "noStudents": "No students enrolled.",
+    "statuses": {
+      "PRESENT": "Present",
+      "PARTIAL": "Partial",
+      "ABSENT": "Absent"
+    },
+    "mine": {
+      "PRESENT": "Present · {minutes} min",
+      "PARTIAL": "Partial · {minutes} min",
+      "ABSENT": "Absent"
+    }
+  },
+  "pointsLedger": {
+    "title": "Points entries",
+    "add": "Add points",
+    "filter": "Course",
+    "allCourses": "All courses",
+    "by": "by {name}",
+    "automatic": "automatic",
+    "edited": "Edited",
+    "removed": "Removed",
+    "removedBy": "Removed by {name} on {date}",
+    "edit": "Edit",
+    "remove": "Remove",
+    "editLabel": "Edit: {text}",
+    "removeLabel": "Remove: {text}",
+    "override": "Override",
+    "overrideNote": "Correction to: {text}",
+    "overCap": "At most {cap} points either way.",
+    "overCapNote": "Over your limit of {cap} points: ask an admin.",
+    "capHint": "A whole number, at most {cap} either way.",
+    "removeIntro": "The entry stays in the history, struck through, and no longer counts.",
+    "why": "Why",
+    "whyHint": "Kept with the entry for the record.",
+    "saveEdit": "Save the change",
+    "confirmRemove": "Remove the points"
   }
 }

@@ -162,11 +162,11 @@ export class AccountService {
       select: { email: true, status: true, locale: true, createdAt: true, enrolledAt: true, lastEmailedAt: true, course: { select: { slug: true, titleEn: true } } },
       orderBy: { createdAt: 'asc' },
     });
-    const [points, badges, leaderboards] = await Promise.all([
+    const [points, badges, leaderboards, attendance] = await Promise.all([
       this.prisma.pointsEntry.findMany({
         where: { userId },
         orderBy: { createdAt: 'asc' },
-        select: { points: true, reason: true, note: true, createdAt: true, course: { select: { slug: true, titleEn: true } } },
+        select: { points: true, reason: true, note: true, createdAt: true, voidedAt: true, voidReason: true, course: { select: { slug: true, titleEn: true } } },
       }),
       this.prisma.userBadge.findMany({
         where: { userId },
@@ -174,6 +174,11 @@ export class AccountService {
         select: { awardedAt: true, period: true, reason: true, badge: { select: { code: true, nameEn: true } }, course: { select: { slug: true, titleEn: true } } },
       }),
       this.prisma.leaderboardOptIn.findMany({ where: { userId }, select: { optedIn: true, updatedAt: true, course: { select: { slug: true, titleEn: true } } } }),
+      this.prisma.sessionAttendance.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        select: { status: true, minutes: true, percent: true, updatedAt: true, session: { select: { order: true, titleEn: true, course: { select: { slug: true, titleEn: true } } } } },
+      }),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -244,7 +249,12 @@ export class AccountService {
         enrolledAt: i.enrolledAt,
         lastEmailedAt: i.lastEmailedAt,
       })),
-      points: { total: points.reduce((n, p) => n + p.points, 0), entries: points },
+      // Removed (voided) entries are listed with when and why, but don't count.
+      points: {
+        total: points.reduce((n, p) => n + (p.voidedAt ? 0 : p.points), 0),
+        entries: points.map(({ voidedAt, voidReason, ...p }) => ({ ...p, removedAt: voidedAt, removedBecause: voidReason })),
+      },
+      attendance: attendance.map((a) => ({ course: a.session.course, session: `${a.session.order}. ${a.session.titleEn}`, status: a.status, minutes: a.minutes, percent: a.percent, updatedAt: a.updatedAt })),
       badges: badges.map((b) => ({ badge: b.badge, course: b.course, week: b.period, reason: b.reason, awardedAt: b.awardedAt })),
       leaderboards: leaderboards.map((l) => ({ course: l.course, shownOnLeaderboard: l.optedIn, changedAt: l.updatedAt })),
     };
@@ -428,6 +438,8 @@ export class AccountService {
       this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
       // Points, badges and leaderboard choices are personal: removed (boards never showed deleted accounts).
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
+      // Attendance (minutes per session) is personal too; course counts never included deleted accounts.
+      this.prisma.sessionAttendance.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
       // Certificates stay on record (serial, course, dates: the public page says "no longer

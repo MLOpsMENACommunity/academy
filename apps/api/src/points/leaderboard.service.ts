@@ -33,8 +33,8 @@ export interface CourseClock {
 }
 
 /**
- * Per-course leaderboards. Course points = assessment points + completed sessions + manual
- * points tagged to the course. "This week" counts entries created in that course week
+ * Per-course leaderboards. Course points = assessment points + completed sessions + attendance
+ * + manual points tagged to the course, less any removed (voided) entries. "This week" counts entries created in that course week
  * (Cairo time); "whole course" counts all of them.
  *
  * Boards name only students who opted in (first name + last initial); everyone else is
@@ -69,6 +69,8 @@ export class LeaderboardService {
       by: ['userId'],
       where: {
         courseId,
+        // Removed (voided) entries never count.
+        voidedAt: null,
         ...(range ? { createdAt: { gte: range.start, lt: range.end } } : {}),
         user: { deletedAt: null, enrollments: { some: { courseId } } },
       },

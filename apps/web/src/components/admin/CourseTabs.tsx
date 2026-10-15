@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   QUESTION_TYPES,
   questionInputSchema,
@@ -416,6 +417,9 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
                     <button type="button" onClick={() => setEditing(s.id)} className="rounded border border-line px-2 py-1">
                       {t('admin.common.edit')}
                     </button>
+                    <Link href={`/${locale}/admin/courses/${courseId}?tab=attendance&session=${encodeURIComponent(s.id)}`} className="rounded border border-line px-2 py-1">
+                      {t('attendance.tab')}
+                    </Link>
                     <button type="button" onClick={() => remove(s)} className="rounded border border-danger/40 px-2 py-1 text-danger">
                       {t('admin.common.delete')}
                     </button>
