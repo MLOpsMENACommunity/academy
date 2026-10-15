@@ -988,7 +988,7 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             ]}
             cta={{ label: ar ? 'قيّم الجلسة' : 'Rate the session', url: t.url }}
             secondaryCta={t.courseUrl ? { label: ar ? 'قيّم الدورة' : 'Rate the course', url: t.courseUrl } : undefined}
-            note={ar ? `لإيقاف رسائل التقييم لهذه الدورة: ${t.unsubscribeUrl}` : `To stop feedback emails for this course: ${t.unsubscribeUrl}`}
+            noteLink={{ label: ar ? 'أوقف رسائل التقييم لهذه الدورة' : 'Stop feedback emails for this course', url: t.unsubscribeUrl }}
           />
         ),
       };

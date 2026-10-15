@@ -168,14 +168,14 @@ Major upgrades (Next 16, Nest 12, Prisma 7, TypeScript 7) are deliberate, separa
 - **Admissions:** `Application` (status, answers, profile snapshot, `ref`), `ApplicationStatusHistory`,
   `Payment`, `Enrollment`, `CourseInvite`, `CourseInterest` (waiting list), `AdminNote`, `SavedFilter`,
   `FunnelEventLog`.
-- **Learning:** `SessionProgress`, `SessionFeedback`, `ReminderPreference`, `ReminderLog`,
-  `Announcement`, `AnnouncementRecipient`, `Notification`.
+- **Learning:** `SessionProgress`, `SessionFeedback`, `ReminderPreference` (reminder and feedback-email
+  opt-outs per course), `ReminderLog`, `Announcement`, `AnnouncementRecipient`, `Notification`.
 - **Assessments:** `Assessment`, `QuizQuestion`, `QuizOption`, `Submission`, `AssessmentReminderLog`.
 - **Certificates:** `Certificate` (one per enrolment; snapshots; `ON DELETE RESTRICT`).
 - **Points:** `PointsEntry` (append-only ledger), `Badge`, `UserBadge`, `LeaderboardOptIn`.
 - **Live sessions and speakers:** `LiveEvent`, `LiveEventSpeaker`, `EventRegistration`,
   `EventReminderLog`, `EventConfirmation`, `SpeakerApplication`, `SpeakingSlot`.
-- **Platform:** `Setting` (key → JSON), `AuditLog`.
+- **Platform:** `Setting` (key → JSON), `AuditLog`, `OutboundEmail` (the email outbox, section 9).
 
 ```mermaid
 erDiagram
@@ -224,6 +224,11 @@ certificates); every status change goes through a service (the application state
   release must work with the new schema. Rename or drop only in a later release, once nothing reads the
   old column (DEPLOY.md, "Roll back"). The one known exception is documented in OPERATIONS.md (PR #13).
 - **Names sort by timestamp** (`YYYYMMDDhhmmss_name`); a new one must sort after the latest on `main`.
+  `src/migrations-order.spec.ts` (unit tests, CI) checks the names, that timestamps strictly increase,
+  and, when `origin/main` is available, that new folders sort after every migration on it. Parallel PRs
+  take pre-assigned slots so they never collide.
+- **No new enums for state:** new status-like columns are `text` with a `CHECK` constraint (e.g.
+  `OutboundEmail.status`), so adding a value never needs an `ALTER TYPE` the previous release can't read.
 - **Applied on start:** the API checks for pending migrations and runs `prisma migrate deploy` only when
   needed, then starts the idempotent seed and archive import in the background under an advisory lock.
 - Backfills for new columns go in the migration itself (for example `adminPermissions = {SUPER}` for
@@ -246,6 +251,18 @@ hand. Each job is idempotent and isolated (one failing doesn't stop the others):
 | `assessmentRemindersSent` | "Due in 24 hours" to students who haven't submitted (`AssessmentReminderLog`) |
 | `points` | Re-sync assessment points for work changed in the last 26 h; Top of the week / Top of the course for closed weeks and ended courses (never before `pointsLaunchedAt`, once, within 14 days); Speaker badge |
 | `announcementEmailsPending` | Resume announcement emails left pending by a restart |
+| `feedbackPromptsQueued` | Registered. Feedback prompts for sessions that ended 30 min–72 h ago (outbox rows + notifications) |
+| `outboxPending` / `outboxPurged` | Registered. Start sending the email outbox (after the response); delete old finished rows |
+
+**Jobs registry.** New jobs don't touch `jobs.controller.ts`: a provider decorated with
+`@ScheduledJob('<resultKey>')` (`src/jobs/jobs-registry.ts`) and implementing `run(now)` is found at
+startup by `JobsRegistry` (Nest's `DiscoveryService`: a multi-provider) and run by the tick after the
+hand-listed jobs above, each isolated like them. With `JOBS_ENABLED` (local, compose) an in-process cron
+runs them every 10 minutes. **Registered jobs only enqueue** (outbox rows, notifications) and return in
+seconds; sending happens after the tick has answered, so the tick stays well inside the Worker's
+5-minute fetch timeout. The cron stays hourly: a more frequent one would keep the container and Neon
+awake. If prompts ever need to be faster, a gated "next due at" cron should wake the container only
+when work is due.
 
 The nightly database backup is a GitHub Actions workflow, not a tick (`backup.yml`, 01:30 UTC).
 
@@ -259,6 +276,37 @@ The nightly database backup is a GitHub Actions workflow, not a tick (`backup.ym
   twice (1 s, 3 s). It lives in memory in the single API instance.
 - **Durable fan-out:** announcements and waiting-list notices write one `AnnouncementRecipient` (or
   `CourseInterest`) row per person with a delivery status, so a restart resumes them (the tick).
+- **Email outbox** (`src/outbox/`): the general durable queue, used by feedback prompts and assessment
+  publish notices (announcements move onto it later).
+  - `Outbox.enqueue(messages, tx?)` writes one `OutboundEmail` row per email in the caller's
+    transaction (`createMany … skipDuplicates`). `dedupeKey` is unique (e.g. `feedback:<session>:<user>`),
+    so enqueuing twice is a no-op and the row doubles as the "already asked" marker. The address is not
+    stored: it is looked up when sending. `outbox.kick()` after the commit starts sending.
+  - `OutboxProcessor.process()` is single-flight and runs after an enqueue, on bootstrap and after each
+    tick. It claims up to 50 due rows per round in **one statement** (`UPDATE … WHERE id IN (SELECT …
+    FOR UPDATE SKIP LOCKED) RETURNING`, transactional lane first), setting `SENDING`, a 5-minute
+    `leaseUntil` and `attempts + 1`. No interactive transaction, so it works through a pooler.
+  - **Crash safety:** rows whose lease expired go back to `PENDING` at the start of each run (or
+    `FAILED` after 3 attempts). The row id is passed to Resend as the **idempotency key**
+    (`outbox/<id>`), so re-sending a row that was in flight when the process died never delivers twice.
+  - **At send time:** a deleted or anonymised account → `SKIPPED`; the course's opt-out
+    (`ReminderPreference.feedbackEmails` for feedback, `emailReminders` for publish notices) is checked
+    again → `SKIPPED`.
+  - **Errors:** `EmailService.deliver()` (what `send()` wraps) returns `{ ok }` or an error class from
+    `classifySendError`: **permanent** (provider 4xx such as validation, SMTP 5xx, render failure) →
+    `FAILED`, no retry; **retryable** (429, 409, 5xx, network) → back to `PENDING` after 5 then 30
+    minutes, `FAILED` after 3 attempts; **quota** (daily/monthly) → `PENDING` until 00:05 UTC tomorrow
+    without using an attempt, and the rest of the batch is handed back too.
+  - **Bulk lane headers:** rows with an opt-out category carry RFC 8058 `List-Unsubscribe` (an
+    `/api/email/unsubscribe?token=…` URL) and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`.
+    Tokens are `<f|r>.<userId>.<courseId>.<HMAC>` with a key derived from `JWT_ACCESS_SECRET`
+    (`EmailPreferenceLinks`); the page `/unsubscribe` uses the same endpoint (`GET` peeks, `POST` stops,
+    `POST …/undo` turns back on).
+  - **Retention** (the `outbox` job): `SENT` and `SKIPPED` rows are deleted after 7 days, `FAILED` after
+    30. The feedback window (72 h) is shorter than 7 days by construction (asserted at startup).
+  - **Shutdown:** the processor stops after the email in hand and hands untried rows back.
+  - **Testing:** API e2e spy on `EmailTransport.send` (or `EmailService.deliver`) and call
+    `OutboxProcessor.process()` to wait for a run; browser tests run the tick and poll Mailpit.
 - **Transports:** `resend` (production and staging), `smtp` (Mailpit locally), `log`.
 - **Staging guard:** with `EMAIL_ALLOWLIST` (addresses or `@domain`) or `EMAIL_REDIRECT_TO` set, mail to
   anyone not on the allowlist goes to `EMAIL_REDIRECT_TO` with `[to original@address]` in the subject,

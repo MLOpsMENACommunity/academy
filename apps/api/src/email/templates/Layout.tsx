@@ -1,4 +1,4 @@
-import { Body, Button, Container, Head, Heading, Hr, Html, Preview, Section, Text } from '@react-email/components';
+import { Body, Button, Container, Head, Heading, Hr, Html, Link, Preview, Section, Text } from '@react-email/components';
 import type { Locale } from '@academy/shared';
 import type { ReactNode } from 'react';
 
@@ -13,6 +13,8 @@ export interface LayoutProps {
   /** A second, outlined button next to the main one. */
   secondaryCta?: { label: string; url: string };
   note?: string;
+  /** A small linked line after the note, e.g. a per-course unsubscribe link. */
+  noteLink?: { label: string; url: string };
   footer: string;
   /** Big coloured banner above the heading (e.g. "Congratulations, you're in!"). */
   banner?: { text: string; tone: 'success' | 'info' | 'neutral' };
@@ -30,7 +32,7 @@ const tones = {
   neutral: { bg: '#f1f5fa', fg: '#08142e' },
 };
 
-export function Layout({ locale, preview, heading, paragraphs, cta, secondaryCta, note, footer, banner, list, callout, after = [] }: LayoutProps) {
+export function Layout({ locale, preview, heading, paragraphs, cta, secondaryCta, note, noteLink, footer, banner, list, callout, after = [] }: LayoutProps) {
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const font =
     locale === 'ar'
@@ -129,6 +131,13 @@ export function Layout({ locale, preview, heading, paragraphs, cta, secondaryCta
           )}
           {note && (
             <Text style={{ color: brand.muted, fontSize: 13, lineHeight: '20px', textAlign: align }}>{note}</Text>
+          )}
+          {noteLink && (
+            <Text style={{ color: brand.muted, fontSize: 13, lineHeight: '20px', textAlign: align }}>
+              <Link href={noteLink.url} style={{ color: brand.muted, textDecoration: 'underline' }}>
+                {noteLink.label}
+              </Link>
+            </Text>
           )}
           <Hr style={{ borderColor: '#e2e8f0', margin: '24px 0' }} />
           <Text style={{ color: brand.muted, fontSize: 12, lineHeight: '18px', textAlign: align }}>{footer}</Text>

@@ -448,6 +448,33 @@ admins can preview any course; assigned speakers can preview assessments (Stagin
 Session reminder emails go 24 hours and 1 hour before each course session to enrolled students who
 didn't turn reminders off.
 
+### Feedback emails after every session
+
+**Status:** Pending (PR "Feedback emails"). **Who:** enrolled students; the per-course opt-out link
+needs no sign-in.
+
+- **When:** from 30 minutes to 72 hours after each course session ends, at the next hourly jobs tick
+  (so usually within the hour). The wide window means a late deploy still asks about a session.
+- **Who is asked:** every student (role Student) who was enrolled before the session ended, whose
+  account isn't deleted, and who hasn't rated that session yet. Courses that are Open, Closed or
+  Completed; it goes by the session's time, not the course status.
+- **What they get:** once per student and session, an in-app notification ("How was session 3?") and
+  the `feedbackPrompt` email ("How was "<session>"? Rate it in 10 seconds"), in their language. The
+  button opens `/learn/<course>#session-<n>-feedback`: the session's rating form, scrolled into view
+  and focused. Signed out, sign-in comes first and then lands on the same form.
+- **Last session:** the email asks for the session and the whole course ("Rate the course" opens
+  `#course-feedback`).
+- **Wording:** never "today" or "tonight" (Cairo evening sessions, other time zones, late deploys).
+- **Opt-out:** every feedback email has "Stop feedback emails for this course" (and one-click
+  unsubscribe headers, so mail apps show an Unsubscribe button). The link opens `/unsubscribe`, which
+  works without signing in, asks for a click (mail scanners open links) and offers "Turn them back
+  on". Opted-out students still get the in-app notification. Everyone is asked by default.
+- **Dashboard:** a "Rate your last session" card lists, per course, the latest session that ended in
+  the last 14 days and isn't rated (at most 3 courses), with a link to its form; at the last session
+  it also says "rate the course too". It is computed when the page loads and disappears once rated.
+- Feedback is still the 1–5 stars and optional comment of section 5; staff views of it come in a later
+  PR.
+
 ---
 
 ## 6. Assessments (quizzes, labs, assignments)
@@ -502,7 +529,10 @@ Assessments):
 
 - **Publish notice** (Staging): the first time an assessment is published, every enrolled student gets
   an in-app notification and, unless they turned the course's reminders off, the `assessmentPublished`
-  email. Only for Open or Closed courses; unpublish/republish sends nothing.
+  email. Only for Open or Closed courses; unpublish/republish sends nothing. From PR "Feedback emails"
+  (Pending) the notices are written with the publish and sent by the durable email outbox, so a restart
+  or a sleeping container can't drop them; the emails carry one-click unsubscribe headers that turn the
+  course's reminders off.
 - **Due reminder:** 24 hours before the due date, to students who haven't submitted (once each,
   respects the opt-out).
 - **Graded:** in-app notification and `assessmentGraded` email.
@@ -703,7 +733,8 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | eventReminder | 24 h and 1 h before a live session | Bulk |
 | eventRescheduled / eventCancelled | Live session time changed / cancelled | Bulk |
 | announcement | Team or speaker announcement | Bulk |
-| assessmentPublished | First publish of an assessment (Staging) | Bulk |
+| assessmentPublished | First publish of an assessment (Staging; through the outbox from "Feedback emails") | Bulk |
+| feedbackPrompt | 30 min–72 h after each course session, once per student; combined with the course rating at the last session (Pending) | Bulk |
 | assessmentDue | 24 h before due, not yet submitted | Bulk |
 | assessmentGraded | Work graded | Bulk |
 | badgeAwarded | Badge awarded | Bulk |
@@ -718,7 +749,12 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | profileReview | Profile untouched for ~6 months | Transactional |
 
 In-app notifications accompany most of these (see 3.7). Students turn off course reminders per course
-on the learn page; marketing emails are opt-in.
+on the learn page; marketing emails are opt-in. Feedback emails have their own per-course "stop" link
+that works without signing in (section 5).
+
+Feedback prompts and assessment publish notices go through the **durable outbox** (Pending): each
+email is a database row, sent in the background with retries, so a restart doesn't lose it and the
+same email is never sent twice.
 
 ---
 
@@ -763,6 +799,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Feedback emails | "How was the session?" email and notification after every course session (course rating at the last one), per-course opt-out link without sign-in, "Rate your last session" dashboard card, links straight to the rating form; durable email outbox (publish notices moved onto it) | Pending |
 | Admissions audit | Students can withdraw an application (Withdrawn status); deleting an account frees its seats and closes a pending payment; full courses say so before applying; Apply closes at the deadline; payments queue pages; Arabic digits in payment proofs; "seat confirmed" email; waiting list only notified while applications are open; admin accounts out of Admin → Students | Pending |
 | #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Pending |
 | #61 | Speakers teach their assigned courses: assessments, grading, gradebook, points, materials; assessment preview limited to SUPER/ACADEMIC and assigned speakers; "Last edited by" | Staging |

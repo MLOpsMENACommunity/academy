@@ -64,6 +64,8 @@ services:
       # Admin edits re-render the public pages at once (apps/api/src/common/revalidate.ts).
       REVALIDATE_URL: http://web:3000/api/internal/revalidate
       REVALIDATE_TOKEN: local-compose-revalidate-not-for-production-0123
+      # Lets the browser tests run the hourly jobs tick on demand (e2e/feedback.spec.ts).
+      JOBS_TOKEN: local-compose-jobs-token-not-for-production-0123
     # Healthy once the API answers and the background seed is over (it runs after the API
     # listens, see apps/api/docker-entrypoint.sh), so `up --wait` and the tests see seeded data.
     healthcheck:

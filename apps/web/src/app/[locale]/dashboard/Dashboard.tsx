@@ -146,6 +146,9 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
 
           <NextUp />
 
+          {/* Near the top on phones too, where the sidebar comes first. */}
+          <RateLastSession className={card} />
+
           <PointsCard className={card} />
 
           {!user.profile.coreComplete ? (
@@ -214,8 +217,6 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
               </Link>
             </Alert>
           )}
-
-          <RateLastSession className={card} />
 
           <Journey items={items} paths={paths} />
 
