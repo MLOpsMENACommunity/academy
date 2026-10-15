@@ -1,9 +1,10 @@
 'use client';
 
-import { countryName, paymentMethodLabels, paymentStatusLabels, type AdminPaymentDto } from '@academy/shared';
+import { countryName, hasAdminPermission, paymentMethodLabels, paymentStatusLabels, type AdminPaymentDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { CheckboxField, TextAreaField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -24,6 +25,8 @@ export default function PaymentReview() {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<'approve' | 'reject' | 'shot' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The application page is the admissions preset's.
+  const admissions = hasAdminPermission(useAuth().user, ['ADMISSIONS']);
 
   const load = useCallback(() => {
     api<AdminPaymentDto>(`/admin/payments/${id}`).then(setP).catch((e: unknown) => setError(errorMessage(e, t)));
@@ -103,7 +106,18 @@ export default function PaymentReview() {
             {row(t('payment.senderPhone'), <span className="ltr-embed">{p.senderPhone}</span>)}
             {row(t('payment.paidAt'), formatDate(p.paidAt, locale))}
             {row(t('admin.payments.submittedAt'), formatDateTime(p.createdAt, locale))}
-            {row(t('admin.payments.course'), locale === 'ar' ? p.course.titleAr : p.course.titleEn)}
+            {row(
+              t('admin.payments.course'),
+              admissions ? (
+                <Link href={`/${locale}/admin/applications/${p.application.id}`} className="text-primary underline">
+                  {locale === 'ar' ? p.course.titleAr : p.course.titleEn}
+                </Link>
+              ) : locale === 'ar' ? (
+                p.course.titleAr
+              ) : (
+                p.course.titleEn
+              ),
+            )}
           </dl>
         </Card>
         <Card>

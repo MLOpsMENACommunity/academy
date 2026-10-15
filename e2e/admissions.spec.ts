@@ -152,3 +152,39 @@ test('the course page stops offering "Apply now" when the deadline passes, witho
   await expect(page.getByText('Applications closed').first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Notify me when it opens' }).first()).toBeVisible();
 });
+
+test('a payment under review links to its application, and Arabic digits are accepted in the proof', async ({ page }) => {
+  const previous = await (await admin.get('/api/admin/settings')).json();
+  await admin.put('/api/admin/settings', { headers: JSON_HEADERS, data: { instapayHandle: 'e2e@instapay', instapayName: 'E2E Academy', vodafoneCashNumber: '01000000000', vodafoneCashName: 'E2E Academy' } });
+  try {
+    const course = await createCourse('pay', { type: 'PAID', price: 1500, requiresApproval: false });
+    const payer = await student('payer');
+    const app = await (await payer.api.post('/api/applications', { headers: JSON_HEADERS, data: { courseSlug: course.slug, answers: {} } })).json();
+    expect(app.status).toBe('AWAITING_PAYMENT');
+
+    // The proof form, typed on an Arabic keyboard.
+    await signIn(page, payer.api);
+    await page.goto(`/ar/dashboard/applications/${app.id}`);
+    await page.getByLabel(/المبلغ المدفوع/).fill('١٥٠٠');
+    await page.getByLabel('الرقم المرجعي للعملية').fill('IP ١٢٣٤ ٥٦٧٨');
+    await page.getByLabel('اسم المرسل').fill('عمر تجربة');
+    await page.getByLabel(/رقم هاتف المرسل/).fill('٠١٠٠١٢٣٤٥٦٧');
+    await page.locator('#payment-file').setInputFiles({ name: 'receipt.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
+    await page.getByRole('button', { name: 'إرسال الإثبات' }).click();
+    await expect(page.getByText('شكرًا! نتحقق من الدفع')).toBeVisible();
+
+    const detail = await (await admin.get(`/api/admin/applications/${app.id}`)).json();
+    const payment = detail.payments[0];
+    expect(payment).toMatchObject({ amount: 1500, transactionRef: 'IP 1234 5678', senderPhone: '01001234567' });
+
+    const adminPage = await page.context().browser()!.newPage();
+    await adminPage.context().addCookies((await admin.storageState()).cookies);
+    await adminPage.goto(`/en/admin/payments/${payment.id}`);
+    await adminPage.getByRole('link', { name: `E2E Admissions pay ${stamp}` }).click();
+    await adminPage.waitForURL(new RegExp(`/en/admin/applications/${app.id}$`));
+    await adminPage.close();
+    await payer.api.dispose();
+  } finally {
+    await admin.put('/api/admin/settings', { headers: JSON_HEADERS, data: previous });
+  }
+});
