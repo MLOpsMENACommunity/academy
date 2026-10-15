@@ -124,6 +124,8 @@ jobs:
           ACADEMY_HOSTNAME: ${{ vars.ACADEMY_HOSTNAME }}
           ACADEMY_REDIRECT_HOSTS: ${{ vars.ACADEMY_REDIRECT_HOSTS }}
           SENTRY_ENVIRONMENT: ${{ vars.SENTRY_ENVIRONMENT }}
+          # Optional: purge the edge cache after admin edits (with the EDGE_PURGE_API_TOKEN secret).
+          EDGE_PURGE_ZONE_ID: ${{ vars.EDGE_PURGE_ZONE_ID }}
           # Staging only (ignored for production): testers who get their own staging email.
           EMAIL_ALLOWLIST: ${{ vars.EMAIL_ALLOWLIST }}
           EMAIL_REDIRECT_TO: ${{ vars.EMAIL_REDIRECT_TO }}
@@ -148,7 +150,8 @@ jobs:
             DATABASE_URL, DIRECT_DATABASE_URL, JWT_ACCESS_SECRET, JOBS_TOKEN, RESEND_API_KEY,
             S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
             SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_PLACEHOLDER_STATUS,
-            GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SENTRY_DSN
+            GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SENTRY_DSN,
+            REVALIDATE_TOKEN, EDGE_PURGE_API_TOKEN
           } | with_entries(select(.value != null and .value != ""))' > /tmp/secrets.json
           pnpm exec wrangler secret bulk /tmp/secrets.json --env="$WRANGLER_ENV"
           rm -f /tmp/secrets.json

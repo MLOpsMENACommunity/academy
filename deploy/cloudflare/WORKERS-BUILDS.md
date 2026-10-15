@@ -139,6 +139,7 @@ and neither commit would get a staging release record.
 | `EMAIL_ALLOWLIST` | the testers' addresses (comma-separated) | GitHub `staging` variable. Add it as a **Secret** (it's personal data) |
 | `EMAIL_REDIRECT_TO` | only if the GitHub `staging` variable is set | GitHub `staging` variable; otherwise `admin@mlopsmena.com` from `wrangler.jsonc` |
 | `ACADEMY_REDIRECT_HOSTS` | only if the GitHub `staging` variable is set | GitHub `staging` variable |
+| `EDGE_PURGE_ZONE_ID` | optional: the zone id of `mlopsmena.com` (purges the edge cache after an admin edit; needs the `EDGE_PURGE_API_TOKEN` secret) | GitHub `staging` variable, if set |
 | `PNPM_VERSION` | `10.34.6` | `packageManager` in `package.json` |
 | `SKIP_DEPENDENCY_INSTALL` | `1` | the scripts install with `--frozen-lockfile` themselves |
 
@@ -152,7 +153,9 @@ are all listed. Every GitHub deploy set them, so they should be:
 `DATABASE_URL`, `DIRECT_DATABASE_URL`, `JWT_ACCESS_SECRET`, `JOBS_TOKEN`,
 `RESEND_API_KEY`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
 `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, plus the optional `SEED_PLACEHOLDER_STATUS`,
-`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SENTRY_DSN`. The deploy stops if a required
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SENTRY_DSN`, `REVALIDATE_TOKEN` (otherwise
+derived from `JOBS_TOKEN`) and `EDGE_PURGE_API_TOKEN` (see DEPLOY.md, "How fast an admin
+edit shows"). The deploy stops if a required
 one is missing. Set or rotate any of them with
 `deploy/cloudflare/set-worker-secret.sh staging NAME`.
 
@@ -205,6 +208,7 @@ Build variables:
 | `ACADEMY_HOSTNAME` | `academy.mlopsmena.com` | GitHub `production` variable |
 | `SENTRY_ENVIRONMENT` | `production` | GitHub `production` variable |
 | `ACADEMY_REDIRECT_HOSTS` | only if the GitHub `production` variable is set | GitHub `production` variable |
+| `EDGE_PURGE_ZONE_ID` | optional, as for staging | GitHub `production` variable, if set |
 | `PNPM_VERSION` | `10.34.6` | `package.json` |
 | `SKIP_DEPENDENCY_INSTALL` | `1` | |
 

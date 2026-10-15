@@ -20,7 +20,7 @@ import { serverGet, serverGetOr } from '@/lib/server-api';
 import { pick } from '@/lib/sessions';
 import { loadSpeakers } from '@/lib/speakers';
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -53,7 +53,7 @@ interface Upcoming {
   href: string;
 }
 
-/** The next dates people can act on: live sessions and application deadlines (ISR: re-checked every few minutes). */
+/** The next dates people can act on: live sessions and application deadlines (re-rendered at once after an admin edit, and at least every minute). */
 function upcomingDates(courses: CourseSummaryDto[], events: PublicEventDto[], locale: Locale): Upcoming[] {
   const t = createTranslator(locale);
   const now = Date.now();
@@ -93,10 +93,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const t = createTranslator(locale);
   const [all, events, recordings, speakers] = await Promise.all([
     // serverGet: an API failure fails the render instead of caching a home page without courses.
-    serverGet<CourseSummaryDto[]>('/courses', 300).then((c) => c ?? []),
+    serverGet<CourseSummaryDto[]>('/courses').then((c) => c ?? []),
     // The rest is optional: a section is left out rather than failing the page.
-    serverGetOr<{ upcoming: PublicEventDto[] }>('/events', { upcoming: [] }, 300).then((e) => e.upcoming),
-    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [], categories: [] }, 300).then((r) => r.items),
+    serverGetOr<{ upcoming: PublicEventDto[] }>('/events', { upcoming: [] }).then((e) => e.upcoming),
+    serverGetOr<RecordingsDto>('/recordings', { items: [], topics: [], categories: [] }).then((r) => r.items),
     loadSpeakers(6),
   ]);
   const rank = (c: CourseSummaryDto) => (c.completed ? 2 : c.availability === 'OPEN' ? 0 : c.availability === 'UPCOMING' ? 1 : 3);

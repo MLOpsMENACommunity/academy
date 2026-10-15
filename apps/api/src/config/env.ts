@@ -79,6 +79,15 @@ const envSchema = z.object({
   /** Shared secret for POST /api/internal/jobs/tick. Unset disables the endpoint. */
   JOBS_TOKEN: z.string().min(32).optional(),
 
+  /**
+   * Where to ask the public site to revalidate its pages after an admin edit (common/revalidate.ts):
+   * the Worker's /_internal/revalidate on Cloudflare, the web app's /api/internal/revalidate
+   * locally. Both unset turns it off (pages then catch up within their 60 s revalidation).
+   */
+  REVALIDATE_URL: z.string().url().optional(),
+  /** Shared secret for that call (the web app and the Worker check it). */
+  REVALIDATE_TOKEN: z.string().min(32).optional(),
+
   // ---- Capacity (see DEPLOY.md, "Capacity and caching"). Sized for one ¼-vCPU, 1 GiB container.
   /** Force pgbouncer=true (Neon "-pooler" hosts get it automatically). */
   DB_PGBOUNCER: bool.default('false'),
