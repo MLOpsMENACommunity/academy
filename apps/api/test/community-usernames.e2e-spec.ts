@@ -54,6 +54,13 @@ describe('community usernames (e2e)', () => {
     // The application's profile snapshot (what admins review) carries both.
     const app_ = await prisma.application.findUniqueOrThrow({ where: { id: applied.body.id } });
     expect(app_.profileSnapshot).toMatchObject({ telegramUsername: 'older_student', discordUsername: 'Older Student#1234' });
+
+    // And the Applications CSV has both columns.
+    const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'adm-apps' });
+    const csv = await http().get('/api/admin/applications.csv').query({ courseId: course.id }).set('Cookie', admin.cookie).expect(200);
+    const [header, row] = csv.text.replace(/^\uFEFF/, '').split(/\r?\n/);
+    expect(header).toContain('"Telegram","Discord"');
+    expect(row).toContain('"older_student","Older Student#1234"');
   });
 
   it('admins see them in Admin → Students (list, detail, CSV) and can correct or clear them', async () => {
