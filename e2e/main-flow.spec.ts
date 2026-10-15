@@ -172,6 +172,11 @@ test('visitor → register → profile → apply → shortlist → pay → appro
   for (const q of [/member of the community/, /Email me about new courses/]) {
     await page.getByRole('radiogroup', { name: q }).getByLabel('No').check();
   }
+  // Telegram and Discord usernames are required.
+  await page.getByRole('button', { name: 'Save and continue' }).click();
+  await expect(page.getByText('This field is required.')).toHaveCount(2);
+  await page.getByLabel('Telegram username').fill('@e2e_student');
+  await page.getByLabel('Discord username').fill('E2E.Student');
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Step 6 of 7')).toBeVisible();
   // Skills (and Goals) are optional, and say so.

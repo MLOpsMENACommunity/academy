@@ -175,9 +175,9 @@ describe('auth & profile (e2e)', () => {
     const community = await http()
       .put('/api/me/profile/community')
       .set('Cookie', cookies)
-      .send({ referralSource: 'LINKEDIN', communityMember: true, openToOpportunities: false, shareWithPartners: false, marketingEmails: true })
+      .send({ referralSource: 'LINKEDIN', communityMember: true, openToOpportunities: false, shareWithPartners: false, marketingEmails: true, telegramUsername: '@test_student', discordUsername: 'Test.Student' })
       .expect(200);
-    expect(community.body).toMatchObject({ coreComplete: true, completeness: 67, websiteUrl: null, marketingEmails: true, shareWithPartners: false });
+    expect(community.body).toMatchObject({ coreComplete: true, completeness: 67, websiteUrl: null, marketingEmails: true, shareWithPartners: false, telegramUsername: 'test_student', discordUsername: 'test.student' });
     expect(community.body.communityAnsweredAt).toBeTruthy();
     const skills = await http()
       .put('/api/me/profile/skills')

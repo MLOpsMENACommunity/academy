@@ -1,6 +1,6 @@
 'use client';
 
-import { CORE_FIELD_SECTION, computeCompleteness, isRequiredSection, PROFILE_SECTIONS, REQUIRED_SECTIONS, type ProfileDto, type ProfileSection } from '@academy/shared';
+import { CORE_FIELD_SECTION, computeCompleteness, isRequiredSection, missingCommunityHandles, PROFILE_SECTIONS, REQUIRED_SECTIONS, type ProfileDto, type ProfileSection } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -42,8 +42,10 @@ function Stepper() {
       .then((p) => {
         setProfile(p);
         // Start at the first required step that still has gaps; if none, at the first optional step.
-        const missing = computeCompleteness(p).missingCore.map((f) => CORE_FIELD_SECTION[f]);
-        const first = STEPS.findIndex((s) => missing.includes(s as (typeof REQUIRED_SECTIONS)[number]));
+        const missing: string[] = computeCompleteness(p).missingCore.map((f) => CORE_FIELD_SECTION[f]);
+        // The Telegram and Discord usernames (students from before they were asked).
+        if (missingCommunityHandles(p)) missing.push('community');
+        const first = STEPS.findIndex((s) => missing.includes(s));
         setStep(first >= 0 ? first : REQUIRED_SECTIONS.length);
       })
       .catch(() => setLoadError(true));

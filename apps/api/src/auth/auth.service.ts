@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import { safeReturnTo, type Locale, type LoginInput, type MeResponse, type RegisterInput, type SignupRole } from '@academy/shared';
+import { missingCommunityHandles, safeReturnTo, type Locale, type LoginInput, type MeResponse, type RegisterInput, type SignupRole } from '@academy/shared';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { randomToken, sha256 } from '../common/crypto';
@@ -308,6 +308,8 @@ export class AuthService {
       profile: {
         completeness: user.profile?.completeness ?? 0,
         coreComplete: Boolean(user.profile?.coreCompletedAt),
+        // Students only: speakers and admins never apply.
+        needsCommunityHandles: user.role === 'STUDENT' && missingCommunityHandles(user.profile),
         updatedAt: user.profile?.updatedAt.toISOString() ?? null,
       },
     };

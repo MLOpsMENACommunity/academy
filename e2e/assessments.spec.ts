@@ -26,7 +26,7 @@ async function enrolStudent(api: APIRequestContext, email: string, name: string)
     ['professional', { industry: 'TELECOM', mlExperienceYears: 'Y1_3', seniority: 'MID', secondaryAreas: [] }],
     ['education', { educationLevel: 'BACHELORS' }],
     ['links', { linkedinUrl: 'https://www.linkedin.com/in/quiz-student', githubUrl: 'https://github.com/quiz-student' }],
-    ['community', { referralSource: 'LINKEDIN', communityMember: false, openToOpportunities: false, shareWithPartners: false, marketingEmails: false }],
+    ['community', { referralSource: 'LINKEDIN', communityMember: false, openToOpportunities: false, shareWithPartners: false, marketingEmails: false, telegramUsername: 'e2e_student', discordUsername: 'e2e.student' }],
   ];
   for (const [section, data] of sections) {
     const r = await api.put(`/api/me/profile/${section}`, { headers: JSON_HEADERS, data });

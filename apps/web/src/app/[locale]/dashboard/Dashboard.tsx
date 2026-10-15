@@ -206,6 +206,15 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-7">
+          {user.profile.coreComplete && user.profile.needsCommunityHandles && (
+            <Alert tone="warning" title={t('profile.handlesBanner.title')}>
+              {t('profile.handlesBanner.body')}{' '}
+              <Link href={`/${locale}/profile?tab=community`} className="font-semibold underline">
+                {t('profile.handlesBanner.cta')}
+              </Link>
+            </Alert>
+          )}
+
           {stale && (
             <Alert tone="info" title={t('profile.reviewPrompt')}>
               <Link href={`/${locale}/profile`} className="font-semibold underline">

@@ -186,6 +186,70 @@ export const linksSectionSchema = z.object({
 });
 export type LinksSection = z.infer<typeof linksSectionSchema>;
 
+// ------------------------------------------------------------------ community chat usernames
+
+export const TELEGRAM_USERNAME_MESSAGE = 'Enter your Telegram username: 5–32 letters, digits or _';
+export const DISCORD_USERNAME_MESSAGE = 'Enter your Discord username: 2–32 lowercase letters, digits, _ or .';
+
+/**
+ * A Telegram username as people type it ("@layla_ml" or "layla_ml"), stored without the @:
+ * 5–32 letters, digits and underscores. Null when it isn't one.
+ */
+export function normalizeTelegramUsername(value: string): string | null {
+  const v = value.trim().replace(/^@/, '');
+  return /^[A-Za-z0-9_]{5,32}$/.test(v) ? v : null;
+}
+
+/**
+ * A Discord username: the current kind (2–32 lowercase letters, digits, "_" and ".", never two
+ * dots in a row; typed capitals are lowered, as Discord does) or a legacy "name#1234". A leading
+ * @ is dropped. Null when it isn't one.
+ */
+export function normalizeDiscordUsername(value: string): string | null {
+  const v = value.trim().replace(/^@/, '');
+  const legacy = /^([^@#:`]{2,32})#(\d{4})$/.exec(v);
+  if (legacy) return legacy[1]!.trim().length >= 2 ? `${legacy[1]!.trim()}#${legacy[2]}` : null;
+  const lower = v.toLowerCase();
+  return /^[a-z0-9_.]{2,32}$/.test(lower) && !lower.includes('..') ? lower : null;
+}
+
+const handleSchema = (normalize: (v: string) => string | null, message: string) =>
+  z
+    .string({ required_error: 'Required', invalid_type_error: 'Required' })
+    .trim()
+    .min(1, 'Required')
+    .max(40)
+    .refine((v) => normalize(v) !== null, { message })
+    .transform((v) => normalize(v)!);
+
+export const telegramUsernameSchema = handleSchema(normalizeTelegramUsername, TELEGRAM_USERNAME_MESSAGE);
+export const discordUsernameSchema = handleSchema(normalizeDiscordUsername, DISCORD_USERNAME_MESSAGE);
+
+/**
+ * Admins correct or clear them (empty clears); left out, the saved value stays (a client that
+ * doesn't know these fields never clears them). Students from before they were asked have none.
+ */
+const optionalHandle = (normalize: (v: string) => string | null, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(40)
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v ? v : null))
+    .refine((v) => v == null || normalize(v) !== null, { message })
+    .transform((v) => (v == null ? v : normalize(v)!));
+
+/** The Telegram and Discord usernames, asked in the community step and needed to apply. */
+export const COMMUNITY_HANDLE_FIELDS = ['telegramUsername', 'discordUsername'] as const;
+
+/**
+ * Whether the student still has to add their Telegram or Discord username. Students who joined
+ * before these were asked keep everything they have; they only need them for their next application.
+ */
+export function missingCommunityHandles(p: Partial<Pick<ProfileDto, 'telegramUsername' | 'discordUsername'>> | null | undefined): boolean {
+  return !p?.telegramUsername || !p?.discordUsername;
+}
+
 /**
  * Required: every question needs an explicit answer. Yes/No, never pre-ticked (consent stays a free choice).
  * "Open to job opportunities" and "Share my profile with hiring partners" are no longer asked:
@@ -196,6 +260,8 @@ export const communitySectionSchema = z.object({
   referralSource: z.enum(REFERRAL_SOURCES),
   communityMember: z.boolean(),
   marketingEmails: z.boolean(),
+  telegramUsername: telegramUsernameSchema,
+  discordUsername: discordUsernameSchema,
 });
 export type CommunitySection = z.infer<typeof communitySectionSchema>;
 
@@ -304,8 +370,15 @@ export const adminOtherSectionSchema = z.object({
 export type AdminOtherSection = z.infer<typeof adminOtherSectionSchema>;
 
 /** The schema an admin save of `section` is checked against (same cross-checks as the student's). */
+/** The community step for an admin: the chat usernames can be corrected or cleared, not required. */
+export const adminCommunitySectionSchema = communitySectionSchema.extend({
+  telegramUsername: optionalHandle(normalizeTelegramUsername, TELEGRAM_USERNAME_MESSAGE),
+  discordUsername: optionalHandle(normalizeDiscordUsername, DISCORD_USERNAME_MESSAGE),
+});
+
 export function adminSectionSchemaFor(section: AdminProfileSection, saved: SavedProfileFacts): z.ZodTypeAny {
   if (section === 'other') return adminOtherSectionSchema;
+  if (section === 'community') return adminCommunitySectionSchema;
   if (section === 'core') return coreWithChecks(adminCoreSectionSchema, saved);
   return sectionSchemaFor(section, saved);
 }
@@ -360,6 +433,10 @@ export interface ProfileDto {
   openToOpportunities: boolean;
   shareWithPartners: boolean;
   marketingEmails: boolean;
+  /** Without the @. Null for students who joined before it was asked. */
+  telegramUsername: string | null;
+  /** New-style (lowercase) or legacy name#1234. Null for students who joined before it was asked. */
+  discordUsername: string | null;
   /** When the community step was last answered; null = its Yes/No questions are still unanswered. */
   communityAnsweredAt: string | null;
   completeness: number;
