@@ -107,6 +107,7 @@ export function AccountPanel({ user }: { user: MeResponse }) {
       <Block title={user.hasPassword ? t('account.changePassword') : t('account.setPassword')}>
         {!user.hasPassword && <p className="mb-3 text-sm text-muted">{t('account.googleOnly')}</p>}
         <form
+          noValidate
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
@@ -171,13 +172,15 @@ export function AccountPanel({ user }: { user: MeResponse }) {
       <Block title={t('account.deleteTitle')} tone="danger">
         <p className="text-sm text-body">{t('account.deleteBody')}</p>
         <form
+          noValidate
           className="mt-4 grid gap-4 sm:grid-cols-2"
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
             void run('delete', async () => {
               await api('/me/delete', { method: 'POST', json: { confirm, password: delPw || undefined } });
-              setUser(null);
-              router.replace(`/${locale}?deleted=1`);
+              // A full page load, not setUser(null) + router.replace: clearing the user first made
+              // this page's RequireAuth send people to the login page before the redirect ran.
+              window.location.assign(`/${locale}?deleted=1`);
             });
           }}
         >
