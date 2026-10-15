@@ -26,7 +26,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { jsonLd } from '@/lib/jsonld';
-import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE, notFoundMetadata } from '@/lib/seo';
 import { serverGet, staticSlugs } from '@/lib/server-api';
 import { excerpt, pick } from '@/lib/sessions';
 import { absoluteUrl, community } from '@/lib/site';
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   if (!isLocale(locale)) return {};
   const e = await load(slug);
-  if (!e) return {};
+  if (!e) return notFoundMetadata(locale);
   const t = createTranslator(locale);
   const title = pick(locale, e.titleEn, e.titleAr);
   const description = excerpt(pick(locale, e.descriptionEn, e.descriptionAr), 160) || t('sessions.metaDescription');

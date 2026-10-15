@@ -25,6 +25,15 @@ export function pageTitle(locale: string, key: string): Metadata {
 }
 
 /**
+ * Metadata for a missing page (an unknown slug or path): "Page not found | MLOps MENA Academy"
+ * instead of the homepage title, and never indexed. The locale not-found.tsx can't set it (Next
+ * gives it no params), so each page's generateMetadata returns this when its record is missing.
+ */
+export function notFoundMetadata(locale: string): Metadata {
+  return { ...pageTitle(locale, 'errors.notFoundTitle'), robots: { index: false, follow: false } };
+}
+
+/**
  * The site-wide social card (app/og-default.png/route.tsx), for pages without their own image.
  * Pages that set `openGraph` replace the layout's whole openGraph object, images included,
  * so they add this themselves when they have no image of their own.

@@ -39,3 +39,19 @@ for (const path of ['/en/speakers', '/ar/speakers', '/en/learning-paths', '/ar/l
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', new RegExp(`${path.replace(/\//g, '\\/')}$`));
   });
 }
+
+for (const [path, title] of [
+  ['/en/no-such-page', 'Page not found | MLOps MENA Academy'],
+  ['/ar/no-such-page', 'الصفحة غير موجودة | أكاديمية MLOps MENA'],
+  ['/en/courses/no-such-course', 'Page not found | MLOps MENA Academy'],
+  ['/ar/sessions/no-such-session', 'الصفحة غير موجودة | أكاديمية MLOps MENA'],
+  ['/en/speakers/no-such-speaker', 'Page not found | MLOps MENA Academy'],
+  ['/en/learning-paths/no-such-path', 'Page not found | MLOps MENA Academy'],
+  ['/ar/roadmaps/no-such-roadmap', 'الصفحة غير موجودة | أكاديمية MLOps MENA'],
+] as const) {
+  test(`${path} is a 404 titled "${title}" (ACC-05)`, async ({ page }) => {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(404);
+    await expect(page).toHaveTitle(title);
+  });
+}

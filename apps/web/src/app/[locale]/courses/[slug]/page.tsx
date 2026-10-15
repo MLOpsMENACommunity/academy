@@ -24,7 +24,7 @@ import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
-import { alternates } from '@/lib/seo';
+import { alternates, notFoundMetadata } from '@/lib/seo';
 import { serverGet, staticSlugs } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   if (!isLocale(locale)) return {};
   const c = await load(slug);
-  if (!c) return {};
+  if (!c) return notFoundMetadata(locale);
   const title = pick(locale, c.titleEn, c.titleAr);
   const description = pick(locale, c.shortDescriptionEn, c.shortDescriptionAr);
   return {

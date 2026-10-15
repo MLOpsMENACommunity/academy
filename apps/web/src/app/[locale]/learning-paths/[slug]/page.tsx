@@ -12,7 +12,7 @@ import { durationLabel } from '@/lib/archive';
 import { formatDate } from '@/lib/format';
 import { jsonLd } from '@/lib/jsonld';
 import { findPath, LEARNING_PATHS, resolveSteps, stepHref, type ResolvedStep } from '@/lib/paths';
-import { alternates, openGraph } from '@/lib/seo';
+import { alternates, openGraph, notFoundMetadata } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl } from '@/lib/site';
 
@@ -30,7 +30,8 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   const path = findPath(slug);
-  if (!isLocale(locale) || !path) return {};
+  if (!isLocale(locale)) return {};
+  if (!path) return notFoundMetadata(locale);
   return {
     title: path.title[locale],
     description: path.summary[locale],
