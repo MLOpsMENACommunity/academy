@@ -656,7 +656,7 @@ reach only the courses they are on.
 | Course management | Edit the course | Course details (not status, address, type, price or who teaches) |
 | Course management | Manage sessions | Dates, Meet links, the session list |
 | Course management | Review applications | This course's applications: review and move them (never one's own) |
-| Course management | Enrol students | Enrol by email, invites, the waiting list |
+| Course management | Enrol students | Enrol by email, invites, the waiting list. On a paid course enrolling by email skips the payment, so there only staff who are also SUPER or ADMISSIONS admins can use it (others get `PAYMENT_WAIVER_ADMIN_ONLY`; the waiting list still works) |
 | Course management | Issue certificates | The rule, issue, revoke, re-issue |
 | Course management | Manage automation rules | Rules that act on their own in the course (no screen yet: a later PR) |
 

@@ -76,8 +76,8 @@ export class TeachingController {
   @Get(':courseId')
   @CourseCan(ANY_STAFF)
   @Header('Cache-Control', 'private, no-store')
-  course(@Param('courseId') courseId: string, @Req() req: CourseRequest) {
-    return this.teaching.course(courseId, req.courseMembership!);
+  course(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Req() req: CourseRequest) {
+    return this.teaching.course(courseId, req.courseMembership!, user);
   }
 
   // ------------------------------------------------------------------ assessments

@@ -183,7 +183,8 @@
       "BOOKING_ENDED": "This session has already taken place, so its booking stays as it is.",
       "EVENT_UNPUBLISH_HAS_REGISTRATIONS": "People registered for this session. Set its status to Cancelled instead: they will be told by email.",
       "EVENT_FROM_BOOKING": "This session was made from a speaker's booking. Release the booking in Speakers → Availability instead: the speaker and the team are told.",
-      "SPEAKER_HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin."
+      "SPEAKER_HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin.",
+      "PAYMENT_WAIVER_ADMIN_ONLY": "Only the admissions team can enrol people in a paid course without payment."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -2884,6 +2885,7 @@
       "none": "No students are enrolled yet.",
       "noCommunity": "No Telegram or Discord yet",
       "enrolled": "Enrolled {date}"
-    }
+    },
+    "enrolPaidAdminOnly": "This is a paid course: enrolling people by email would skip their payment, so only the admissions team can do it here. Students apply and pay as usual; the waiting list below still works."
   }
 }

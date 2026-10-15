@@ -34,6 +34,7 @@ import { AdminCoursesService } from '../admin/admin-courses.service';
 import { CertificatesService } from '../certificates/certificates.service';
 import { CurrentUser, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
+import { CourseAccessService } from '../course-access/course-access.service';
 import { CourseCan, CoursePermissionGuard } from '../course-access/course-permission.guard';
 import { InvitesService } from '../invites/invites.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
@@ -68,6 +69,7 @@ export class TeachManageController {
     private readonly invites: InvitesService,
     private readonly waitlist: WaitlistService,
     private readonly certificates: CertificatesService,
+    private readonly access: CourseAccessService,
   ) {}
 
   // ------------------------------------------------------------------ roster (VIEW_ROSTER)
@@ -211,7 +213,9 @@ export class TeachManageController {
   @CourseCan('ENROL')
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  invitesApply(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Body(new ZodPipe(inviteApplySchema)) body: InviteApplyInput) {
+  async invitesApply(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Body(new ZodPipe(inviteApplySchema)) body: InviteApplyInput) {
+    // A paid course: enrolling or inviting by email waives the payment (SUPER and ADMISSIONS admins only).
+    await this.access.assertMayEnrolByEmail(user, courseId, body.skipPayment);
     return this.invites.apply(courseId, body, user);
   }
 

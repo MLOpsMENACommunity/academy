@@ -405,6 +405,36 @@ describe('course staff, roles and permissions (e2e)', () => {
     await http().get(`${base}/roster`).set('Cookie', manager.cookie).expect(403);
   });
 
+  it('only SUPER and ADMISSIONS admins on the staff may enrol by email on a paid course (it waives the payment)', async () => {
+    const [paid, free] = [await createCourse(prisma, { type: 'PAID', price: 1500 }), await createCourse(prisma)];
+    const main = await createUser(app, prisma, { prefix: 'stf-pay-main' });
+    const admissions = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ADMISSIONS'], prefix: 'stf-pay-adm' });
+    for (const c of [paid, free]) await addStaff(c.id, await roleId(c.id, 'MAIN'), { email: main.email });
+    await addStaff(paid.id, await roleId(paid.id, 'MAIN'), { email: admissions.email });
+    const [a, b, c] = [await createUser(app, prisma, { prefix: 'stf-pay-a' }), await createUser(app, prisma, { prefix: 'stf-pay-b' }), await createUser(app, prisma, { prefix: 'stf-pay-c' })];
+    const enrol = (courseId: string, who: Account, email: string, skipPayment?: boolean) =>
+      http().post(`/api/teach/courses/${courseId}/invites`).set('Cookie', who.cookie).send({ entries: [{ email }], sendEmail: false, ...(skipPayment === undefined ? {} : { skipPayment }) });
+
+    // A Main instructor who isn't an admin: never on a paid course, with or without skipPayment.
+    expect((await enrol(paid.id, main, a.email, true).expect(403)).body.code).toBe('PAYMENT_WAIVER_ADMIN_ONLY');
+    expect((await enrol(paid.id, main, a.email).expect(403)).body.code).toBe('PAYMENT_WAIVER_ADMIN_ONLY');
+    expect(await prisma.enrollment.count({ where: { courseId: paid.id } })).toBe(0);
+    expect(await prisma.courseInvite.count({ where: { courseId: paid.id } })).toBe(0);
+    // skipPayment on a free course is refused too (it is a waiver flag).
+    expect((await enrol(free.id, main, b.email, true).expect(403)).body.code).toBe('PAYMENT_WAIVER_ADMIN_ONLY');
+    // The overview tells the web app to hide the option.
+    expect((await http().get(`/api/teach/courses/${paid.id}`).set('Cookie', main.cookie).expect(200)).body.canWaivePayment).toBe(false);
+
+    // A free course: enrolled.
+    expect((await enrol(free.id, main, b.email).expect(200)).body.enrolled).toBe(1);
+    expect(await prisma.enrollment.count({ where: { courseId: free.id, userId: b.id } })).toBe(1);
+
+    // An ADMISSIONS admin on the staff still can, as on the admin side.
+    expect((await http().get(`/api/teach/courses/${paid.id}`).set('Cookie', admissions.cookie).expect(200)).body.canWaivePayment).toBe(true);
+    expect((await enrol(paid.id, admissions, c.email, true).expect(200)).body.enrolled).toBe(1);
+    expect(await prisma.enrollment.count({ where: { courseId: paid.id, userId: c.id } })).toBe(1);
+  });
+
   it('archived courses close to staff, but not to SUPER and ACADEMIC admins', async () => {
     const course = await createCourse(prisma);
     const who = await createUser(app, prisma, { prefix: 'stf-arch' });

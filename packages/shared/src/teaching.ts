@@ -55,6 +55,8 @@ export interface TeachingCourseDetailDto {
   permissions: CoursePermission[];
   roleName: string | null;
   roleNameAr: string | null;
+  /** SUPER or ADMISSIONS admin: may enrol people in a paid course without payment (Enrolment tab). */
+  canWaivePayment: boolean;
 }
 
 /**

@@ -46,7 +46,11 @@ type Source = { kind: 'text' } | { kind: 'csv'; name: string; entries: InviteEnt
  * The course admin's "Enrol by email" tab: paste addresses or upload a CSV, preview what will
  * happen to each one, confirm, and follow the invites (resend, revoke, export).
  */
-export function EnrolByEmail({ courseId, paid, onChange, apiBase }: { courseId: string; paid: boolean; onChange?: () => void; apiBase?: string }) {
+/**
+ * `canWaivePayment` false (course staff who aren't SUPER or ADMISSIONS admins): on a paid course
+ * enrolling by email would skip the payment, so the tool is replaced by a note (the API refuses too).
+ */
+export function EnrolByEmail({ courseId, paid, onChange, apiBase, canWaivePayment = true }: { courseId: string; paid: boolean; onChange?: () => void; apiBase?: string; canWaivePayment?: boolean }) {
   const { locale, t } = useI18n();
   /** /admin/courses/{id}, or /teach/courses/{id} for course staff with ENROL. */
   const courseApi = apiBase ?? `/admin/courses/${courseId}`;
@@ -161,6 +165,17 @@ export function EnrolByEmail({ courseId, paid, onChange, apiBase }: { courseId: 
     preview && preview.course.capacity !== null && preview.course.seatsTaken + toEnrol > preview.course.capacity
       ? preview.course.seatsTaken + toEnrol - preview.course.capacity
       : 0;
+
+  if (paid && !canWaivePayment) {
+    return (
+      <Card>
+        <h2 className="text-lg">{v('title')}</h2>
+        <Alert tone="info" className="mt-3">
+          {t('teach.enrolPaidAdminOnly')}
+        </Alert>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-5">

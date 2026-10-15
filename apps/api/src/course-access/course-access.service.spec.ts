@@ -64,4 +64,17 @@ describe('CourseAccessService', () => {
     findUnique.mockResolvedValueOnce(course('OPEN', ['ANNOUNCE', 'VIEW_ROSTER']));
     expect(await svc.canTeach({ id: 'u', role: 'STUDENT' }, 'c1')).toBe(false);
   });
+
+  it('lets only SUPER and ADMISSIONS admins enrol by email on a paid course, or send skipPayment', async () => {
+    const main = { id: 'm', role: 'STUDENT' as const };
+    for (const p of ['SUPER', 'ADMISSIONS'] as const) {
+      await expect(svc.assertMayEnrolByEmail({ id: 'a', role: 'ADMIN', adminPermissions: [p] }, 'c1', true)).resolves.toBeUndefined();
+    }
+    await expect(svc.assertMayEnrolByEmail({ id: 'a', role: 'ADMIN', adminPermissions: ['ACADEMIC'] }, 'c1', true)).rejects.toMatchObject({ status: 403, response: { code: 'PAYMENT_WAIVER_ADMIN_ONLY' } });
+    await expect(svc.assertMayEnrolByEmail(main, 'c1', true)).rejects.toMatchObject({ response: { code: 'PAYMENT_WAIVER_ADMIN_ONLY' } });
+    findUnique.mockResolvedValueOnce({ type: 'PAID' });
+    await expect(svc.assertMayEnrolByEmail(main, 'c1', false)).rejects.toMatchObject({ response: { code: 'PAYMENT_WAIVER_ADMIN_ONLY' } });
+    findUnique.mockResolvedValueOnce({ type: 'FREE' });
+    await expect(svc.assertMayEnrolByEmail(main, 'c2', false)).resolves.toBeUndefined();
+  });
 });

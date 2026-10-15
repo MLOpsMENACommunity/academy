@@ -145,7 +145,7 @@ function Course({ courseId }: { courseId: string }) {
             {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} paid={course.type === 'PAID'} apiBase={base} />}
             {tab === 'enrolment' && (
               <div className="space-y-10">
-                <EnrolByEmail courseId={course.id} paid={course.type === 'PAID'} apiBase={base} />
+                <EnrolByEmail courseId={course.id} paid={course.type === 'PAID'} apiBase={base} canWaivePayment={course.canWaivePayment} />
                 <section aria-labelledby="teach-waitlist" className="space-y-3">
                   <h2 id="teach-waitlist" className="text-xl">
                     {t('admin.courses.waitlist')}

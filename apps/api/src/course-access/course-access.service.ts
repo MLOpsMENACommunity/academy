@@ -23,6 +23,17 @@ export function missingCoursePermission(needed: readonly CoursePermission[]): Fo
   return new ForbiddenException({ code: 'COURSE_PERMISSION', message: "Your role in this course doesn't include this", needed });
 }
 
+/** Enrolling into a paid course by email waives its payment: only SUPER and ADMISSIONS admins may. */
+export function paymentWaiverAdminOnly(): ForbiddenException {
+  return new ForbiddenException({
+    code: 'PAYMENT_WAIVER_ADMIN_ONLY',
+    message: 'Only the admissions team can enrol people in a paid course without payment',
+  });
+}
+
+/** Admin presets that may waive a paid course's payment (Enrol by email on a paid course). */
+export const PAYMENT_WAIVER_ADMIN_PERMISSIONS = ['ADMISSIONS'] as const satisfies readonly AdminPermission[];
+
 /** What someone may do in one course. */
 export interface CourseMembership {
   permissions: CoursePermission[];
@@ -95,6 +106,24 @@ export class CourseAccessService {
     if (!m) throw notYourCourse();
     if (permission.length && !permission.some((p) => m.permissions.includes(p))) throw missingCoursePermission(permission);
     return m;
+  }
+
+  /** SUPER or ADMISSIONS admin: may enrol people in a paid course without payment. */
+  canWaivePayment(user: Teacher | null | undefined): boolean {
+    return Boolean(user && user.role === 'ADMIN' && hasAdminPermission(user, PAYMENT_WAIVER_ADMIN_PERMISSIONS));
+  }
+
+  /**
+   * Course staff enrolling by email (ENROL, checked by the guard): on a paid course every
+   * direct enrolment and every invite (claimed later) skips the payment, so only SUPER and
+   * ADMISSIONS admins may do it; anyone else, or anyone sending skipPayment, gets 403
+   * PAYMENT_WAIVER_ADMIN_ONLY. Free courses are open to every ENROL holder.
+   */
+  async assertMayEnrolByEmail(user: Teacher, courseId: string, skipPayment: boolean): Promise<void> {
+    if (this.canWaivePayment(user)) return;
+    if (skipPayment) throw paymentWaiverAdminOnly();
+    const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { type: true } });
+    if (course?.type === 'PAID') throw paymentWaiverAdminOnly();
   }
 
   /** May preview the course's assessments on its learn page (whoever writes or grades them). */

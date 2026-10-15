@@ -110,7 +110,7 @@ export class TeachingService {
     }
   }
 
-  async course(courseId: string, m: CourseMembership): Promise<TeachingCourseDetailDto> {
+  async course(courseId: string, m: CourseMembership, user: Teacher): Promise<TeachingCourseDetailDto> {
     const c = await this.prisma.course.findUnique({
       where: { id: courseId },
       select: { id: true, slug: true, titleEn: true, titleAr: true, status: true, type: true, sessions: { orderBy: { order: 'asc' } } },
@@ -127,6 +127,7 @@ export class TeachingService {
       permissions: m.permissions,
       roleName: m.roleName,
       roleNameAr: m.roleNameAr,
+      canWaivePayment: this.access.canWaivePayment(user),
     };
   }
 
