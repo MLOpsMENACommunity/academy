@@ -149,7 +149,7 @@ test('the admin creates a Teaching assistant role, adds a student account, and t
 
   // The roster shows the enrolled student; anything else is refused by the API.
   await tp.getByRole('tab', { name: 'Roster' }).click();
-  await expect(tp.getByText(studentEmail)).toBeVisible();
+  await expect(tp.getByRole('region', { name: 'Enrolled students' }).getByRole('link', { name: studentEmail })).toBeVisible();
   expect((await tp.request.get(`/api/teach/courses/${courseId}/points`)).status()).toBe(403);
 
   const book = (await (await admin.get(`/api/admin/assessments/${labId}/submissions`)).json()) as { rows: { email: string; score: number | null }[] };

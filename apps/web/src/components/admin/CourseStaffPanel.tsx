@@ -151,6 +151,7 @@ function StaffList({ courseId, data, onData, onError }: { courseId: string; data
                       <div className="w-full sm:w-56">
                         <SelectField
                           label={s('role')}
+                          required
                           value={p.roleId}
                           options={roleOptions}
                           onChange={(v) => v && v !== p.roleId && void run(p.id, () => api<CourseStaffDto>(`/admin/courses/${courseId}/staff/${p.id}`, { method: 'PUT', json: { roleId: v } }))}
@@ -334,10 +335,11 @@ function RoleCard({
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_7rem]">
           <TextField label={s('roleName')} required value={v.name} onChange={(x) => (setSaved(false), setV({ ...v, name: x }))} error={nameError} maxLength={60} />
           <TextField label={s('roleNameAr')} dir="rtl" value={v.nameAr} onChange={(x) => (setSaved(false), setV({ ...v, nameAr: x }))} maxLength={60} />
-          <TextField label={s('order')} type="number" inputMode="numeric" min={0} value={String(v.order)} onChange={(x) => (setSaved(false), setV({ ...v, order: Math.max(0, Number(x) || 0) }))} />
+          <TextField label={s('order')} required type="number" inputMode="numeric" min={0} value={String(v.order)} onChange={(x) => (setSaved(false), setV({ ...v, order: Math.max(0, Number(x) || 0) }))} />
         </div>
         <RadioGroup
           legend={s('visibility')}
+          required
           value={v.visibility}
           onChange={(x) => (setSaved(false), setV({ ...v, visibility: x as StaffVisibility }))}
           options={[
