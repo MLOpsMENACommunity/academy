@@ -170,7 +170,9 @@ export function isLate(dueAt: Date | string | null | undefined, at: Date): boole
  * - NEVER: no.
  * - AFTER_SUBMIT: once they submitted every allowed attempt (with unlimited
  *   attempts, after each one: a practice quiz).
- * - AFTER_DUE: once they submitted and the due date has passed.
+ * - AFTER_DUE: once they submitted and the due date has passed, plus the grace period
+ *   (QUIZ_GRACE_SECONDS) in which an attempt opened before the due date can still be
+ *   submitted: otherwise the key would be out while others are still answering.
  * Never while an attempt is open.
  */
 export function answersRevealed(a: {
@@ -189,7 +191,7 @@ export function answersRevealed(a: {
     case 'AFTER_SUBMIT':
       return a.attemptsAllowed === 0 || a.submitted >= a.attemptsAllowed;
     case 'AFTER_DUE':
-      return Boolean(a.dueAt) && now.getTime() > new Date(a.dueAt!).getTime();
+      return Boolean(a.dueAt) && now.getTime() > new Date(a.dueAt!).getTime() + QUIZ_GRACE_SECONDS * 1000;
   }
 }
 

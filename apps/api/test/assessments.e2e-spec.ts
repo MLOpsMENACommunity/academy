@@ -243,6 +243,9 @@ describe('assessments (e2e)', () => {
     await http().post(`${base}/start`).set('Cookie', student.cookie).expect(200);
     const r = await http().post(`${base}/submit`).set('Cookie', student.cookie).send({ answers: {} }).expect(200);
     expect(r.body).toMatchObject({ score: 0, review: null, attemptsLeft: 2 });
+    // Just past the due date, attempts opened before it can still be submitted: no key yet.
+    await prisma.assessment.update({ where: { id: quiz.id }, data: { dueAt: new Date(Date.now() - 20_000) } });
+    expect((await http().get(base).set('Cookie', student.cookie).expect(200)).body.review).toBeNull();
     await prisma.assessment.update({ where: { id: quiz.id }, data: { dueAt: new Date(Date.now() - HOUR) } });
     const detail = (await http().get(base).set('Cookie', student.cookie).expect(200)).body;
     expect(detail.review.questions).toHaveLength(3);
