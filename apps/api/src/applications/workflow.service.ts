@@ -340,7 +340,7 @@ export class ApplicationWorkflow {
     const funnelEvent = FUNNEL_FOR[app.status];
     const results = await Promise.allSettled([
       loaded
-        ? this.notifyStudent(loaded.user, loaded.course, app, reason ?? null)
+        ? this.notifyStudent(loaded.user, loaded.course, app, reason ?? null, from)
         : this.prisma.application
         .findUniqueOrThrow({
           where: { id: app.id },
@@ -362,7 +362,7 @@ export class ApplicationWorkflow {
             },
           },
         })
-        .then((full) => this.notifyStudent(full.user, full.course, app, reason ?? null)),
+        .then((full) => this.notifyStudent(full.user, full.course, app, reason ?? null, from)),
       funnelEvent ? this.funnel.record({ id: app.courseId }, funnelEvent, { userId: app.userId }) : Promise.resolve(),
     ]);
     for (const r of results) {
@@ -377,6 +377,7 @@ export class ApplicationWorkflow {
     course: NotifyCourse,
     app: Application,
     reason: string | null,
+    from: ApplicationStatus | null = null,
   ): Promise<void> {
     // Deleted accounts get nothing: no rows, no emails.
     if (user.deletedAt) return;
@@ -399,6 +400,8 @@ export class ApplicationWorkflow {
       startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
       recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
       hasPreparation: hasText(course.preparation),
+      // Enrolled because the payment was verified: the acceptance itself came earlier.
+      paymentVerified: app.status === 'ENROLLED' && from === 'PAYMENT_SUBMITTED',
     });
     try {
       await this.notifications.create(user.id, {

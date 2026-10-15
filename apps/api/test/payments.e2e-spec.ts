@@ -1,5 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { EmailService } from '../src/email/email.service';
+import { buildEmail } from '../src/email/templates/catalog';
 import { PaymentsService } from '../src/payments/payments.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createCourse, createTestApp, createUser } from './helpers';
@@ -113,6 +115,22 @@ describe('payments (e2e)', () => {
     const audit = await prisma.auditLog.findFirst({ where: { entityId: p.body.id, action: 'payment.approved' } });
     expect(audit?.metadata).toMatchObject({ verifiedInHistory: true });
     await http().post(`/api/admin/payments/${p.body.id}/approve`).set('Cookie', admin.cookie).send({ verifiedInHistory: true }).expect(409);
+  });
+
+  it('tells the student their seat is confirmed (not "accepted" again) once the payment is verified', async () => {
+    const send = jest.spyOn(app.get(EmailService), 'send');
+    try {
+      const { student, admin, applicationId } = await awaitingPayment();
+      const p = await submit(student.cookie, applicationId, proof(`SC-${Date.now()}`), png(`sc${Date.now()}`)).expect(201);
+      send.mockClear();
+      await http().post(`/api/admin/payments/${p.body.id}/approve`).set('Cookie', admin.cookie).send({ verifiedInHistory: true }).expect(200);
+      const tpl = send.mock.calls.find((c) => c[0] === student.email)?.[2] as Parameters<typeof buildEmail>[0];
+      expect(tpl).toMatchObject({ name: 'applicationStatus', status: 'ENROLLED', paymentVerified: true });
+      expect(buildEmail(tpl, 'en').subject).toMatch(/^🎉 Your seat is confirmed: /);
+      expect(buildEmail({ ...tpl, paymentVerified: false } as typeof tpl, 'en').subject).toMatch(/^🎉 You're accepted: /);
+    } finally {
+      send.mockRestore();
+    }
   });
 
   it('rejects with a reason and lets the student resubmit', async () => {

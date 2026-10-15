@@ -25,6 +25,8 @@ export type EmailTemplate =
       recordingsPublic?: boolean;
       /** The course page has a "Before the course starts" section. */
       hasPreparation?: boolean;
+      /** ENROLLED after the payment was verified (they were accepted earlier). */
+      paymentVerified?: boolean;
     }
   | {
       name: 'sessionReminder';
@@ -179,13 +181,18 @@ function applicationEmail(t: StatusTemplate, locale: Locale, base: { locale: Loc
             ...(t.hasPreparation ? ['Read "Before the course starts" on the course page and do the setup it asks for.'] : []),
             'Watch your inbox: we send reminders 24 hours and 1 hour before each session, plus announcements from the course team.',
           ];
-      return mk(ar ? `🎉 تم قبولك في ${c}` : `🎉 You're accepted: ${c}`, {
+      const paid = Boolean(t.paymentVerified);
+      return mk(paid ? (ar ? `🎉 تم تأكيد مقعدك في ${c}` : `🎉 Your seat is confirmed: ${c}`) : ar ? `🎉 تم قبولك في ${c}` : `🎉 You're accepted: ${c}`, {
         banner: { text: ar ? 'مبروك، تم قبولك!' : "Congratulations, you're in!", tone: 'success' },
         heading: c,
         paragraphs: [
-          ar
-            ? `يسعدنا أن نخبرك بقبول طلبك في ${c}، وأصبحت الآن مسجلًا في الدورة.`
-            : `We're delighted to tell you that your application to ${c} was accepted, and you're now enrolled.`,
+          paid
+            ? ar
+              ? `تحققنا من دفعتك، وأصبحت الآن مسجلًا في ${c}.`
+              : `We've verified your payment, and you're now enrolled in ${c}.`
+            : ar
+              ? `يسعدنا أن نخبرك بقبول طلبك في ${c}، وأصبحت الآن مسجلًا في الدورة.`
+              : `We're delighted to tell you that your application to ${c} was accepted, and you're now enrolled.`,
           ...(t.startsAt ? [ar ? `تبدأ الدورة ${t.startsAt}.` : `The course starts ${t.startsAt}.`] : []),
         ],
         list: { title: ar ? 'قبل الجلسة الأولى:' : 'Before the first session:', items },
@@ -223,8 +230,8 @@ function applicationEmail(t: StatusTemplate, locale: Locale, base: { locale: Loc
         heading: c,
         paragraphs: [
           ar
-            ? `شكرًا لتقديمك على ${c}. اكتملت المقاعد حاليًا، لذا أضفناك إلى قائمة الانتظار، وسنراسلك فورًا إذا توفر مقعد.`
-            : `Thank you for applying to ${c}. The course is full for now, so you're on the waitlist. We'll email you right away if a seat opens up.`,
+            ? `شكرًا لتقديمك على ${c}. لا يتوفر لك مقعد حاليًا، لذا أضفناك إلى قائمة الانتظار، وسنراسلك فورًا إذا توفر مقعد.`
+            : `Thank you for applying to ${c}. There's no seat for you right now, so you're on the waitlist. We'll email you right away if a seat opens up.`,
         ],
         cta: dashboard,
       });
