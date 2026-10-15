@@ -70,7 +70,8 @@ export class AdminStudentsService {
 
   async detail(id: string) {
     const u = await this.prisma.user.findFirst({
-      where: { id, deletedAt: null },
+      // Students and speakers; admin accounts are managed in Admin → Team (SUPER only).
+      where: { id, deletedAt: null, role: { not: 'ADMIN' } },
       include: {
         profile: { include: { skills: true } },
         applications: { orderBy: { createdAt: 'desc' }, include: { course: { select: { titleEn: true, titleAr: true, slug: true } } } },
@@ -107,14 +108,15 @@ export class AdminStudentsService {
   /** CVs: private, admin-only, 5-minute link, every view audited (Risk 3 applies to CVs too). */
   async cvUrl(userId: string, admin: Actor) {
     // Not for accounts pending deletion: their data is on its way out.
-    const p = await this.prisma.profile.findFirst({ where: { userId, user: { deletedAt: null } }, select: { cvKey: true } });
+    // Nor for admin accounts: this is the students directory.
+    const p = await this.prisma.profile.findFirst({ where: { userId, user: { deletedAt: null, role: { not: 'ADMIN' } } }, select: { cvKey: true } });
     if (!p?.cvKey) throw new NotFoundException('No CV');
     await this.audit.log({ actorId: admin.id, action: 'profile.cv_viewed', entityType: 'User', entityId: userId });
     return { url: await this.storage.signedUrl(p.cvKey), expiresIn: SIGNED_URL_TTL_SECONDS };
   }
 
   async addNote(userId: string, admin: Actor, body: string) {
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const u = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null, role: { not: 'ADMIN' } }, select: { id: true } });
     if (!u) throw new NotFoundException('Student not found');
     const n = await this.prisma.adminNote.create({
       data: { subjectUserId: userId, authorId: admin.id, body },

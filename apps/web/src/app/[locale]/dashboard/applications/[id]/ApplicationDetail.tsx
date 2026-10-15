@@ -1,18 +1,20 @@
 'use client';
 
-import { answerDetail, applicationStatusLabels, type AnswerValue, type MyApplicationDetailDto } from '@academy/shared';
+import { answerDetail, applicationStatusLabels, SELF_WITHDRAWABLE_STATUSES, type AnswerValue, type MyApplicationDetailDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { invalidateCourseStatus } from '@/components/course/ApplyCta';
 import { PaymentSection } from '@/components/payments/PaymentSection';
 import { Alert } from '@/components/ui/Alert';
-import { buttonClass } from '@/components/ui/Button';
+import { Button, buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
+import { errorMessage } from '@/lib/errors';
 import { formatDate, formatDateTime } from '@/lib/format';
 
 const PAYMENT_STATUSES_SHOWN: string[] = ['AWAITING_PAYMENT', 'PAYMENT_SUBMITTED', 'PAYMENT_REJECTED', 'ENROLLED'];
@@ -26,6 +28,8 @@ function Inner() {
   const { id } = useParams<{ id: string }>();
   const [app, setApp] = useState<MyApplicationDetailDto | null>(null);
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api<MyApplicationDetailDto>(`/me/applications/${id}`)
@@ -44,6 +48,23 @@ function Inner() {
   if (!app) return <PageSpinner />;
 
   const title = locale === 'ar' ? app.course.titleAr : app.course.titleEn;
+  const canWithdraw = SELF_WITHDRAWABLE_STATUSES.includes(app.status);
+
+  const slug = app.course.slug;
+  async function withdraw() {
+    if (!window.confirm(t('applications.withdrawConfirm', { course: title }))) return;
+    setWithdrawing(true);
+    setWithdrawError(null);
+    try {
+      setApp(await api<MyApplicationDetailDto>(`/me/applications/${id}/withdraw`, { method: 'POST' }));
+      // The course page reads the student's status client-side: drop the cached one.
+      invalidateCourseStatus(slug);
+    } catch (err) {
+      setWithdrawError(errorMessage(err, t));
+    } finally {
+      setWithdrawing(false);
+    }
+  }
   const answerText = (
     v: AnswerValue | undefined,
     options: { value: string; labelEn: string; labelAr: string }[] | null,
@@ -84,10 +105,38 @@ function Inner() {
             </Link>
           )}
           <Link href={`/${locale}/courses/${app.course.slug}`} className={buttonClass('secondary', 'md')}>
-            {t('applications.viewCourse')}
+            {app.status === 'WITHDRAWN' ? t('applications.applyAgain') : t('applications.viewCourse')}
           </Link>
         </div>
       </section>
+
+      {(canWithdraw || app.status === 'PAYMENT_SUBMITTED') && (
+        <section className="mt-4 rounded-card border border-line bg-card p-5" aria-labelledby="withdraw-title">
+          <h2 id="withdraw-title" className="text-base">
+            {t('applications.withdraw')}
+          </h2>
+          {canWithdraw ? (
+            <>
+              <p className="mt-1 text-sm text-muted">{t('applications.withdrawHelp')}</p>
+              {withdrawError && (
+                <Alert tone="danger" className="mt-3">
+                  {withdrawError}
+                </Alert>
+              )}
+              <Button type="button" variant="secondary" className="mt-3" loading={withdrawing} onClick={withdraw}>
+                {t('applications.withdraw')}
+              </Button>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-muted">
+              {t('applications.withdrawUnderReview')}{' '}
+              <Link href={`/${locale}/refund-policy`} className="font-semibold underline">
+                {t('footer.refund')}
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
 
       {app.course.type === 'PAID' && PAYMENT_STATUSES_SHOWN.includes(app.status) && (
         <PaymentSection app={app} onChanged={load} />

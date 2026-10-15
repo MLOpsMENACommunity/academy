@@ -254,6 +254,8 @@ export const APPLICATION_STATUSES = [
   'ENROLLED',
   'REJECTED',
   'WAITLISTED',
+  /** The student withdrew (or deleted their account) before being enrolled; the seat is free again. */
+  'WITHDRAWN',
 ] as const;
 export const ApplicationStatus = defineEnum(APPLICATION_STATUSES);
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];

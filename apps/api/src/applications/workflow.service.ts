@@ -11,6 +11,7 @@ import {
   applicationStatusLabels,
   applicationStatusMessages,
   SEAT_HOLDING_STATUSES,
+  TERMINAL_STATUSES,
   transition,
   type ApplicationEvent,
   type ApplicationStatus,
@@ -28,6 +29,13 @@ import { toProfileDto } from '../users/profile.service';
 
 /** Stored on a pending payment closed because the student was enrolled directly (no payment needed). */
 export const PAYMENT_WAIVED_REASON = 'Waived: enrolled by the course team';
+/** Stored on a payment still under review when the student's account was deleted (nothing was decided). */
+export const PAYMENT_CLOSED_ACCOUNT_DELETED = 'Closed: the student deleted their account';
+/** History reason when deleting an account withdraws its open applications. */
+export const WITHDRAWN_ACCOUNT_DELETED = 'Account deleted';
+
+/** Events a student-turned-admin may still trigger on their own application. */
+const OWN_APPLICATION_EVENTS: readonly ApplicationEvent[] = ['SUBMIT_PAYMENT', 'WITHDRAW'];
 
 export interface Actor {
   id: string;
@@ -103,6 +111,8 @@ export class ApplicationWorkflow {
       where: {
         courseId: course.id,
         status: { in: [...SEAT_HOLDING_STATUSES] },
+        // A deleted account holds no seat (older rows from before deletion withdrew applications).
+        user: { deletedAt: null },
         ...(excludeApplicationId ? { id: { not: excludeApplicationId } } : {}),
       },
     });
@@ -222,7 +232,7 @@ export class ApplicationWorkflow {
       });
       if (!current) throw new NotFoundException('Application not found');
       // An admin who applied to a course is a student there: someone else decides on their application.
-      if (actor?.role === 'ADMIN' && actor.id === current.userId && event !== 'SUBMIT_PAYMENT') {
+      if (actor?.role === 'ADMIN' && actor.id === current.userId && !OWN_APPLICATION_EVENTS.includes(event)) {
         throw new ForbiddenException({
           code: 'OWN_APPLICATION',
           message: 'You can’t change the status of your own application. Ask another admin.',
@@ -259,6 +269,65 @@ export class ApplicationWorkflow {
     return app;
   }
 
+  /**
+   * Deleting an account withdraws its open applications (anything not enrolled, rejected or
+   * withdrawn): their seats go back to the course, and a payment still under review is closed
+   * with a fixed reason (so it leaves the review queue and can't enrol a deleted account).
+   * The account is already marked deleted, so the student is not emailed. Never throws.
+   */
+  async withdrawForDeletedAccount(userId: string, actor: Actor): Promise<number> {
+    const open = await this.prisma.application.findMany({
+      where: { userId, status: { notIn: [...TERMINAL_STATUSES] } },
+      select: { id: true },
+    });
+    const closed: string[] = [];
+    for (const { id } of open) {
+      try {
+        await this.transition(id, 'WITHDRAW', actor, {
+          reason: WITHDRAWN_ACCOUNT_DELETED,
+          within: async (tx, app) => {
+            closed.push(...(await this.closePendingPayments(tx, app, actor, PAYMENT_CLOSED_ACCOUNT_DELETED)));
+          },
+        });
+      } catch (err) {
+        this.logger.error(`Withdrawing an application of a deleted account failed: ${(err as Error).name}`);
+      }
+    }
+    // Money may have been sent: whoever reviews payments decides on a refund.
+    for (const paymentId of closed) {
+      await this.notifications
+        .notifyAdmins(
+          {
+            type: 'admin.payment_closed',
+            titleEn: 'A payment under review was closed',
+            titleAr: 'تم إغلاق دفعة قيد المراجعة',
+            bodyEn: 'The student deleted their account while their payment was under review, so it was closed. If the money was received, arrange a refund.',
+            bodyAr: 'حذف الطالب حسابه بينما كانت دفعته قيد المراجعة، لذا أُغلقت. إذا وصل المبلغ، فرتّب استرداده.',
+            link: `/admin/payments/${paymentId}`,
+          },
+          ['FINANCE'],
+        )
+        .catch(() => this.logger.error('Telling the finance team about a closed payment failed'));
+    }
+    return open.length;
+  }
+
+  /** Closes the application's payments still under review (rejected, with `reason`), audited. Returns their ids. */
+  async closePendingPayments(tx: Tx, app: Pick<Application, 'id'>, actor: Actor | null, reason: string): Promise<string[]> {
+    const waiting = await tx.payment.findMany({ where: { applicationId: app.id, status: 'PENDING_REVIEW' }, select: { id: true } });
+    for (const p of waiting) {
+      await tx.payment.update({
+        where: { id: p.id },
+        data: { status: 'REJECTED', rejectionReason: reason, reviewedById: actor?.role === 'ADMIN' ? actor.id : null, reviewedAt: new Date() },
+      });
+      await this.audit.log(
+        { actorId: actor?.id ?? null, action: 'payment.closed', entityType: 'Payment', entityId: p.id, metadata: { applicationId: app.id, reason: 'account_deleted' } },
+        tx,
+      );
+    }
+    return waiting.map((p) => p.id);
+  }
+
   /** Email + in-app notification + funnel. Each runs independently; failures never undo the change. */
   async afterChange(
     app: Application,
@@ -271,7 +340,7 @@ export class ApplicationWorkflow {
     const funnelEvent = FUNNEL_FOR[app.status];
     const results = await Promise.allSettled([
       loaded
-        ? this.notifyStudent(loaded.user, loaded.course, app, reason ?? null)
+        ? this.notifyStudent(loaded.user, loaded.course, app, reason ?? null, from)
         : this.prisma.application
         .findUniqueOrThrow({
           where: { id: app.id },
@@ -293,7 +362,7 @@ export class ApplicationWorkflow {
             },
           },
         })
-        .then((full) => this.notifyStudent(full.user, full.course, app, reason ?? null)),
+        .then((full) => this.notifyStudent(full.user, full.course, app, reason ?? null, from)),
       funnelEvent ? this.funnel.record({ id: app.courseId }, funnelEvent, { userId: app.userId }) : Promise.resolve(),
     ]);
     for (const r of results) {
@@ -308,6 +377,7 @@ export class ApplicationWorkflow {
     course: NotifyCourse,
     app: Application,
     reason: string | null,
+    from: ApplicationStatus | null = null,
   ): Promise<void> {
     // Deleted accounts get nothing: no rows, no emails.
     if (user.deletedAt) return;
@@ -330,6 +400,8 @@ export class ApplicationWorkflow {
       startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
       recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
       hasPreparation: hasText(course.preparation),
+      // Enrolled because the payment was verified: the acceptance itself came earlier.
+      paymentVerified: app.status === 'ENROLLED' && from === 'PAYMENT_SUBMITTED',
     });
     try {
       await this.notifications.create(user.id, {

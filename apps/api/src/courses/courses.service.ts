@@ -28,7 +28,7 @@ export class CoursesService {
     if (!courseIds.length) return new Map();
     const rows = await tx.application.groupBy({
       by: ['courseId'],
-      where: { courseId: { in: courseIds }, status: { in: [...SEAT_HOLDING_STATUSES] } },
+      where: { courseId: { in: courseIds }, status: { in: [...SEAT_HOLDING_STATUSES] }, user: { deletedAt: null } },
       _count: { _all: true },
     });
     return new Map(rows.map((r) => [r.courseId, r._count._all]));

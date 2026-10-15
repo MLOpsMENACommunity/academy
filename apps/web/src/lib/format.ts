@@ -18,6 +18,15 @@ export function formatDateTime(iso: string | Date, locale: Locale, timeZone = DE
   }).format(new Date(iso));
 }
 
+/** The currency as people write it in this language ("EGP", "ج.م.‏"), for labels such as "Amount paid (EGP)". */
+export function currencyLabel(currency: string, locale: Locale): string {
+  try {
+    return new Intl.NumberFormat(intlLocale(locale), { style: 'currency', currency }).formatToParts(0).find((p) => p.type === 'currency')?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
+
 export function formatMoney(amount: number, currency: string, locale: Locale): string {
   return new Intl.NumberFormat(intlLocale(locale), { style: 'currency', currency, maximumFractionDigits: 0 }).format(
     amount,

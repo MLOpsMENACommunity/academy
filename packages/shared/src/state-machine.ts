@@ -10,6 +10,9 @@ import { ApplicationStatus, CourseType } from './enums';
  *              └─ WAITLIST ─▶ WAITLISTED  (also automatic when capacity is full)   REJECT_PAYMENT ─▶ PAYMENT_REJECTED
  *                                                                                  (student resubmits ─▶ PAYMENT_SUBMITTED)
  *
+ *   WITHDRAW: the student (or the deletion of their account) ─▶ WITHDRAWN, from any status before
+ *   ENROLLED except REJECTED. The seat is freed; applying again reopens the same application.
+ *
  *   ADMIN_ENROL ("Enrol by email"): any status except ENROLLED ─▶ ENROLLED, with no payment and
  *   regardless of capacity. Only the invites service sends it, never the applications table.
  */
@@ -23,6 +26,7 @@ export const APPLICATION_EVENTS = [
   'APPROVE_PAYMENT',
   'REJECT_PAYMENT',
   'ADMIN_ENROL',
+  'WITHDRAW',
 ] as const;
 export type ApplicationEvent = (typeof APPLICATION_EVENTS)[number];
 
@@ -42,6 +46,19 @@ export const SEAT_HOLDING_STATUSES: readonly ApplicationStatus[] = [
 export const TERMINAL_STATUSES: readonly ApplicationStatus[] = [
   ApplicationStatus.ENROLLED,
   ApplicationStatus.REJECTED,
+  ApplicationStatus.WITHDRAWN,
+];
+
+/**
+ * Statuses a student may withdraw from themselves. Not while a payment is under review (money
+ * was sent: the team settles it, refund included), and never once enrolled (see the refund policy).
+ */
+export const SELF_WITHDRAWABLE_STATUSES: readonly ApplicationStatus[] = [
+  ApplicationStatus.SUBMITTED,
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.WAITLISTED,
+  ApplicationStatus.AWAITING_PAYMENT,
+  ApplicationStatus.PAYMENT_REJECTED,
 ];
 
 export interface TransitionContext {
@@ -128,6 +145,11 @@ function nextStatus(
 
     case 'REJECT_PAYMENT':
       if (current === S.PAYMENT_SUBMITTED) return to(S.PAYMENT_REJECTED);
+      break;
+
+    case 'WITHDRAW':
+      // Anything still open. PAYMENT_SUBMITTED only through account deletion (see SELF_WITHDRAWABLE_STATUSES).
+      if (current !== S.ENROLLED && current !== S.REJECTED && current !== S.WITHDRAWN) return to(S.WITHDRAWN);
       break;
 
     case 'ADMIN_ENROL':

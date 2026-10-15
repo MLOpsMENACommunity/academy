@@ -99,7 +99,7 @@ export class InvitesService {
   }
 
   private seatsTaken(courseId: string, tx: Tx = this.prisma): Promise<number> {
-    return tx.application.count({ where: { courseId, status: { in: [...SEAT_HOLDING_STATUSES] } } });
+    return tx.application.count({ where: { courseId, status: { in: [...SEAT_HOLDING_STATUSES] }, user: { deletedAt: null } } });
   }
 
   /** What we know about each address for this course: account, enrolment, existing invite. */

@@ -383,6 +383,7 @@
     "notifyCta": "Get notified when it opens"
   },
   "course": {
+    "fullInstant": "Seats are full: you'll join the waitlist.",
     "breadcrumb": "Courses",
     "instructor": "Instructor",
     "instructors": "Instructors",
@@ -453,6 +454,9 @@
     "team": "Course team"
   },
   "apply": {
+    "fullInstant": "This course is full. If you apply now, you'll join the waitlist and we'll email you if a seat opens up.",
+    "fullReviewed": "All seats are taken right now. You can still apply: if the team accepts you, you may be placed on the waitlist until a seat opens up.",
+    "waitlistSubmit": "Join the waitlist",
     "title": "Apply: {course}",
     "intro": "Answer a few questions so the instructors can shape the cohort. Your profile details are included automatically.",
     "submit": "Submit application",
@@ -477,6 +481,11 @@
     }
   },
   "applications": {
+    "withdraw": "Withdraw application",
+    "withdrawHelp": "Can't take part after all? Withdraw so your seat can go to someone on the waitlist.",
+    "withdrawConfirm": "Withdraw your application to {course}? Your seat goes to someone else. You can apply again while applications are open.",
+    "withdrawUnderReview": "Your payment is being verified. To withdraw now, contact the team: see the refund policy.",
+    "applyAgain": "Apply again",
     "title": "Application",
     "course": "Course",
     "submitted": "Submitted {date}",
@@ -494,7 +503,8 @@
       "PAYMENT_REJECTED": "Your payment couldn't be verified. Please submit a new proof of payment.",
       "ENROLLED": "You're enrolled. Session links and recordings are on the course page.",
       "REJECTED": "This application wasn't accepted. We hope to see you in a future course.",
-      "WAITLISTED": "You're on the waitlist. We'll email you if a seat opens up."
+      "WAITLISTED": "You're on the waitlist. We'll email you if a seat opens up.",
+      "WITHDRAWN": "You withdrew this application. You can apply again while applications are open."
     },
     "pay": "Pay and upload proof",
     "goToCourse": "Go to course"
@@ -518,6 +528,7 @@
     "formTitle": "Submit proof of payment",
     "method": "Payment method",
     "amount": "Amount paid (EGP)",
+    "amountIn": "Amount paid ({currency})",
     "transactionRef": "Transaction reference number",
     "transactionRefHint": "As shown on your InstaPay or Vodafone Cash receipt.",
     "senderName": "Sender name",

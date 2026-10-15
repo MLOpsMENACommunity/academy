@@ -80,6 +80,20 @@ describe('admin permissions (e2e)', () => {
       }
     });
 
+    it('Admin → Students is for students and speakers: admissions cannot open, or write notes about, admin accounts', async () => {
+      const c = admins.ADMISSIONS.cookie;
+      const other = admins.FINANCE;
+      await prisma.profile.update({ where: { userId: other.id }, data: { cvKey: 'cvs/perm-admin-cv.pdf' } });
+      await http().get(`/api/admin/students/${other.id}`).set('Cookie', c).expect(404);
+      await http().get(`/api/admin/students/${other.id}/cv`).set('Cookie', c).expect(404);
+      await http().post(`/api/admin/students/${other.id}/notes`).set('Cookie', c).send({ body: 'About a colleague' }).expect(404);
+      expect(await prisma.adminNote.count({ where: { subjectUserId: other.id } })).toBe(0);
+      // Students (and speakers) still work.
+      const student = await createUser(app, prisma, { prefix: 'perm-student' });
+      await http().get(`/api/admin/students/${student.id}`).set('Cookie', c).expect(200);
+      await http().post(`/api/admin/students/${student.id}/notes`).set('Cookie', c).send({ body: 'Called them' }).expect(201);
+    });
+
     it('a content admin cannot use the full editors or see personal data', async () => {
       const c = admins.CONTENT.cookie;
       const someone = await createUser(app, prisma, { prefix: 'perm-victim' });

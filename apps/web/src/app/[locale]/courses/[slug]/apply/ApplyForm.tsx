@@ -82,6 +82,9 @@ function Inner({ user }: { user: MeResponse }) {
   if (!course || !status || !profile || !schema) return <PageSpinner />;
 
   const title = locale === 'ar' ? course.titleAr : course.titleEn;
+  /** No seat left: an instant course puts the applicant on the waitlist; a reviewed one may later. */
+  const full = course.seatsRemaining === 0;
+  const instant = !course.requiresApproval;
   const shell = (body: React.ReactNode) => (
     <Container className="max-w-2xl py-10">
       <Link href={`/${locale}/courses/${slug}`} className="text-sm text-primary hover:underline">
@@ -92,7 +95,8 @@ function Inner({ user }: { user: MeResponse }) {
     </Container>
   );
 
-  if (status.applicationId) {
+  // Withdrawn: applying again reopens the same application.
+  if (status.applicationId && status.status !== 'WITHDRAWN') {
     return shell(
       <Alert tone="info" title={t('apply.already')}>
         <Link href={`/${locale}/dashboard/applications/${status.applicationId}`} className="font-semibold underline">
@@ -151,6 +155,11 @@ function Inner({ user }: { user: MeResponse }) {
   return shell(
     <>
       <p className="text-muted">{t('apply.intro')}</p>
+      {full && (
+        <Alert tone="warning" className="mt-4">
+          {instant ? t('apply.fullInstant') : t('apply.fullReviewed')}
+        </Alert>
+      )}
       <Alert tone="info" className="mt-4">
         {t('apply.profileNote')}{' '}
         <Link href={`/${locale}/profile`} className="font-semibold underline">
@@ -223,7 +232,7 @@ function Inner({ user }: { user: MeResponse }) {
         })}
         <div className="border-t border-line pt-5">
           <Button type="submit" size="lg" variant="accent" loading={busy}>
-            {course.type === 'FREE' && !course.requiresApproval ? t('apply.enrollSubmit') : t('apply.submit')}
+            {full && instant ? t('apply.waitlistSubmit') : course.type === 'FREE' && instant ? t('apply.enrollSubmit') : t('apply.submit')}
           </Button>
         </div>
       </form>

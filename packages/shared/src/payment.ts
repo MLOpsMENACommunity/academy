@@ -8,21 +8,40 @@ export function normalizeTransactionRef(ref: string): string {
   return ref.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/**
+ * Arabic-Indic (٠-٩) and Persian (۰-۹) digits as 0-9: phones with an Arabic keyboard type them in
+ * the amount, reference and phone fields, and receipts in Arabic show them too.
+ */
+export function asciiDigits(v: string): string {
+  return v.replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) & 0xf));
+}
+const withAsciiDigits = (v: unknown) => (typeof v === 'string' ? asciiDigits(v) : v);
+
 export const paymentProofSchema = z.object({
   method: z.enum(MANUAL_PAYMENT_METHODS),
-  amount: z.coerce.number().int('Enter a whole amount').positive('Enter the amount you paid').max(1_000_000),
-  transactionRef: z
-    .string()
-    .trim()
-    .min(4, 'Enter the transaction reference number')
-    .max(64)
-    // Spaces allowed: references are often copied as 'IP 1234 5678'. Duplicate checks ignore them.
-    .regex(/^[A-Za-z0-9\-_/. ]+$/, 'Use the reference exactly as shown (letters and digits)')
-    // '----' would normalise to '' and "match" every other blank reference.
-    .refine((v) => normalizeTransactionRef(v).length >= 4, 'Enter the transaction reference number'),
+  amount: z.preprocess(
+    withAsciiDigits,
+    z.coerce
+      .number({ invalid_type_error: 'Enter the amount you paid' })
+      .int('Enter a whole amount')
+      .positive('Enter the amount you paid')
+      .max(1_000_000),
+  ),
+  transactionRef: z.preprocess(
+    withAsciiDigits,
+    z
+      .string()
+      .trim()
+      .min(4, 'Enter the transaction reference number')
+      .max(64)
+      // Spaces allowed: references are often copied as 'IP 1234 5678'. Duplicate checks ignore them.
+      .regex(/^[A-Za-z0-9\-_/. ]+$/, 'Use the reference exactly as shown (letters and digits)')
+      // '----' would normalise to '' and "match" every other blank reference.
+      .refine((v) => normalizeTransactionRef(v).length >= 4, 'Enter the transaction reference number'),
+  ),
   senderName: z.string().trim().min(2, 'Enter the sender name').max(120),
   /** Phone number (Vodafone Cash) or InstaPay handle / IPA. */
-  senderPhone: z.string().trim().min(4, 'Enter the sender phone or InstaPay handle').max(80),
+  senderPhone: z.preprocess(withAsciiDigits, z.string().trim().min(4, 'Enter the sender phone or InstaPay handle').max(80)),
   paidAt: z.coerce
     .date({ invalid_type_error: 'Enter the payment date' })
     .refine((d) => d.getTime() <= Date.now() + 24 * 3600_000, 'The payment date cannot be in the future')

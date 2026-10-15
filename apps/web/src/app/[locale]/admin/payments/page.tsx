@@ -3,11 +3,15 @@
 import type { AdminPaymentDto, PaymentStatus } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Pager } from '@/components/admin/Pager';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { formatDateTime, formatMoney } from '@/lib/format';
+
+/** The API's page size for the queue (payments.service.ts). */
+const PAGE_SIZE = 50;
 
 const TABS: { status: PaymentStatus; key: string }[] = [
   { status: 'PENDING_REVIEW', key: 'pending' },
@@ -19,6 +23,8 @@ export default function PaymentsQueue() {
   const { locale, t } = useI18n();
   const [status, setStatus] = useState<PaymentStatus>('PENDING_REVIEW');
   const [items, setItems] = useState<AdminPaymentDto[] | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState<number | null>(null);
   const [error, setError] = useState(false);
   const tabs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -26,13 +32,26 @@ export default function PaymentsQueue() {
     let current = true; // ignore responses for a tab the admin already left
     setItems(null);
     setError(false);
-    api<AdminPaymentDto[]>(`/admin/payments?status=${status}`)
-      .then((r) => current && setItems(r))
+    // More than one page is common over time (approved and rejected tabs): page through them.
+    Promise.all([
+      api<AdminPaymentDto[]>(`/admin/payments?status=${status}&page=${page}`),
+      api<{ count: number }>(`/admin/payments-count?status=${status}`),
+    ])
+      .then(([r, c]) => {
+        if (!current) return;
+        setItems(r);
+        setTotal(c.count);
+      })
       .catch(() => current && setError(true));
     return () => {
       current = false;
     };
-  }, [status]);
+  }, [status, page]);
+
+  const pick = (s: PaymentStatus) => {
+    setStatus(s);
+    setPage(1);
+  };
 
   const onKey = (e: KeyboardEvent) => {
     const i = TABS.findIndex((x) => x.status === status);
@@ -41,7 +60,7 @@ export default function PaymentsQueue() {
     if (e.key !== fwd && e.key !== back) return;
     e.preventDefault();
     const next = TABS[(i + (e.key === fwd ? 1 : TABS.length - 1)) % TABS.length]!;
-    setStatus(next.status);
+    pick(next.status);
     tabs.current[next.status]?.focus();
   };
 
@@ -68,7 +87,7 @@ export default function PaymentsQueue() {
             aria-selected={status === tab.status}
             aria-controls="payments-panel"
             tabIndex={status === tab.status ? 0 : -1}
-            onClick={() => setStatus(tab.status)}
+            onClick={() => pick(tab.status)}
             className={`min-h-11 border-b-2 px-3 text-sm font-semibold ${status === tab.status ? 'border-primary text-primary' : 'border-transparent text-muted'}`}
           >
             {t(`admin.payments.${tab.key}`)}
@@ -122,6 +141,7 @@ export default function PaymentsQueue() {
             </li>
           ))}
         </ul>
+        {items && total !== null && <Pager page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} />}
       </div>
     </div>
   );

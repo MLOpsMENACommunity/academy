@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  asciiDigits,
   paymentMethodLabels,
   paymentProofSchema,
   paymentStatusLabels,
@@ -19,7 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
-import { formatDate, formatMoney } from '@/lib/format';
+import { currencyLabel, formatDate, formatMoney } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 const MAX = 5 * 1024 * 1024;
@@ -259,7 +260,17 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
             error={errors.method}
           />
           <div className="grid gap-5 sm:grid-cols-2">
-            <TextField label={t('payment.amount')} required type="number" inputMode="numeric" min={1} value={amount} onChange={setAmount} error={errors.amount} />
+            {/* Text, not type=number: number inputs drop digits typed on an Arabic keyboard (١٥٠٠); the schema converts them. */}
+            <TextField
+              label={t('payment.amountIn', { currency: currencyLabel(info.currency, locale) })}
+              required
+              inputMode="numeric"
+              dir="ltr"
+              autoComplete="off"
+              value={amount}
+              onChange={(v) => setAmount(asciiDigits(v))}
+              error={errors.amount}
+            />
             <TextField label={t('payment.paidAt')} required type="date" value={paidAt} onChange={setPaidAt} error={errors.paidAt} max={localToday()} />
             <TextField
               label={t('payment.transactionRef')}
