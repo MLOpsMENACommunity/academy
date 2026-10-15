@@ -228,6 +228,13 @@ describe('assessments (e2e)', () => {
     const reworded = structuredClone(full);
     reworded.questions[0].promptEn = 'Which tool tracks ML experiments?';
     await http().put(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).send(reworded).expect(200);
+    // Moving questions and options up or down changes no score (graded by id): allowed.
+    const reordered = structuredClone(reworded);
+    reordered.questions.reverse();
+    reordered.questions[0].options.reverse();
+    const saved = (await http().put(`/api/admin/assessments/${quiz.id}`).set('Cookie', admin.cookie).send(reordered).expect(200)).body;
+    expect(saved.questions.map((q: { id: string }) => q.id)).toEqual(reordered.questions.map((q: { id: string }) => q.id));
+    expect((await http().get(base).set('Cookie', student.cookie).expect(200)).body.score).toBe(60);
 
     // The shared score rule for certificates and points.
     const results = await app.get(AssessmentsService).courseResults(student.id, course.id);
