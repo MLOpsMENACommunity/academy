@@ -763,6 +763,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Admissions audit | Students can withdraw an application (Withdrawn status); deleting an account frees its seats and closes a pending payment; full courses say so before applying; Apply closes at the deadline; payments queue pages; Arabic digits in payment proofs; "seat confirmed" email; waiting list only notified while applications are open; admin accounts out of Admin → Students | Pending |
 | #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Pending |
 | #61 | Speakers teach their assigned courses: assessments, grading, gradebook, points, materials; assessment preview limited to SUPER/ACADEMIC and assigned speakers; "Last edited by" | Staging |
 | #60 | Assessments: English-only editor, ↑/↓ ordering, quiz upload from Excel/CSV, publish notices; "Learn page access" column | Staging |
