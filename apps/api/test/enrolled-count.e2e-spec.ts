@@ -55,7 +55,7 @@ describe('public enrolled count and seats left (e2e)', () => {
     const a = await createUser(app, prisma, { prefix: 'enc-a' });
     const b = await createUser(app, prisma, { prefix: 'enc-b' });
     await revalidator.settle();
-    let before = revalidator.sent;
+    const before = revalidator.sent;
     // Instant enrolment (free, no approval): a student's own request, not an admin's.
     expect((await apply(a.cookie, course).expect(201)).body.status).toBe('ENROLLED');
     expect(await revalidatedSince(before)).toBe(true);
