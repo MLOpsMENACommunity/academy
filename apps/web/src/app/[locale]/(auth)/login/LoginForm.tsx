@@ -14,7 +14,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, loginErrorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
 import { useHashParam, useSearchParam } from '@/lib/use-search-param';
@@ -43,7 +43,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
 
   // ?error=… (e.g. a failed Google sign-in), read after hydration: the page is static.
   useEffect(() => {
-    if (errorCode) setError(t(`auth.errors.${errorCode}`));
+    if (errorCode) setError(loginErrorMessage(errorCode, t));
   }, [errorCode, t]);
 
   // Already signed in (e.g. a valid refresh cookie): continue straight away.

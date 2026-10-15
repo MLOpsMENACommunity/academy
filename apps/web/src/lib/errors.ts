@@ -18,3 +18,13 @@ export function errorMessage(err: unknown, t: Translate): string {
   }
   return t('errors.generic');
 }
+
+/**
+ * The message for a login page `?error=` code (Google sign-in failures). The code comes from the
+ * URL, so anything unknown gets the generic Google failure, never a raw translation key.
+ */
+export function loginErrorMessage(code: string, t: Translate): string {
+  const key = `auth.errors.${code}`;
+  const msg = /^[A-Za-z_]{1,40}$/.test(code) ? t(key) : key;
+  return msg === key ? t('auth.errors.google_failed') : msg;
+}
