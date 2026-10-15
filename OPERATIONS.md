@@ -271,6 +271,18 @@ application form, the profile gate or (for paid courses) payment.
   unused invites at once; anonymisation deletes the rest. The daily retention job deletes
   PENDING and REVOKED invites older than 180 days (`INVITE_RETENTION_DAYS`).
 
+## Withdrawals and deleted accounts
+
+- A student can withdraw their own application from its page (status **Withdrawn**) at any point
+  before enrolment, except while a payment is under review: then they contact the team, which
+  settles the payment (refund included) per the refund policy. Enrolled students also go through
+  the team. Withdrawing frees the seat; accept someone from the waitlist by hand. Applying again
+  reopens the same application, with its history.
+- Deleting an account (by the student or in Admin → Students) withdraws its open applications.
+  A payment still under review is closed (Rejected, reason "Closed: the student deleted their
+  account") and finance admins get a notification: refund it if the money arrived. Seat counts
+  ignore deleted accounts, and a deleted account's payment can't be approved (close it with Reject).
+
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included, plus the deployed `release`), then `wrangler tail` and `wrangler containers list`. 503s with `Retry-After` mean "busy or starting", not broken: the API logs a `shed_load` warning (every 10 s at most) saying why (`db_pool`, `in_flight`, `password_hash`, `db_unreachable`), and the Worker logs "container unavailable" or "no response within …". See DEPLOY.md, "Capacity and caching".
