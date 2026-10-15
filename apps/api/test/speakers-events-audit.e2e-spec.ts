@@ -88,4 +88,52 @@ describe('speakers and live sessions: audit regressions (e2e)', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(sent.filter((m) => m.template.name === 'eventCancelled')).toEqual([]);
   });
+  /** The admin editor's body for a stored session (what the web form sends back). */
+  async function editorBody(eventId: string, over: Record<string, unknown> = {}) {
+    const e = (await http().get(`/api/admin/events/${eventId}`).set('Cookie', admin.cookie).expect(200)).body;
+    const keep = ['slug', 'status', 'titleEn', 'titleAr', 'descriptionEn', 'descriptionAr', 'speakerName', 'speakerNameAr', 'speakerTitleEn', 'speakerTitleAr', 'speakerPhotoUrl', 'speakerLinkedinUrl', 'speakerId', 'topics', 'category', 'startsAt', 'durationMin', 'language', 'platform', 'liveUrl', 'recordingUrl', 'coverImageUrl', 'capacity'];
+    return { ...Object.fromEntries(keep.map((k) => [k, e[k]])), ...over };
+  }
+
+  /** Saves a stored session through the admin editor's endpoint. The body is read first: one request at a time. */
+  async function save(eventId: string, over: Record<string, unknown>) {
+    const body = await editorBody(eventId, over);
+    return http().put(`/api/admin/events/${eventId}`).set('Cookie', admin.cookie).send(body);
+  }
+
+  it('SPK-02: refuses to put a published session with registrants back to draft (cancel tells them)', async () => {
+    const event = await prisma.liveEvent.create({
+      data: { slug: `aud-unpub-${Date.now()}`, status: 'PUBLISHED', titleEn: 'Unpublish me', titleAr: 'جلسة', startsAt: new Date(Date.now() + 5 * DAY), durationMin: 60, liveUrl: 'https://meet.google.com/abc-defg-hij' },
+    });
+    // Nobody registered yet: back to draft is fine.
+    expect((await save(event.id, { status: 'DRAFT' })).status).toBe(200);
+    expect((await save(event.id, { status: 'PUBLISHED' })).status).toBe(200);
+    const student = await createUser(app, prisma, { prefix: 'aud-unpub' });
+    await http().post(`/api/events/${event.slug}/registration`).set('Cookie', student.cookie).expect(201);
+
+    const res = await save(event.id, { status: 'DRAFT' });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('EVENT_UNPUBLISH_HAS_REGISTRATIONS');
+    expect((await prisma.liveEvent.findUniqueOrThrow({ where: { id: event.id } })).status).toBe('PUBLISHED');
+    // Cancelling still works, and tells them.
+    sent = [];
+    expect((await save(event.id, { status: 'CANCELLED' })).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent.filter((m) => m.template.name === 'eventCancelled').map((m) => m.to)).toEqual([student.email]);
+  });
+
+  it('SPK-03: refuses to delete a session a speaker booking holds (release the booking instead)', async () => {
+    const s = await approvedSpeaker('Deleted');
+    const { slot, eventId } = await booked(s);
+    const res = await http().delete(`/api/admin/events/${eventId}`).set('Cookie', admin.cookie).expect(409);
+    expect(res.body.code).toBe('EVENT_FROM_BOOKING');
+    expect(await prisma.liveEvent.findUnique({ where: { id: eventId } })).not.toBeNull();
+    // Releasing the booking removes the draft and reopens the slot.
+    await http().post(`/api/admin/speaking-slots/${slot.id}/release`).set('Cookie', admin.cookie).expect(204);
+    expect(await prisma.liveEvent.findUnique({ where: { id: eventId } })).toBeNull();
+    expect((await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id } })).status).toBe('OPEN');
+    // A session made by hand can still be deleted.
+    const own = await prisma.liveEvent.create({ data: { slug: `aud-own-${Date.now()}`, titleEn: 'Own draft', startsAt: new Date(Date.now() + 9 * DAY) } });
+    await http().delete(`/api/admin/events/${own.id}`).set('Cookie', admin.cookie).expect(204);
+  });
 });
