@@ -7,11 +7,13 @@ import {
   eventEnded,
   generateSlotTimes,
   googleCalendarLink,
+  hasAdminPermission,
   MAX_GENERATED_SLOTS,
   readSpeakerDetails,
   slugify,
   speakerKindLabels,
   type SpeakerKind,
+  type AdminPermission,
   type AdminSlotDto,
   type AdminSpeakerApplicationDto,
   type CourseDraftResultDto,
@@ -468,14 +470,19 @@ export class SpeakerPortalService {
       when: formatWhen(slot.startsAt, 'en'),
       url: this.email.url('en', link),
     });
-    await this.notifications.notifyAdmins({
-      type: 'speaker_booking',
-      titleEn: made.course ? 'New course from a speaker: a draft course is ready' : 'New speaker booking',
-      titleAr: made.course ? 'دورة جديدة من متحدث: مسودة الدورة جاهزة' : 'حجز جديد من متحدث',
-      bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
-      bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
-      link,
-    }, ['SPEAKERS']);
+    // The academic team prepares and publishes the draft; the speakers team follows the booking.
+    // Each admin gets a page they can open: the draft, or Availability.
+    await this.notifications.notifyAdminsWithLink(
+      {
+        type: 'speaker_booking',
+        titleEn: made.course ? 'New course from a speaker: a draft course is ready' : 'New speaker booking',
+        titleAr: made.course ? 'دورة جديدة من متحدث: مسودة الدورة جاهزة' : 'حجز جديد من متحدث',
+        bodyEn: `${app.fullName} booked ${formatWhen(slot.startsAt, 'en')}: ${label}`,
+        bodyAr: `${app.fullName} حجز ${formatWhen(slot.startsAt, 'ar')}: ${label}`,
+      },
+      ['SPEAKERS', 'ACADEMIC'],
+      (perms) => (canAdmin(perms, ['ACADEMIC']) ? link : AVAILABILITY),
+    );
   }
 
   /**
@@ -690,14 +697,18 @@ export class SpeakerPortalService {
       when: formatWhen(r.slot.startsAt, 'en'),
       url: this.email.url('en', kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability'),
     });
-    await this.notifications.notifyAdmins({
-      type: 'speaker_booking_cancelled',
-      titleEn: 'A speaker booking was cancelled',
-      titleAr: 'أُلغي حجز متحدث',
-      bodyEn: kept ? `${name}: ${title}. ${keptNote}` : `${name}: ${title}`,
-      bodyAr: kept ? `${name}: ${title}. الدورة منشورة بالفعل، فبقيت كما هي: راجعها في الدورات.` : `${name}: ${title}`,
-      link: kept ? `/admin/courses/${kept.id}` : '/admin/speakers/availability',
-    }, ['SPEAKERS']);
+    await this.notifications.notifyAdminsWithLink(
+      {
+        type: 'speaker_booking_cancelled',
+        titleEn: 'A speaker booking was cancelled',
+        titleAr: 'أُلغي حجز متحدث',
+        bodyEn: kept ? `${name}: ${title}. ${keptNote}` : `${name}: ${title}`,
+        bodyAr: kept ? `${name}: ${title}. الدورة منشورة بالفعل، فبقيت كما هي: راجعها في الدورات.` : `${name}: ${title}`,
+      },
+      ['SPEAKERS', 'ACADEMIC'],
+      (perms) =>
+        kept && canAdmin(perms, ['ACADEMIC']) ? `/admin/courses/${kept.id}` : canAdmin(perms, ['SPEAKERS']) ? AVAILABILITY : kept ? `/admin/courses/${kept.id}` : '/admin/sessions',
+    );
   }
 
   /** The speaker cancels until N days before: the slot opens again and the session goes. */
@@ -1015,6 +1026,13 @@ export class SpeakerPortalService {
     if (released) this.logger.log(`Released ${released} speaker booking(s) of a deleted account`);
     return released;
   }
+}
+
+const AVAILABILITY = '/admin/speakers/availability';
+
+/** Whether an admin with these presets may open pages of `allowed` (SUPER always may). */
+function canAdmin(adminPermissions: AdminPermission[], allowed: AdminPermission[]): boolean {
+  return hasAdminPermission({ role: 'ADMIN', adminPermissions }, allowed);
 }
 
 /** A draft the team published (or changed) while this request ran: nothing was changed. */

@@ -156,4 +156,28 @@ describe('speakers and live sessions: audit regressions (e2e)', () => {
     await http().post(`/api/admin/team/${student.id}/remove`).set('Cookie', admin.cookie).expect(200);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: student.id } })).role).toBe('STUDENT');
   });
+  it('SPK-05: booking notifications reach the academic team too, each with a page that admin can open', async () => {
+    const speakersOnly = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['SPEAKERS'], prefix: 'aud-n-spk' });
+    const academic = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC'], prefix: 'aud-n-aca' });
+    const finance = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['FINANCE'], prefix: 'aud-n-fin' });
+    const s = await approvedSpeaker('Notified');
+    const { slot, eventId } = await booked(s);
+    const links = async (type: string) =>
+      Object.fromEntries(
+        (await prisma.notification.findMany({ where: { type, userId: { in: [admin.id, speakersOnly.id, academic.id, finance.id] } }, orderBy: { createdAt: 'desc' } }))
+          .reverse()
+          .map((n) => [n.userId, n.link]),
+      );
+    expect(await links('speaker_booking')).toEqual({
+      [admin.id]: `/admin/sessions/${eventId}`,
+      [academic.id]: `/admin/sessions/${eventId}`,
+      [speakersOnly.id]: '/admin/speakers/availability',
+    });
+    await http().post(`/api/admin/speaking-slots/${slot.id}/release`).set('Cookie', admin.cookie).expect(204);
+    expect(await links('speaker_booking_cancelled')).toEqual({
+      [admin.id]: '/admin/speakers/availability',
+      [speakersOnly.id]: '/admin/speakers/availability',
+      [academic.id]: '/admin/sessions',
+    });
+  });
 });
