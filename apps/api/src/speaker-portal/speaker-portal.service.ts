@@ -37,6 +37,7 @@ import { EmailService } from '../email/email.service';
 import { EventsService, formatWhen } from '../events/events.service';
 import { buildIcs } from '../learn/ics';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ensureBuiltinRoles, linkProfileStaffToAccount, setCourseInstructors } from '../course-staff/staff-sync';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -347,9 +348,11 @@ export class SpeakerPortalService {
         faq: draft.faq as Prisma.InputJsonValue,
         included: draft.included as Prisma.InputJsonValue,
         source: 'speaker-booking',
-        ...(instructorId ? { instructors: { create: { instructorId, order: 0 } } } : {}),
       },
     });
+    // The speaker who booked it is its Main instructor (course staff; CourseInstructor follows).
+    await ensureBuiltinRoles(tx, c.id);
+    if (instructorId) await setCourseInstructors(tx, c.id, [instructorId]);
     await this.audit.log({ actorId, action: 'course.created', entityType: 'Course', entityId: c.id, metadata: { slug: c.slug, status: 'DRAFT', source: 'speaker-booking', slotId: slot.id } }, tx);
     return c;
   }
@@ -824,6 +827,8 @@ export class SpeakerPortalService {
             const linked = await tx.instructor.updateMany({ where: { id: input.instructorId, userId: null }, data: { userId: app.userId } });
             if (linked.count !== 1) throw new BadRequestException({ code: 'INSTRUCTOR_UNAVAILABLE', message: 'That speaker profile does not exist or belongs to another account' });
             instructorId = input.instructorId;
+            // Courses already showing this profile: the account now teaches them in that role.
+            await linkProfileStaffToAccount(tx, input.instructorId, app.userId);
           } else {
             const created = await tx.instructor.create({
               data: {

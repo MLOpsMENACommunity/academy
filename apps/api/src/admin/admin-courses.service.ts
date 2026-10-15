@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import {
   APPLICATION_STATUSES,
   confirmMatches,
+  courseInputSchema,
   slugify,
   toCsv,
   type CourseInput,
@@ -12,6 +13,7 @@ import {
 import { Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
+import { copyStaff, ensureBuiltinRoles, setCourseInstructors } from '../course-staff/staff-sync';
 import { toInstructorDto } from '../courses/course.mapper';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -74,7 +76,9 @@ export class AdminCoursesService {
     const { instructors, screeningQuestions, sessions, ...course } = c;
     return {
       ...course,
-      instructorIds: instructors.map((i) => i.instructorId),
+      // The Main instructor and Co-instructors with a speaker profile, shown or anonymous (the
+      // Instructors field edits these; everything else about staff is in the Staff tab).
+      instructorIds: await this.instructorIds(id),
       instructors: instructors.map((i) => toInstructorDto(i.instructor)),
       questions: screeningQuestions,
       sessions,
@@ -97,11 +101,18 @@ export class AdminCoursesService {
     };
   }
 
+  /** The course editor's Instructors field: a shortcut to the Main instructor and Co-instructor roles of the course staff. */
   private async setInstructors(tx: Prisma.TransactionClient, courseId: string, ids: string[]) {
-    await tx.courseInstructor.deleteMany({ where: { courseId } });
-    if (ids.length) {
-      await tx.courseInstructor.createMany({ data: ids.map((instructorId, order) => ({ courseId, instructorId, order })) });
-    }
+    await setCourseInstructors(tx, courseId, ids);
+  }
+
+  /** What the Instructors field shows: the profiles in the Main instructor and Co-instructor roles, in order. */
+  async instructorIds(courseId: string, tx: Prisma.TransactionClient = this.prisma): Promise<string[]> {
+    const rows = await tx.courseStaff.findMany({
+      where: { courseId, instructorId: { not: null }, role: { builtin: { in: ['MAIN', 'CO'] } } },
+      select: { instructorId: true, order: true, role: { select: { order: true } } },
+    });
+    return rows.sort((a, b) => a.role.order - b.role.order || a.order - b.order).map((r) => r.instructorId!);
   }
 
   /**
@@ -123,6 +134,7 @@ export class AdminCoursesService {
     try {
       const course = await this.prisma.$transaction(async (tx) => {
         const created = await tx.course.create({ data: this.data(input) });
+        await ensureBuiltinRoles(tx, created.id);
         await this.setInstructors(tx, created.id, input.instructorIds);
         return created;
       });
@@ -155,6 +167,26 @@ export class AdminCoursesService {
       metadata: before.status !== input.status ? { from: before.status, to: input.status } : {},
     });
     return this.get(id);
+  }
+
+  /**
+   * Course staff with EDIT_COURSE (Teaching → {course} → Details): the same editor, except what
+   * stays with the admins: the status (publishing, archiving), the address (slug), the price and
+   * type, and who teaches it (the Staff tab). Those keep their stored values whatever is sent; the
+   * result is validated again as a whole (e.g. Arabic texts on a published course).
+   */
+  async updateAsStaff(id: string, input: CourseInput, actor: Actor) {
+    const cur = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, type: true, price: true, currency: true } });
+    if (!cur) throw new NotFoundException('Course not found');
+    const merged = courseInputSchema.safeParse({ ...input, ...cur, instructorIds: await this.instructorIds(id) });
+    if (!merged.success) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: 'Validation failed',
+        errors: merged.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      });
+    }
+    return this.update(id, merged.data, actor);
   }
 
   /**
@@ -349,7 +381,11 @@ export class AdminCoursesService {
             })),
           });
         }
-        await this.setInstructors(tx, created.id, instructors.sort((a, b) => a.order - b.order).map((i) => i.instructorId));
+        // The same roles and people (the next cohort usually has the same team; remove anyone in the Staff tab).
+        await copyStaff(tx, courseId, created.id);
+        if (!(await tx.courseStaff.count({ where: { courseId: created.id } }))) {
+          await this.setInstructors(tx, created.id, instructors.sort((a, b) => a.order - b.order).map((i) => i.instructorId));
+        }
         return created;
       });
       await this.audit.log({ actorId: admin.id, action: 'course.duplicated', entityType: 'Course', entityId: copy.id, metadata: { from: courseId } });

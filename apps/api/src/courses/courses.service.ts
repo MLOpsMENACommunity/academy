@@ -10,6 +10,7 @@ import {
   PUBLIC_COURSE_STATUSES,
 } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
+import { CourseStaffService } from '../course-staff/course-staff.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toCourseDetail, toCourseSummary } from './course.mapper';
 
@@ -17,7 +18,10 @@ import { toCourseDetail, toCourseSummary } from './course.mapper';
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staff: CourseStaffService,
+  ) {}
 
   /** Seats held per course (shortlisted through enrolled). */
   async seatsTaken(courseIds: string[], tx: Prisma.TransactionClient = this.prisma): Promise<Map<string, number>> {
@@ -65,8 +69,8 @@ export class CoursesService {
       },
     });
     if (!course) throw new NotFoundException('Course not found');
-    const seats = await this.seatsTaken([course.id]);
-    return toCourseDetail(course, seats.get(course.id) ?? 0);
+    const [seats, staff] = await Promise.all([this.seatsTaken([course.id]), this.staff.publicGroups(course.id)]);
+    return toCourseDetail(course, seats.get(course.id) ?? 0, new Date(), staff);
   }
 
   async myStatus(slug: string, userId: string): Promise<MyCourseStatusDto> {

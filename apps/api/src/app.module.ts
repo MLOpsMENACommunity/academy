@@ -19,6 +19,7 @@ import { CertificatesModule } from './certificates/certificates.module';
 import { AppThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { CourseAccessModule } from './course-access/course-access.module';
+import { CourseStaffModule } from './course-staff/course-staff.module';
 import { CoursesModule } from './courses/courses.module';
 import { EmailModule } from './email/email.module';
 import { FunnelModule } from './funnel/funnel.module';
@@ -49,6 +50,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     AuditModule,
     CourseAccessModule,
+    CourseStaffModule,
     EmailModule,
     StorageModule,
     FunnelModule,

@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { eventEnded, legacyCourseLevel, levelsFromLegacy, sortLevels, type EventSpeakerRole } from '@academy/shared';
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { setCourseInstructors } from '../src/course-staff/staff-sync';
 import { ARCHIVE_FORMAT_VERSION, parseArchive, type Archive, type ArchiveCourse, type ArchiveSession, type ArchiveSpeaker } from './archive-schema';
 
 /**
@@ -334,10 +335,8 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
           await tx.courseSession.deleteMany({ where: { courseId } });
           if (lessons.length) await tx.courseSession.createMany({ data: lessons.map((l) => ({ ...l, courseId })) });
         }
-        await tx.courseInstructor.deleteMany({ where: { courseId } });
-        if (instructorIds.length) {
-          await tx.courseInstructor.createMany({ data: instructorIds.map((instructorId, order) => ({ courseId, instructorId, order })) });
-        }
+        // Course staff (Main instructor first, then Co-instructors); CourseInstructor follows.
+        await setCourseInstructors(tx, courseId, instructorIds);
       }
 
       // ---- speakers no longer in the archive (after the sessions and courses dropped their links)

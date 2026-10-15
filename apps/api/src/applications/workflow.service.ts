@@ -128,8 +128,8 @@ export class ApplicationWorkflow {
         create: { userId: app.userId, courseId: app.courseId, applicationId: app.id },
       });
     }
-    // Admin decisions about someone else's application (not an admin applying themselves).
-    if (actor?.role === 'ADMIN' && actor.id !== app.userId) {
+    // Decisions about someone else's application, by an admin or by course staff (never the student's own steps).
+    if (actor && actor.id !== app.userId) {
       await this.audit.log(
         {
           actorId: actor.id,

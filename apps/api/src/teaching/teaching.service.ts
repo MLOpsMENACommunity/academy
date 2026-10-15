@@ -1,18 +1,21 @@
 import { ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import type {
-  Material,
-  SessionMaterialsInput,
-  TeachingCourseDetailDto,
-  TeachingCourseDto,
-  TeachingPointsDto,
-  TeachingPointsInput,
-  TeachingSessionDto,
-  PointsEntryDto,
+import {
+  COURSE_PERMISSIONS,
+  type CoursePermission,
+  type Material,
+  type SessionMaterialsInput,
+  type TeachingCourseDetailDto,
+  type TeachingCourseDto,
+  type TeachingPointsDto,
+  type TeachingPointsInput,
+  type TeachingSessionDto,
+  type TeachRosterStudentDto,
+  type PointsEntryDto,
 } from '@academy/shared';
 import type { CourseSession, Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
-import { CourseAccessService } from '../course-access/course-access.service';
+import { CourseAccessService, type CourseMembership, type Teacher } from '../course-access/course-access.service';
 import { COUNTED, PointsService } from '../points/points.service';
 import { SettingsService } from '../settings/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,7 +23,7 @@ import { PrismaService } from '../prisma/prisma.service';
 /** New assessments a speaker may create in 24 hours (all their courses together). */
 export const SPEAKER_ASSESSMENTS_PER_DAY = 30;
 
-/** Students a speaker may see: enrolled in the course, account not deleted. */
+/** Students staff may see: enrolled in the course, account not deleted. */
 const enrolledIn = (courseId: string) => ({ courseId, user: { deletedAt: null } }) satisfies Prisma.EnrollmentWhereInput;
 
 function toSession(s: CourseSession): TeachingSessionDto {
@@ -40,10 +43,10 @@ function toSession(s: CourseSession): TeachingSessionDto {
 }
 
 /**
- * The speaker side of teaching a course that isn't about assessments (those reuse
- * AdminAssessmentsService): the list of my courses, the sessions' materials and course points.
- * Callers have already checked that the user teaches the course (TeachesCourseGuard); every id
- * inside it is checked here, with a 404 when it belongs to another course.
+ * The staff side of a course that isn't about assessments (those reuse AdminAssessmentsService):
+ * the list of my courses, the sessions' materials, course points and the roster. Callers have
+ * already checked the user's permission in the course (CoursePermissionGuard); every id inside
+ * it is checked here, with a 404 when it belongs to another course.
  */
 @Injectable()
 export class TeachingService {
@@ -55,10 +58,10 @@ export class TeachingService {
     private readonly settings: SettingsService,
   ) {}
 
-  /** Speaker portal → My courses: assigned, not archived. */
-  async courses(userId: string): Promise<TeachingCourseDto[]> {
+  /** Teaching → My courses: every course whose staff this account is on (not archived), with what they may do there. */
+  async courses(user: Teacher): Promise<TeachingCourseDto[]> {
     const list = await this.prisma.course.findMany({
-      where: this.access.teachingWhereForUser(userId),
+      where: this.access.staffCoursesWhere(user.id),
       orderBy: [{ startDate: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       select: {
         id: true,
@@ -66,12 +69,17 @@ export class TeachingService {
         titleEn: true,
         titleAr: true,
         status: true,
+        staff: { where: { userId: user.id }, take: 1, select: { role: { select: { name: true, nameAr: true, permissions: true } } } },
         _count: { select: { enrollments: { where: { user: { deletedAt: null } } }, assessments: true } },
       },
     });
+    const admin = this.access.isCourseAdmin(user);
+    const perms = (c: (typeof list)[number]): CoursePermission[] =>
+      admin ? [...COURSE_PERMISSIONS] : COURSE_PERMISSIONS.filter((p) => c.staff[0]?.role.permissions.includes(p));
+    const graders = list.filter((c) => perms(c).includes('GRADE')).map((c) => c.id);
     const pending = await this.prisma.submission.groupBy({
       by: ['assessmentId'],
-      where: { assessment: { courseId: { in: list.map((c) => c.id) } }, submittedAt: { not: null }, gradedAt: null },
+      where: { assessment: { courseId: { in: graders } }, submittedAt: { not: null }, gradedAt: null },
       _count: { _all: true },
     });
     const owner = await this.prisma.assessment.findMany({ where: { id: { in: pending.map((p) => p.assessmentId) } }, select: { id: true, courseId: true } });
@@ -85,6 +93,9 @@ export class TeachingService {
       students: c._count.enrollments,
       assessments: c._count.assessments,
       toGrade: pending.filter((p) => courseOf.get(p.assessmentId) === c.id).reduce((n, p) => n + p._count._all, 0),
+      permissions: perms(c),
+      roleName: c.staff[0]?.role.name ?? null,
+      roleNameAr: c.staff[0]?.role.nameAr ?? null,
     }));
   }
 
@@ -99,13 +110,47 @@ export class TeachingService {
     }
   }
 
-  async course(courseId: string): Promise<TeachingCourseDetailDto> {
+  async course(courseId: string, m: CourseMembership): Promise<TeachingCourseDetailDto> {
     const c = await this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { id: true, slug: true, titleEn: true, titleAr: true, status: true, sessions: { orderBy: { order: 'asc' } } },
+      select: { id: true, slug: true, titleEn: true, titleAr: true, status: true, type: true, sessions: { orderBy: { order: 'asc' } } },
     });
     if (!c) throw new NotFoundException('Course not found');
-    return { id: c.id, slug: c.slug, titleEn: c.titleEn, titleAr: c.titleAr || c.titleEn, status: c.status, sessions: c.sessions.map(toSession) };
+    return {
+      id: c.id,
+      slug: c.slug,
+      titleEn: c.titleEn,
+      titleAr: c.titleAr || c.titleEn,
+      status: c.status,
+      type: c.type,
+      sessions: c.sessions.map(toSession),
+      permissions: m.permissions,
+      roleName: m.roleName,
+      roleNameAr: m.roleNameAr,
+    };
+  }
+
+  // ------------------------------------------------------------------ roster
+
+  /** Enrolled students (VIEW_ROSTER): names, email and community usernames. Read is audited like an export. */
+  async roster(courseId: string, actor: Actor): Promise<TeachRosterStudentDto[]> {
+    const rows = await this.prisma.enrollment.findMany({
+      where: enrolledIn(courseId),
+      orderBy: { enrolledAt: 'asc' },
+      take: 5000,
+      select: { enrolledAt: true, user: { select: { id: true, email: true, profile: { select: { fullNameEn: true, fullNameAr: true } } } } },
+    });
+    await this.audit.log({ actorId: actor.id, action: 'course.roster_viewed', entityType: 'Course', entityId: courseId, metadata: { count: rows.length } });
+    return rows.map((r) => ({
+      userId: r.user.id,
+      name: r.user.profile?.fullNameEn ?? null,
+      nameAr: r.user.profile?.fullNameAr ?? null,
+      email: r.user.email,
+      // Telegram and Discord usernames: not on profiles yet (null until they are).
+      telegram: null,
+      discord: null,
+      enrolledAt: r.enrolledAt.toISOString(),
+    }));
   }
 
   // ------------------------------------------------------------------ materials

@@ -9,6 +9,7 @@ import {
   type LocalizedList,
   type LocalizedText,
   type OutlineModule,
+  type PublicStaffGroupDto,
   type QuestionOption,
 } from '@academy/shared';
 import type { Course, CourseSession, Instructor, ScreeningQuestion } from '@prisma/client';
@@ -86,7 +87,7 @@ export function publicRecording(
   return c.publicRecordings && c.type === 'FREE' && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
 }
 
-export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now = new Date()): CourseDetailDto {
+export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now = new Date(), staff: PublicStaffGroupDto[] = []): CourseDetailDto {
   return {
     ...toCourseSummary(c, seatsTaken),
     longDescriptionEn: c.longDescriptionEn,
@@ -108,6 +109,7 @@ export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now =
     externalUrl: c.externalUrl,
     publicRecordings: c.publicRecordings && c.type === 'FREE',
     instructors: [...c.instructors].sort((a, b) => a.order - b.order).map((x) => toInstructorDto(x.instructor)),
+    staff,
     sessions: [...(c.sessions ?? [])]
       .sort((a, b) => a.order - b.order)
       .map((s) => ({
