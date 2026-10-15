@@ -29,3 +29,13 @@ test('a short new password gets a translated message on its field (ACC-02)', asy
   await expect(page.getByText('يجب ألا يقل عن 10 أحرف.')).toBeVisible();
   await expect(page.getByText('Validation failed')).toHaveCount(0);
 });
+
+for (const path of ['/en/speakers', '/ar/speakers', '/en/learning-paths', '/ar/learning-paths', '/en/learning-paths/mlops-engineer', '/ar/learning-paths/kubernetes-for-ml']) {
+  test(`${path} has a social card image, site name and locale (ACC-03)`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/og-default\.png$/);
+    await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', /MLOps MENA/);
+    await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', path.startsWith('/ar') ? 'ar_EG' : 'en_US');
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', new RegExp(`${path.replace(/\//g, '\\/')}$`));
+  });
+}

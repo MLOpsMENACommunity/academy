@@ -30,3 +30,18 @@ export function pageTitle(locale: string, key: string): Metadata {
  * so they add this themselves when they have no image of their own.
  */
 export const DEFAULT_OG_IMAGE = { url: '/og-default.png', width: 1200, height: 630, alt: 'MLOps MENA Academy' } as const;
+
+/**
+ * A page's openGraph block. Setting `openGraph` on a page replaces the layout's whole object, so
+ * this puts back what every page shares (site name, locale, type, and the default image unless
+ * the page has its own), and link previews never lose their image.
+ */
+export function openGraph(locale: Locale, og: NonNullable<Metadata['openGraph']>): Metadata['openGraph'] {
+  return {
+    siteName: createTranslator(locale)('meta.siteName'),
+    locale: locale === 'ar' ? 'ar_EG' : 'en_US',
+    type: 'website',
+    images: [DEFAULT_OG_IMAGE],
+    ...og,
+  } as Metadata['openGraph'];
+}

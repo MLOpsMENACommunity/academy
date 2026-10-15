@@ -12,7 +12,7 @@ import { durationLabel } from '@/lib/archive';
 import { formatDate } from '@/lib/format';
 import { jsonLd } from '@/lib/jsonld';
 import { findPath, LEARNING_PATHS, resolveSteps, stepHref, type ResolvedStep } from '@/lib/paths';
-import { alternates } from '@/lib/seo';
+import { alternates, openGraph } from '@/lib/seo';
 import { serverGet } from '@/lib/server-api';
 import { absoluteUrl } from '@/lib/site';
 
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: path.title[locale],
     description: path.summary[locale],
     alternates: alternates(locale, `/learning-paths/${slug}`),
-    openGraph: { title: path.title[locale], description: path.summary[locale] },
+    openGraph: openGraph(locale, { title: path.title[locale], description: path.summary[locale], url: absoluteUrl(`/${locale}/learning-paths/${slug}`) }),
   };
 }
 

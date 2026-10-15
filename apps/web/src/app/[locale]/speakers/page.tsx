@@ -6,7 +6,8 @@ import { buttonClass } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
-import { alternates } from '@/lib/seo';
+import { alternates, openGraph } from '@/lib/seo';
+import { absoluteUrl } from '@/lib/site';
 import { serverGet } from '@/lib/server-api';
 import { loadSpeakers } from '@/lib/speakers';
 
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t('speakers.title'),
     description: t('speakers.intro'),
     alternates: alternates(locale, '/speakers'),
-    openGraph: { title: t('speakers.title'), description: t('speakers.intro') },
+    openGraph: openGraph(locale, { title: t('speakers.title'), description: t('speakers.intro'), url: absoluteUrl(`/${locale}/speakers`) }),
   };
 }
 
