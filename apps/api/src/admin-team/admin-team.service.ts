@@ -83,6 +83,14 @@ export class AdminTeamService {
       throw new ConflictException({ code: 'EMAIL_UNVERIFIED', message: "This account hasn't confirmed its email address yet: ask them to, then add them again" });
     }
 
+    // A speaker's upcoming bookings are managed from the speaker portal, which admins don't have.
+    if (existing.role === 'SPEAKER') {
+      const upcoming = await this.prisma.speakingSlot.count({ where: { bookedById: existing.id, status: 'BOOKED', startsAt: { gt: new Date() } } });
+      if (upcoming) {
+        throw new ConflictException({ code: 'SPEAKER_HAS_BOOKINGS', message: 'This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin.' });
+      }
+    }
+
     // Only if it is still the same non-admin, live account (a concurrent change wins).
     const promoted = await this.prisma.user.updateMany({
       where: { id: existing.id, role: existing.role, deletedAt: null, emailVerifiedAt: { not: null } },
@@ -126,7 +134,11 @@ export class AdminTeamService {
     return this.member(id);
   }
 
-  /** Back to a student account (nothing else changes). The last super admin can't be removed. */
+  /**
+   * Back to the account they had: a speaker (an account with a speaker application or a speaker
+   * profile) gets the speaker portal back, anyone else becomes a student. Nothing else changes.
+   * The last super admin can't be removed.
+   */
   async remove(id: string, actorId: string): Promise<void> {
     const before = await this.prisma.$transaction(async (tx) => {
       const supers = await lockSupers(tx);
@@ -138,9 +150,14 @@ export class AdminTeamService {
       if (supers.includes(id) && supers.length <= 1) {
         throw new ConflictException({ code: 'LAST_SUPER', message: 'There must always be at least one super admin' });
       }
-      await tx.user.update({ where: { id }, data: { role: 'STUDENT', adminPermissions: [] } });
-      return target.adminPermissions;
+      const speaker = await tx.user.findFirst({
+        where: { id, OR: [{ speakerApplication: { isNot: null } }, { speakerProfile: { isNot: null } }] },
+        select: { id: true },
+      });
+      const role = speaker ? 'SPEAKER' : 'STUDENT';
+      await tx.user.update({ where: { id }, data: { role, adminPermissions: [] } });
+      return { permissions: target.adminPermissions, role };
     });
-    await this.audit.log({ actorId, action: 'admin.removed', entityType: 'User', entityId: id, metadata: { permissions: before } });
+    await this.audit.log({ actorId, action: 'admin.removed', entityType: 'User', entityId: id, metadata: { permissions: before.permissions, to: before.role } });
   }
 }

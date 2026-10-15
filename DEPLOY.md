@@ -189,8 +189,9 @@ container) showed the web container as the bottleneck: course pages took 5 s at 
 with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. So:
 
 - **Public pages are static (ISR).** Home, catalog, course, live sessions (list and
-  detail), recordings, speakers, policies, login and register render once per revalidate
-  window (60 s; home, login and register 300 s) and are served from Next's cache. Nothing
+  detail), recordings, speakers, learning paths, policies, login and register are served
+  from Next's cache, re-rendered right after an admin edit (below) and otherwise at most
+  once per revalidate window (60 s; login and register 300 s). Nothing
   personal is in their HTML: the header, my application status and Notify me load in the
   browser after the page. Catalog and recordings filters run in the browser too (the URL
   keeps them). `next build` lists these routes as ● with a revalidate time.
@@ -200,32 +201,33 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   visitors an empty catalog.
 - **Cloudflare's edge also caches anonymous reads of the public API** (`/api/courses`,
   `/api/courses/:slug`, `/api/courses/slugs`, `/api/events`, `/api/events/:slug`,
-  `/api/speakers*`, `/api/recordings*`, `/api/settings/public`) for up to 60 s. The API marks
+  `/api/speakers*`, `/api/recordings*`, `/api/settings/public`) for up to 30 s. The API marks
   them `public, s-maxage=60, stale-while-revalidate=300` only when the request carries no
   session cookie at all and the body holds no personal field (an event's join link, for
   instance, is only ever in a signed-in, `private, no-store` answer); the Worker stores only
   what the API marked public, never with a session cookie or an `Origin` header
   (`apps/api/src/common/public-cache.ts`, `deploy/cloudflare/src/edge-cache.ts`). The API
   also keeps those anonymous answers in memory for 30 s (`PUBLIC_CACHE_TTL_S`), with
-  concurrent misses sharing one query, and drops them on any admin write.
-- **Cloudflare's edge caches anonymous page views** for up to 60 s (Workers Cache API in
+  concurrent misses sharing one query, and drops them on any admin write. The web app's own
+  server-side reads skip the edge copy (`x-skip-edge-cache`): they go through the Worker,
+  and a page re-rendered after an edit must not pick up an older answer there.
+- **Cloudflare's edge caches anonymous page views** for up to 30 s (Workers Cache API in
   `deploy/cloudflare/src/edge-cache.ts`, which lists exactly what is and isn't cached). Never
   cached: requests with a session cookie (`access_token`, `has_session`), `/api/*`, non-GET,
   Next's client-navigation (RSC) requests, signed-in areas, and any response that sets a
   cookie, isn't a 200, is `private`/`no-store`, or is a stale ISR copy. Build assets
   (`/_next/static`, immutable) are cached for everyone. Responses carry `x-edge-cache:
   HIT|MISS|BYPASS`. Each data centre has its own cache.
-- **An admin edit shows publicly within about 3 minutes** (the API's edge copy, 60 s, then
-  Next's 60 s window, then the page's edge copy, 60 s; the home page up to ~7 minutes).
-  Admins themselves are signed in, so they see their edits at once. There is no on-demand
-  revalidation yet.
+- **An admin edit shows publicly within seconds, and within 30 s at most** (details in
+  [How fast an admin edit shows](#how-fast-an-admin-edit-shows)). Admins themselves are
+  signed in, so they see their edits at once.
 - **Web containers:** `max_instances: 3`, and the Worker spreads requests at random over
   `WEB_INSTANCES` of them (1 in production and on staging, to stay near the $5 plan). The Worker caps it at
   `MAX_WEB_INSTANCES` in `src/instances.ts` (a test keeps that equal to `max_instances`)
   and uses only `main` if the value is invalid. They are stateless; each has
-  its own ISR cache, so two visitors may briefly see versions up to one revalidate window
-  apart. Lower `WEB_INSTANCES` after launch to save cost; it never needs to exceed
-  `max_instances`.
+  its own ISR cache, and an admin edit revalidates every running one (a sleeping one starts
+  from its image with nothing cached). Lower `WEB_INSTANCES` after launch to save cost; it
+  never needs to exceed `max_instances`.
 - **API container:** exactly one `basic` (¼ vCPU, 1 GiB; `max_instances: 1`): rate limits
   and the login lockout are in memory. What keeps it standing under load, all without more
   CPU (measured in PR "API under load"):
@@ -267,6 +269,64 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
 - **Recordings search** runs in the browser against `GET /api/recordings/search` (ids
   only), limited to 60 a minute per IP. Plain `/api/recordings` reads, which the web
   server makes for every visitor, stay unthrottled unless they carry `?q=`.
+
+### How fast an admin edit shows
+
+Every admin write (anything under `/api/admin/`), and the few speaker writes that change
+public content (a lesson's materials, a speaker application, cancelling a booking), runs
+this right after it succeeds:
+
+1. The API drops its in-process cache of public reads (`apps/api/src/common/public-cache.ts`).
+2. The API calls `POST https://<host>/_internal/revalidate` with the `x-revalidate-token`
+   header (`apps/api/src/common/revalidate.ts`; changes within 0.3 s make one call, calls are
+   at least 5 s apart, a failed one is retried once, and one follow-up call 5 s after the last
+   catches a page whose re-render was already under way when the edit landed).
+3. The Worker (`deploy/cloudflare/src/revalidate.ts`) calls `POST /api/internal/revalidate`
+   on **every running web container** (`apps/web/src/app/api/internal/revalidate`), which
+   drops Next's cached API reads (all tagged `public`) and every rendered page. Containers
+   that are asleep are left asleep (they start with nothing cached), and the call doesn't
+   count as activity, so it never keeps one awake.
+4. Then the Worker purges the edge copies (every stored page and public API answer carries
+   `Cache-Tag: academy-public`) in every data centre, when `EDGE_PURGE_ZONE_ID` and
+   `EDGE_PURGE_API_TOKEN` are set.
+
+The next visitor to any public page gets a fresh render (`x-nextjs-cache: MISS`), not a
+stale copy. What that means for how long an edit takes to show:
+
+| | Before | Now |
+|---|---|---|
+| Web app (measured locally, production build) | course page and catalog 62 s, home 86–117 s; up to 2 × 300 s for the home page on a quiet site | **0.6–0.8 s** on every page, also with two web instances |
+| Edge, with the purge configured | up to 60 s more for the page, plus 60 s for the API copy the page was rendered from | **a few seconds** in every data centre |
+| Edge, without the purge | as above | **at most 30 s** (`PAGE_TTL`), then fresh |
+| If the revalidation call fails (logged as `revalidate_failed` by the API, `revalidate:` by the Worker) | | the 60 s windows (measured 50–89 s locally, against up to ~10 minutes before for the home page), plus the 30 s edge copy: under ~2½ minutes for a page people are visiting |
+
+Before, an edit took up to ~4 minutes on a course page and ~12 minutes on the home page in
+production (API edge copy 60 s → Next data cache 60–300 s → page 60–300 s → page edge copy
+60 s), and on a quiet site the first visitor after the edit still got the old page while it
+re-rendered.
+
+**The guarantee:** an admin edit is on every public page within 30 s, and within a few
+seconds where the edge purge is configured. Nothing to set for the first part: the
+revalidation token defaults to an HMAC of `JOBS_TOKEN`, which the Worker hands to both
+containers (set the Worker secret `REVALIDATE_TOKEN` to use your own). For the purge, set
+the variable `EDGE_PURGE_ZONE_ID` (the zone id of `mlopsmena.com`, from the dashboard's
+Overview page) and the secret `EDGE_PURGE_API_TOKEN` (an API token with **Zone → Cache
+Purge** on that zone only) in the GitHub environment, or as a build variable and a Worker
+secret with Workers Builds. Check a deploy with an edit: the API's log shows
+`"event":"revalidated"` with the Worker's answer, e.g.
+`{"web":{"main":"200"},"edge":"purged"}`.
+
+Load: a revalidation re-renders each page once, on its next visit, in each running web
+container; calls are at least 5 s apart, so a bulk edit costs two re-renders per page (the
+call and its follow-up), not hundreds. Measured locally with the `load` profile (100
+anonymous visitors, one web instance) and a revalidation every 5 s throughout, far more than
+admins ever edit: no errors, p50 unchanged (7 ms), p95 38 → 110 ms, p99 95 → 610 ms.
+Seat counts (registrations) and the hourly job tick only clear the API's cache and follow
+the 60 s windows: they are frequent and not worth re-rendering every page for. The home,
+speakers and learning-path pages went from 300 s to 60 s windows (one render a minute per
+container while someone visits them), and the edge keeps copies 30 s instead of 60 s (one
+request every 30 s per page and data centre reaches the container, which answers from
+Next's cache).
 
 ### Jobs on staging
 
@@ -400,6 +460,7 @@ No code change is needed. In GitHub → Settings → Environments → `productio
 | `ACADEMY_HOSTNAME` | the new canonical host |
 | `ACADEMY_REDIRECT_HOSTS` | optional, comma-separated old hosts that 301 to the new one |
 | `SENTRY_ENVIRONMENT` | optional |
+| `EDGE_PURGE_ZONE_ID` | optional, the zone id of the new host (see [How fast an admin edit shows](#how-fast-an-admin-edit-shows)) |
 
 Then release a tag. Cloudflare creates the DNS record and certificate for each host
 (`custom_domain: true`). A host can only belong to one Worker: production can't take
@@ -441,10 +502,10 @@ Add `--env staging` to any of these to act on staging instead of production.
   has no such state and runs several instances.
 - **Cold starts.** After 2 idle hours (staging: 30 minutes) the next request waits a
   few seconds for a container to start. The edge cache doesn't help here: its entries
-  (60 s) are long gone by then.
+  (30 s) are long gone by then.
 - **Deploys and mixed builds.** Containers roll out after the Worker, so for a while old
   and new web builds serve side by side (`rollout_step_percentage: 100` keeps that short),
-  and a data centre can serve the previous HTML for up to 60 s. Build assets
+  and a data centre can serve the previous HTML for up to 30 s. Build assets
   (`/_next/static`) exist only on their own build: the Worker retries a 404 for one on the
   other web instances, and Next's `deploymentId` (the deployed git SHA, set by
   `configure-host.mjs`) turns a client navigation across builds into a full page load.

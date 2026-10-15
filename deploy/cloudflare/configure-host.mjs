@@ -12,6 +12,11 @@
 //   EMAIL_REDIRECT_TO       staging only, optional: where everyone else's staging email goes
 //   SHA                     optional, the commit being deployed (names the web build, and is
 //                           ACADEMY_RELEASE: a new one restarts the containers)
+//   EDGE_PURGE_ZONE_ID      optional, the Cloudflare zone id of the hostname: with the Worker
+//                           secret EDGE_PURGE_API_TOKEN, an admin edit purges the edge cache in
+//                           every data centre (src/revalidate.ts); without it, edge copies expire
+//                           within 30 s. (The revalidation secret itself, REVALIDATE_TOKEN, is an
+//                           optional Worker secret: by default the Worker derives it from JOBS_TOKEN.)
 //
 // Sets ACADEMY_ENVIRONMENT (Worker var and web build arg) to the target: only production is indexed.
 // Writes host, url and bucket to $GITHUB_OUTPUT (and/or $DEPLOY_OUTPUT) for the later steps. Refuses to let one
@@ -89,6 +94,12 @@ if (target === 'staging') {
   }
   console.log(`staging email: allowlist ${block.vars.EMAIL_ALLOWLIST ? block.vars.EMAIL_ALLOWLIST.split(',').length + ' entries' : 'empty'}; others go to ${block.vars.EMAIL_REDIRECT_TO}`);
 }
+const zone = process.env.EDGE_PURGE_ZONE_ID?.trim();
+if (zone) {
+  if (!/^[0-9a-f]{32}$/.test(zone)) throw new Error('EDGE_PURGE_ZONE_ID must be a Cloudflare zone id (32 hex characters)');
+  block.vars.EDGE_PURGE_ZONE_ID = zone;
+}
+console.log(`edge purge after admin edits: ${zone ? 'zone set (needs the EDGE_PURGE_API_TOKEN secret)' : 'off (edge copies expire within 30 s)'}`);
 const sentryEnv = process.env.SENTRY_ENVIRONMENT?.trim();
 if (sentryEnv) block.vars.SENTRY_ENVIRONMENT = sentryEnv;
 

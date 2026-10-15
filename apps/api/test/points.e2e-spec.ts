@@ -154,7 +154,8 @@ describe('points, badges and leaderboards (e2e)', () => {
   });
 
   it('gives session points, takes them back when unmarked, and awards "Finisher"', async () => {
-    const { course, sessions, students } = await setup();
+    // Every session has started (a session that hasn't can't be marked done).
+    const { course, sessions, students } = await setup({ startedDaysAgo: 20 });
     const [s] = students;
     const mark = (id: string, completed: boolean) => http().put(`/api/learn/${course.slug}/sessions/${id}/progress`).set('Cookie', s!.cookie).send({ completed }).expect(204);
     await mark(sessions[0]!.id, true);
@@ -178,6 +179,11 @@ describe('points, badges and leaderboards (e2e)', () => {
     await http().post(url).set('Cookie', admin.cookie).send({ points: -3, reason: 'ADJUSTMENT', note: 'Double counted' }).expect(201);
     const view = (await http().get(url).set('Cookie', admin.cookie).expect(200)).body;
     expect(view).toMatchObject({ total: 12, courses: [{ id: course.id, points: 15 }], enrolledCourses: [{ id: course.id }] });
+    // The academic preset can't open the admissions student page, so the points view names the student itself.
+    expect(view.student).toEqual({ id: s!.id, name: 'Test Person', email: s!.email });
+    const academic = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC'], prefix: 'acad' });
+    expect((await http().get(url).set('Cookie', academic.cookie).expect(200)).body.student.id).toBe(s!.id);
+    await http().get(`/api/admin/students/${s!.id}`).set('Cookie', academic.cookie).expect(403);
     expect(view.entries[0]).toMatchObject({ points: -3, reason: 'ADJUSTMENT', course: null, awardedBy: 'Test Person' });
     expect(await prisma.auditLog.count({ where: { action: 'points.awarded', entityId: s!.id } })).toBe(2);
 

@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { assessmentError } from './assessment-errors';
 import { assessmentText, optionText } from './assessment-text';
+import { shouldAutoSubmit } from './quiz-timer';
 
 const PHONE = '(max-width: 39.99rem)';
 
@@ -151,8 +152,13 @@ export function QuizPlayer({
   const confirmHeading = useRef<HTMLHeadingElement>(null);
   const submitted = useRef(false);
   const moved = useRef(false);
+  // The answers saved in this browser are back: only then may time-up submit them.
+  const [restored, setRestored] = useState(false);
 
-  useEffect(() => setAnswers(loadSaved(attempt.submissionId)), [attempt.submissionId]);
+  useEffect(() => {
+    setAnswers(loadSaved(attempt.submissionId));
+    setRestored(true);
+  }, [attempt.submissionId]);
   useEffect(() => {
     const mq = window.matchMedia(PHONE);
     const on = () => setPhone(mq.matches);
@@ -205,11 +211,11 @@ export function QuizPlayer({
   }, [deadline, skew]);
   // Once, when time is up; if that fails the student can still press Submit (within the grace period).
   useEffect(() => {
-    if (remaining !== null && remaining <= 0 && !submitted.current && !autoTried.current) {
+    if (shouldAutoSubmit({ remaining, restored, submitted: submitted.current, tried: autoTried.current })) {
       autoTried.current = true;
       void submit();
     }
-  }, [remaining, submit]);
+  }, [remaining, restored, submit]);
 
   // One question per screen: move focus to the new question's text.
   useEffect(() => {

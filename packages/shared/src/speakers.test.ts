@@ -100,6 +100,15 @@ describe('speaker application', () => {
     expect(a.photoUrl).toBeNull();
   });
 
+  it('takes a photo only as a real https link (SPK-06)', () => {
+    const photo = (photoUrl: string) => speakerApplicationSchema.safeParse({ ...application, photoUrl });
+    expect(photo('https://media.licdn.com/dms/image/abc.jpg').data?.photoUrl).toBe('https://media.licdn.com/dms/image/abc.jpg');
+    expect(photo('').data?.photoUrl).toBeNull();
+    for (const bad of ['https://x', 'http://example.test/a.png', 'https://user:pass@example.test/a.png', 'javascript:alert(1)']) {
+      expect(photo(bad).success).toBe(false);
+    }
+  });
+
   it('requires LinkedIn, an area and a real abstract', () => {
     const issues = (over: Record<string, unknown>) =>
       [...new Set(speakerApplicationSchema.safeParse({ ...application, ...over }).error?.issues.map((i) => i.path.join('.')) ?? [])];
