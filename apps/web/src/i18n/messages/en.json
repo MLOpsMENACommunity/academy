@@ -504,6 +504,7 @@
     "formTitle": "Submit proof of payment",
     "method": "Payment method",
     "amount": "Amount paid (EGP)",
+    "amountIn": "Amount paid ({currency})",
     "transactionRef": "Transaction reference number",
     "transactionRefHint": "As shown on your InstaPay or Vodafone Cash receipt.",
     "senderName": "Sender name",

@@ -504,6 +504,7 @@
     "formTitle": "إرسال إثبات الدفع",
     "method": "طريقة الدفع",
     "amount": "المبلغ المدفوع (ج.م)",
+    "amountIn": "المبلغ المدفوع ({currency})",
     "transactionRef": "الرقم المرجعي للعملية",
     "transactionRefHint": "كما يظهر في إيصال إنستاباي أو فودافون كاش.",
     "senderName": "اسم المرسل",

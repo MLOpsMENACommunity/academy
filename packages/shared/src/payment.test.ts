@@ -15,6 +15,13 @@ describe('paymentProofSchema', () => {
     expect(paymentProofSchema.safeParse({ ...ok, amount: '0' }).success).toBe(false);
     expect(paymentProofSchema.safeParse({ ...ok, transactionRef: '-- --' }).success).toBe(false);
   });
+  it('accepts digits typed on an Arabic keyboard (Arabic-Indic and Persian) as 0-9', () => {
+    const r = paymentProofSchema.parse({ ...ok, amount: '١٥٠٠', transactionRef: 'IP ١٢٣٤ ۵۶۷۸', senderPhone: '٠١٠٠١٢٣٤٥٦٧' });
+    expect(r.amount).toBe(1500);
+    expect(r.transactionRef).toBe('IP 1234 5678');
+    expect(r.senderPhone).toBe('01001234567');
+    expect(normalizeTransactionRef(r.transactionRef)).toBe('IP12345678');
+  });
 });
 
 describe('computePaymentFlags', () => {

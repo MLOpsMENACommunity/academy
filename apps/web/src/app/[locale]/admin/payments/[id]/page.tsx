@@ -13,7 +13,7 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { currencyLabel, formatDate, formatDateTime, formatMoney } from '@/lib/format';
 
 export default function PaymentReview() {
   const { locale, t } = useI18n();
@@ -96,7 +96,7 @@ export default function PaymentReview() {
           <h2 className="text-lg">{t('payment.formTitle')}</h2>
           <dl className="mt-3 divide-y divide-line">
             {row(t('payment.method'), paymentMethodLabels[p.method][locale])}
-            {row(t('payment.amount'), formatMoney(p.amount, p.currency, locale))}
+            {row(t('payment.amountIn', { currency: currencyLabel(p.currency, locale) }), formatMoney(p.amount, p.currency, locale))}
             {row(t('admin.payments.expected'), formatMoney(p.course.price, p.course.currency, locale))}
             {row(t('payment.transactionRef'), <span className="ltr-embed font-mono">{p.transactionRef}</span>)}
             {row(t('payment.senderName'), p.senderName)}
