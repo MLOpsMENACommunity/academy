@@ -51,7 +51,7 @@ docker run --rm -v "$PWD:/in" postgres:17-alpine \
 psql "<TARGET_DIRECT_URL>" -c 'SELECT count(*) FROM "User";' -c 'SELECT max("createdAt") FROM "Application";'
 ```
 
-Then point the app at the restored database: update `DATABASE_URL` and `DIRECT_DATABASE_URL` in the `production` environment (and `DIRECT_DATABASE_URL` in `production-backup`), and run **Release to production** again with the current tag (see DEPLOY.md, "Releasing"). Migrations that are already applied are skipped.
+Then point the app at the restored database: update `DATABASE_URL` and `DIRECT_DATABASE_URL` in the `production` environment (and `DIRECT_DATABASE_URL` in `production-backup`), and run **Release to production** again with the current tag (see DEPLOY.md, "Releasing"). With Workers Builds, set the two URLs with `deploy/cloudflare/set-worker-secret.sh production DATABASE_URL DIRECT_DATABASE_URL` (and still update `DIRECT_DATABASE_URL` in `production-backup`); the API container restarts with them on its next request. Migrations that are already applied are skipped.
 
 **Restore drill:** once a quarter, restore the latest dump into a scratch Neon branch and run the sanity checks. Delete the branch afterwards.
 
@@ -98,7 +98,7 @@ The API writes one JSON line per request:
 
 Off unless `SENTRY_DSN` is set. To turn it on:
 1. Create a free Sentry project (platform: Node.js / NestJS) and copy its DSN.
-2. Add `SENTRY_DSN` to the GitHub `production` environment (and `staging`, if you want staging errors too), then release a tag. Events are tagged with `SENTRY_ENVIRONMENT`: `production` or `staging`.
+2. Add `SENTRY_DSN` to the GitHub `production` environment (and `staging`, if you want staging errors too), then release a tag (with Workers Builds: `deploy/cloudflare/set-worker-secret.sh production SENTRY_DSN`). Events are tagged with `SENTRY_ENVIRONMENT`: `production` or `staging`.
 
 Only unexpected errors are reported (not 4xx). User info, cookies, headers, bodies, query strings and console breadcrumbs are all stripped before anything leaves the server, calendar feed tokens in URLs and transaction names are replaced with `[redacted]`, and email addresses and phone numbers in error text are masked (`apps/api/src/instrument.ts`). Prisma errors use the minimal format, so query arguments aren't in them either. Performance tracing is off. An unhandled promise rejection still crashes the process (Sentry `strict` mode), so the container restarts.
 
@@ -168,6 +168,8 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 | Admin password | — | Sign in → Profile → Account → change password |
 
 "Redeploy" means: change the secret in the `production` environment (Settings → Environments), then run **Release to production** again with the current tag. Staging has its own `JWT_ACCESS_SECRET`, `JOBS_TOKEN`, database and R2 keys; rotate those in the `staging` environment and re-run **Release to staging**.
+
+**After the move to Workers Builds** ([deploy/cloudflare/WORKERS-BUILDS.md](deploy/cloudflare/WORKERS-BUILDS.md)), runtime secrets live on each Worker, not in GitHub, and a deploy no longer sets them. "GitHub env → redeploy" becomes `deploy/cloudflare/set-worker-secret.sh production NAME` (or `staging NAME`); no redeploy is needed: setting a secret deploys a new Worker version, and the Worker restarts a container whose configuration changed on its next request (`restartIfConfigChanged` in `deploy/cloudflare/src/index.ts`). The script asks for the value without echoing it, and refuses a staging database URL that isn't the staging role on a staging database. The backup secrets (`production-backup`) stay in GitHub: `backup.yml` keeps running there.
 
 To sign a compromised account out everywhere, have that user change their password: it revokes all of their sessions.
 
@@ -272,7 +274,7 @@ application form, the profile gate or (for paid courses) payment.
 ## Incident checklist
 
 1. **Site down?** Check `https://<host>/api/health` (database status included, plus the deployed `release`), then `wrangler tail` and `wrangler containers list`. 503s with `Retry-After` mean "busy or starting", not broken: the API logs a `shed_load` warning (every 10 s at most) saying why (`db_pool`, `in_flight`, `password_hash`, `db_unreachable`), and the Worker logs "container unavailable" or "no response within …". See DEPLOY.md, "Capacity and caching".
-2. **Bad deploy?** Run **Release to production** with the previous tag (DEPLOY.md, "Roll back"); in a hurry, Workers & Pages → `mlops-academy` → Deployments → roll back first. Database migrations are forward-only and stay in place, which is why schema changes are released as expand, then contract. One exception: versions from before the "Coming soon" course status (PR #13) don't know that value. Before rolling back past it, run this on Neon (SQL editor):
+2. **Bad deploy?** Run **Release to production** with the previous tag (DEPLOY.md, "Roll back"; with Workers Builds, `scripts/promote.sh <previous sha> --rollback`); in a hurry, Workers & Pages → `mlops-academy` → Deployments → roll back first. Database migrations are forward-only and stay in place, which is why schema changes are released as expand, then contract. One exception: versions from before the "Coming soon" course status (PR #13) don't know that value. Before rolling back past it, run this on Neon (SQL editor):
    ```sql
    UPDATE "Course" SET status = 'DRAFT' WHERE status = 'COMING_SOON';
    ```

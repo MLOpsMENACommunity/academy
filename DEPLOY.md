@@ -49,6 +49,13 @@ would create new Durable Objects and containers instead of updating the live one
 
 ## Releasing
 
+> **Moving to Cloudflare Workers Builds.** So the repository can be private without paying
+> for GitHub Actions minutes, building, testing and deploying move to Workers Builds,
+> which the Workers Paid plan includes. Set it up with
+> [deploy/cloudflare/WORKERS-BUILDS.md](deploy/cloudflare/WORKERS-BUILDS.md). Until you
+> have done that and switched the GitHub workflows off (its step 7), the tag flow below is
+> still the way to release. After the switch, use [Releasing with Workers Builds](#releasing-with-workers-builds).
+
 Every change reaches production the same way: **tag → staging → test → promote that tag.**
 Nothing deploys from a branch, and production only accepts a tag that has already
 been released to staging.
@@ -128,6 +135,34 @@ schema changes in two releases (expand, then contract):
 
 Never rename or drop something in the same release that stops using it. See
 [OPERATIONS.md](OPERATIONS.md#incident-checklist) for the one known exception (PR #13).
+
+### Releasing with Workers Builds
+
+After the switch ([WORKERS-BUILDS.md](deploy/cloudflare/WORKERS-BUILDS.md)) the same
+guarantees hold, with branches instead of tags: **merge → staging → test → promote that
+commit.**
+
+1. **Merge a PR to `main`.** The `mlops-academy-staging` Worker's build runs
+   `scripts/ci-test.sh` (lint, typecheck, unit tests, API e2e on PGlite), and only if it
+   passes runs `deploy/cloudflare/build.sh staging`. That deploys to staging, smoke-tests
+   it, and writes the release record `staging/<sha>.json` to the R2 bucket
+   `academy-releases`.
+2. **Test it** on https://academy-staging.mlopsmena.com, as before.
+3. **Promote that commit:** `scripts/promote.sh <sha>` (or no argument for `main`'s latest
+   commit). It fast-forwards the `production` branch. The `mlops-academy` Worker's build
+   runs `build.sh production`, which refuses any commit without a staging release record,
+   then deploys and smoke-tests production.
+
+**Roll back:** dashboard rollback first if it's urgent (Workers & Pages → `mlops-academy`
+→ Deployments), then `scripts/promote.sh <older staged sha> --rollback`, which moves the
+branch back and rebuilds that commit. The schema rules above still apply.
+
+**What changes compared to tags:** every merge to `main` goes to staging (staging always
+runs `main`); you choose what reaches production by commit, not by tag; there are no
+GitHub Releases unless you create them by hand; and pull requests aren't tested by a
+machine unless you turn on preview builds (run `scripts/ci-test.sh` before marking a PR
+ready). The browser (Playwright) tests no longer gate a release: run them locally against
+`docker compose`, or run **CI** by hand on GitHub. See WORKERS-BUILDS.md, "Pull requests".
 
 ## Costs
 
@@ -344,6 +379,17 @@ environment and the tag. It:
 6. sets the runtime secrets on that Worker;
 7. waits for `/api/health` and `/en` to respond on that environment's host.
 
+With Workers Builds, `deploy/cloudflare/build.sh <staging|production>` does the same work
+(its header lists the steps), with three differences: it checks the branch and the
+`ACADEMY_ENVIRONMENT` **build variable** instead of a GitHub environment; it doesn't set
+runtime secrets (they stay on each Worker, and it only checks that the required ones exist;
+change them with `deploy/cloudflare/set-worker-secret.sh`, which keeps the staging-database
+check); and it writes a release record to the R2 bucket `academy-releases`, which a
+production build requires. It also waits until `/api/health` reports the new release.
+Because staging's database secrets are no longer checked by each deploy, the staging Worker
+checks them itself on every request and answers 503 rather than start a container on a
+non-staging database (`deploy/cloudflare/src/staging-guard.ts`; production never runs it).
+
 ## Change a hostname
 
 No code change is needed. In GitHub → Settings → Environments → `production` (or
@@ -375,6 +421,11 @@ Add `--env staging` to any of these to act on staging instead of production.
 
 ## Limits to know
 
+- **Tests without Postgres.** Workers Builds has no service containers, so its API e2e run
+  uses PGlite (Postgres 18 compiled to WASM, in memory) and an in-memory S3
+  (`apps/api/test/pglite/`; `pnpm --filter @academy/api test:e2e:pglite`). The whole suite
+  passes on it, but real Postgres (16 in CI) stays the
+  reference: `ci.yml`, and `scripts/ci-test.sh` with `DATABASE_URL` set, use it.
 - **Promotion rebuilds the images.** Production builds the same commit again rather than
   reusing staging's images, so an unpinned base image could differ. A rollback by tag
   takes as long as a deploy; the Cloudflare dashboard rollback is instant.

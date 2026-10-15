@@ -9,6 +9,7 @@
     "typecheck": "prisma generate && tsc --noEmit -p tsconfig.json",
     "test": "prisma generate && jest",
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-e2e.config.js --runInBand",
+    "test:e2e:pglite": "node test/pglite/with-pglite.mjs pnpm test:e2e",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
@@ -50,6 +51,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.9",
+    "@electric-sql/pglite-socket": "0.2.12",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/testing": "^11.2.7",
     "@types/cookie-parser": "^1.4.9",

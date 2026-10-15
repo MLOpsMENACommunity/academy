@@ -14,7 +14,7 @@
 //                           ACADEMY_RELEASE: a new one restarts the containers)
 //
 // Sets ACADEMY_ENVIRONMENT (Worker var and web build arg) to the target: only production is indexed.
-// Writes host, url and bucket to $GITHUB_OUTPUT for the later steps. Refuses to let one
+// Writes host, url and bucket to $GITHUB_OUTPUT (and/or $DEPLOY_OUTPUT) for the later steps. Refuses to let one
 // environment claim the other's hostname, and refuses a staging config that would share
 // production's Worker name or bucket, or that has no email redirect.
 // Rewrites wrangler.jsonc as plain JSON (comments dropped): meant for CI checkouts.
@@ -93,7 +93,8 @@ const sentryEnv = process.env.SENTRY_ENVIRONMENT?.trim();
 if (sentryEnv) block.vars.SENTRY_ENVIRONMENT = sentryEnv;
 
 writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-if (process.env.GITHUB_OUTPUT) {
-  appendFileSync(process.env.GITHUB_OUTPUT, `host=${host}\nurl=https://${host}\nbucket=${block.vars.S3_BUCKET}\n`);
+// GitHub Actions reads these from GITHUB_OUTPUT; build.sh (Workers Builds) from DEPLOY_OUTPUT.
+for (const out of [process.env.GITHUB_OUTPUT, process.env.DEPLOY_OUTPUT]) {
+  if (out) appendFileSync(out, `host=${host}\nurl=https://${host}\nbucket=${block.vars.S3_BUCKET}\n`);
 }
 console.log(`${target}: ${block.name} on ${host}${aliases.length ? `; redirecting ${aliases.join(', ')}` : ''}`);
