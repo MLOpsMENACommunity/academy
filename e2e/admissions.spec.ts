@@ -121,3 +121,34 @@ test('the payments queue shows how many there are and pages through them', async
   await expect(pager).toBeVisible();
   await expect(pager).toContainText(String(count));
 });
+
+test('a full course says so before the student applies, and the button says "Join the waitlist"', async ({ page }) => {
+  const course = await createCourse('full', { requiresApproval: false, capacity: 1 });
+  const first = await student('seat');
+  expect((await first.api.post('/api/applications', { headers: JSON_HEADERS, data: { courseSlug: course.slug, answers: {} } })).ok()).toBeTruthy();
+  const late = await student('late');
+  await signIn(page, late.api);
+
+  await page.goto(`/en/courses/${course.slug}`);
+  await expect(page.getByText("Seats are full: you'll join the waitlist.").first()).toBeVisible();
+  await expect(page.getByText('Instant enrolment.')).toHaveCount(0);
+
+  await page.goto(`/en/courses/${course.slug}/apply`);
+  await expect(page.getByText(/This course is full\. If you apply now, you'll join the waitlist/)).toBeVisible();
+  await page.getByRole('button', { name: 'Join the waitlist' }).click();
+  await page.waitForURL(/\/en\/dashboard\/applications\//);
+  await expect(page.getByText("You're on the waitlist.").first()).toBeVisible();
+  await late.api.dispose();
+  await first.api.dispose();
+});
+
+test('the course page stops offering "Apply now" when the deadline passes, without a reload', async ({ page }) => {
+  const course = await createCourse('deadline', { applicationDeadline: new Date(Date.now() + 25_000).toISOString() });
+  await page.goto(`/en/courses/${course.slug}`);
+  const apply = page.getByRole('link', { name: 'Apply now' }).first();
+  await expect(apply).toBeVisible();
+  // The page stays open past the deadline: the button turns into the waiting list.
+  await expect(apply).toBeHidden({ timeout: 45_000 });
+  await expect(page.getByText('Applications closed').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Notify me when it opens' }).first()).toBeVisible();
+});

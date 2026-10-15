@@ -370,6 +370,7 @@
     "notifyCta": "Get notified when it opens"
   },
   "course": {
+    "fullInstant": "Seats are full: you'll join the waitlist.",
     "breadcrumb": "Courses",
     "instructor": "Instructor",
     "instructors": "Instructors",
@@ -439,6 +440,9 @@
     "lesson": "Lesson {n}"
   },
   "apply": {
+    "fullInstant": "This course is full. If you apply now, you'll join the waitlist and we'll email you if a seat opens up.",
+    "fullReviewed": "All seats are taken right now. You can still apply: if the team accepts you, you may be placed on the waitlist until a seat opens up.",
+    "waitlistSubmit": "Join the waitlist",
     "title": "Apply: {course}",
     "intro": "Answer a few questions so the instructors can shape the cohort. Your profile details are included automatically.",
     "submit": "Submit application",

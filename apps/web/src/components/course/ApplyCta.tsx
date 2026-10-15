@@ -10,6 +10,24 @@ import { trackFunnel } from '@/lib/funnel';
 import { buttonClass } from '../ui/Button';
 import { NotifyMe } from './NotifyMe';
 
+/**
+ * The served availability, turned to CLOSED once the deadline passes in the browser: the
+ * course page is cached (ISR), so without this "Apply now" stays up to a minute too long.
+ */
+function useDeadline(served: CourseAvailability, deadline: string | null): CourseAvailability {
+  const [passed, setPassed] = useState(false);
+  useEffect(() => {
+    if (served !== 'OPEN' || !deadline) return;
+    const ms = new Date(deadline).getTime() - Date.now();
+    if (ms <= 0) return setPassed(true);
+    // setTimeout overflows past ~24.8 days; a page is rarely open that long.
+    if (ms > 2 ** 31 - 1) return;
+    const timer = setTimeout(() => setPassed(true), ms);
+    return () => clearTimeout(timer);
+  }, [served, deadline]);
+  return passed ? 'CLOSED' : served;
+}
+
 /** Shared across the two CTA instances on a page so my-status is fetched once. */
 const statusCache = new Map<string, Promise<MyCourseStatusDto>>();
 
@@ -25,6 +43,8 @@ export function invalidateCourseStatus(slug: string): void {
 interface Props {
   slug: string;
   availability: CourseAvailability;
+  /** The page is cached for a minute: the button closes at the deadline itself. */
+  applicationDeadline?: string | null;
   isFree: boolean;
   requiresApproval: boolean;
   full: boolean;
@@ -41,8 +61,9 @@ interface Props {
  * travel with them to the application. Signed-in users who already applied
  * see their status instead.
  */
-export function ApplyCta({ slug, availability, isFree, requiresApproval, full, priceText, completed = false, compact = false }: Props) {
+export function ApplyCta({ slug, availability: served, applicationDeadline = null, isFree, requiresApproval, full, priceText, completed = false, compact = false }: Props) {
   const { locale, t } = useI18n();
+  const availability = useDeadline(served, applicationDeadline);
   const { user } = useAuth();
   const [status, setStatus] = useState<MyCourseStatusDto | null>(null);
   const [query, setQuery] = useState('');
@@ -115,7 +136,7 @@ export function ApplyCta({ slug, availability, isFree, requiresApproval, full, p
       {action}
       {!status?.status && availability === 'OPEN' && !completed && (
         <p className="text-center text-sm leading-relaxed text-muted">
-          {priceText} · {requiresApproval ? t('course.screened') : t('course.instant')}
+          {priceText} · {requiresApproval ? t('course.screened') : full ? t('course.fullInstant') : t('course.instant')}
         </p>
       )}
     </div>
