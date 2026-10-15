@@ -10,6 +10,7 @@ export const statusTone: Record<ApplicationStatus, Tone> = {
   ENROLLED: 'success',
   REJECTED: 'neutral',
   WAITLISTED: 'warning',
+  WITHDRAWN: 'neutral',
 };
 
 export function StatusBadge({ status, locale }: { status: ApplicationStatus; locale: Locale }) {

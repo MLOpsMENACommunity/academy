@@ -10,6 +10,7 @@ import {
 import { verifyPassword } from '../auth/password-hasher';
 import { confirmMatches, type AddStudentInput, type AdminPermission, type Locale } from '@academy/shared';
 import { randomToken, sha256 } from '../common/crypto';
+import { ApplicationWorkflow } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../common/decorators';
@@ -40,6 +41,7 @@ export class AccountService {
     private readonly audit: AuditService,
     private readonly speakerPortal: SpeakerPortalService,
     private readonly invites: InvitesService,
+    private readonly workflow: ApplicationWorkflow,
   ) {}
 
   /**
@@ -340,6 +342,9 @@ export class AccountService {
       data: { deletedAt: new Date() },
       include: { profile: { select: { googleEmail: true } } },
     });
+    // Open applications are withdrawn: their seats go back to the course and a payment still under
+    // review leaves the queue (approving it would enrol a deleted account). Never throws.
+    await this.workflow.withdrawForDeletedAccount(userId, { id: actorId, role: byTeam ? 'ADMIN' : user.role });
     await this.tokens.revokeAllForUser(userId);
     // Free their seats in live sessions that haven't started (past ones stay until anonymisation).
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });

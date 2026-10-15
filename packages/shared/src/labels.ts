@@ -297,6 +297,7 @@ export const applicationStatusLabels: LabelMap<ApplicationStatus> = {
   ENROLLED: { en: 'Enrolled', ar: 'مسجل' },
   REJECTED: { en: 'Not accepted', ar: 'لم يتم القبول' },
   WAITLISTED: { en: 'Waitlisted', ar: 'في قائمة الانتظار' },
+  WITHDRAWN: { en: 'Withdrawn', ar: 'تم السحب' },
 };
 
 export const paymentMethodLabels: LabelMap<PaymentMethod> = {

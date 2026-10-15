@@ -1,9 +1,10 @@
 'use client';
 
-import { countryName, paymentMethodLabels, paymentStatusLabels, type AdminPaymentDto } from '@academy/shared';
+import { countryName, hasAdminPermission, paymentMethodLabels, paymentStatusLabels, type AdminPaymentDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { CheckboxField, TextAreaField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -13,7 +14,7 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
+import { currencyLabel, formatDate, formatDateTime, formatMoney } from '@/lib/format';
 
 export default function PaymentReview() {
   const { locale, t } = useI18n();
@@ -24,6 +25,8 @@ export default function PaymentReview() {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<'approve' | 'reject' | 'shot' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The application page is the admissions preset's.
+  const admissions = hasAdminPermission(useAuth().user, ['ADMISSIONS']);
 
   const load = useCallback(() => {
     api<AdminPaymentDto>(`/admin/payments/${id}`).then(setP).catch((e: unknown) => setError(errorMessage(e, t)));
@@ -96,14 +99,25 @@ export default function PaymentReview() {
           <h2 className="text-lg">{t('payment.formTitle')}</h2>
           <dl className="mt-3 divide-y divide-line">
             {row(t('payment.method'), paymentMethodLabels[p.method][locale])}
-            {row(t('payment.amount'), formatMoney(p.amount, p.currency, locale))}
+            {row(t('payment.amountIn', { currency: currencyLabel(p.currency, locale) }), formatMoney(p.amount, p.currency, locale))}
             {row(t('admin.payments.expected'), formatMoney(p.course.price, p.course.currency, locale))}
             {row(t('payment.transactionRef'), <span className="ltr-embed font-mono">{p.transactionRef}</span>)}
             {row(t('payment.senderName'), p.senderName)}
             {row(t('payment.senderPhone'), <span className="ltr-embed">{p.senderPhone}</span>)}
             {row(t('payment.paidAt'), formatDate(p.paidAt, locale))}
             {row(t('admin.payments.submittedAt'), formatDateTime(p.createdAt, locale))}
-            {row(t('admin.payments.course'), locale === 'ar' ? p.course.titleAr : p.course.titleEn)}
+            {row(
+              t('admin.payments.course'),
+              admissions ? (
+                <Link href={`/${locale}/admin/applications/${p.application.id}`} className="text-primary underline">
+                  {locale === 'ar' ? p.course.titleAr : p.course.titleEn}
+                </Link>
+              ) : locale === 'ar' ? (
+                p.course.titleAr
+              ) : (
+                p.course.titleEn
+              ),
+            )}
           </dl>
         </Card>
         <Card>

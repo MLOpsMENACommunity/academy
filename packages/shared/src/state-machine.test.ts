@@ -100,3 +100,19 @@ describe('availableAdminEvents', () => {
     expect(availableAdminEvents(S.WAITLISTED, paid)).toEqual(['SHORTLIST', 'ACCEPT', 'REJECT']);
   });
 });
+
+describe('WITHDRAW', () => {
+  it('withdraws anything still open, from any status before enrolment except a rejection', () => {
+    for (const from of [S.SUBMITTED, S.SHORTLISTED, S.WAITLISTED, S.AWAITING_PAYMENT, S.PAYMENT_SUBMITTED, S.PAYMENT_REJECTED]) {
+      expect(transition(from, 'WITHDRAW', paid)).toEqual(ok(S.WITHDRAWN));
+    }
+    for (const from of [S.ENROLLED, S.REJECTED, S.WITHDRAWN]) expect(transition(from, 'WITHDRAW', paid).ok).toBe(false);
+  });
+  it('is never offered to admins as an action', () => {
+    expect(availableAdminEvents(S.SUBMITTED, free)).not.toContain('WITHDRAW');
+    expect(availableAdminEvents(S.WITHDRAWN, free)).toEqual([]);
+  });
+  it('lets the team enrol a withdrawn student by email', () => {
+    expect(transition(S.WITHDRAWN, 'ADMIN_ENROL', paid)).toEqual(ok(S.ENROLLED));
+  });
+});

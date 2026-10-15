@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  courseAvailability,
   PUBLIC_COURSE_STATUSES,
   toCsv,
   type CourseInterestInput,
@@ -251,11 +252,15 @@ export class WaitlistService {
       return { id: existing.id, recipients: existing._count.waitlist };
     }
 
-    const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, slug: true, titleEn: true, titleAr: true, status: true } });
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { id: true, slug: true, titleEn: true, titleAr: true, status: true, applicationsOpenAt: true, applicationDeadline: true },
+    });
     if (!course) throw new NotFoundException('Course not found');
-    // "It's open" to a course people can't apply to would use up everyone's one notification.
-    if (course.status !== 'OPEN') {
-      throw new BadRequestException({ code: 'COURSE_NOT_OPEN', message: 'Open the course for applications before notifying the waiting list' });
+    // "It's open" to a course people can't apply to would use up everyone's one notification:
+    // the status alone isn't enough (applications may open later, or the deadline may have passed).
+    if (courseAvailability(course) !== 'OPEN') {
+      throw new BadRequestException({ code: 'COURSE_NOT_OPEN', message: "Applications for this course aren't open right now: check its status, opening date and deadline, then notify the waiting list" });
     }
     const where: Prisma.CourseInterestWhereInput = { courseId, ...WAITING };
     const subjectAr = input.subjectAr || input.subjectEn;

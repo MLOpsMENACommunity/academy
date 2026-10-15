@@ -38,6 +38,14 @@ export class ApplicationsController {
     return this.applications.listMine(user.id);
   }
 
+  /** The student withdraws their own application (frees the seat). */
+  @Post('me/applications/:id/withdraw')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  withdraw(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<MyApplicationDetailDto> {
+    return this.applications.withdraw(user, id);
+  }
+
   @Get('me/applications/:id')
   getMine(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<MyApplicationDetailDto> {
     return this.applications.getMine(user.id, id);
