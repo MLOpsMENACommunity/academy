@@ -512,7 +512,7 @@ export class PointsService {
   }
 
   async adminStudent(userId: string): Promise<AdminStudentPointsDto> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, profile: { select: { fullNameEn: true, fullNameAr: true } } } });
     if (!user) throw new NotFoundException('Student not found');
     const [{ total, courses }, entries, badges, enrolled] = await Promise.all([
       this.totals(userId),
@@ -531,6 +531,7 @@ export class PointsService {
     ]);
     const who = (u: Person) => (u ? (u.profile?.fullNameEn ?? u.email) : null);
     return {
+      student: { id: user.id, name: user.profile?.fullNameEn || user.profile?.fullNameAr || null, email: user.email },
       total,
       courses,
       entries: await this.ledgerDtos(entries, who),

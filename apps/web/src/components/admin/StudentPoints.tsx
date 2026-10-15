@@ -18,8 +18,12 @@ import { issuesToErrors } from '@/lib/zod-errors';
 
 const emptyPoints = { points: '', reason: 'MANUAL_COMMUNITY' as ManualPointsReason, courseId: '', note: '' };
 
-/** Admin → Student: points, badges, and the forms to award or adjust them (all audited). */
-export function StudentPoints({ studentId }: { studentId: string }) {
+/**
+ * Admin → Student: points, badges, and the forms to award or adjust them (all audited).
+ * `heading`: name the student above the card (Admin → Points & badges → student, where the
+ * academic preset lands from a course leaderboard; the admissions student page names them itself).
+ */
+export function StudentPoints({ studentId, heading = false }: { studentId: string; heading?: boolean }) {
   const { locale, t } = useI18n();
   const a = (k: string, v?: Record<string, string | number>) => t(`admin.points.${k}`, v);
   const [data, setData] = useState<AdminStudentPointsDto | null>(null);
@@ -106,7 +110,7 @@ export function StudentPoints({ studentId }: { studentId: string }) {
     }
   }
 
-  return (
+  const card = (
     <Card id="points">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-lg">{a('title')}</h2>
@@ -215,5 +219,19 @@ export function StudentPoints({ studentId }: { studentId: string }) {
         />
       </div>
     </Card>
+  );
+  if (!heading) return card;
+  return (
+    <div className="space-y-5">
+      <div className="min-w-0">
+        <h1 className="text-2xl break-words">
+          <bdi>{data.student.name ?? data.student.email}</bdi>
+        </h1>
+        <p className="text-sm break-all text-muted">
+          <span className="ltr-embed">{data.student.email}</span>
+        </p>
+      </div>
+      {card}
+    </div>
   );
 }

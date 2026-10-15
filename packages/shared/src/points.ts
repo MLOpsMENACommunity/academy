@@ -439,6 +439,8 @@ export interface CourseStudentPointsDto {
 }
 
 export interface AdminStudentPointsDto {
+  /** Who this is (the academic preset can't open the admissions student page). */
+  student: { id: string; name: string | null; email: string };
   total: number;
   courses: { id: string; slug: string; titleEn: string; titleAr: string; points: number }[];
   entries: LedgerEntryDto[];
