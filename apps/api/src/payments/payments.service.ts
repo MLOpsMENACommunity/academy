@@ -286,9 +286,10 @@ export class PaymentsService {
   private async pending(id: string, admin: Actor) {
     const p = await this.prisma.payment.findUnique({
       where: { id },
-      include: { application: { select: { userId: true, user: { select: { anonymizedAt: true } } } } },
+      include: { application: { select: { userId: true, user: { select: { anonymizedAt: true, deletedAt: true } } } } },
     });
     if (!p) throw new NotFoundException('Payment not found');
+
     if (p.application.userId === admin.id) {
       throw new ForbiddenException({ code: 'SELF_REVIEW', message: 'Another admin must review your own payment' });
     }
@@ -304,6 +305,11 @@ export class PaymentsService {
       throw new BadRequestException({ code: 'VERIFY_REQUIRED', message: 'Confirm you verified it in the transaction history' });
     }
     const p = await this.pending(id, admin);
+    // Deleting an account closes its pending payments, but older ones may still be waiting:
+    // approving would enrol a deleted account. Rejecting (closing) it stays possible.
+    if (p.application.user.deletedAt) {
+      throw new ConflictException({ code: 'ACCOUNT_DELETED', message: 'The student deleted their account: reject this payment to close it (refund it if the money was received)' });
+    }
     await this.workflow.transition(p.applicationId, 'APPROVE_PAYMENT', admin, {
       within: async (tx) => {
         const claimed = await tx.payment.updateMany({

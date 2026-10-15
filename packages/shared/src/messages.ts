@@ -35,4 +35,8 @@ export const applicationStatusMessages: Record<ApplicationStatus, Localized> = {
     en: "The course is currently full, so you've been placed on the waitlist. We'll email you if a seat opens up.",
     ar: 'الدورة مكتملة حاليًا، لذا تمت إضافتك إلى قائمة الانتظار. سنراسلك إذا توفر مقعد.',
   },
+  WITHDRAWN: {
+    en: 'You withdrew this application, so your seat can go to someone else. You can apply again while applications are open.',
+    ar: 'سحبت هذا الطلب، ليذهب مقعدك إلى شخص آخر. يمكنك التقديم مرة أخرى ما دام التقديم مفتوحًا.',
+  },
 };

@@ -188,3 +188,26 @@ test('a payment under review links to its application, and Arabic digits are acc
     await admin.put('/api/admin/settings', { headers: JSON_HEADERS, data: previous });
   }
 });
+
+test('a student withdraws an application from its page, then applies again from the course page', async ({ page }) => {
+  const course = await createCourse('withdraw');
+  const s = await student('withdraw');
+  const app = await (await s.api.post('/api/applications', { headers: JSON_HEADERS, data: { courseSlug: course.slug, answers: {} } })).json();
+  expect(app.status).toBe('SUBMITTED');
+  await signIn(page, s.api);
+
+  await page.goto(`/en/dashboard/applications/${app.id}`);
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: 'Withdraw application' }).click();
+  await expect(page.getByText('You withdrew this application.').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Withdraw application' })).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Apply again' }).click();
+  await page.waitForURL(new RegExp(`/en/courses/${course.slug}$`));
+  await page.getByRole('link', { name: 'Apply again' }).first().click();
+  await page.waitForURL(new RegExp(`/en/courses/${course.slug}/apply`));
+  await page.getByRole('button', { name: 'Submit application' }).click();
+  await page.waitForURL(new RegExp(`/en/dashboard/applications/${app.id}$`));
+  await expect(page.getByText("We're reviewing your application.").first()).toBeVisible();
+  await s.api.dispose();
+});

@@ -95,7 +95,8 @@ function Inner({ user }: { user: MeResponse }) {
     </Container>
   );
 
-  if (status.applicationId) {
+  // Withdrawn: applying again reopens the same application.
+  if (status.applicationId && status.status !== 'WITHDRAWN') {
     return shell(
       <Alert tone="info" title={t('apply.already')}>
         <Link href={`/${locale}/dashboard/applications/${status.applicationId}`} className="font-semibold underline">

@@ -92,7 +92,7 @@ export function ApplyCta({ slug, availability: served, applicationDeadline = nul
         {t('course.goToCourse')}
       </Link>
     );
-  } else if (status?.status) {
+  } else if (status?.status && !(status.status === 'WITHDRAWN' && availability === 'OPEN' && !completed)) {
     const needsPayment = status.status === 'AWAITING_PAYMENT' || status.status === 'PAYMENT_REJECTED';
     action = (
       <Link
@@ -109,7 +109,7 @@ export function ApplyCta({ slug, availability: served, applicationDeadline = nul
         onClick={() => trackFunnel(slug, 'APPLY_CLICKED')}
         className={buttonClass('accent', 'lg', 'w-full')}
       >
-        {full ? t('course.full') : isFree && !requiresApproval ? t('course.enroll') : t('course.apply')}
+        {full ? t('course.full') : status?.status === 'WITHDRAWN' ? t('applications.applyAgain') : isFree && !requiresApproval ? t('course.enroll') : t('course.apply')}
       </Link>
     );
   } else {
@@ -134,7 +134,7 @@ export function ApplyCta({ slug, availability: served, applicationDeadline = nul
         </p>
       )}
       {action}
-      {!status?.status && availability === 'OPEN' && !completed && (
+      {(!status?.status || status.status === 'WITHDRAWN') && availability === 'OPEN' && !completed && (
         <p className="text-center text-sm leading-relaxed text-muted">
           {priceText} · {requiresApproval ? t('course.screened') : full ? t('course.fullInstant') : t('course.instant')}
         </p>
