@@ -393,11 +393,13 @@ export const COURSE_PERMISSIONS = [
   'UPLOAD_ATTENDANCE',
   'MANAGE_POINTS',
   'ANNOUNCE',
+  'VIEW_FEEDBACK',
   'EDIT_COURSE',
   'MANAGE_SESSIONS',
   'MANAGE_APPLICATIONS',
   'ENROL',
   'ISSUE_CERTIFICATES',
+  'MANAGE_RULES',
 ] as const;
 export const CoursePermission = defineEnum(COURSE_PERMISSIONS);
 export type CoursePermission = (typeof COURSE_PERMISSIONS)[number];

@@ -34,8 +34,8 @@ export const COURSE_PERMISSION_GROUPS = [
   { key: 'teaching', permissions: ['MANAGE_ASSESSMENTS', 'GRADE'] },
   { key: 'material', permissions: ['MANAGE_MATERIALS'] },
   { key: 'students', permissions: ['VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS'] },
-  { key: 'communication', permissions: ['ANNOUNCE'] },
-  { key: 'management', permissions: ['EDIT_COURSE', 'MANAGE_SESSIONS', 'MANAGE_APPLICATIONS', 'ENROL', 'ISSUE_CERTIFICATES'] },
+  { key: 'communication', permissions: ['ANNOUNCE', 'VIEW_FEEDBACK'] },
+  { key: 'management', permissions: ['EDIT_COURSE', 'MANAGE_SESSIONS', 'MANAGE_APPLICATIONS', 'ENROL', 'ISSUE_CERTIFICATES', 'MANAGE_RULES'] },
 ] as const satisfies readonly { key: string; permissions: readonly CoursePermission[] }[];
 export type CoursePermissionGroup = (typeof COURSE_PERMISSION_GROUPS)[number]['key'];
 
@@ -49,14 +49,14 @@ export const BUILTIN_ROLE_DEFAULTS: Record<
     name: 'Co-instructor',
     nameAr: 'مدرّب مشارك',
     // What an assigned speaker could do before course roles existed, plus the roster.
-    permissions: ['MANAGE_ASSESSMENTS', 'GRADE', 'MANAGE_MATERIALS', 'VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE'],
+    permissions: ['MANAGE_ASSESSMENTS', 'GRADE', 'MANAGE_MATERIALS', 'VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE', 'VIEW_FEEDBACK'],
     visibility: 'SHOWN',
     order: 1,
   },
   MODERATOR: {
     name: 'Moderator',
     nameAr: 'مشرف',
-    permissions: ['VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE'],
+    permissions: ['VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE', 'VIEW_FEEDBACK'],
     // Often a past student: kept off the public page unless the team decides otherwise.
     visibility: 'ANONYMOUS',
     order: 2,
@@ -164,7 +164,10 @@ export interface PublicStaffGroupDto {
 
 // ------------------------------------------------------------------ the Teaching area (/teach)
 
-/** Tabs of /teach/courses/{id}, and the permissions that show each (any one is enough). */
+/**
+ * Tabs of /teach/courses/{id}, and the permissions that show each (any one is enough).
+ * VIEW_FEEDBACK and MANAGE_RULES open nothing yet (their screens come in later PRs).
+ */
 export const TEACH_TAB_PERMISSIONS = {
   assessments: ['MANAGE_ASSESSMENTS'],
   gradebook: ['GRADE'],

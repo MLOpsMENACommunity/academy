@@ -629,8 +629,9 @@ reach only the courses they are on.
 
 - **Roles:** each course starts with three editable built-in roles. *Main instructor* (every
   permission; can be renamed and changed, never deleted), *Co-instructor* (assessments, grading,
-  materials, roster, attendance, points, announcements) and *Moderator* (roster, attendance, points,
-  announcements; anonymous). Add any role: an English and Arabic name, the permission checkboxes,
+  materials, roster, attendance, points, announcements, session feedback) and *Moderator* (roster,
+  attendance, points, announcements, session feedback; anonymous). Only the Main instructor manages
+  automation rules by default. Add any role: an English and Arabic name, the permission checkboxes,
   **Shown** or **Anonymous**, and an order. A role can be deleted once nobody is in it.
 - **People:** add an existing account by email, or pick a public speaker profile; choose the role;
   change it or remove the person later. An account's own speaker profile comes with it (the course
@@ -651,11 +652,13 @@ reach only the courses they are on.
 | Students and attendance | Upload attendance | Google Meet attendance files, marking by hand |
 | Students and attendance | Manage points | Add, edit and remove course points (within the speaker points cap) |
 | Communication | Send announcements | Messages to enrolled students, sent at once, "From" the sender |
+| Communication | See session feedback | Students' feedback on each session (no screen yet: a later PR) |
 | Course management | Edit the course | Course details (not status, address, type, price or who teaches) |
 | Course management | Manage sessions | Dates, Meet links, the session list |
 | Course management | Review applications | This course's applications: review and move them (never one's own) |
 | Course management | Enrol students | Enrol by email, invites, the waiting list |
 | Course management | Issue certificates | The rule, issue, revoke, re-issue |
+| Course management | Manage automation rules | Rules that act on their own in the course (no screen yet: a later PR) |
 
 **The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
 courses whose staff you are on, with your role. Each course shows only the tabs your role opens:

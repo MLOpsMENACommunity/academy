@@ -1868,7 +1868,9 @@
         "MANAGE_SESSIONS": "Manage sessions",
         "MANAGE_APPLICATIONS": "Review applications",
         "ENROL": "Enrol students",
-        "ISSUE_CERTIFICATES": "Issue certificates"
+        "ISSUE_CERTIFICATES": "Issue certificates",
+        "VIEW_FEEDBACK": "See session feedback",
+        "MANAGE_RULES": "Manage automation rules"
       },
       "permHint": {
         "MANAGE_ASSESSMENTS": "Create, edit, publish and upload quizzes and assignments.",
@@ -1882,7 +1884,9 @@
         "MANAGE_SESSIONS": "Dates, Meet links and the session list.",
         "MANAGE_APPLICATIONS": "Review and move this course's applications.",
         "ENROL": "Enrol by email and invites, and the waiting list.",
-        "ISSUE_CERTIFICATES": "Issue, revoke and re-issue certificates, and the rule."
+        "ISSUE_CERTIFICATES": "Issue, revoke and re-issue certificates, and the rule.",
+        "VIEW_FEEDBACK": "Students’ feedback on each session.",
+        "MANAGE_RULES": "Rules that act on their own in this course."
       },
       "saveRole": "Save role",
       "createRole": "Create role",
