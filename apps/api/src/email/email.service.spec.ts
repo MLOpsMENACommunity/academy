@@ -4,17 +4,19 @@ jest.mock('./templates/catalog', () => ({ buildEmail: () => ({ subject: 'Subject
 
 import type { Env } from '../config/env';
 import { EmailService } from './email.service';
-import { EmailSendError, EmailTransport, type EmailMessage } from './email.transport';
+import { EmailSendError, EmailTransport, type EmailMessage, type SendOptions } from './email.transport';
 
 class FakeTransport extends EmailTransport {
   sent: string[] = [];
+  calls: { m: EmailMessage; o?: SendOptions }[] = [];
   failures: Error[] = [];
   gate: Promise<void> = Promise.resolve();
-  async send(m: EmailMessage): Promise<void> {
+  async send(m: EmailMessage, o?: SendOptions): Promise<void> {
     await this.gate;
     const failure = this.failures.shift();
     if (failure) throw failure;
     this.sent.push(m.to);
+    this.calls.push({ m, o });
   }
 }
 
@@ -49,4 +51,20 @@ describe('EmailService queue', () => {
     t.failures = [new EmailSendError('daily_quota_exceeded', 429)];
     expect(await email.send('b@x', 'en', tpl)).toBe(false);
   }, 10_000);
+
+  it('deliver() says why a send failed, and passes the idempotency key and headers', async () => {
+    const t = new FakeTransport();
+    const email = new EmailService(t, env);
+    expect(await email.deliver('a@x', 'en', tpl, { bulk: true, idempotencyKey: 'outbox/1', headers: { 'List-Unsubscribe': '<u>' } })).toEqual({ ok: true });
+    expect(t.calls[0]).toEqual({ m: expect.objectContaining({ to: 'a@x', headers: { 'List-Unsubscribe': '<u>' } }), o: { idempotencyKey: 'outbox/1' } });
+    t.failures = [new EmailSendError('daily_quota_exceeded', 429)];
+    expect(await email.deliver('b@x', 'en', tpl)).toEqual({ ok: false, kind: 'quota', code: 'daily_quota_exceeded' });
+    t.failures = [new EmailSendError('validation_error', 422)];
+    expect(await email.deliver('c@x', 'en', tpl)).toEqual({ ok: false, kind: 'permanent', code: 'validation_error' });
+    t.failures = [new EmailSendError('internal_server_error', 500)];
+    expect(await email.deliver('d@x', 'en', tpl)).toEqual({ ok: false, kind: 'retryable', code: 'internal_server_error' });
+    // send() keeps its boolean answer for everyone else.
+    t.failures = [new EmailSendError('validation_error', 422)];
+    expect(await email.send('e@x', 'en', tpl)).toBe(false);
+  });
 });

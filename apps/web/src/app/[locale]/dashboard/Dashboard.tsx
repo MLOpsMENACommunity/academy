@@ -9,6 +9,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { MyCertificates } from '@/components/certificates/MyCertificates';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
+import { RateLastSession } from '@/components/learn/RateLastSession';
 import { PathProgressFrom } from '@/components/paths/PathProgress';
 import { PointsCard } from '@/components/points/PointsCard';
 import { Stepper } from '@/components/paths/Stepper';
@@ -213,6 +214,8 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
               </Link>
             </Alert>
           )}
+
+          <RateLastSession className={card} />
 
           <Journey items={items} paths={paths} />
 

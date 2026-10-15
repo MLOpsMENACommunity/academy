@@ -60,6 +60,11 @@ describe('speakers teach their assigned courses (e2e)', () => {
       sent.push({ to, template });
       return true;
     });
+    // Publish notices go through the outbox, which sends with deliver().
+    jest.spyOn(app.get(EmailService), 'deliver').mockImplementation(async (to, _locale, template) => {
+      sent.push({ to, template });
+      return { ok: true };
+    });
     jest.spyOn(app.get(StorageService), 'signedUrl').mockResolvedValue('https://files.example.test/signed');
   });
   beforeEach(() => {

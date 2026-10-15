@@ -37,6 +37,10 @@ describe('internal jobs endpoint (e2e)', () => {
       speakerBadges: expect.any(Number),
       submissionFilesDeleted: expect.any(Number),
       invitesDeleted: expect.any(Number),
+      // Registered with @ScheduledJob (JobsRegistry).
+      feedbackPromptsQueued: expect.any(Number),
+      outboxPending: expect.any(Number),
+      outboxPurged: expect.any(Number),
     });
   });
 });

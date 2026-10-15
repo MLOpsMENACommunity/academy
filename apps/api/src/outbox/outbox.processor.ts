@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 import type { Locale } from '@academy/shared';
 import { Prisma } from '@prisma/client';
 import { EmailService, type SendResult } from '../email/email.service';
@@ -49,9 +49,11 @@ const LEASE = Prisma.raw(`interval '${LEASE_MINUTES} minutes'`);
  * provider idempotency key (the row id), so the provider never delivers one twice.
  */
 @Injectable()
-export class OutboxProcessor implements OnApplicationBootstrap {
+export class OutboxProcessor implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(OutboxProcessor.name);
   private running: Promise<number> | null = null;
+  private again = false;
+  private stopping = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -64,14 +66,39 @@ export class OutboxProcessor implements OnApplicationBootstrap {
     void this.process().catch(() => undefined);
   }
 
+  /**
+   * Shutting down: finish the email in hand, then stop (the rest stays PENDING, or SENDING
+   * until its lease expires) so the database connection isn't closed under a running batch.
+   */
+  async onModuleDestroy(): Promise<void> {
+    this.stopping = true;
+    await this.running?.catch(() => undefined);
+  }
+
   /** Rows waiting to be sent (due or not), for the tick's report. */
   pending(): Promise<number> {
     return this.prisma.outboundEmail.count({ where: { status: { in: ['PENDING', 'SENDING'] } } });
   }
 
-  /** Sends every due row; concurrent calls share one run. Resolves with the number sent. */
+  /**
+   * Sends every due row; concurrent calls share one run. A call during a run makes it go round
+   * once more, so rows enqueued after its last claim aren't left waiting for the next tick.
+   * Resolves with the number sent.
+   */
   process(): Promise<number> {
-    this.running ??= this.drain().finally(() => {
+    if (this.stopping) return Promise.resolve(0);
+    if (this.running) {
+      this.again = true;
+      return this.running;
+    }
+    this.running = (async () => {
+      let sent = 0;
+      do {
+        this.again = false;
+        sent += await this.drain();
+      } while (this.again && !this.stopping);
+      return sent;
+    })().finally(() => {
       this.running = null;
     });
     return this.running;
@@ -82,10 +109,15 @@ export class OutboxProcessor implements OnApplicationBootstrap {
     let failed = 0;
     try {
       await this.recoverExpiredLeases();
-      for (;;) {
+      while (!this.stopping) {
         const batch = await this.claim();
         if (!batch.length) break;
         for (const [i, row] of batch.entries()) {
+          if (this.stopping) {
+            // Not tried yet: hand them back now rather than after the lease.
+            await this.release(batch.slice(i).map((r) => r.id), new Date());
+            return sent;
+          }
           const outcome = await this.handle(row);
           if (outcome === 'sent') sent++;
           else if (outcome === 'failed') failed++;

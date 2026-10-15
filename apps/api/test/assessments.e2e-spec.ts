@@ -494,8 +494,9 @@ describe('assessments (e2e)', () => {
     expect(await prisma.auditLog.count({ where: { entityId: course.id, action: 'assessment.reordered' } })).toBe(2);
   });
 
-  it('tells enrolled students once when an assessment is first published (in-app; email unless they opted out)', async () => {
-    const sendSpy = jest.spyOn(app.get(EmailService), 'send');
+  it('tells enrolled students once when an assessment is first published (in-app; email through the outbox unless they opted out)', async () => {
+    // The outbox sends with deliver() (send() is for direct, fire-and-forget emails).
+    const sendSpy = jest.spyOn(app.get(EmailService), 'deliver');
     try {
       const { course, admin, student, other } = await setup();
       const outsider = await createUser(app, prisma, { prefix: 'outsider' });
@@ -521,7 +522,17 @@ describe('assessments (e2e)', () => {
       await eventually(async () => expect(mails()).toHaveLength(1));
       expect(mails()[0]![0]).toBe(student.email);
       expect(mails()[0]![2]).toMatchObject({ name: 'assessmentPublished', kind: 'LAB', title: 'English quiz', dueAt: expect.any(String), url: expect.stringContaining(link) });
-      expect(mails()[0]![3]).toEqual({ bulk: true });
+      expect(mails()[0]![3]).toEqual({
+        bulk: true,
+        idempotencyKey: expect.stringMatching(/^outbox\//),
+        headers: { 'List-Unsubscribe': expect.stringContaining('/api/email/unsubscribe?token=r.'), 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+      });
+      // Durable: one outbox row per emailed student, written with the publish and sent.
+      await eventually(async () =>
+        expect(await prisma.outboundEmail.findMany({ where: { dedupeKey: { startsWith: `assessment-published:${draft.id}:` } }, select: { userId: true, status: true } })).toEqual([
+          { userId: student.id, status: 'SENT' },
+        ]),
+      );
       expect((await notes(link))[0]).toMatchObject({ titleEn: 'New lab: English quiz', bodyEn: expect.stringContaining('Due ') });
       expect(await prisma.notification.count({ where: { userId: { in: [outsider.id, gone.id] }, type: 'assessment.published' } })).toBe(0);
       expect((await prisma.assessment.findUniqueOrThrow({ where: { id: draft.id } })).publishedNotifiedAt).toBeInstanceOf(Date);

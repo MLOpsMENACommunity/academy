@@ -335,7 +335,11 @@
     "tabInProgress": "In progress",
     "tabCompleted": "Completed",
     "noneInProgress": "No course in progress right now.",
-    "noneCompleted": "Courses you finish appear here."
+    "noneCompleted": "Courses you finish appear here.",
+    "rateTitle": "Rate your last session",
+    "rateBody": "Session {n}: {title}",
+    "rateCourseToo": "That was the last session: rate the course too.",
+    "rateCta": "Rate it"
   },
   "notifications": {
     "title": "Notifications",
@@ -2739,5 +2743,17 @@
     "whyHint": "Kept with the entry for the record.",
     "saveEdit": "Save the change",
     "confirmRemove": "Remove the points"
+  },
+  "emailOptOut": {
+    "title": "Email preferences",
+    "confirmFeedback": "Stop the \"How was the session?\" emails for {course}? You can still rate sessions on the course page.",
+    "confirmReminders": "Stop reminder emails for {course}? That covers session reminders, due-date reminders and new assessment notices.",
+    "stop": "Stop these emails",
+    "stoppedFeedback": "Done. You won't get feedback emails for {course} any more.",
+    "stoppedReminders": "Done. You won't get reminder emails for {course} any more.",
+    "undo": "Turn them back on",
+    "resumed": "They're back on. We'll email you about {course} again.",
+    "invalid": "This link isn't valid. Copy the whole link from the email and try again.",
+    "toCourse": "Go to the course"
   }
 }
