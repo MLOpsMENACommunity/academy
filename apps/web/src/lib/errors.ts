@@ -11,6 +11,9 @@ export function errorMessage(err: unknown, t: Translate): string {
       const msg = t(key);
       if (msg !== key) return msg;
     }
+    // Field validation: the API's messages are the shared schemas' English ones (e.g. "Validation
+    // failed"); forms show their own translated field errors, so say which fields in the UI language.
+    if (err.errors.length) return t('forms.fixErrors');
     if (err.status < 500 && err.message) return err.message;
   }
   return t('errors.generic');
