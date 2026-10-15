@@ -16,6 +16,10 @@ import { TokensService } from './tokens.service';
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
+/** Reset emails per account: at most one a minute, and RESET_MAX_PER_WINDOW an hour. */
+export const RESET_COOLDOWN_MS = 60 * 1000;
+export const RESET_WINDOW_MS = 60 * 60 * 1000;
+export const RESET_MAX_PER_WINDOW = 5;
 
 @Injectable()
 export class AuthService {
@@ -230,6 +234,15 @@ export class AuthService {
   async forgotPassword(email: string, locale: Locale): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || user.deletedAt) return; // never reveal whether an account exists
+    // Per account, on top of the per-IP throttle: anyone can type someone's address, so without
+    // this the form could flood their inbox and spend the provider's daily quota (which would
+    // stop every other email). The answer is the same either way.
+    const recent = await this.prisma.passwordResetToken.findMany({
+      where: { userId: user.id, createdAt: { gt: new Date(Date.now() - RESET_WINDOW_MS) } },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent.length >= RESET_MAX_PER_WINDOW || (recent[0] && Date.now() - recent[0].createdAt.getTime() < RESET_COOLDOWN_MS)) return;
     const token = randomToken();
     await this.prisma.passwordResetToken.create({
       data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + RESET_TTL_MS) },
