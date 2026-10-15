@@ -69,7 +69,8 @@ export class EmailPreferencesController {
   @Public()
   @Post()
   @HttpCode(200)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  // Mail providers send one-click unsubscribes from shared IPs; the signed token is the real limit.
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   unsubscribe(@Query('token') qToken: unknown, @Body() body: unknown): Promise<EmailOptOutDto> {
     return this.set(qToken ?? (body as { token?: unknown } | undefined)?.token, false);
   }
