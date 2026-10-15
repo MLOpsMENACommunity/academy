@@ -134,12 +134,13 @@ export const revokeCertificateSchema = z.object({ reason: z.string().trim().min(
 export type RevokeCertificateInput = z.infer<typeof revokeCertificateSchema>;
 
 export const reissueCertificateSchema = z.object({
+  /** Absent: keep the certificate's grade. Null or '': clear it. */
   grade: z
     .string()
     .trim()
     .max(60)
     .nullish()
-    .transform((v) => v || null),
+    .transform((v) => (v === undefined ? undefined : v || null)),
 });
 
 // ------------------------------------------------------------------ DTOs
