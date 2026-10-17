@@ -12,8 +12,8 @@ import { requestLog } from './common/request-log';
 
 /** Shared by main.ts and the e2e tests so both run the same pipeline. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-/** POST …/assessments/import, for admins and course staff. */
-export const QUIZ_IMPORT_PATH = /^\/api\/(?:admin|teach)\/courses\/[^/]+\/assessments\/import$/;
+/** POST …/assessments/import, for admins and course staff (also under the old /speaker/courses prefix). */
+export const QUIZ_IMPORT_PATH = /^\/api\/(?:admin|teach|speaker)\/courses\/[^/]+\/assessments\/import$/;
 
 export function configureApp(app: NestExpressApplication): void {
   const env = app.get<Env>(ENV);
