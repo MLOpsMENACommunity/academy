@@ -17,6 +17,7 @@ showing each enrolled student their session links.
 | [docs/ENGINEERING.md](docs/ENGINEERING.md) | Developers | Architecture, data model, auth, jobs, email, storage, caching, testing, CI/CD, how to add a feature |
 | [docs/ADMIN-ROLES.md](docs/ADMIN-ROLES.md) | Super admins | Permission presets, every admin route, adding and removing admins, passwords |
 | [docs/POINTS.md](docs/POINTS.md) | The owner, course teams | The points rules as built, and the proposed scheme for the current courses |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | The owner, developers | Why the academy feels slow (measurements, ranked causes) and a costed plan to make it faster |
 
 Operations: [DEPLOY.md](DEPLOY.md), [OPERATIONS.md](OPERATIONS.md), [INTEGRATION.md](INTEGRATION.md),
 [ROADMAP.md](ROADMAP.md). A PR that changes a user-visible feature updates docs/FEATURES.md in the
