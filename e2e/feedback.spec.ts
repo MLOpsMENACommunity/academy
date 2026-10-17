@@ -109,7 +109,7 @@ test.beforeAll(async () => {
     ['professional', { industry: 'TELECOM', mlExperienceYears: 'Y1_3', seniority: 'MID', secondaryAreas: [] }],
     ['education', { educationLevel: 'BACHELORS' }],
     ['links', { linkedinUrl: 'https://www.linkedin.com/in/feedback-student', githubUrl: 'https://github.com/feedback-student' }],
-    ['community', { referralSource: 'LINKEDIN', communityMember: false, openToOpportunities: false, shareWithPartners: false, marketingEmails: false }],
+    ['community', { referralSource: 'LINKEDIN', communityMember: false, openToOpportunities: false, shareWithPartners: false, marketingEmails: false, telegramUsername: 'e2e_student', discordUsername: 'e2e.student' }],
   ];
   for (const [section, data] of sections) {
     const res = await api.put(`/api/me/profile/${section}`, { headers: JSON_HEADERS, data });
