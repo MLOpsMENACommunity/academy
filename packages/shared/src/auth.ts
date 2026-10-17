@@ -70,10 +70,15 @@ export interface MeResponse {
   hasPassword: boolean;
   hasGoogle: boolean;
   name: string | null;
+  /**
+   * Has a student side to show (the dashboard, "My learning"): always for students; for a
+   * speaker, once they have a course application or enrolment. Never for admins.
+   */
+  learning: boolean;
   profile: {
     completeness: number;
     coreComplete: boolean;
-    /** The Telegram or Discord username is missing (students from before they were asked): needed to apply. */
+    /** The Telegram or Discord username is missing (learners from before they were asked): needed to apply. */
     needsCommunityHandles: boolean;
     updatedAt: string | null;
   };

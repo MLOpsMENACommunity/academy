@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { RequireAuth } from '@/components/auth/RequireAuth';
-import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { SectionForm } from '@/components/profile/SectionForm';
 import { Alert } from '@/components/ui/Alert';
 import { Button, buttonClass } from '@/components/ui/Button';
@@ -20,8 +19,8 @@ import { useReturnTo } from '@/lib/use-return-to';
 const STEPS: ProfileSection[] = [...PROFILE_SECTIONS];
 
 export function Onboarding() {
-  // Speakers skip student onboarding.
-  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <SpeakerRedirect /> : <Stepper />)}</RequireAuth>;
+  // Speakers fill in the same student profile before applying to a course.
+  return <RequireAuth>{() => <Stepper />}</RequireAuth>;
 }
 
 function Stepper() {

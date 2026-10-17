@@ -1,6 +1,6 @@
 'use client';
 
-import { parseSessionHash, type AssessmentSummaryDto, type LearnCertificateDto, type LearnCourseDto, type LearnSessionDto, type MeResponse } from '@academy/shared';
+import { isLearnerRole, parseSessionHash, type AssessmentSummaryDto, type LearnCertificateDto, type LearnCourseDto, type LearnSessionDto, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -198,8 +198,8 @@ function Inner({ user }: { user: MeResponse }) {
         </Container>
       </div>
 
-      {/* Students enrolled by email may not have filled in their profile: a nudge, never a gate. */}
-      {user.role === 'STUDENT' && !user.profile.coreComplete && (
+      {/* Learners enrolled by email may not have filled in their profile: a nudge, never a gate. */}
+      {isLearnerRole(user.role) && !user.profile.coreComplete && (
         <Container className="pt-4">
           <Alert tone="info">
             {t('learn.profileNudge')}{' '}

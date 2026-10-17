@@ -29,7 +29,7 @@ import { TeachCourses } from '@/components/teach/TeachCourses';
 
 /** /speaker: the speaker's home (application, open slots, bookings). */
 export function SpeakerPortal() {
-  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <Portal /> : <NotSpeaker user={user} />)}</RequireAuth>;
+  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <Portal user={user} /> : <NotSpeaker user={user} />)}</RequireAuth>;
 }
 
 /** Students and admins who open the portal: one account, one role. */
@@ -48,7 +48,35 @@ function NotSpeaker({ user }: { user: MeResponse }) {
   );
 }
 
-function Portal() {
+/** Speakers study too: their courses live on the student dashboard ("My learning"). */
+function MyLearning({ learning }: { learning: boolean }) {
+  const { locale, t } = useI18n();
+  if (!learning) {
+    return (
+      <p className="text-sm text-muted">
+        {t('speakers.portal.learning.emptyBody')}{' '}
+        <Link href={`/${locale}/courses`} className="font-semibold text-primary underline">
+          {t('speakers.portal.learning.browse')}
+        </Link>
+      </p>
+    );
+  }
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl">{t('speakers.portal.learning.title')}</h2>
+          <p className="mt-1 text-muted">{t('speakers.portal.learning.body')}</p>
+        </div>
+        <Link href={`/${locale}/dashboard`} className={buttonClass('secondary', 'md')}>
+          {t('speakers.portal.learning.cta')}
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+function Portal({ user }: { user: MeResponse }) {
   const { locale, t } = useI18n();
   const sent = useSearchParam('sent');
   const [data, setData] = useState<SpeakerPortalDto | null>(null);
@@ -95,6 +123,7 @@ function Portal() {
       </div>
       {sent && app?.status === 'SUBMITTED' && <Alert tone="success">{t('speakers.portal.sent')}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
+      {user.learning && <MyLearning learning />}
 
       {confirmed && (
         <div ref={confirmation} tabIndex={-1} className="outline-none">
@@ -231,6 +260,7 @@ function Portal() {
         </section>
       )}
 
+      {!user.learning && <MyLearning learning={false} />}
     </Container>
   );
 }

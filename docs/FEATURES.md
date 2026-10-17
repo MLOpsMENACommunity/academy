@@ -51,7 +51,7 @@ When the staging release is promoted, change every "Staging" below to "Live".
 ## 1. Who can do what
 
 Roles: a **visitor** has no account; a **student** and a **speaker** are the two self-service account
-types (one account, one role); an **admin** has one or more permission presets. The presets are
+types (one role per account; speakers can also study like students); an **admin** has one or more permission presets. The presets are
 **Staging** (PR #59): in production today every admin can do everything, like `SUPER`.
 
 ✓ = can do it. "own" = only for themselves. "assigned" = only for courses they are assigned to.
@@ -65,8 +65,8 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Verify a certificate | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Register for a free live session | | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Join a course waiting list | ✓ (account needed once #62 ships) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Apply to a course, pay, learn | | ✓ | | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ |
-| Take quizzes, submit work, see own grades, points, certificates | | own | | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
+| Apply to a course, pay, learn | | ✓ | ✓ | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ |
+| Take quizzes, submit work, see own grades, points, certificates | | own | own | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
 | Preview any course's learn page and assessments | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Speaker application, slots, bookings | | | own | | | | | | |
 | Announce to enrolled students / session registrants | | staff³ | staff³ / own sessions | ✓ (courses) | ✓ (courses) | | | | |
@@ -231,11 +231,18 @@ languages; contact details come from Settings (support email and WhatsApp; empty
 (`?as=speaker` preselects speaker). One account has one role:
 
 - **Students** go through onboarding (the profile) and can apply to courses.
-- **Speakers** skip onboarding, land on the speaker portal (`/speaker`) and can't apply to courses.
+- **Speakers** land on the speaker portal (`/speaker`), their home, and skip onboarding at sign-up.
+  They can **also study like a student**: apply to a course (the same profile, Telegram and Discord
+  usernames are required first), withdraw, pay, be enrolled by email, use the learn page,
+  assessments, attendance, feedback, points, leaderboards, certificates, the waiting list, the
+  calendar feed and the reminder emails. Once they have a course application or enrolment, the
+  header menu and the speaker portal show **My learning** (the student dashboard, `/dashboard`).
+  After sign-in, a page they were heading to (an Apply page, a lesson) is kept; with nowhere in
+  particular to go they land on `/speaker`. No page redirects a speaker away any more.
 - Nobody can make themselves an admin. To switch an account between student and speaker, ask the
   team (Admin → Students → student, or Admin → Speakers → Applications → application → Account type).
   A speaker with upcoming bookings must have them released first; a student with applications or
-  enrolments stays a student; admin accounts can't be switched there.
+  enrolments can become a speaker and keeps them; admin accounts can't be switched there.
 - The team can also **create a student account** (Admin → Students → Add student): the person gets a
   "choose your password" email, valid 7 days.
 
@@ -341,7 +348,7 @@ relevant page. Times show in the viewer's own time zone; if the list can't load,
 4. Answer the course's **screening questions** (short/long text, single/multi select with optional
    "please specify", yes/no, number) and submit.
 
-Rules: one application per student per course; 10 applications a minute; speakers can't apply. A
+Rules: one application per student per course; 10 applications a minute; speakers apply the same way as students (admins only on their own account, to try it). A
 copy of the profile is saved with the application. If the course needs no approval, a free course
 enrols at once and a paid one goes straight to payment, unless capacity is full (then waitlisted).
 Emails: "application received" and every status change (`applicationStatus`). The student follows
@@ -428,8 +435,8 @@ previous cohort without the form, the profile gate or payment.
 1. Admin → Courses → course → **Enrol by email**.
 2. Paste addresses (commas, spaces, new lines, `Name <email>`) or upload a CSV (`email[, name, note]`),
    at most 300 per batch.
-3. **Preview** classifies each: *Enrol now* (verified student account), *Invite* (no account or
-   unconfirmed), *Already enrolled*, *Already invited*, *Speaker/Admin/Closed account, skipped*,
+3. **Preview** classifies each: *Enrol now* (verified student or speaker account), *Invite* (no account or
+   unconfirmed), *Already enrolled*, *Already invited*, *Admin/Closed account, skipped*,
    *Not a valid email*, *Listed twice*. It warns if capacity is exceeded (direct enrolment ignores
    capacity).
 4. Confirm. Options: **Email them** (default on); for paid courses **Enrol them without payment** must
@@ -779,7 +786,7 @@ on their first section. The sections:
 | Dashboard | ADMISSIONS, ACADEMIC, FINANCE | Funnel (course views → apply clicks → registered → profile completed → submitted → shortlisted → payment submitted → enrolled) and key counts |
 | Payments | FINANCE | Review proofs, approve or reject (4.5) |
 | Applications | ADMISSIONS | Review, bulk actions, notes, CSV, saved views (4.3) |
-| Students | ADMISSIONS | Search and filter students; profile, CV, applications, notes; **Edit profile** step by step; **Add student**; **Delete account**; switch to speaker. ACADEMIC also needed for the points box |
+| Students | ADMISSIONS | Search and filter students (and speakers who applied to or enrolled in a course, with a Speaker badge); profile, CV, applications, notes; **Edit profile** step by step; **Add student**; **Delete account**; switch to speaker. ACADEMIC also needed for the points box |
 | Points & badges | ACADEMIC | Badge catalog and points CSV import (8) |
 | Courses | ACADEMIC (edit), ADMISSIONS (read) | New course, duplicate, edit, archive/delete; tabs below |
 | Sessions | ACADEMIC | Free live sessions (10) |
@@ -890,6 +897,7 @@ One entry per pull request in the academy repository. Newest first.
 | PR | Change | Status |
 |---|---|---|
 | Mandatory/optional assessments | Assessments say plainly whether they're **mandatory or optional for the certificate**: a two-option choice in the editor (admin and Teaching) instead of the "Counts toward the certificate" checkbox, with a note and link when the course's rule doesn't require assessments; Mandatory/Optional badges in the admin list; "Required for certificate" / "Optional" badges for students when the course's certificate requires assessments; the Certificates rule reads "Students must pass every mandatory assessment". Same data and eligibility as before (en/ar) | Pending |
+| Speakers can learn | Speaker accounts can also apply to courses and study like students (profile, apply, withdraw, pay, enrol by email, learn page, assessments, attendance, feedback, points, leaderboards, certificates, waiting list, calendar, reminders); their home stays `/speaker`, with **My learning** in the header menu and on the portal once they have a course; sign-in keeps an Apply or lesson link for speakers; enrolled speakers count as students for certificates, feedback emails and the profile review email; Admin → Students lists speakers who applied or enrolled (Speaker badge, "Speaker" CSV column); Enrol by email enrols speaker accounts; a student with courses can be switched to a speaker | Pending |
 | Admin enrolled totals | Admins always see each course's enrolled total (the public count, even when hidden publicly): an Enrolled students column with the capacity ("12 / 30") in Admin → Courses, "12 enrolled · 18 seats left" and a tab count in the course, and an Enrolled students figure on the dashboard course cards (en/ar); admin API `enrolledCount` (and `seatsLeft` on a course) | Pending |
 | Accounts audit | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Pending |
 | Enrolled count | Course pages and cards show "N students enrolled" and "X seats left" / "Course full" (en/ar); per-course "Show enrolled count publicly" switch (on by default); enrolments and withdrawals refresh the public pages within seconds; public API `enrolledCount` and `seatsLeft` | Pending |
