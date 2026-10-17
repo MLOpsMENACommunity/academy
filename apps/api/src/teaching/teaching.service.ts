@@ -139,7 +139,7 @@ export class TeachingService {
       where: enrolledIn(courseId),
       orderBy: { enrolledAt: 'asc' },
       take: 5000,
-      select: { enrolledAt: true, user: { select: { id: true, email: true, profile: { select: { fullNameEn: true, fullNameAr: true } } } } },
+      select: { enrolledAt: true, user: { select: { id: true, email: true, profile: { select: { fullNameEn: true, fullNameAr: true, telegramUsername: true, discordUsername: true } } } } },
     });
     await this.audit.log({ actorId: actor.id, action: 'course.roster_viewed', entityType: 'Course', entityId: courseId, metadata: { count: rows.length } });
     return rows.map((r) => ({
@@ -147,9 +147,8 @@ export class TeachingService {
       name: r.user.profile?.fullNameEn ?? null,
       nameAr: r.user.profile?.fullNameAr ?? null,
       email: r.user.email,
-      // Telegram and Discord usernames: not on profiles yet (null until they are).
-      telegram: null,
-      discord: null,
+      telegram: r.user.profile?.telegramUsername ?? null,
+      discord: r.user.profile?.discordUsername ?? null,
       enrolledAt: r.enrolledAt.toISOString(),
     }));
   }

@@ -395,8 +395,9 @@ describe('course staff, roles and permissions (e2e)', () => {
 
     // Roster: enrolled students' names and email, no one else's; viewing it is audited.
     const st = await enrolled(course.id, 'Roster Person');
+    await prisma.profile.update({ where: { userId: st.id }, data: { telegramUsername: 'roster_person', discordUsername: 'roster.person' } });
     const roster = (await http().get(`${base}/roster`).set('Cookie', manager.cookie).expect(200)).body;
-    expect(roster).toEqual([expect.objectContaining({ userId: st.id, name: 'Roster Person', email: st.email, telegram: null, discord: null })]);
+    expect(roster).toEqual([expect.objectContaining({ userId: st.id, name: 'Roster Person', email: st.email, telegram: 'roster_person', discord: 'roster.person' })]);
     expect(await prisma.auditLog.count({ where: { action: 'course.roster_viewed', actorId: manager.id } })).toBeGreaterThan(0);
 
     // Off the staff: everything stops at once.
