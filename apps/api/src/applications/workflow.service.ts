@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   DEFAULT_TIMEZONE,
@@ -21,6 +22,7 @@ import {
 } from '@academy/shared';
 import type { Application, ApplicationStatusHistory, Course, Prisma, User } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { PublicDataChanges } from '../common/public-data';
 import { EmailService } from '../email/email.service';
 import { FunnelService } from '../funnel/funnel.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -79,7 +81,8 @@ const FUNNEL_FOR: Partial<Record<ApplicationStatus, FunnelEvent>> = {
  * - locks the course row so capacity can't be oversold by concurrent requests,
  * - writes ApplicationStatusHistory (and AuditLog for admin actions),
  * - creates the Enrollment on ENROLLED,
- * - then notifies the student by email and in-app.
+ * - then notifies the student by email and in-app, and refreshes the public pages when the
+ *   course's enrolled count or seats left moved (publicCountsChanged).
  */
 @Injectable()
 export class ApplicationWorkflow {
@@ -91,7 +94,17 @@ export class ApplicationWorkflow {
     private readonly notifications: NotificationsService,
     private readonly email: EmailService,
     private readonly funnel: FunnelService,
+    @Optional() private readonly publicData?: PublicDataChanges,
   ) {}
+
+  /**
+   * After the commit of a status change made outside transition() (applying, enrolling by
+   * email or invite): if it moved a course's public enrolled count or seats left, the public
+   * cache is cleared and the site revalidated, so the course pages are current within seconds.
+   */
+  publicCountsChanged(from: ApplicationStatus | null, to: ApplicationStatus | null): void {
+    this.publicData?.statusChanged(from, to);
+  }
 
   /**
    * Serialises seat decisions per course for the rest of the transaction and
@@ -262,6 +275,8 @@ export class ApplicationWorkflow {
       if (opts.within) await opts.within(tx, updated);
       return { app: updated, from: fresh.status };
     });
+    // Committed: withdrawing, approving a payment, accepting... the course pages show it now.
+    this.publicCountsChanged(from, app.status);
 
     // Bulk actions don't wait for the in-app notifications either (emails are always queued); afterChange never throws.
     if (opts.awaitSideEffects === false) void this.afterChange(app, from, opts.reason).catch(() => undefined);

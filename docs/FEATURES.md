@@ -115,6 +115,15 @@ each course card here (`/courses/<slug>?ref=main-site`, see [INTEGRATION.md](../
 - **Course page** (`/courses/<slug>`): outline, schedule in the visitor's own time zone, instructors
   (linked to their speaker pages), price, seats left, who it's for and not for, prerequisites,
   "Before the course starts", what's included, FAQ, and the certificate rule.
+- **Enrolled count and seats left:** the course page (under the title) and its cards in the catalog
+  and on the home page say "**N students enrolled**", plus "**X seats left**" (or "**Course
+  full**") while applications are open and the course has a capacity. Only the number is public,
+  never who. It counts active enrolments of accounts that aren't deleted; seats left use the same
+  seat rule as admissions. "No students enrolled yet" shows only on a course open for
+  applications. Enrolling, withdrawing, a claimed invite and a deleted account refresh the pages
+  within seconds. The course team can hide the count per course: Admin → Courses → {course} →
+  Schedule → **Show enrolled count publicly** (on by default). The public API returns
+  `enrolledCount` (null when hidden) and `seatsLeft`.
 - **Course statuses** (set by the course team in Admin → Courses):
 
 | Status | Public? | What visitors can do |
@@ -830,6 +839,7 @@ One entry per pull request in the academy repository. Newest first.
 | PR | Change | Status |
 |---|---|---|
 | Accounts audit | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Pending |
+| Enrolled count | Course pages and cards show "N students enrolled" and "X seats left" / "Course full" (en/ar); per-course "Show enrolled count publicly" switch (on by default); enrolments and withdrawals refresh the public pages within seconds; public API `enrolledCount` and `seatsLeft` | Pending |
 | Course staff | Course staff: per-course roles (Main instructor, Co-instructor, Moderator, custom) with permissions, Shown or Anonymous; Admin → Courses → Staff tab; Teaching area at /teach for any account; public course page shows staff by role | Pending |
 | Admissions audit | Students can withdraw an application (Withdrawn status); deleting an account frees its seats and closes a pending payment; full courses say so before applying; Apply closes at the deadline; payments queue pages; Arabic digits in payment proofs; "seat confirmed" email; waiting list only notified while applications are open; admin accounts out of Admin → Students | Pending |
 | #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Pending |

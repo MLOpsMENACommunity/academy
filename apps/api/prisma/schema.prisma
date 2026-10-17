@@ -624,6 +624,8 @@ model Course {
   externalUrl         String?
   /// Session recordings are shown to everyone (public YouTube), not only to enrolled students.
   publicRecordings    Boolean            @default(false)
+  /// The course page and cards show "N students enrolled" (only the number, never names).
+  showEnrolledCount   Boolean            @default(true)
   /// "import" when created by prisma/import-archive.ts.
   source              String?
   importHash          String?

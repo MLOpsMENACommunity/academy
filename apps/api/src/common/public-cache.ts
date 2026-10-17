@@ -27,8 +27,11 @@ import { PublicRevalidator } from './revalidate';
  *     session (seat counts), clears the in-process cache at once. Admin writes, and the few
  *     non-admin writes that change what public pages show (REVALIDATING_WRITES), also ask the
  *     site to revalidate its pages and purge the edge (common/revalidate.ts), so the change is
- *     on the public pages within seconds; seat counts and job results follow the pages' own
- *     60 s revalidation instead (frequent, and not worth re-rendering every page for).
+ *     on the public pages within seconds; live-session seat counts and job results follow the
+ *     pages' own 60 s revalidation instead (frequent, and not worth re-rendering every page for).
+ *     A course's enrolled count and seats left are refreshed by the services that change them,
+ *     after the commit (PublicDataChanges in common/public-data.ts): enrolling, withdrawing,
+ *     an invite claimed at sign-in, an account deleted.
  *   - The in-process key is the path plus only the query parameters the handler reads (from its
  *     schema), so random query strings can't bypass it or evict the real entries.
  */

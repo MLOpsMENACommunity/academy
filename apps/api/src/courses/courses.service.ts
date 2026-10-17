@@ -12,9 +12,10 @@ import {
 import type { Prisma } from '@prisma/client';
 import { CourseStaffService } from '../course-staff/course-staff.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { toCourseDetail, toCourseSummary } from './course.mapper';
+import { NO_SEATS, toCourseDetail, toCourseSummary, type SeatCount } from './course.mapper';
 
-/** Statuses visible in the public catalog. */
+/** Rows of accounts that aren't deleted: a deleted account holds no seat and isn't enrolled any more. */
+const LIVE_ACCOUNT = { user: { deletedAt: null } } satisfies Prisma.ApplicationWhereInput & Prisma.EnrollmentWhereInput;
 
 @Injectable()
 export class CoursesService {
@@ -23,15 +24,29 @@ export class CoursesService {
     private readonly staff: CourseStaffService,
   ) {}
 
-  /** Seats held per course (shortlisted through enrolled). */
-  async seatsTaken(courseIds: string[], tx: Prisma.TransactionClient = this.prisma): Promise<Map<string, number>> {
+  /**
+   * Per course: seats held (shortlisted through enrolled) and active enrolments. A deleted
+   * account holds no seat and isn't counted as enrolled (the same rule as the workflow's seat
+   * check). Only numbers: the public pages never learn who.
+   */
+  async seatCounts(courseIds: string[], tx: Prisma.TransactionClient = this.prisma): Promise<Map<string, SeatCount>> {
     if (!courseIds.length) return new Map();
-    const rows = await tx.application.groupBy({
-      by: ['courseId'],
-      where: { courseId: { in: courseIds }, status: { in: [...SEAT_HOLDING_STATUSES] }, user: { deletedAt: null } },
-      _count: { _all: true },
-    });
-    return new Map(rows.map((r) => [r.courseId, r._count._all]));
+    const [taken, enrolled] = await Promise.all([
+      tx.application.groupBy({
+        by: ['courseId'],
+        where: { courseId: { in: courseIds }, status: { in: [...SEAT_HOLDING_STATUSES] }, ...LIVE_ACCOUNT },
+        _count: { _all: true },
+      }),
+      tx.enrollment.groupBy({
+        by: ['courseId'],
+        where: { courseId: { in: courseIds }, ...LIVE_ACCOUNT },
+        _count: { _all: true },
+      }),
+    ]);
+    const out = new Map<string, SeatCount>(courseIds.map((id) => [id, { ...NO_SEATS }]));
+    for (const r of taken) out.get(r.courseId)!.taken = r._count._all;
+    for (const r of enrolled) out.get(r.courseId)!.enrolled = r._count._all;
+    return out;
   }
 
   async listPublic(q: CatalogQuery): Promise<CourseSummaryDto[]> {
@@ -46,10 +61,10 @@ export class CoursesService {
     const matching = courses.filter((c) =>
       matchesCatalog({ ...c, availability: courseAvailability(c, now) }, q),
     );
-    const seats = await this.seatsTaken(matching.map((c) => c.id));
+    const seats = await this.seatCounts(matching.map((c) => c.id));
     return (
       matching
-        .map((c) => toCourseSummary(c, seats.get(c.id) ?? 0))
+        .map((c) => toCourseSummary(c, seats.get(c.id) ?? NO_SEATS, now))
         // Open courses first, then upcoming, then closed.
         .sort(
           (a, b) =>
@@ -69,8 +84,8 @@ export class CoursesService {
       },
     });
     if (!course) throw new NotFoundException('Course not found');
-    const [seats, staff] = await Promise.all([this.seatsTaken([course.id]), this.staff.publicGroups(course.id)]);
-    return toCourseDetail(course, seats.get(course.id) ?? 0, new Date(), staff);
+    const [seats, staff] = await Promise.all([this.seatCounts([course.id]), this.staff.publicGroups(course.id)]);
+    return toCourseDetail(course, seats.get(course.id) ?? NO_SEATS, new Date(), staff);
   }
 
   async myStatus(slug: string, userId: string): Promise<MyCourseStatusDto> {

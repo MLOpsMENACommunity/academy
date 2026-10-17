@@ -94,6 +94,7 @@ export const EMPTY_COURSE: CourseFormValue = {
   externalPlatform: null,
   externalUrl: null,
   publicRecordings: false,
+  showEnrolledCount: true,
 };
 
 function Fieldset({ title, children }: { title: string; children: ReactNode }) {
@@ -227,6 +228,7 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
           <TextField label={f('hoursPerWeek')} type="number" min={1} value={v.hoursPerWeek?.toString() ?? ''} onChange={(x) => set('hoursPerWeek')(x ? Number(x) : null)} />
           <TextField label={f('capacity')} type="number" min={1} value={v.capacity?.toString() ?? ''} onChange={(x) => set('capacity')(x ? Number(x) : null)} />
         </div>
+        <CheckboxField label={f('showEnrolledCount')} hint={f('showEnrolledCountHint')} checked={v.showEnrolledCount} onChange={set('showEnrolledCount')} />
       </Fieldset>
 
       <Fieldset title={t('admin.courses.pastCohort')}>
