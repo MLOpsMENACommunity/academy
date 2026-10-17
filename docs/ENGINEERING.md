@@ -436,6 +436,8 @@ live in the `Setting` table, edited in Admin → Settings (`packages/shared/src/
 - Roles and presets read from the database per request; token versions for instant revocation.
 - CSRF: JSON bodies only, writes refused when `Origin` isn't the site or `Sec-Fetch-Site` is
   cross-site. CORS limited to `WEB_URL` and `CORS_ORIGINS`.
+- Body size: JSON bodies up to 256 KB; only the quiz import (`POST …/assessments/import`, up to 1,000
+  questions) accepts up to 4 MB (`QUIZ_IMPORT_PATH` in `setup.ts`).
 - Headers: CSP (`default-src 'self'`, YouTube nocookie frames only, `frame-ancestors 'none'`), HSTS,
   `X-Frame-Options: DENY`, `nosniff`, strict referrer and permissions policies; Helmet on the API.
 - Private files only through short-lived signed URLs; uploads checked by magic bytes; random keys.
