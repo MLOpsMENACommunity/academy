@@ -27,6 +27,8 @@ interface Row {
   seniority: string | null;
   completeness: number;
   openToOpportunities: boolean;
+  telegramUsername: string | null;
+  discordUsername: string | null;
   applications: number;
   createdAt: string;
 }
@@ -113,6 +115,7 @@ export function StudentsDirectory() {
               <th className="p-3 text-start">{t('admin.apps.student')}</th>
               <th className="p-3 text-start">{t('profile.fields.experienceYears')}</th>
               <th className="p-3 text-start">{t('profile.fields.seniority')}</th>
+              <th className="p-3 text-start">{t('admin.students.community')}</th>
               <th className="p-3 text-start">{t('admin.students.completeness')}</th>
               <th className="p-3 text-start">{t('admin.students.applications')}</th>
               <th className="p-3 text-start">{t('admin.students.joined')}</th>
@@ -121,7 +124,7 @@ export function StudentsDirectory() {
           <tbody>
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-muted">
+                <td colSpan={7} className="p-6 text-center text-muted">
                   {t('admin.common.none')}
                 </td>
               </tr>
@@ -136,6 +139,17 @@ export function StudentsDirectory() {
                 </td>
                 <td className="p-3">{r.experienceYears ? experienceRangeLabels[r.experienceYears as keyof typeof experienceRangeLabels][locale] : '—'}</td>
                 <td className="p-3">{r.seniority ? seniorityLabels[r.seniority as keyof typeof seniorityLabels][locale] : '—'}</td>
+                <td className="p-3 text-xs">
+                  {r.telegramUsername || r.discordUsername ? (
+                    <span className="ltr-embed block">
+                      {r.telegramUsername ? `Telegram @${r.telegramUsername}` : 'Telegram —'}
+                      <br />
+                      {r.discordUsername ? `Discord ${r.discordUsername}` : 'Discord —'}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td className="p-3">{r.completeness}%</td>
                 <td className="p-3">{r.applications}</td>
                 <td className="p-3 whitespace-nowrap">{formatDate(r.createdAt, locale)}</td>

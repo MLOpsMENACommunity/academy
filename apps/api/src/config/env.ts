@@ -92,6 +92,8 @@ const envSchema = z.object({
   /** Force pgbouncer=true (Neon "-pooler" hosts get it automatically). */
   DB_PGBOUNCER: bool.default('false'),
   /** In-process cache of anonymous public catalog reads, in seconds (0 turns it off). */
+  /** Browser-test stacks only: multiplies every rate limit (see common/throttler.guard.ts). Never set in production. */
+  THROTTLE_LIMIT_MULTIPLIER: z.coerce.number().int().min(1).max(100).default(1),
   PUBLIC_CACHE_TTL_S: z.coerce.number().int().min(0).max(300).default(30),
   /** Requests in progress at once before new ones get a fast 503 (0 turns the limit off). */
   MAX_IN_FLIGHT: z.coerce.number().int().min(0).max(10_000).default(200),

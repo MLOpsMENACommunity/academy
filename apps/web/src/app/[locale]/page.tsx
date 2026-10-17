@@ -10,6 +10,7 @@ import { RoadmapCard } from '@/components/roadmaps/RoadmapCard';
 import { DateTile } from '@/components/sessions/SessionDate';
 import { ButtonLink } from '@/components/ui/Button';
 import { Container } from '@/components/ui/Container';
+import { DeletedNotice } from '@/components/profile/DeletedNotice';
 import { Arrow, IconCheck } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
@@ -108,6 +109,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <>
+      <DeletedNotice />
       <section aria-labelledby="home-title">
         <Container className="flex flex-col gap-12 py-12 sm:py-20 lg:flex-row lg:items-center lg:gap-16 lg:py-24">
           <div className="flex min-w-0 flex-col lg:flex-[999_1_34rem] gap-5 sm:gap-6">

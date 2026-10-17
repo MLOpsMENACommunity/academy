@@ -28,9 +28,9 @@ interface Policy {
 
 const UPDATED_EN = 'Last updated: 10 October 2026';
 const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
-/** The privacy policy changed later (course invitations; waiting lists need an account). */
-const PRIVACY_UPDATED_EN = 'Last updated: 12 October 2026';
-const PRIVACY_UPDATED_AR = 'آخر تحديث: 12 أكتوبر 2026';
+/** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates). */
+const PRIVACY_UPDATED_EN = 'Last updated: 15 October 2026';
+const PRIVACY_UPDATED_AR = 'آخر تحديث: 15 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
@@ -49,8 +49,11 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'What we collect',
           body: [
             'Account data: your email address, a hashed password (or your Google account identifier if you sign in with Google), and your language preference.',
-            'Profile data you choose to give us: name, phone, country and city, professional background, education, skills, learning goals, links (LinkedIn, GitHub and similar) and an optional CV.',
-            'Course data: your applications and answers to screening questions, your enrolment, session progress and the feedback you submit through the academy. Quizzes and assignment forms linked from a course are run on the services they are hosted on (for example Google Forms).',
+            'Profile data you choose to give us: name, phone, country and city, professional background, education, skills, learning goals, links (LinkedIn, GitHub and similar), your Telegram and Discord usernames, and an optional CV.',
+            'Your Telegram and Discord usernames are needed to apply to a course: course groups and community help happen there. The academy team uses them to add you to your course\'s groups and to recognise you in the community channels; they are shown to the team only, never on public pages or leaderboards.',
+            'Course data: your applications and answers to screening questions (with a copy of your profile as it was when you applied, for the team reviewing it), your enrolment, session progress and the feedback you submit through the academy.',
+            'Assessments and attendance: your quiz answers, the links and files you submit for labs and assignments, your scores and the course team\'s feedback, and your attendance in live sessions (minutes and share of each session, from the Google Meet attendance report the team uploads). Uploaded files are deleted after the retention period set by the academy (180 days by default); scores stay with your course record.',
+            'Certificates: the name printed on your certificate, the course, the date and the grade. Each certificate has a public verification page at its serial number, showing that name, the course and the date, so employers can check it; it is kept out of search engines. After your account is deleted and anonymised, the page only says the certificate is no longer available.',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
             'Waiting lists: if you ask to be told when a course opens ("Notify me"), your account email address and language. Joining needs an academy account; an entry made without one before that is kept, and linked to your account when you confirm the same address.',
             'Course invitations: if the academy team adds you to a course by your email address, that address, the course, who added you and when, and whether you joined. If you have no account yet, we email you to invite you, a few times at most; you are enrolled only after you sign up and confirm that same address.',
@@ -152,8 +155,11 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           heading: 'ما الذي نجمعه',
           body: [
             'بيانات الحساب: بريدك الإلكتروني، وكلمة مرور مشفرة (أو معرّف حساب Google إذا سجلت الدخول عبر Google)، ولغتك المفضلة.',
-            'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والدولة والمدينة والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط (مثل LinkedIn وGitHub) وسيرة ذاتية اختيارية.',
-            'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية. أما الاختبارات ونماذج الواجبات المرتبطة بالدورة فتعمل على الخدمات المستضافة عليها (مثل Google Forms).',
+            'بيانات الملف الشخصي التي تختار مشاركتها: الاسم والهاتف والدولة والمدينة والخلفية المهنية والتعليم والمهارات وأهداف التعلم والروابط (مثل LinkedIn وGitHub) واسما المستخدم على Telegram وDiscord وسيرة ذاتية اختيارية.',
+            'نحتاج إلى اسمي المستخدم على Telegram وDiscord للتقديم على أي دورة، لأن مجموعات الدورات ومساعدة المجتمع تتم هناك. يستخدمهما فريق الأكاديمية لإضافتك إلى مجموعات دورتك والتعرف عليك في قنوات المجتمع، ولا يظهران إلا للفريق، ولا يُعرضان أبدًا في الصفحات العامة أو لوحات المتصدرين.',
+            'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول (مع نسخة من ملفك الشخصي كما كان وقت التقديم، للفريق الذي يراجع طلبك)، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية.',
+            'التقييمات والحضور: إجاباتك في الاختبارات، والروابط والملفات التي ترسلها للمعامل والواجبات، ودرجاتك وملاحظات فريق الدورة، وحضورك في الجلسات المباشرة (الدقائق ونسبة كل جلسة، من تقرير حضور Google Meet الذي يرفعه الفريق). تُحذف الملفات المرفوعة بعد مدة الاحتفاظ التي تحددها الأكاديمية (180 يومًا افتراضيًا)، وتبقى الدرجات ضمن سجل دورتك.',
+            'الشهادات: الاسم المطبوع على شهادتك والدورة والتاريخ والتقدير. لكل شهادة صفحة تحقق عامة برقمها التسلسلي تعرض ذلك الاسم والدورة والتاريخ ليتمكن أصحاب العمل من التحقق منها، وهي مستبعدة من محركات البحث. بعد حذف حسابك وتجهيل بياناته، تكتفي الصفحة بالإشارة إلى أن الشهادة لم تعد متاحة.',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
             'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريد حسابك الإلكتروني ولغتك. الانضمام يحتاج إلى حساب في الأكاديمية؛ وما سُجّل قبل ذلك بدون حساب نحتفظ به، ونربطه بحسابك عندما تؤكد العنوان نفسه.',
             'دعوات الدورات: إذا أضافك فريق الأكاديمية إلى دورة بعنوان بريدك الإلكتروني، نحفظ هذا العنوان والدورة ومن أضافك ومتى، وهل انضممت. إن لم يكن لديك حساب بعد، نراسلك لدعوتك بضع مرات على الأكثر، ولا نسجّلك إلا بعد أن تنشئ حسابًا وتؤكد العنوان نفسه.',

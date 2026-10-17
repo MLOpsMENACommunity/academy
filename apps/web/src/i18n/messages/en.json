@@ -110,7 +110,9 @@
       "arabicToPublish": "Needed before the course goes public. Drafts can be saved in English only.",
       "liveLinkToPublish": "Add the live link before publishing.",
       "linkedinUrl": "Enter your LinkedIn profile link (https://www.linkedin.com/in/…)",
-      "githubUrl": "Enter your GitHub profile link (https://github.com/…)"
+      "githubUrl": "Enter your GitHub profile link (https://github.com/…)",
+      "telegramUsername": "Enter a Telegram username: 5–32 letters, digits or _ (for example @layla_ml).",
+      "discordUsername": "Enter a Discord username: 2–32 lowercase letters, digits, _ or . (for example layla.ml), or an older name#1234."
     }
   },
   "auth": {
@@ -174,7 +176,18 @@
       "BOOKING_ENDED": "This session has already taken place, so its booking stays as it is.",
       "EVENT_UNPUBLISH_HAS_REGISTRATIONS": "People registered for this session. Set its status to Cancelled instead: they will be told by email.",
       "EVENT_FROM_BOOKING": "This session was made from a speaker's booking. Release the booking in Speakers → Availability instead: the speaker and the team are told.",
-      "SPEAKER_HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin."
+      "SPEAKER_HAS_BOOKINGS": "This speaker has upcoming bookings. Release them in Speakers → Availability first, then add them as an admin.",
+      "ACCOUNT_DELETED": "This address belongs to an account that was deleted. It can be used for a new account once the old one is removed, within 30 days. Need it sooner? Contact us.",
+      "account_deleted": "This Google account belongs to an account that was deleted, so it can't sign in.",
+      "FILE_REQUIRED": "Choose a file to upload.",
+      "FILE_TYPE": "This file type isn't accepted. Check the allowed formats and try again.",
+      "FILE_TOO_LARGE": "The file is too large (5 MB at most).",
+      "CONFIRM_MISMATCH": "The confirmation doesn't match. Type it exactly as shown.",
+      "ADMIN_ACCOUNT": "An admin account can't be edited or deleted here.",
+      "CONSENT_STUDENT_ONLY": "Only the student can give this consent.",
+      "PROFILE_INCOMPLETE": "Complete the required steps of your profile first.",
+      "EMAIL_NOT_VERIFIED": "Confirm your email address first (we sent you a link).",
+      "BUSY": "The academy is very busy right now. Please try again in a moment."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -212,7 +225,9 @@
     "calendarReset": "Reset link",
     "calendarResetConfirm": "Reset your calendar link? Calendars that use the old link stop updating, and you'll need to add the new one.",
     "calendarResetDone": "Your calendar link was reset. Add the new link to your calendar app.",
-    "calendarLastFetched": "Last checked by a calendar app: {date}"
+    "calendarLastFetched": "Last checked by a calendar app: {date}",
+    "deletedTitle": "Your account has been deleted",
+    "deletedBody": "You're signed out and can't sign in to it any more. Your personal data will be anonymised within 30 days. We've sent you a confirmation email."
   },
   "onboarding": {
     "title": "Complete your profile",
@@ -254,7 +269,7 @@
       "skills": "Rate yourself honestly; this is only used to plan courses and cohorts.",
       "goals": "Tells us which courses to build next.",
       "links": "Required: your LinkedIn and GitHub profile links.",
-      "community": "Required: answer each question with Yes or No. Nothing is chosen for you, and you can change your answers any time."
+      "community": "Required: your Telegram and Discord usernames, and a Yes or No for each question. Nothing is chosen for you, and you can change your answers any time."
     },
     "fields": {
       "fullNameEn": "Full name (English)",
@@ -306,7 +321,16 @@
       "openToOpportunities": "I'm open to job opportunities",
       "shareWithPartners": "Share my profile with MLOps MENA hiring partners",
       "shareWithPartnersHint": "Only your profile is shared. Your CV is shared only if you uploaded one. We share only with partners we vet, and you can turn this off at any time.",
-      "marketingEmails": "Email me about new courses and events"
+      "marketingEmails": "Email me about new courses and events",
+      "telegramUsername": "Telegram username",
+      "telegramUsernameHint": "Your username, not your phone number: 5–32 letters, digits or _ (the @ is optional). Find it in Telegram → Settings.",
+      "discordUsername": "Discord username",
+      "discordUsernameHint": "Your username, e.g. layla.ml (an older name#1234 works too). Find it in Discord → User Settings → My Account."
+    },
+    "handlesBanner": {
+      "title": "Add your Telegram and Discord usernames",
+      "body": "Course groups and community help happen on Telegram and Discord, so we now ask for both. Nothing changes for your current courses; you'll need them before your next application.",
+      "cta": "Add them now"
     }
   },
   "dashboard": {
@@ -720,7 +744,8 @@
       "viewCv": "View CV",
       "noCv": "No CV uploaded",
       "profile": "Profile",
-      "readOnly": "Profiles are read-only for admins. Use internal notes."
+      "readOnly": "Profiles are read-only for admins. Use internal notes.",
+      "community": "Telegram / Discord"
     },
     "courses": {
       "title": "Courses",

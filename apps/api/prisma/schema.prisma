@@ -486,6 +486,9 @@ model Profile {
   marketingEmails        Boolean  @default(false)
   /// Set when the community step is saved: its Yes/No questions were answered explicitly.
   communityAnsweredAt    DateTime?
+  /// Community chat usernames (required to apply; null for students who joined before they were asked).
+  telegramUsername       String?
+  discordUsername        String?
 
   /// 0–100, recomputed on every save so it can be filtered and sorted.
   completeness       Int       @default(0)

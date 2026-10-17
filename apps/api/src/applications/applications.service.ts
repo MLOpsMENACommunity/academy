@@ -9,6 +9,7 @@ import {
   buildAnswersSchema,
   courseAvailability,
   initialStatus,
+  missingCommunityHandles,
   pickSourceParams,
   SELF_WITHDRAWABLE_STATUSES,
   type Answers,
@@ -104,7 +105,8 @@ export class ApplicationsService {
     if (!user.emailVerifiedAt) {
       throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED', message: 'Confirm your email address before applying' });
     }
-    if (!user.profile?.coreCompletedAt) {
+    // The Telegram and Discord usernames too: students who joined before they were asked add them before their next application.
+    if (!user.profile?.coreCompletedAt || missingCommunityHandles(user.profile)) {
       throw new ForbiddenException({ code: 'PROFILE_INCOMPLETE', message: 'Complete your profile before applying' });
     }
 

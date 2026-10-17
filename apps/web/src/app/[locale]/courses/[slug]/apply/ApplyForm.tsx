@@ -4,6 +4,7 @@ import {
   ANSWER_DETAIL_MAX,
   answerDetailKey,
   buildAnswersSchema,
+  missingCommunityHandles,
   pickSourceParams,
   type CourseDetailDto,
   type MeResponse,
@@ -107,7 +108,8 @@ function Inner({ user }: { user: MeResponse }) {
   }
   if (course.availability !== 'OPEN') return shell(<Alert tone="warning">{t('apply.closed')}</Alert>);
   if (!user.emailVerified) return shell(<Alert tone="warning">{t('apply.verifyFirst', { email: user.email })}</Alert>);
-  if (!profile.coreComplete) {
+  // The Telegram and Discord usernames are needed too (students from before they were asked).
+  if (!profile.coreComplete || missingCommunityHandles(profile)) {
     return shell(
       <Alert tone="warning" title={t('apply.profileFirst')}>
         <Link href={`/${locale}/onboarding?returnTo=${encodeURIComponent(here)}`} className={buttonClass('accent', 'md', 'mt-3')}>

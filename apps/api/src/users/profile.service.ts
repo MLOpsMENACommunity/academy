@@ -71,6 +71,8 @@ export function toProfileDto(p: ProfileWithSkills | null): ProfileDto {
     openToOpportunities: p?.openToOpportunities ?? false,
     shareWithPartners: p?.shareWithPartners ?? false,
     marketingEmails: p?.marketingEmails ?? false,
+    telegramUsername: p?.telegramUsername ?? null,
+    discordUsername: p?.discordUsername ?? null,
     communityAnsweredAt: iso(p?.communityAnsweredAt),
     completeness: p?.completeness ?? 0,
     coreComplete: Boolean(p?.coreCompletedAt),

@@ -164,13 +164,13 @@ describe('admin edits students and speakers (e2e)', () => {
         .put('/api/me/profile/community')
         .set('Cookie', s.cookie)
         // An old client may still send them: ignored either way.
-        .send({ referralSource: 'YOUTUBE', communityMember: false, marketingEmails: false, openToOpportunities: false, shareWithPartners: false })
+        .send({ referralSource: 'YOUTUBE', communityMember: false, marketingEmails: false, openToOpportunities: false, shareWithPartners: false, telegramUsername: 'keep_me', discordUsername: 'keep.me' })
         .expect(200);
       expect(res.body).toMatchObject({ referralSource: 'YOUTUBE', coreComplete: true });
       const p = await prisma.profile.findUniqueOrThrow({ where: { userId: s.id } });
       expect(p).toMatchObject({ openToOpportunities: true, shareWithPartners: true, referralSource: 'YOUTUBE' });
       // Without them: the step is still complete.
-      await http().put('/api/me/profile/community').set('Cookie', s.cookie).send({ referralSource: 'YOUTUBE', communityMember: true, marketingEmails: true }).expect(200);
+      await http().put('/api/me/profile/community').set('Cookie', s.cookie).send({ referralSource: 'YOUTUBE', communityMember: true, marketingEmails: true, telegramUsername: 'keep_me', discordUsername: 'keep.me' }).expect(200);
       expect((await http().get('/api/me/profile').set('Cookie', s.cookie).expect(200)).body.coreComplete).toBe(true);
     });
   });

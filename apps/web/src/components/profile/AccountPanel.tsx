@@ -1,6 +1,6 @@
 'use client';
 
-import type { MeResponse } from '@academy/shared';
+import { passwordSchema, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
@@ -13,6 +13,7 @@ import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
+import { issuesToErrors } from '@/lib/zod-errors';
 
 function Block({ title, children, tone }: { title: string; children: ReactNode; tone?: 'danger' }) {
   return (
@@ -33,6 +34,7 @@ export function AccountPanel({ user }: { user: MeResponse }) {
   const [newPw, setNewPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [delPw, setDelPw] = useState('');
+  const [newPwError, setNewPwError] = useState<string | undefined>();
 
   async function run(key: string, fn: () => Promise<string | void>) {
     setBusy(key);
@@ -105,9 +107,14 @@ export function AccountPanel({ user }: { user: MeResponse }) {
       <Block title={user.hasPassword ? t('account.changePassword') : t('account.setPassword')}>
         {!user.hasPassword && <p className="mb-3 text-sm text-muted">{t('account.googleOnly')}</p>}
         <form
+          noValidate
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
+            // Checked here first, so a short password gets a translated message on its field.
+            const check = passwordSchema.safeParse(newPw);
+            setNewPwError(check.success ? undefined : issuesToErrors(check.error.issues, t)['']);
+            if (!check.success) return;
             void run('password', async () => {
               await api('/me/password', {
                 method: 'POST',
@@ -130,6 +137,7 @@ export function AccountPanel({ user }: { user: MeResponse }) {
             hint={t('auth.passwordHint')}
             value={newPw}
             onChange={setNewPw}
+            error={newPwError}
           />
           <div className="sm:col-span-2">
             <Button type="submit" variant="secondary" loading={busy === 'password'}>
@@ -164,13 +172,15 @@ export function AccountPanel({ user }: { user: MeResponse }) {
       <Block title={t('account.deleteTitle')} tone="danger">
         <p className="text-sm text-body">{t('account.deleteBody')}</p>
         <form
+          noValidate
           className="mt-4 grid gap-4 sm:grid-cols-2"
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
             void run('delete', async () => {
               await api('/me/delete', { method: 'POST', json: { confirm, password: delPw || undefined } });
-              setUser(null);
-              router.replace(`/${locale}?deleted=1`);
+              // A full page load, not setUser(null) + router.replace: clearing the user first made
+              // this page's RequireAuth send people to the login page before the redirect ran.
+              window.location.assign(`/${locale}?deleted=1`);
             });
           }}
         >

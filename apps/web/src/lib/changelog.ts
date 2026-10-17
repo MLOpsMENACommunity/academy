@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-community-usernames',
+    date: '2026-10-15',
+    title: { en: 'Your Telegram and Discord usernames', ar: 'اسما المستخدم على Telegram وDiscord' },
+    body: {
+      en: 'Course groups and community help happen on Telegram and Discord, so your profile now asks for both usernames. Already a student? Nothing changes for your current courses: add them from your profile before your next application.',
+      ar: 'مجموعات الدورات ومساعدة المجتمع تتم على Telegram وDiscord، لذا يطلب ملفك الشخصي الآن اسمي المستخدم عليهما. هل أنت طالب بالفعل؟ لا يتغير شيء في دوراتك الحالية: أضفهما من ملفك الشخصي قبل تقديمك القادم.',
+    },
+    path: '/profile?tab=community',
+  },
+  {
     id: '2026-10-light-academy',
     date: '2026-10-09',
     title: { en: 'A calmer look, learning paths and a new menu', ar: 'مظهر أهدأ ومسارات تعلّم وقائمة جديدة' },

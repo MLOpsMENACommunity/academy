@@ -115,6 +115,9 @@ export function ProfileView({ profile: p }: { profile: ProfileDto }) {
       [
         [f('referralSource'), one(referralSourceLabels, p.referralSource)],
         [f('communityMember'), yes(p.communityMember)],
+        // Snapshots from before these were asked have no such keys: shown as "—".
+        [f('telegramUsername'), p.telegramUsername ? <span className="ltr-embed">@{p.telegramUsername}</span> : null],
+        [f('discordUsername'), p.discordUsername ? <span className="ltr-embed">{p.discordUsername}</span> : null],
         [f('openToOpportunities'), yes(p.openToOpportunities)],
         [f('shareWithPartners'), yes(p.shareWithPartners)],
         [f('marketingEmails'), yes(p.marketingEmails)],

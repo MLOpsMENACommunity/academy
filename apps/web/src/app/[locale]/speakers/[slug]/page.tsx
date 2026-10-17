@@ -17,7 +17,7 @@ import { createTranslator } from '@/i18n/translator';
 import { durationLabel, speakerPath } from '@/lib/archive';
 import { formatDate } from '@/lib/format';
 import { jsonLd } from '@/lib/jsonld';
-import { alternates, DEFAULT_OG_IMAGE } from '@/lib/seo';
+import { alternates, DEFAULT_OG_IMAGE, notFoundMetadata } from '@/lib/seo';
 import { serverGet, staticSlugs } from '@/lib/server-api';
 import { excerpt, pick } from '@/lib/sessions';
 import { absoluteUrl, community } from '@/lib/site';
@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   if (!isLocale(locale)) return {};
   const s = await load(slug);
-  if (!s) return {};
+  if (!s) return notFoundMetadata(locale);
   const t = createTranslator(locale);
   const name = pick(locale, s.name, s.nameAr);
   const bio = pick(locale, s.bioEn, s.bioAr);
