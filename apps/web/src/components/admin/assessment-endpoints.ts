@@ -1,6 +1,6 @@
 /**
  * Where the assessment editor and gradebook talk to the API. Admins use /admin/…; a speaker
- * teaching the course uses the same screens under /speaker/courses/:courseId/…, where every id
+ * teaching the course uses the same screens under /teach/courses/:courseId/…, where every id
  * is checked against that course.
  */
 export interface AssessmentEndpoints {
@@ -29,7 +29,7 @@ export function adminAssessmentEndpoints(courseId: string): AssessmentEndpoints 
 
 /** The speaker portal: everything under one course. */
 export function speakerAssessmentEndpoints(courseId: string): AssessmentEndpoints {
-  const base = `/speaker/courses/${courseId}`;
+  const base = `/teach/courses/${courseId}`;
   return {
     list: `${base}/assessments`,
     order: `${base}/assessments/order`,

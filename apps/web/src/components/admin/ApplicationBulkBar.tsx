@@ -17,7 +17,10 @@ export function ApplicationBulkBar({
   selected,
   names,
   onDone,
+  bulkUrl = '/admin/applications/bulk',
 }: {
+  /** Course staff: /teach/courses/{id}/applications/bulk. */
+  bulkUrl?: string;
   selected: Set<string>;
   names: Map<string, string>;
   onDone: () => Promise<void>;
@@ -34,7 +37,7 @@ export function ApplicationBulkBar({
     setMsg(null);
     setErrors([]);
     try {
-      const r = await api<{ succeeded: number; results: { id: string; ok: boolean; error?: string }[] }>('/admin/applications/bulk', {
+      const r = await api<{ succeeded: number; results: { id: string; ok: boolean; error?: string }[] }>(bulkUrl, {
         method: 'POST',
         json: { ids: [...selected], event, reason: reason || undefined },
       });

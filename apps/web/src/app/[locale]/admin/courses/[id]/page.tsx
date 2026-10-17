@@ -1,6 +1,6 @@
 'use client';
 
-import { COURSE_TAB_PERMISSIONS, courseStatusLabels, hasAdminPermission, levelsOf, PUBLIC_COURSE_STATUSES, type CourseLevel, type CourseStatus, type WaitlistDto, type FaqItem, type Included, type LocalizedList, type LocalizedText, type OutlineModule } from '@academy/shared';
+import { COURSE_TAB_PERMISSIONS, courseStatusLabels, hasAdminPermission, PUBLIC_COURSE_STATUSES, type WaitlistDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
@@ -14,84 +14,18 @@ import { Waitlist } from '@/components/admin/Waitlist';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
-import { CourseForm, toLocalInput, type CourseFormValue } from '@/components/admin/CourseForm';
-import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor, type QuestionRow, type SessionRow } from '@/components/admin/CourseTabs';
+import { CourseForm } from '@/components/admin/CourseForm';
+import { toForm, type AdminCourse } from '@/components/admin/admin-course';
+import { CourseStaffPanel } from '@/components/admin/CourseStaffPanel';
+import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor } from '@/components/admin/CourseTabs';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
+const TABS = ['details', 'staff', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
 type Tab = (typeof TABS)[number];
-
-interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
-  id: string;
-  status: CourseStatus;
-  /** The old single level (derived); `levels` is what the form edits. */
-  level: CourseLevel;
-  endDate: string | null;
-  /** "import" when the archive import created it. */
-  source: string | null;
-  targetAudience: LocalizedText;
-  notFor: LocalizedText;
-  preparation?: LocalizedText;
-  learningOutcomes: LocalizedList;
-  prerequisites: LocalizedList;
-  outline: OutlineModule[];
-  faq: FaqItem[];
-  included: Included;
-  questions: QuestionRow[];
-  sessions: SessionRow[];
-}
-
-function toForm(c: AdminCourse): CourseFormValue {
-  return {
-    slug: c.slug,
-    titleEn: c.titleEn,
-    titleAr: c.titleAr,
-    shortDescriptionEn: c.shortDescriptionEn,
-    shortDescriptionAr: c.shortDescriptionAr,
-    longDescriptionEn: c.longDescriptionEn,
-    longDescriptionAr: c.longDescriptionAr,
-    type: c.type,
-    price: c.price,
-    currency: c.currency,
-    requiresApproval: c.requiresApproval,
-    capacity: c.capacity,
-    status: c.status,
-    // An API from before levels sends only the single level.
-    levels: levelsOf(c),
-    levelProgression: c.levelProgression ?? false,
-    language: c.language,
-    startDate: toLocalInput(c.startDate),
-    applicationsOpenAt: toLocalInput(c.applicationsOpenAt),
-    applicationDeadline: toLocalInput(c.applicationDeadline),
-    durationWeeks: c.durationWeeks,
-    hoursPerWeek: c.hoursPerWeek,
-    coverImageUrl: c.coverImageUrl,
-    targetAudience: c.targetAudience,
-    notFor: c.notFor,
-    preparation: c.preparation ?? { en: '', ar: '' },
-    learningOutcomes: c.learningOutcomes,
-    prerequisites: c.prerequisites,
-    outline: c.outline,
-    faq: c.faq,
-    included: c.included,
-    deliveryPlatform: c.deliveryPlatform,
-    recordingsPlatform: c.recordingsPlatform,
-    driveFolderUrl: c.driveFolderUrl,
-    youtubePlaylistUrl: c.youtubePlaylistUrl,
-    instructorIds: c.instructorIds,
-    // Kept as they are on save, so editing a past cohort can't hide its recordings by accident.
-    topics: c.topics ?? [],
-    cohortNumber: c.cohortNumber ?? null,
-    endDate: toLocalInput(c.endDate),
-    externalPlatform: c.externalPlatform ?? null,
-    externalUrl: c.externalUrl ?? null,
-    publicRecordings: c.publicRecordings ?? false,
-  };
-}
 
 function CourseEditor() {
   const { locale, t } = useI18n();
@@ -209,7 +143,7 @@ function CourseEditor() {
             onClick={() => go(k)}
             className={`min-h-10 border-b-2 px-3 text-sm font-semibold whitespace-nowrap ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'}`}
           >
-            {k === 'attendance' ? t('attendance.tab') : k === 'assessments' ? t('admin.assessments.tab') : k === 'leaderboard' ? t('admin.points.boardTab') : k === 'certificates' ? t('admin.certificates.tab') : t(`admin.courses.${k}`)}
+            {k === 'staff' ? t('admin.staff.tab') : k === 'attendance' ? t('attendance.tab') : k === 'assessments' ? t('admin.assessments.tab') : k === 'leaderboard' ? t('admin.points.boardTab') : k === 'certificates' ? t('admin.certificates.tab') : t(`admin.courses.${k}`)}
             {k === 'sessions' && ` (${course.sessions.length})`}
             {k === 'questions' && ` (${course.questions.length})`}
             {k === 'waitlist' && waiting && ` (${waiting.count})`}
@@ -220,6 +154,7 @@ function CourseEditor() {
 
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
         {tab === 'details' && <CourseForm initial={toForm(course)} courseId={course.id} onSaved={refresh} />}
+        {tab === 'staff' && <CourseStaffPanel courseId={course.id} />}
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
         {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} paid={course.type === 'PAID'} onChange={refresh} />}
         {tab === 'sessions' && <SessionsEditor courseId={course.id} initial={course.sessions} onChange={refresh} />}

@@ -233,7 +233,7 @@ test('a speaker uploads and publishes a quiz; the student takes it; the speaker 
   expect((await admin.delete(`/api/admin/instructors/${instructorId}/courses/${courseId}`, { headers: JSON_HEADERS })).ok()).toBeTruthy();
   expect((await page.request.get(`/api/speaker/courses/${courseId}/assessments`)).status()).toBe(403);
   await page.reload();
-  await expect(page.getByText("You aren't assigned to this course")).toBeVisible();
+  await expect(page.getByText('You aren’t on this course’s staff')).toBeVisible();
 
   expect(errors).toEqual([]);
 });

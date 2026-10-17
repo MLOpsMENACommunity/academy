@@ -23,7 +23,7 @@ import { errorMessage } from '@/lib/errors';
 import { formatDateTime, viewerTimezone } from '@/lib/format';
 import { issuesToErrors } from '@/lib/zod-errors';
 
-interface Target {
+export interface Target {
   kind: SpeakerAnnouncementTargetKind;
   id: string;
   title: string;
@@ -34,7 +34,7 @@ interface Target {
 const EMPTY = { subjectEn: '', subjectAr: '', bodyEn: '', bodyAr: '' };
 const newKey = () => crypto.randomUUID();
 
-function announcementError(err: unknown, t: Translate): string {
+export function announcementError(err: unknown, t: Translate): string {
   if (err instanceof ApiError && err.code) {
     const key = `speakerAnnouncements.errors.${err.code}`;
     const msg = t(key);
@@ -206,7 +206,7 @@ export function SpeakerAnnouncements({ courseId }: { courseId?: string } = {}) {
 }
 
 /** Write → review (who and how many) → send. One idempotency key per message. */
-function Compose({ target, onCancel, onSent }: { target: Target; onCancel: () => void; onSent: (count: number) => void }) {
+export function Compose({ target, onCancel, onSent }: { target: Target; onCancel: () => void; onSent: (count: number) => void }) {
   const { t } = useI18n();
   const s = (k: string, v?: Record<string, string | number>) => t(`speakerAnnouncements.${k}`, v);
   const [msg, setMsg] = useState(EMPTY);
@@ -245,7 +245,7 @@ function Compose({ target, onCancel, onSent }: { target: Target; onCancel: () =>
     setBusy(true);
     setError(null);
     try {
-      const path = target.kind === 'course' ? `/speaker/courses/${target.id}/announcements` : `/speaker/sessions/${target.id}/announcements`;
+      const path = target.kind === 'course' ? `/teach/courses/${target.id}/announcements` : `/speaker/sessions/${target.id}/announcements`;
       const r = await api<{ recipients: number }>(path, { method: 'POST', json: review });
       onSent(r.recipients);
     } catch (err) {

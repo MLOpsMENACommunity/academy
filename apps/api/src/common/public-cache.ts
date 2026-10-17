@@ -27,8 +27,11 @@ import { PublicRevalidator } from './revalidate';
  *     session (seat counts), clears the in-process cache at once. Admin writes, and the few
  *     non-admin writes that change what public pages show (REVALIDATING_WRITES), also ask the
  *     site to revalidate its pages and purge the edge (common/revalidate.ts), so the change is
- *     on the public pages within seconds; seat counts and job results follow the pages' own
- *     60 s revalidation instead (frequent, and not worth re-rendering every page for).
+ *     on the public pages within seconds; live-session seat counts and job results follow the
+ *     pages' own 60 s revalidation instead (frequent, and not worth re-rendering every page for).
+ *     A course's enrolled count and seats left are refreshed by the services that change them,
+ *     after the commit (PublicDataChanges in common/public-data.ts): enrolling, withdrawing,
+ *     an invite claimed at sign-in, an account deleted.
  *   - The in-process key is the path plus only the query parameters the handler reads (from its
  *     schema), so random query strings can't bypass it or evict the real entries.
  */
@@ -59,13 +62,13 @@ const PUBLIC_DATA_WRITES = /^\/api\/(events\/[^/]+\/registration|speaker\/slots\
 
 /**
  * Non-admin writes that change what public pages show, besides admin ones (any /api/admin/*
- * write, or any write by an ADMIN): a speaker editing a lesson's materials (its description
- * and public recording), a speaker's application (it can update their linked public profile),
+ * write, or any write by an ADMIN): course staff editing a lesson's materials (its description
+ * and public recording), the course details or its sessions (Teaching → {course}), a speaker's application (it can update their linked public profile),
  * a speaker cancelling a booking (it can cancel a published session), an account deletion
  * (releases bookings, unlinks a speaker profile).
  */
 export const REVALIDATING_WRITES =
-  /^\/api\/(speaker\/courses\/[^/]+\/sessions\/[^/]+\/materials|speaker\/application|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
+  /^\/api\/((speaker|teach)\/courses\/[^/]+\/sessions\/[^/]+\/materials|teach\/courses\/[^/]+\/(details|sessions(\/[^/]+)?)|speaker\/application|speaker\/slots\/[^/]+\/booking|me\/delete)$/;
 
 /** Whether a successful write should revalidate the public pages (not just clear this cache). */
 export function revalidatesPublicPages(req: { method: string; path: string; user?: { role?: string } | null }): boolean {

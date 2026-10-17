@@ -36,6 +36,8 @@ export type EmailTemplate =
       hoursBefore: 24 | 1;
       url: string;
       unsubscribeUrl: string;
+      /** The 1-hour reminder carries the session's live (Meet) link, so students join straight from their inbox. */
+      liveUrl?: string | null;
     }
   | { name: 'profileReview'; url: string }
   /** byTeam: an admin deleted it (the student didn't ask on the site). */
@@ -366,12 +368,24 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             {...base}
             preview={subject}
             heading={t.sessionTitle}
-            paragraphs={[t.courseTitle, t.startsAt]}
-            cta={{ label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }}
+            paragraphs={
+              t.liveUrl
+                ? [t.courseTitle, t.startsAt, ar ? `رابط الجلسة: ${t.liveUrl}` : `Session link: ${t.liveUrl}`]
+                : [t.courseTitle, t.startsAt]
+            }
+            cta={
+              t.liveUrl
+                ? { label: ar ? 'انضم إلى الجلسة' : 'Join the session', url: t.liveUrl }
+                : { label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }
+            }
             note={
-              ar
-                ? `يظهر رابط الجلسة المباشرة في صفحة الدورة قبل بدايتها. لإيقاف التذكيرات لهذه الدورة: ${t.unsubscribeUrl}`
-                : `The live link appears on the course page shortly before the session starts. To stop reminders for this course: ${t.unsubscribeUrl}`
+              t.liveUrl
+                ? ar
+                  ? `هذا الرابط خاص بطلاب الدورة، فلا تشاركه من فضلك. يظهر أيضًا في صفحة الدورة: ${t.url}. لإيقاف التذكيرات لهذه الدورة: ${t.unsubscribeUrl}`
+                  : `This link is for enrolled students only, please don't share it. It's also on the course page: ${t.url}. To stop reminders for this course: ${t.unsubscribeUrl}`
+                : ar
+                  ? `يظهر رابط الجلسة المباشرة في صفحة الدورة قبل بدايتها. لإيقاف التذكيرات لهذه الدورة: ${t.unsubscribeUrl}`
+                  : `The live link appears on the course page shortly before the session starts. To stop reminders for this course: ${t.unsubscribeUrl}`
             }
           />
         ),

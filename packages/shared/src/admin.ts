@@ -200,6 +200,8 @@ export const courseInputSchema = z
     externalPlatform: z.string().trim().max(80).nullish().or(z.literal('').transform(() => null)),
     externalUrl: optionalUrl,
     publicRecordings: z.boolean().default(false),
+    /** Course page and cards show "N students enrolled" (the number only). */
+    showEnrolledCount: z.boolean().default(true),
   })
   .superRefine((c, ctx) => {
     if (c.status !== 'DRAFT' && c.status !== 'ARCHIVED') {

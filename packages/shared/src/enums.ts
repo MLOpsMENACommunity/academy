@@ -378,3 +378,38 @@ export type AttendanceSource = (typeof ATTENDANCE_SOURCES)[number];
 export const BADGE_KINDS = ['AUTO', 'MANUAL'] as const;
 export const BadgeKind = defineEnum(BADGE_KINDS);
 export type BadgeKind = (typeof BADGE_KINDS)[number];
+
+// ---------------------------------------------------------------- Course staff
+
+/**
+ * What a course staff member may do in that one course (their role's checkboxes). SUPER and
+ * ACADEMIC admins can do all of it in every course. See course-staff.ts.
+ */
+export const COURSE_PERMISSIONS = [
+  'MANAGE_ASSESSMENTS',
+  'GRADE',
+  'MANAGE_MATERIALS',
+  'VIEW_ROSTER',
+  'UPLOAD_ATTENDANCE',
+  'MANAGE_POINTS',
+  'ANNOUNCE',
+  'VIEW_FEEDBACK',
+  'EDIT_COURSE',
+  'MANAGE_SESSIONS',
+  'MANAGE_APPLICATIONS',
+  'ENROL',
+  'ISSUE_CERTIFICATES',
+  'MANAGE_RULES',
+] as const;
+export const CoursePermission = defineEnum(COURSE_PERMISSIONS);
+export type CoursePermission = (typeof COURSE_PERMISSIONS)[number];
+
+/** SHOWN: on the public course page (name, title, photo). ANONYMOUS: never shown publicly. */
+export const STAFF_VISIBILITIES = ['SHOWN', 'ANONYMOUS'] as const;
+export const StaffVisibility = defineEnum(STAFF_VISIBILITIES);
+export type StaffVisibility = (typeof STAFF_VISIBILITIES)[number];
+
+/** The three roles every course starts with (editable; MAIN can't be deleted). */
+export const BUILTIN_COURSE_ROLES = ['MAIN', 'CO', 'MODERATOR'] as const;
+export const BuiltinCourseRole = defineEnum(BUILTIN_COURSE_ROLES);
+export type BuiltinCourseRole = (typeof BUILTIN_COURSE_ROLES)[number];

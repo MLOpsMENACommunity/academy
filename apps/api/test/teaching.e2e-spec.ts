@@ -187,10 +187,11 @@ describe('speakers teach their assigned courses (e2e)', () => {
     const academic = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC'], prefix: 'teach-acad' });
 
     await http().get(`${base(course.id)}/assessments`).set('Cookie', spk.cookie).expect(200);
-    // Speaker routes are for speaker accounts: students and admins (who use /admin) get 403.
+    // Course routes are for the course's staff (any account role): a student who isn't on it gets 403;
+    // SUPER and ACADEMIC admins can do everything in every course.
     await http().get(`${base(course.id)}/assessments`).set('Cookie', stu.cookie).expect(403);
-    await http().get(`${base(course.id)}/assessments`).set('Cookie', academic.cookie).expect(403);
-    await http().get('/api/speaker/courses').set('Cookie', stu.cookie).expect(403);
+    await http().get(`${base(course.id)}/assessments`).set('Cookie', academic.cookie).expect(200);
+    expect((await http().get('/api/speaker/courses').set('Cookie', stu.cookie).expect(200)).body).toEqual([]);
     await http().get(`${base(course.id)}/assessments`).expect(401);
     // Speakers never reach the admin routes (certificates included).
     await http().get(`/api/admin/courses/${course.id}/assessments`).set('Cookie', spk.cookie).expect(403);
@@ -202,10 +203,13 @@ describe('speakers teach their assigned courses (e2e)', () => {
     await http().post(`${base(course.id)}/assessments`).set('Cookie', spk.cookie).send(quiz()).expect(403);
     expect((await http().get('/api/speaker/courses').set('Cookie', spk.cookie).expect(200)).body).toEqual([]);
 
-    // A speaker account turned back into a student loses it too (the role is read on every request).
+    // Any account can be course staff: switched to a student, they keep their course role;
+    // a deleted account loses everything at once.
     await assign(spk.instructorId, course.id);
     await prisma.user.update({ where: { id: spk.id }, data: { role: 'STUDENT' } });
-    await http().get(`${base(course.id)}/assessments`).set('Cookie', spk.cookie).expect(403);
+    await http().get(`${base(course.id)}/assessments`).set('Cookie', spk.cookie).expect(200);
+    await prisma.user.update({ where: { id: spk.id }, data: { deletedAt: new Date() } });
+    await http().get(`${base(course.id)}/assessments`).set('Cookie', spk.cookie).expect(401);
   });
 
   it('publishes (students told once), grades a link with feedback (student emailed), exports the gradebook', async () => {

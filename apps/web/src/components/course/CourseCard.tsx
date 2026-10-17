@@ -41,6 +41,26 @@ function courseLook(c: CourseSummaryDto, locale: Locale): { bar: CardBar; tone: 
   return { bar: 'none', tone: 'neutral', badge: courseAvailabilityLabels.CLOSED[locale], cta: t('catalog.detailsOnly') };
 }
 
+/**
+ * "12 students enrolled" and "8 seats left" (or "Course full"), for the course page and cards.
+ * The count only when the course shows it, and "No students enrolled yet" only on a course
+ * open for applications (a past cohort run elsewhere has no enrolments here). Seats left only
+ * while applications are open (seatsLeft is null otherwise).
+ */
+export function enrolmentFacts(
+  c: Pick<CourseSummaryDto, 'enrolledCount' | 'seatsLeft' | 'availability' | 'completed'>,
+  locale: Locale,
+): { enrolled: string | null; seats: string | null } {
+  const t = createTranslator(locale);
+  const count = c.enrolledCount ?? null;
+  const showCount = count !== null && (count > 0 || (c.availability === 'OPEN' && !c.completed));
+  const seatsLeft = c.seatsLeft ?? null;
+  return {
+    enrolled: showCount ? t('catalog.enrolled', { count }) : null,
+    seats: seatsLeft === null ? null : seatsLeft === 0 ? t('catalog.courseFull') : t('catalog.seatsLeft', { count: seatsLeft }),
+  };
+}
+
 export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course: CourseSummaryDto; locale: Locale; headingLevel?: 'h2' | 'h3' }) {
   const t = createTranslator(locale);
   const look = courseLook(c, locale);
@@ -51,17 +71,13 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
         : formatDate(c.startDate, locale)
       : t('catalog.starts', { date: formatDate(c.startDate, locale) })
     : null;
-  const seats =
-    c.seatsRemaining !== null && c.availability === 'OPEN' && !c.completed
-      ? c.seatsRemaining === 0
-        ? t('catalog.full')
-        : t('catalog.seatsLeft', { count: c.seatsRemaining })
-      : null;
+  const { enrolled, seats } = enrolmentFacts(c, locale);
   const meta = [
     [courseLevelsText(c, locale), c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
     // The language isn't decided while the course is coming soon.
     [c.comingSoon ? null : courseLanguageLabels[c.language][locale], priceLabel(c, locale)].filter(Boolean).join(' · '),
-    [when, seats].filter(Boolean).join(' · '),
+    when,
+    [enrolled, seats].filter(Boolean).join(' · '),
   ].filter(Boolean);
 
   return (

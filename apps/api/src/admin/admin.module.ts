@@ -13,5 +13,7 @@ import { AdminStudentsService } from './admin-students.service';
   imports: [ApplicationsModule, PaymentsModule, AnnouncementsModule],
   controllers: [AdminController],
   providers: [AdminApplicationsService, AdminStudentsService, AdminCoursesService, AdminMiscService, AdminAnnouncementsService],
+  // Course staff reuse them, scoped to their course (teaching/teach-manage.controller.ts).
+  exports: [AdminApplicationsService, AdminCoursesService],
 })
 export class AdminModule {}

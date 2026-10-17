@@ -7,5 +7,6 @@ import { SpeakerAnnouncementsService } from './speaker-announcements.service';
   imports: [AnnouncementsModule],
   controllers: [SpeakerAnnouncementsController, AdminSpeakerCoursesController],
   providers: [SpeakerAnnouncementsService],
+  exports: [SpeakerAnnouncementsService],
 })
 export class SpeakerAnnouncementsModule {}

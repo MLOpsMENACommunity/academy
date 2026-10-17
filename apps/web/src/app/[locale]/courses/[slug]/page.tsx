@@ -15,12 +15,13 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { ApplyCta } from '@/components/course/ApplyCta';
-import { availabilityStyle, priceLabel } from '@/components/course/CourseCard';
+import { availabilityStyle, enrolmentFacts, priceLabel } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
+import { IconUsers } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
@@ -156,10 +157,11 @@ export default async function CoursePage({ params }: Props) {
       ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
         ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
-    ...(c.seatsRemaining !== null && !completed
-      ? ([[t('course.facts.seats'), full ? t('catalog.full') : t('catalog.seatsLeft', { count: c.seatsRemaining })]] as [string, ReactNode][])
-      : []),
   ];
+  // "12 students enrolled · 8 seats left": the number only (never who), refreshed within
+  // seconds of an enrolment or a withdrawal (the API revalidates this page).
+  const enrolment = enrolmentFacts(c, locale);
+  const enrolmentParts = [enrolment.enrolled, enrolment.seats].filter((x): x is string => Boolean(x));
 
   // Open courses: apply. Anything else (coming soon, closed, a past cohort): the waiting list.
   const cta = (compact: boolean) => (
@@ -294,6 +296,17 @@ export default async function CoursePage({ params }: Props) {
             </p>
           )}
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
+          {enrolmentParts.length > 0 && (
+            <p data-testid="course-enrolment" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] font-medium text-fg">
+              <IconUsers className="shrink-0 text-muted" />
+              {enrolmentParts.map((part, i) => (
+                <span key={i} className="inline-flex items-center gap-x-2">
+                  {i > 0 && <span aria-hidden className="text-muted">·</span>}
+                  {part}
+                </span>
+              ))}
+            </p>
+          )}
           <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">
             {pick(locale, c.shortDescriptionEn, c.shortDescriptionAr)}
           </p>
@@ -489,7 +502,53 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          {c.instructors.length > 0 && (
+          {c.staff?.length ? (
+            // Course staff in their Shown roles, grouped by role (Main instructor first); anonymous staff never appear.
+            <Section id="instructors" title={c.staff.length === 1 && c.staff[0]!.people.length === 1 ? t('course.instructor') : t('course.team')}>
+              <div className="space-y-10">
+                {c.staff.map((g) => (
+                  <section key={g.roleId} aria-labelledby={`role-${g.roleId}`}>
+                    <h3 id={`role-${g.roleId}`} className="text-sm font-semibold tracking-wide text-muted uppercase">
+                      {pick(locale, g.name, g.nameAr)}
+                    </h3>
+                    <ul className="mt-4 space-y-8">
+                      {g.people.map((i) => (
+                        <li key={i.id} className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                          {i.photoUrl ? (
+                            // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
+                            <Image src={i.photoUrl} alt="" width={72} height={72} unoptimized className="size-18 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <span aria-hidden className="grid size-18 shrink-0 place-items-center rounded-full bg-logo-cyan-soft text-2xl font-semibold text-primary">
+                              {pick(locale, i.name, i.nameAr).replace(/\[.*?\]\s*/, '').charAt(0)}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xl">
+                              {i.slug ? (
+                                <Link href={speakerPath(locale, i.slug)} className="hover:text-primary">
+                                  {pick(locale, i.name, i.nameAr)}
+                                </Link>
+                              ) : (
+                                pick(locale, i.name, i.nameAr)
+                              )}
+                            </h4>
+                            {i.titleEn && pick(locale, i.titleEn, i.titleAr) && <p className="mt-1 text-muted">{pick(locale, i.titleEn, i.titleAr)}</p>}
+                            {i.bioEn && pick(locale, i.bioEn, i.bioAr).trim() && <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>}
+                            {i.linkedinUrl && (
+                              <a href={i.linkedinUrl} rel="noopener" className="mt-2 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">
+                                LinkedIn
+                              </a>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            </Section>
+          ) : (
+            c.instructors.length > 0 && (
             <Section id="instructors" title={c.instructors.length > 1 ? t('course.instructors') : t('course.instructor')}>
               <ul className="space-y-10">
                 {c.instructors.map((i) => (
@@ -530,6 +589,7 @@ export default async function CoursePage({ params }: Props) {
                 ))}
               </ul>
             </Section>
+          )
           )}
 
           {details.length > 0 && (

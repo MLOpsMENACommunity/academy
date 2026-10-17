@@ -36,3 +36,4 @@ export * from './admin-permissions';
 export * from './media';
 export * from './teaching';
 export * from './attendance';
+export * from './course-staff';

@@ -17,6 +17,7 @@ import {
 } from './enums';
 import type { FaqItem, Included, LocalizedList, LocalizedText, OutlineModule, QuestionOption } from './course-content';
 import { audienceLevelLabels } from './labels';
+import type { PublicStaffGroupDto } from './course-staff';
 
 // ------------------------------------------------------------------ levels
 
@@ -182,6 +183,13 @@ export interface CourseSummaryDto {
   availability: CourseAvailability;
   /** Null when the course has no capacity limit. */
   seatsRemaining: number | null;
+  /**
+   * Students enrolled (active enrolments of accounts that aren't deleted): only the number,
+   * never who. Null when the course hides it (Course.showEnrolledCount).
+   */
+  enrolledCount: number | null;
+  /** Seats still free, only while applications are open and the course has a capacity (0 = full); otherwise null. */
+  seatsLeft: number | null;
   instructorNames: string[];
   /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
   completed: boolean;
@@ -244,7 +252,10 @@ export interface CourseDetailDto extends CourseSummaryDto {
   externalPlatform: string | null;
   externalUrl: string | null;
   publicRecordings: boolean;
+  /** The course's instructors (Main and Co-instructor roles with a public speaker profile, SHOWN only). */
   instructors: InstructorDto[];
+  /** Everyone in a SHOWN course role, grouped by role, Main instructor first. Never anonymous staff or emails. */
+  staff: PublicStaffGroupDto[];
   sessions: PublicSessionDto[];
   screeningQuestions: ScreeningQuestionDto[];
   updatedAt: string;

@@ -1,17 +1,16 @@
 import { z } from 'zod';
 import { sessionInputSchema } from './admin';
 import { materialSchema, type Material } from './course-content';
-import type { CourseStatus, PointsReason } from './enums';
+import type { CoursePermission, CourseStatus, PointsReason } from './enums';
 import { manualPointsSchema } from './points';
 
 /**
- * Speakers teach the courses they are assigned to (Admin → Speakers → {speaker} → Assigned
- * courses): assessments and grading, the gradebook, course points and the sessions'
- * materials, under /speaker/courses/:courseId/…. Certificates, payments, applications and
- * every other student detail stay with the admins.
+ * Course staff (see course-staff.ts) work on their courses under /teach/courses/:courseId/…
+ * (also served at the older /speaker/courses/:courseId/…): what each person may do there is
+ * their course role's permissions. Payments and every other course stay with the admins.
  */
 
-/** Speaker portal → My courses. */
+/** Teaching → My courses (and the speaker portal's My courses). */
 export interface TeachingCourseDto {
   id: string;
   slug: string;
@@ -21,8 +20,13 @@ export interface TeachingCourseDto {
   /** Enrolled students. */
   students: number;
   assessments: number;
-  /** Submitted work waiting for a grade. */
+  /** Submitted work waiting for a grade (0 without GRADE). */
   toGrade: number;
+  /** What this person may do in the course. */
+  permissions: CoursePermission[];
+  /** Their role's name (null for an admin who isn't on the staff). */
+  roleName: string | null;
+  roleNameAr: string | null;
 }
 
 /** A course session as a teaching speaker sees it: no live link, dates read-only. */
@@ -46,7 +50,13 @@ export interface TeachingCourseDetailDto {
   titleEn: string;
   titleAr: string;
   status: CourseStatus;
+  type: 'FREE' | 'PAID';
   sessions: TeachingSessionDto[];
+  permissions: CoursePermission[];
+  roleName: string | null;
+  roleNameAr: string | null;
+  /** SUPER or ADMISSIONS admin: may enrol people in a paid course without payment (Enrolment tab). */
+  canWaivePayment: boolean;
 }
 
 /**

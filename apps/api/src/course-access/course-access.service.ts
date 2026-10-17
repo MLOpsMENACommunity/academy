@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { hasAdminPermission, type AdminPermission, type Role } from '@academy/shared';
+import { COURSE_PERMISSIONS, hasAdminPermission, type AdminPermission, type CoursePermission, type Role } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -10,50 +10,124 @@ export interface Teacher {
   adminPermissions?: readonly AdminPermission[] | null;
 }
 
-/** Admin presets that teach every course (and preview its learn page). */
+/** Admin presets that can do everything in every course (and preview its learn page). */
 export const TEACHING_ADMIN_PERMISSIONS = ['ACADEMIC'] as const satisfies readonly AdminPermission[];
 
-/** One answer for "no such course" and "not yours", so a speaker can't probe course ids. */
+/** One answer for "no such course" and "not on its staff", so nobody can probe course ids. */
 export function notYourCourse(): ForbiddenException {
-  return new ForbiddenException({ code: 'NOT_YOUR_COURSE', message: 'You can only manage the courses you are assigned to' });
+  return new ForbiddenException({ code: 'NOT_YOUR_COURSE', message: 'You can only manage the courses you are on the staff of' });
+}
+
+/** On the course's staff, but their role doesn't include this. */
+export function missingCoursePermission(needed: readonly CoursePermission[]): ForbiddenException {
+  return new ForbiddenException({ code: 'COURSE_PERMISSION', message: "Your role in this course doesn't include this", needed });
+}
+
+/** Enrolling into a paid course by email waives its payment: only SUPER and ADMISSIONS admins may. */
+export function paymentWaiverAdminOnly(): ForbiddenException {
+  return new ForbiddenException({
+    code: 'PAYMENT_WAIVER_ADMIN_ONLY',
+    message: 'Only the admissions team can enrol people in a paid course without payment',
+  });
+}
+
+/** Admin presets that may waive a paid course's payment (Enrol by email on a paid course). */
+export const PAYMENT_WAIVER_ADMIN_PERMISSIONS = ['ADMISSIONS'] as const satisfies readonly AdminPermission[];
+
+/** What someone may do in one course. */
+export interface CourseMembership {
+  permissions: CoursePermission[];
+  /** Their staff role, if they are on the staff (an ACADEMIC admin needn't be). */
+  roleId: string | null;
+  roleName: string | null;
+  roleNameAr: string | null;
+  /** A SUPER or ACADEMIC admin: everything, in every course. */
+  admin: boolean;
 }
 
 /**
- * Who may teach a course: manage its assessments, grade its submissions, give its points and
- * edit its sessions' materials.
+ * Who may do what in a course (the one rule for every /teach route and the learn preview):
  *
- *  - an ADMIN with SUPER or ACADEMIC: every course;
- *  - a SPEAKER whose public speaker profile (Instructor, linked by Instructor.userId) is one of
- *    the course's instructors (CourseInstructor), while the course isn't ARCHIVED.
+ *  - an ADMIN with SUPER or ACADEMIC: everything, in every course (archived ones included);
+ *  - anyone else (any account role: speaker, student, admin with other presets): the
+ *    permissions of their CourseStaff role in that course, while the course isn't ARCHIVED.
+ *    A staff row without an account (a public speaker profile only) gives nobody anything.
  *
- * Read from the database on every call, so removing a speaker from a course (or archiving it)
- * takes effect on their next request. Assignment is many-to-many: a course can have several
- * teaching speakers, and a speaker several courses.
+ * Read from the database on every call, so a change of role, permissions or staff (or archiving
+ * the course) takes effect on the person's next request.
  */
 @Injectable()
 export class CourseAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** The courses a speaker profile teaches (the same link that lists them on the course page). */
-  teachingWhere(instructorId: string): Prisma.CourseWhereInput {
-    return { status: { not: 'ARCHIVED' }, instructors: { some: { instructorId } } };
+  /** Courses where this account is on the staff (any role, or one with `permission`), not archived. */
+  staffCoursesWhere(userId: string, permission?: CoursePermission): Prisma.CourseWhereInput {
+    return {
+      status: { not: 'ARCHIVED' },
+      staff: { some: { userId, ...(permission ? { role: { permissions: { has: permission } } } : {}) } },
+    };
   }
 
-  /** The courses a speaker account teaches, by the account id. */
-  teachingWhereForUser(userId: string): Prisma.CourseWhereInput {
-    return { status: { not: 'ARCHIVED' }, instructors: { some: { instructor: { userId } } } };
+  isCourseAdmin(user: Teacher | null | undefined): boolean {
+    return Boolean(user && user.role === 'ADMIN' && hasAdminPermission(user, TEACHING_ADMIN_PERMISSIONS));
   }
 
-  async canTeach(user: Teacher | null | undefined, courseId: string): Promise<boolean> {
-    if (!user || !courseId) return false;
-    if (user.role === 'ADMIN') return hasAdminPermission(user, TEACHING_ADMIN_PERMISSIONS);
-    if (user.role !== 'SPEAKER') return false;
-    const n = await this.prisma.course.count({ where: { id: courseId, ...this.teachingWhereForUser(user.id) } });
-    return n > 0;
+  /** Null when the course doesn't exist or the user may do nothing there. */
+  async membership(user: Teacher | null | undefined, courseId: string): Promise<CourseMembership | null> {
+    if (!user || !courseId || typeof courseId !== 'string') return null;
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: {
+        status: true,
+        staff: { where: { userId: user.id }, take: 1, select: { role: { select: { id: true, name: true, nameAr: true, permissions: true } } } },
+      },
+    });
+    if (!course) return null;
+    const role = course.staff[0]?.role ?? null;
+    const named = { roleId: role?.id ?? null, roleName: role?.name ?? null, roleNameAr: role?.nameAr ?? null };
+    if (this.isCourseAdmin(user)) return { permissions: [...COURSE_PERMISSIONS], admin: true, ...named };
+    if (!role || course.status === 'ARCHIVED') return null;
+    return { permissions: COURSE_PERMISSIONS.filter((p) => role.permissions.includes(p)), admin: false, ...named };
   }
 
-  /** 403 NOT_YOUR_COURSE unless the user teaches the course (an unknown id included). */
-  async assertTeaches(user: Teacher | null | undefined, courseId: string): Promise<void> {
-    if (!(await this.canTeach(user, courseId))) throw notYourCourse();
+  /** True when the user has any one of `permission` in the course. */
+  async can(user: Teacher | null | undefined, courseId: string, permission: CoursePermission | readonly CoursePermission[]): Promise<boolean> {
+    const any = typeof permission === 'string' ? [permission] : permission;
+    const m = await this.membership(user, courseId);
+    return Boolean(m && any.some((p) => m.permissions.includes(p)));
+  }
+
+  /**
+   * 403 NOT_YOUR_COURSE unless the user is on the course's staff (an unknown id included), then
+   * 403 COURSE_PERMISSION unless their role has one of `permission` (none given: any staff member).
+   */
+  async assertCan(user: Teacher | null | undefined, courseId: string, permission: readonly CoursePermission[] = []): Promise<CourseMembership> {
+    const m = await this.membership(user, courseId);
+    if (!m) throw notYourCourse();
+    if (permission.length && !permission.some((p) => m.permissions.includes(p))) throw missingCoursePermission(permission);
+    return m;
+  }
+
+  /** SUPER or ADMISSIONS admin: may enrol people in a paid course without payment. */
+  canWaivePayment(user: Teacher | null | undefined): boolean {
+    return Boolean(user && user.role === 'ADMIN' && hasAdminPermission(user, PAYMENT_WAIVER_ADMIN_PERMISSIONS));
+  }
+
+  /**
+   * Course staff enrolling by email (ENROL, checked by the guard): on a paid course every
+   * direct enrolment and every invite (claimed later) skips the payment, so only SUPER and
+   * ADMISSIONS admins may do it; anyone else, or anyone sending skipPayment, gets 403
+   * PAYMENT_WAIVER_ADMIN_ONLY. Free courses are open to every ENROL holder.
+   */
+  async assertMayEnrolByEmail(user: Teacher, courseId: string, skipPayment: boolean): Promise<void> {
+    if (this.canWaivePayment(user)) return;
+    if (skipPayment) throw paymentWaiverAdminOnly();
+    const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { type: true } });
+    if (course?.type === 'PAID') throw paymentWaiverAdminOnly();
+  }
+
+  /** May preview the course's assessments on its learn page (whoever writes or grades them). */
+  canTeach(user: Teacher | null | undefined, courseId: string): Promise<boolean> {
+    return this.can(user, courseId, ['MANAGE_ASSESSMENTS', 'GRADE']);
   }
 }

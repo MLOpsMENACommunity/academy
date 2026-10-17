@@ -63,6 +63,7 @@ export function adminSectionOf(subpath: string): AdminNavKey | null {
 /** Tabs of Admin → Courses → {course}, and who sees each (the API checks the same). */
 export const COURSE_TAB_PERMISSIONS = {
   details: ['ACADEMIC'],
+  staff: ['ACADEMIC'],
   questions: ['ACADEMIC'],
   applications: ['ADMISSIONS'],
   sessions: ['ACADEMIC'],

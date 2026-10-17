@@ -13,9 +13,9 @@ import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 
 /**
- * Admin → Speakers → {speaker}: the courses this speaker is assigned to. Assigned = one of the
- * course's instructors, so they can message its enrolled students from the speaker portal
- * (and they're listed on the public course page).
+ * Admin → Speakers → {speaker}: the courses whose staff this speaker is on, with their role. A
+ * shortcut to each course's Staff tab (the one place staff are edited): assigning adds them as a
+ * Co-instructor (Main instructor when the course has none); unassigning takes them off the staff.
  */
 export function SpeakerAssignedCourses({ instructorId }: { instructorId: string }) {
   const { locale, t } = useI18n();
@@ -87,6 +87,10 @@ export function SpeakerAssignedCourses({ instructorId }: { instructorId: string 
                       {title(c)}
                     </Link>
                     <Badge tone={c.status === 'ARCHIVED' ? 'neutral' : c.status === 'OPEN' ? 'success' : 'info'}>{courseStatusLabels[c.status][locale]}</Badge>
+                    {c.roleName && <Badge tone="primary">{c.roleName}</Badge>}
+                    <Link href={`/${locale}/admin/courses/${c.id}?tab=staff`} className="text-sm text-primary hover:underline">
+                      {s('staffTab')}
+                    </Link>
                   </div>
                   <Button
                     variant="ghost"

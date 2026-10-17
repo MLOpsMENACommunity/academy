@@ -94,6 +94,7 @@ export const EMPTY_COURSE: CourseFormValue = {
   externalPlatform: null,
   externalUrl: null,
   publicRecordings: false,
+  showEnrolledCount: true,
 };
 
 function Fieldset({ title, children }: { title: string; children: ReactNode }) {
@@ -107,7 +108,13 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function CourseForm({ initial, courseId, onSaved }: { initial: CourseFormValue; courseId?: string; onSaved: (id: string) => void }) {
+/**
+ * The course editor. `staffEndpoint` (Teaching → {course} → Details, for course staff with
+ * EDIT_COURSE): saves there, and leaves out what stays with the admins (status, address, type
+ * and price, the cover upload, who teaches it); the API keeps those as they are whatever is sent.
+ */
+export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { initial: CourseFormValue; courseId?: string; onSaved: (id: string) => void; staffEndpoint?: string }) {
+  const staff = Boolean(staffEndpoint);
   const { locale, t } = useI18n();
   const [v, setV] = useState<CourseFormValue>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -125,8 +132,9 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
   const toList = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 
   useEffect(() => {
+    if (staff) return;
     api<InstructorDto[]>('/admin/instructors').then(setInstructors).catch(() => undefined);
-  }, []);
+  }, [staff]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -147,8 +155,8 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
     setErrors({});
     setBusy(true);
     try {
-      const res = await api<{ id: string }>(courseId ? `/admin/courses/${courseId}` : '/admin/courses', {
-        method: courseId ? 'PUT' : 'POST',
+      const res = await api<{ id: string }>(staffEndpoint ?? (courseId ? `/admin/courses/${courseId}` : '/admin/courses'), {
+        method: staffEndpoint || courseId ? 'PUT' : 'POST',
         json: payload,
       });
       setSaved(true);
@@ -168,22 +176,31 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
       {formError && <Alert tone="danger">{formError}</Alert>}
 
       <Fieldset title={t('admin.courses.basics')}>
+        {staff && <p className="-mt-2 text-sm text-muted">{t('teach.details.adminOnly')}</p>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label={f('slug')} required dir="ltr" value={v.slug} onChange={set('slug')} error={errors.slug} hint={`/courses/${v.slug || '…'}`} />
-          <SelectField label={f('status')} required value={v.status} onChange={(x) => set('status')((x ?? 'DRAFT') as CourseFormValue['status'])} options={opts(COURSE_STATUSES, courseStatusLabels)} />
+          {!staff && (
+            <>
+              <TextField label={f('slug')} required dir="ltr" value={v.slug} onChange={set('slug')} error={errors.slug} hint={`/courses/${v.slug || '…'}`} />
+              <SelectField label={f('status')} required value={v.status} onChange={(x) => set('status')((x ?? 'DRAFT') as CourseFormValue['status'])} options={opts(COURSE_STATUSES, courseStatusLabels)} />
+            </>
+          )}
           <TextField label={f('titleEn')} required value={v.titleEn} onChange={set('titleEn')} error={errors.titleEn} />
           <TextField label={f('titleAr')} required dir="rtl" value={v.titleAr} onChange={set('titleAr')} error={errors.titleAr} />
           <TextAreaField label={f('shortEn')} required value={v.shortDescriptionEn} onChange={set('shortDescriptionEn')} error={errors.shortDescriptionEn} rows={2} maxLength={400} />
           <TextAreaField label={f('shortAr')} required value={v.shortDescriptionAr} onChange={set('shortDescriptionAr')} error={errors.shortDescriptionAr} rows={2} maxLength={400} />
           <MarkdownField label={f('longEn')} hint={f('markdownHint')} value={v.longDescriptionEn} onChange={set('longDescriptionEn')} rows={12} />
           <MarkdownField label={f('longAr')} hint={f('markdownHint')} dir="rtl" value={v.longDescriptionAr} onChange={set('longDescriptionAr')} rows={12} />
-          <SelectField label={f('type')} required value={v.type} onChange={(x) => set('type')((x ?? 'FREE') as CourseFormValue['type'])} options={opts(['FREE', 'PAID'], courseTypeLabels)} />
-          <div className="grid grid-cols-[1fr_6rem] gap-2">
-            <TextField label={f('price')} required type="number" inputMode="numeric" min={0} value={String(v.price)} onChange={(x) => set('price')(Number(x || 0))} error={errors.price} />
-            <TextField label={f('currency')} required value={v.currency} onChange={set('currency')} maxLength={3} dir="ltr" />
-          </div>
+          {!staff && (
+            <>
+              <SelectField label={f('type')} required value={v.type} onChange={(x) => set('type')((x ?? 'FREE') as CourseFormValue['type'])} options={opts(['FREE', 'PAID'], courseTypeLabels)} />
+              <div className="grid grid-cols-[1fr_6rem] gap-2">
+                <TextField label={f('price')} required type="number" inputMode="numeric" min={0} value={String(v.price)} onChange={(x) => set('price')(Number(x || 0))} error={errors.price} />
+                <TextField label={f('currency')} required value={v.currency} onChange={set('currency')} maxLength={3} dir="ltr" />
+              </div>
+            </>
+          )}
           <SelectField label={f('language')} required value={v.language} onChange={(x) => set('language')((x ?? 'BILINGUAL') as CourseFormValue['language'])} options={opts(COURSE_LANGUAGES, courseLanguageLabels)} />
-          <ImageUploadField label={f('cover')} value={v.coverImageUrl} onChange={(x) => set('coverImageUrl')(x)} error={errors.coverImageUrl} />
+          {!staff && <ImageUploadField label={f('cover')} value={v.coverImageUrl} onChange={(x) => set('coverImageUrl')(x)} error={errors.coverImageUrl} />}
           <CheckboxField label={f('requiresApproval')} checked={v.requiresApproval} onChange={set('requiresApproval')} />
           <div className="space-y-3 sm:col-span-2">
             <ChipGroup
@@ -211,6 +228,7 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
           <TextField label={f('hoursPerWeek')} type="number" min={1} value={v.hoursPerWeek?.toString() ?? ''} onChange={(x) => set('hoursPerWeek')(x ? Number(x) : null)} />
           <TextField label={f('capacity')} type="number" min={1} value={v.capacity?.toString() ?? ''} onChange={(x) => set('capacity')(x ? Number(x) : null)} />
         </div>
+        <CheckboxField label={f('showEnrolledCount')} hint={f('showEnrolledCountHint')} checked={v.showEnrolledCount} onChange={set('showEnrolledCount')} />
       </Fieldset>
 
       <Fieldset title={t('admin.courses.pastCohort')}>
@@ -310,9 +328,13 @@ export function CourseForm({ initial, courseId, onSaved }: { initial: CourseForm
         </fieldset>
       </Fieldset>
 
-      <Fieldset title={t('admin.courses.instructors')}>
-        <InstructorPicker instructors={instructors} selected={v.instructorIds} onSelect={set('instructorIds')} onChange={setInstructors} />
-      </Fieldset>
+      {!staff && (
+        <Fieldset title={t('admin.courses.instructors')}>
+          {/* A shortcut to the course staff: the first is the Main instructor, the rest Co-instructors. */}
+          <p className="-mt-2 text-sm text-muted">{t('admin.staff.instructorsFieldHint')}</p>
+          <InstructorPicker instructors={instructors} selected={v.instructorIds} onSelect={set('instructorIds')} onChange={setInstructors} />
+        </Fieldset>
+      )}
 
       <div className="sticky bottom-0 z-10 flex items-center gap-3 border-t border-line bg-page/95 py-3 backdrop-blur">
         <Button type="submit" size="lg" loading={busy}>

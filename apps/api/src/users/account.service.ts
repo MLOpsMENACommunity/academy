@@ -345,6 +345,8 @@ export class AccountService {
     // Open applications are withdrawn: their seats go back to the course and a payment still under
     // review leaves the queue (approving it would enrol a deleted account). Never throws.
     await this.workflow.withdrawForDeletedAccount(userId, { id: actorId, role: byTeam ? 'ADMIN' : user.role });
+    // A deleted account's enrolments stop counting on the course pages ("N students enrolled").
+    if (await this.prisma.enrollment.count({ where: { userId } })) this.workflow.publicCountsChanged('ENROLLED', null);
     await this.tokens.revokeAllForUser(userId);
     // Free their seats in live sessions that haven't started (past ones stay until anonymisation).
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
