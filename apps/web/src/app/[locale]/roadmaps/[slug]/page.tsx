@@ -10,7 +10,7 @@ import { createTranslator } from '@/i18n/translator';
 import { formatDate } from '@/lib/format';
 import { jsonLd } from '@/lib/jsonld';
 import { getRoadmap, getRoadmaps, localizeRoadmap, phaseLabel, websiteRoadmapUrl } from '@/lib/roadmaps';
-import { DEFAULT_OG_IMAGE } from '@/lib/seo';
+import { DEFAULT_OG_IMAGE, notFoundMetadata } from '@/lib/seo';
 import { absoluteUrl, community } from '@/lib/site';
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
@@ -30,7 +30,8 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   const raw = getRoadmap(slug);
-  if (!isLocale(locale) || !raw) return {};
+  if (!isLocale(locale)) return {};
+  if (!raw) return notFoundMetadata(locale);
   const t = createTranslator(locale);
   const r = localizeRoadmap(raw, locale);
   const description = `${r.tagline}. ${r.audience} ${t('roadmaps.resources', { count: r.resourceCount })}.`;

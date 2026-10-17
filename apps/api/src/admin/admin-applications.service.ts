@@ -214,7 +214,7 @@ export class AdminApplicationsService {
       'Application ID', 'Applied at', 'Status', 'Course', 'Ref', 'UTM source', 'Name (EN)', 'Name (AR)', 'Email', 'Phone',
       'Country', 'City', 'Employment', 'Job title', 'Company', 'Experience', 'ML experience', 'Seniority', 'Primary area',
       'Secondary areas', 'Education', 'Field of study', 'Institution', 'Skills (1-5)', 'Cloud', 'Weekly hours', 'Topics', 'Open to opportunities',
-      'Share with partners', 'Google email', 'LinkedIn', 'GitHub', 'Has CV',
+      'Share with partners', 'Google email', 'LinkedIn', 'GitHub', 'Telegram', 'Discord', 'Has CV',
       ...questions.map((q) => `Q: ${q.labelEn}`),
     ];
     const body = capRows(rows, (a) => {
@@ -226,7 +226,7 @@ export class AdminApplicationsService {
         p?.phone, p?.country, p?.city, p?.employmentStatus, p?.jobTitle, p?.company, p?.experienceYears, p?.mlExperienceYears,
         p?.seniority, p?.primaryArea, p?.secondaryAreas, p?.educationLevel, p?.fieldOfStudy, p?.university,
         (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.weeklyHours, p?.interestedTopics,
-        p?.openToOpportunities, p?.shareWithPartners, p?.googleEmail, p?.linkedinUrl, p?.githubUrl,
+        p?.openToOpportunities, p?.shareWithPartners, p?.googleEmail, p?.linkedinUrl, p?.githubUrl, p?.telegramUsername, p?.discordUsername,
         // Yes/no only: a CV link is a short-lived credential and never goes in a file.
         p?.cvKey ? 'Yes' : 'No',
         ...questions.map((q) => {

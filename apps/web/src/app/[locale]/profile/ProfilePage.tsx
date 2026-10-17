@@ -1,6 +1,6 @@
 'use client';
 
-import { computeCompleteness, CORE_FIELD_SECTION, isRequiredSection, PROFILE_SECTIONS, type MeResponse, type ProfileDto } from '@academy/shared';
+import { computeCompleteness, CORE_FIELD_SECTION, isRequiredSection, missingCommunityHandles, PROFILE_SECTIONS, type MeResponse, type ProfileDto } from '@academy/shared';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -66,6 +66,9 @@ function Tabs({ user }: { user: MeResponse }) {
   const completeness = computeCompleteness(profile);
   // Mark every required tab that still has a gap, not just Basics.
   const missingSections = new Set<string>(completeness.missingCore.map((f) => CORE_FIELD_SECTION[f]));
+  // Students from before the Telegram and Discord usernames were asked: needed for their next application.
+  const needsHandles = user.role === 'STUDENT' && missingCommunityHandles(profile);
+  if (needsHandles) missingSections.add('community');
 
   return (
     <Container className="max-w-4xl py-10">
@@ -79,6 +82,16 @@ function Tabs({ user }: { user: MeResponse }) {
       {!completeness.coreComplete && (
         <Alert tone="warning" className="mt-4">
           {t('profile.coreMissing')}
+        </Alert>
+      )}
+      {completeness.coreComplete && needsHandles && (
+        <Alert tone="warning" className="mt-4" title={t('profile.handlesBanner.title')}>
+          {t('profile.handlesBanner.body')}{' '}
+          {tab !== 'community' && (
+            <button type="button" className="font-semibold underline" onClick={() => select('community', true)}>
+              {t('profile.handlesBanner.cta')}
+            </button>
+          )}
         </Alert>
       )}
 
@@ -138,7 +151,7 @@ function Tabs({ user }: { user: MeResponse }) {
               profile={profile}
               onSaved={(p) => {
                 setProfile(p);
-                if (p.coreComplete !== profile.coreComplete) void reload();
+                if (p.coreComplete !== profile.coreComplete || missingCommunityHandles(p) !== missingCommunityHandles(profile)) void reload();
               }}
             />
           </div>

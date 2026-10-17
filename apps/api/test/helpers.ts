@@ -83,6 +83,8 @@ export async function createUser(
                 githubUrl: 'https://github.com/test-person',
                 referralSource: 'LINKEDIN',
                 communityAnsweredAt: new Date(),
+                telegramUsername: 'test_person',
+                discordUsername: 'test.person',
                 coreCompletedAt: new Date(),
                 completeness: 60,
               },

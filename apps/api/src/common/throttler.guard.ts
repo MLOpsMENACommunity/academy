@@ -1,8 +1,16 @@
 import { Injectable, SetMetadata, type ExecutionContext } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, type ThrottlerRequest } from '@nestjs/throttler';
 import type { AuthedRequest } from './decorators';
 
 const SKIP_THROTTLE_WITHOUT = 'academy:skipThrottleWithout';
+
+/**
+ * Test stacks only (docker compose for the browser tests): every limit is multiplied by this,
+ * because one suite signs up and logs in far more often from one IP than any real visitor.
+ * Validated in config/env.ts (1-100, default 1). The Cloudflare Worker passes the API an
+ * explicit list of variables that doesn't include it, so production always runs at 1.
+ */
+const LIMIT_MULTIPLIER = Math.min(100, Math.max(1, Math.trunc(Number(process.env.THROTTLE_LIMIT_MULTIPLIER ?? 1)) || 1));
 
 /**
  * Unthrottled unless the request has this query parameter. For public reads that the web
@@ -22,6 +30,10 @@ export class AppThrottlerGuard extends ThrottlerGuard {
   protected override async getTracker(req: Record<string, unknown>): Promise<string> {
     const user = (req as unknown as AuthedRequest).user;
     return user ? `user:${user.id}` : `ip:${String(req.ip)}`;
+  }
+
+  protected override async handleRequest(props: ThrottlerRequest): Promise<boolean> {
+    return super.handleRequest(LIMIT_MULTIPLIER === 1 ? props : { ...props, limit: props.limit * LIMIT_MULTIPLIER });
   }
 
   protected override async shouldSkip(context: ExecutionContext): Promise<boolean> {

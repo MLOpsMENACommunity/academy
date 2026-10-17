@@ -1,6 +1,6 @@
 'use client';
 
-import { homePath, isStudentOnlyPath, type MeResponse, type SignupRole } from '@academy/shared';
+import { homePath, isStudentOnlyPath, loginSchema, type MeResponse, type SignupRole } from '@academy/shared';
 import { postLoginPath } from '@/lib/post-login';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,8 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, loginErrorMessage } from '@/lib/errors';
+import { issuesToErrors } from '@/lib/zod-errors';
 import { useReturnTo, withReturnTo } from '@/lib/use-return-to';
 import { useHashParam, useSearchParam } from '@/lib/use-search-param';
 
@@ -37,11 +38,12 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   }, [emailParam]);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   // ?error=… (e.g. a failed Google sign-in), read after hydration: the page is static.
   useEffect(() => {
-    if (errorCode) setError(t(`auth.errors.${errorCode}`));
+    if (errorCode) setError(loginErrorMessage(errorCode, t));
   }, [errorCode, t]);
 
   // Already signed in (e.g. a valid refresh cookie): continue straight away.
@@ -51,10 +53,17 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError(null);
+    // Same rules as the API, in the page's language (the API answers a bad address with "Validation failed").
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setFieldErrors(issuesToErrors(parsed.error.issues, t));
+      return;
+    }
+    setFieldErrors({});
+    setBusy(true);
     try {
-      const me = await api<MeResponse>('/auth/login', { method: 'POST', json: { email, password } });
+      const me = await api<MeResponse>('/auth/login', { method: 'POST', json: parsed.data });
       setUser(me);
       router.replace(postLoginPath(me, locale, returnTo));
     } catch (err) {
@@ -74,7 +83,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
             {error === t('auth.errors.INVALID_CREDENTIALS') && <p className="mt-1 text-xs">{t('auth.googleHint')}</p>}
           </Alert>
         )}
-        <TextField label={t('auth.email')} type="email" autoComplete="email" required value={email} onChange={setEmail} />
+        <TextField label={t('auth.email')} type="email" autoComplete="email" required value={email} onChange={setEmail} error={fieldErrors.email} />
         <TextField
           label={t('auth.password')}
           type="password"
@@ -82,6 +91,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
           required
           value={password}
           onChange={setPassword}
+          error={fieldErrors.password}
         />
         <div className="text-end text-sm">
           <Link href={`/${locale}/forgot-password`} className="text-primary hover:underline">

@@ -233,7 +233,8 @@ account.
 ### 3.3 Email verification
 
 **Status:** Live. After registering, a "confirm your email" email (link valid 24 h; **Resend** on the
-banner). It works only while signed in to the account it was sent for. Confirmed email is required to
+banner). It works only while signed in to the account it was sent for; opening it again once the
+email is confirmed just confirms again (no "invalid link" error). Confirmed email is required to
 apply, register for live sessions, join the team as an admin, and to claim "enrol by email" invites.
 
 ### 3.4 Passwords and sign-in security
@@ -241,12 +242,15 @@ apply, register for live sessions, join the team as an admin, and to claim "enro
 **Status:** Live.
 
 - **Forgot password** (`/forgot-password`): enter your email; if an account exists, a reset link
-  (valid 1 hour) is emailed. The page never reveals whether the account exists. Resetting signs you
-  out everywhere, confirms the email and clears a lockout.
+  (valid 1 hour) is emailed. The page never reveals whether the account exists. At most one reset
+  email a minute and five an hour per account, so nobody can flood someone's inbox with it. Resetting
+  signs you out everywhere, confirms the email and clears a lockout.
 - **Change password:** Profile → Account (needs the current password; Google-only accounts must have
   signed in with Google in the last 10 minutes). An email confirms every change.
 - **Lockout:** 10 failed logins in 15 minutes lock the account for 15 minutes (a reset unlocks it).
 - **Students can't change their login email** (removed as an account-takeover risk). Ask the team.
+- Signing in (or registering) in a browser that was signed in to another account ends that other
+  session on the server too.
 - Sessions last 30 days with silent renewal; changing the password, deleting the account or a stolen
   refresh token signs every device out at once.
 
@@ -258,11 +262,18 @@ community (with consent).
 - **Onboarding** (`/onboarding`) walks through the profile steps. **Required** before applying: Core
   (name, phone, country, city, time zone, employment, job title, experience, main area, Google email
   for course materials, preferred language, terms), Professional (ML experience, seniority), Education
-  (highest degree), Links (LinkedIn and GitHub required), Community (how you heard about us and the
-  community questions). **Optional:** Skills (self-ratings 1–5, cloud platforms, tools) and Goals
+  (highest degree), Links (LinkedIn and GitHub required), Community (how you heard about us, the
+  community questions, and the **Telegram and Discord usernames**). **Optional:** Skills (self-ratings 1–5, cloud platforms, tools) and Goals
   (goals, topics, weekly hours, preferred times and format).
 - **Profile** (`/profile`) shows completeness (0–100 %), lets students edit any step, upload a **CV**
   (PDF, 5 MB, optional) and opens the **Points** and **Account** tabs.
+- **Telegram and Discord usernames** (required, Community step): Telegram 5–32 letters, digits or `_`
+  (a leading `@` is dropped); Discord the current lowercase username (2–32 letters, digits, `_`, `.`)
+  or a legacy `name#1234`. Students who completed their profile before these were asked keep
+  everything (courses, learn pages, certificates); the dashboard and profile show a banner asking for
+  them, and they need them before their next application. Admins see both in Admin → Students (list,
+  detail, CSV) and on each application's profile snapshot, and can correct or clear them (Edit →
+  Community & consent).
 - Marketing emails are opt-in and unticked by default. The hiring questions ("open to opportunities",
   "share with hiring partners") were removed from the forms (PR #53); earlier answers stay on record.
 - **Profile review:** a student whose profile hasn't changed for about 6 months gets one email asking
@@ -287,6 +298,8 @@ community (with consent).
   Personal data is **anonymised 30 days later**. Payment and application records stay (anonymised) for
   accounting; certificates keep the serial but lose the name. The last super admin can't delete their
   account.
+- After deleting, the homepage confirms it. Registering again with that address before the account is
+  anonymised explains that it belongs to a deleted account (instead of "try logging in").
 - The team can delete a student account (Admin → Students → student → Delete account, typed
   confirmation); the student is emailed that the team deleted it.
 
@@ -295,7 +308,7 @@ community (with consent).
 **Status:** Live. The bell in the header shows unread notifications (checked every 2 minutes while
 the tab is visible): application updates, announcements, grades, new assessments, badges, points,
 certificates, speaker reviews and bookings, admin alerts. **Mark all as read**. Each links to the
-relevant page.
+relevant page. Times show in the viewer's own time zone; if the list can't load, the panel says so.
 
 ---
 
@@ -777,6 +790,8 @@ on the learn page; marketing emails are opt-in.
 
 **Status:** Live. Summary of what the privacy policy promises and the code enforces:
 
+- **Telegram and Discord usernames** are shown to the academy team only (never on public pages or
+  leaderboards); they are in the data export and removed with the profile on anonymisation.
 - **Data minimisation:** leaderboards show first name + last initial and only for students who opt in;
   speakers see counts, never recipients; certificates show the name the student gave.
 - **Private files** (CVs, payment screenshots, assessment PDFs, certificate PDFs) are in a private
@@ -814,6 +829,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Accounts audit | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Pending |
 | Course staff | Course staff: per-course roles (Main instructor, Co-instructor, Moderator, custom) with permissions, Shown or Anonymous; Admin → Courses → Staff tab; Teaching area at /teach for any account; public course page shows staff by role | Pending |
 | Admissions audit | Students can withdraw an application (Withdrawn status); deleting an account frees its seats and closes a pending payment; full courses say so before applying; Apply closes at the deadline; payments queue pages; Arabic digits in payment proofs; "seat confirmed" email; waiting list only notified while applications are open; admin accounts out of Admin → Students | Pending |
 | #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Pending |

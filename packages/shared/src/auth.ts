@@ -70,5 +70,11 @@ export interface MeResponse {
   hasPassword: boolean;
   hasGoogle: boolean;
   name: string | null;
-  profile: { completeness: number; coreComplete: boolean; updatedAt: string | null };
+  profile: {
+    completeness: number;
+    coreComplete: boolean;
+    /** The Telegram or Discord username is missing (students from before they were asked): needed to apply. */
+    needsCommunityHandles: boolean;
+    updatedAt: string | null;
+  };
 }
