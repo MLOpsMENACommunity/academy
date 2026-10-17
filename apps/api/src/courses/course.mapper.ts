@@ -37,12 +37,25 @@ export function toInstructorDto(i: Instructor): InstructorDto {
   };
 }
 
+/** What CoursesService.seatCounts counts per course (deleted accounts never count). */
+export interface SeatCount {
+  /** Seats held: seat-holding applications (shortlisted through enrolled). */
+  taken: number;
+  /** Active enrolments. */
+  enrolled: number;
+}
+
+export const NO_SEATS: SeatCount = { taken: 0, enrolled: 0 };
+
 /**
  * Public shapes are built field by field (an allowlist), so private columns
  * such as driveFolderUrl, liveUrl and recordingUrl can never leak by accident.
+ * Enrolment is public only as a number (never who), and only when the course shows it.
  */
-export function toCourseSummary(c: CourseWithRelations, seatsTaken: number): CourseSummaryDto {
+export function toCourseSummary(c: CourseWithRelations, seats: SeatCount, now = new Date()): CourseSummaryDto {
   const instructors = [...c.instructors].sort((a, b) => a.order - b.order);
+  const availability = courseAvailability(c, now);
+  const seatsRemaining = c.capacity === null ? null : Math.max(0, c.capacity - seats.taken);
   return {
     id: c.id,
     slug: c.slug,
@@ -62,8 +75,11 @@ export function toCourseSummary(c: CourseWithRelations, seatsTaken: number): Cou
     durationWeeks: c.durationWeeks,
     hoursPerWeek: c.hoursPerWeek,
     coverImageUrl: c.coverImageUrl,
-    availability: courseAvailability(c),
-    seatsRemaining: c.capacity === null ? null : Math.max(0, c.capacity - seatsTaken),
+    availability,
+    seatsRemaining,
+    enrolledCount: c.showEnrolledCount ? seats.enrolled : null,
+    // "X seats left" is only worth saying while people can apply.
+    seatsLeft: availability === 'OPEN' ? seatsRemaining : null,
     instructorNames: instructors.map((x) => x.instructor.name),
     completed: c.status === 'COMPLETED',
     comingSoon: c.status === 'COMING_SOON',
@@ -86,9 +102,9 @@ export function publicRecording(
   return c.publicRecordings && c.type === 'FREE' && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
 }
 
-export function toCourseDetail(c: CourseWithRelations, seatsTaken: number, now = new Date()): CourseDetailDto {
+export function toCourseDetail(c: CourseWithRelations, seats: SeatCount, now = new Date()): CourseDetailDto {
   return {
-    ...toCourseSummary(c, seatsTaken),
+    ...toCourseSummary(c, seats, now),
     longDescriptionEn: c.longDescriptionEn,
     longDescriptionAr: c.longDescriptionAr,
     requiresApproval: c.requiresApproval,

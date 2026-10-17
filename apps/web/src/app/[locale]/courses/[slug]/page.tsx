@@ -15,12 +15,13 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { ApplyCta } from '@/components/course/ApplyCta';
-import { availabilityStyle, priceLabel } from '@/components/course/CourseCard';
+import { availabilityStyle, enrolmentFacts, priceLabel } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
+import { IconUsers } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
@@ -156,10 +157,11 @@ export default async function CoursePage({ params }: Props) {
       ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
         ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
-    ...(c.seatsRemaining !== null && !completed
-      ? ([[t('course.facts.seats'), full ? t('catalog.full') : t('catalog.seatsLeft', { count: c.seatsRemaining })]] as [string, ReactNode][])
-      : []),
   ];
+  // "12 students enrolled · 8 seats left": the number only (never who), refreshed within
+  // seconds of an enrolment or a withdrawal (the API revalidates this page).
+  const enrolment = enrolmentFacts(c, locale);
+  const enrolmentParts = [enrolment.enrolled, enrolment.seats].filter((x): x is string => Boolean(x));
 
   // Open courses: apply. Anything else (coming soon, closed, a past cohort): the waiting list.
   const cta = (compact: boolean) => (
@@ -294,6 +296,17 @@ export default async function CoursePage({ params }: Props) {
             </p>
           )}
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
+          {enrolmentParts.length > 0 && (
+            <p data-testid="course-enrolment" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] font-medium text-fg">
+              <IconUsers className="shrink-0 text-muted" />
+              {enrolmentParts.map((part, i) => (
+                <span key={i} className="inline-flex items-center gap-x-2">
+                  {i > 0 && <span aria-hidden className="text-muted">·</span>}
+                  {part}
+                </span>
+              ))}
+            </p>
+          )}
           <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-[1.1875rem]">
             {pick(locale, c.shortDescriptionEn, c.shortDescriptionAr)}
           </p>
