@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { APPLICATION_STATUSES, FUNNEL_EVENTS, type FunnelEvent, type SavedFilterScope } from '@academy/shared';
 import { Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
+import { NO_SEATS } from '../courses/course.mapper';
+import { CoursesService } from '../courses/courses.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Most recent active courses shown with per-course breakdowns. */
@@ -9,7 +11,10 @@ const DASHBOARD_COURSES = 12;
 
 @Injectable()
 export class AdminMiscService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly catalog: CoursesService,
+  ) {}
 
   /** Counts per course by status, pending payments, new applications this week, funnel per course. */
   async dashboard() {
@@ -28,21 +33,24 @@ export class AdminMiscService {
     ]);
     // Breakdowns only for the courses shown, so the cost doesn't grow with history.
     const ids = courses.map((c) => c.id);
-    const [statusCounts, funnelRows] = ids.length
+    const [statusCounts, funnelRows, seats] = ids.length
       ? await Promise.all([
           this.prisma.application.groupBy({ by: ['courseId', 'status'], where: { courseId: { in: ids } }, _count: { _all: true } }),
           // Distinct people per step (signed-in user, or anonymous browser id).
           this.prisma.$queryRaw<{ courseId: string; event: FunnelEvent; n: bigint }[]>`
             SELECT "courseId", "event", COUNT(DISTINCT COALESCE("userId", "anonymousId", "id")) AS n
             FROM "FunnelEventLog" WHERE "courseId" IN (${Prisma.join(ids)}) GROUP BY "courseId", "event"`,
+          // Enrolled students: the same count as the public "N students enrolled", batched.
+          this.catalog.seatCounts(ids),
         ])
-      : [[], []];
+      : [[], [], new Map()];
     return {
       courseCount,
       pendingPayments,
       newApplications7d: newApplications,
       courses: courses.map((c) => ({
         ...c,
+        enrolledCount: (seats.get(c.id) ?? NO_SEATS).enrolled,
         statusCounts: Object.fromEntries(
           APPLICATION_STATUSES.map((s) => [s, statusCounts.find((x) => x.courseId === c.id && x.status === s)?._count._all ?? 0]),
         ),

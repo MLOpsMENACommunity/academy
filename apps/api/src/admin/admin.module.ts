@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AnnouncementsModule } from '../announcements/announcements.module';
 import { ApplicationsModule } from '../applications/applications.module';
+import { CoursesModule } from '../courses/courses.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { AdminAnnouncementsService } from './admin-announcements.service';
 import { AdminApplicationsService } from './admin-applications.service';
@@ -10,7 +11,7 @@ import { AdminMiscService } from './admin-misc.service';
 import { AdminStudentsService } from './admin-students.service';
 
 @Module({
-  imports: [ApplicationsModule, PaymentsModule, AnnouncementsModule],
+  imports: [ApplicationsModule, PaymentsModule, AnnouncementsModule, CoursesModule],
   controllers: [AdminController],
   providers: [AdminApplicationsService, AdminStudentsService, AdminCoursesService, AdminMiscService, AdminAnnouncementsService],
   // Course staff reuse them, scoped to their course (teaching/teach-manage.controller.ts).

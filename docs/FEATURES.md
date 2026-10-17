@@ -124,6 +124,14 @@ each course card here (`/courses/<slug>?ref=main-site`, see [INTEGRATION.md](../
   within seconds. The course team can hide the count per course: Admin → Courses → {course} →
   Schedule → **Show enrolled count publicly** (on by default). The public API returns
   `enrolledCount` (null when hidden) and `seatsLeft`.
+- **Enrolled totals for admins:** admins always see each course's number of enrolled students,
+  the same count as the public one, even when the course hides it publicly. Admin → Courses has
+  an **Enrolled students** column ("12 / 30" with a capacity, "12" without); Admin → Courses →
+  {course} shows "**12 enrolled · 18 seats left**" (or "12 enrolled", or "Course full") under the
+  title, and the Enrolled students tab carries the count; each course card on the admin dashboard
+  shows **Enrolled students N** beside the application status counts. Visible to the presets that
+  already open those pages (ACADEMIC and ADMISSIONS for the courses, the dashboard presets for the
+  dashboard).
 - **Course statuses** (set by the course team in Admin → Courses):
 
 | Status | Public? | What visitors can do |
@@ -874,6 +882,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Admin enrolled totals | Admins always see each course's enrolled total (the public count, even when hidden publicly): an Enrolled students column with the capacity ("12 / 30") in Admin → Courses, "12 enrolled · 18 seats left" and a tab count in the course, and an Enrolled students figure on the dashboard course cards (en/ar); admin API `enrolledCount` (and `seatsLeft` on a course) | Pending |
 | Accounts audit | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Pending |
 | Enrolled count | Course pages and cards show "N students enrolled" and "X seats left" / "Course full" (en/ar); per-course "Show enrolled count publicly" switch (on by default); enrolments and withdrawals refresh the public pages within seconds; public API `enrolledCount` and `seatsLeft` | Pending |
 | Course staff | Course staff: per-course roles (Main instructor, Co-instructor, Moderator, custom) with permissions, Shown or Anonymous; Admin → Courses → Staff tab; Teaching area at /teach for any account; public course page shows staff by role | Pending |

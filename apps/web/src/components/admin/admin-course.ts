@@ -21,6 +21,10 @@ export interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'n
   included: Included;
   questions: QuestionRow[];
   sessions: SessionRow[];
+  /** Active enrolments of accounts that aren't deleted (the public count), even when the course hides it. */
+  enrolledCount: number;
+  /** Capacity minus seats held, null without a capacity. */
+  seatsLeft: number | null;
 }
 
 export function toForm(c: AdminCourse): CourseFormValue {
