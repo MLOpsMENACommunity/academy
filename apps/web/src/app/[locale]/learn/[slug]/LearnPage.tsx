@@ -1,6 +1,6 @@
 'use client';
 
-import type { AssessmentSummaryDto, LearnCertificateDto, LearnCourseDto, LearnSessionDto, MeResponse } from '@academy/shared';
+import { parseSessionHash, type AssessmentSummaryDto, type LearnCertificateDto, type LearnCourseDto, type LearnSessionDto, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -39,10 +39,26 @@ function defaultSession(sessions: LearnSessionDto[]): number | null {
   return pick?.order ?? null;
 }
 
-const hashOrder = () => {
-  const m = /^#session-(\d+)$/.exec(window.location.hash);
-  return m ? Number(m[1]) : null;
-};
+/** #session-3 (or #session-3-feedback, from the feedback emails and the dashboard) → 3. */
+const hashOrder = () => parseSessionHash(window.location.hash)?.order ?? null;
+
+/**
+ * Scrolls to a rating form named by the hash (#session-3-feedback, #course-feedback) once it
+ * is on the page, and moves focus to it so keyboard and screen-reader users land there too.
+ */
+function scrollToFeedback(): void {
+  const h = window.location.hash;
+  if (!parseSessionHash(h)?.feedback && h !== '#course-feedback') return;
+  // Twice: once the session card has rendered, then again after images and fonts shift the layout.
+  const go = () => {
+    const el = document.getElementById(h.slice(1));
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.querySelector<HTMLElement>('input')?.focus({ preventScroll: true });
+  };
+  requestAnimationFrame(go);
+  setTimeout(go, 400);
+}
 
 function Inner({ user }: { user: MeResponse }) {
   const { locale, t } = useI18n();
@@ -106,11 +122,13 @@ function Inner({ user }: { user: MeResponse }) {
     const fromHash = hashOrder();
     setSelected(fromHash && course.sessions.some((s) => s.order === fromHash) ? fromHash : defaultSession(course.sessions));
     if (window.location.hash === '#reminders') requestAnimationFrame(() => document.getElementById('reminders')?.scrollIntoView({ block: 'start' }));
+    scrollToFeedback();
   }, [course]);
   useEffect(() => {
     const onHash = () => {
       const n = hashOrder();
       if (n) setSelected(n);
+      scrollToFeedback();
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -367,7 +385,7 @@ function Inner({ user }: { user: MeResponse }) {
           <CourseAnnouncements items={course.announcements ?? []} />
 
           {ended && (
-            <section className="rounded-xl border border-line p-5 sm:p-6">
+            <section id="course-feedback" className="scroll-mt-6 rounded-xl border border-line p-5 sm:p-6">
               <FeedbackForm slug={course.slug} sessionId={null} legend={t('learn.courseFeedback')} initial={course.courseFeedback} />
             </section>
           )}

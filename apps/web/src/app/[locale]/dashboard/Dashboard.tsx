@@ -10,6 +10,7 @@ import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { TeachingCard } from '@/components/teach/TeachCourses';
 import { MyCertificates } from '@/components/certificates/MyCertificates';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
+import { RateLastSession } from '@/components/learn/RateLastSession';
 import { PathProgressFrom } from '@/components/paths/PathProgress';
 import { PointsCard } from '@/components/points/PointsCard';
 import { Stepper } from '@/components/paths/Stepper';
@@ -145,6 +146,9 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
           </div>
 
           <NextUp />
+
+          {/* Near the top on phones too, where the sidebar comes first. */}
+          <RateLastSession className={card} />
 
           <PointsCard className={card} />
 

@@ -107,6 +107,34 @@ export interface NextSessionDto {
   durationMin: number;
 }
 
+/**
+ * The dashboard's "Rate your last session" card: per course, the latest session that ended in
+ * the last 14 days and that the student hasn't rated. `courseFeedbackDue`: it was the course's
+ * last session and the course itself isn't rated yet either.
+ */
+export interface FeedbackDueDto {
+  courseSlug: string;
+  courseTitleEn: string;
+  courseTitleAr: string;
+  sessionId: string;
+  order: number;
+  titleEn: string;
+  titleAr: string;
+  startsAt: string;
+  courseFeedbackDue: boolean;
+}
+
+/** The learn page's deep links: #session-3 opens session 3, #session-3-feedback also scrolls to its rating form. */
+export function parseSessionHash(hash: string): { order: number; feedback: boolean } | null {
+  const m = /^#session-(\d{1,4})(-feedback)?$/.exec(hash);
+  return m ? { order: Number(m[1]), feedback: Boolean(m[2]) } : null;
+}
+
+/** Hashes that survive a sign-in redirect onto the learn page (see useReturnTo). */
+export function isCarriedHash(hash: string): boolean {
+  return parseSessionHash(hash) !== null || hash === '#course-feedback' || hash === '#reminders';
+}
+
 export const progressSchema = z.object({ completed: z.boolean() });
 export const feedbackSchema = z.object({
   /** Null/absent for end-of-course feedback. */

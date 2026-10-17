@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Locale } from '@academy/shared';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
-import { EmailSendError, EmailTransport } from './email.transport';
+import { classifySendError, EmailSendError, EmailTransport, type SendErrorKind } from './email.transport';
 import type { EmailTemplate } from './templates/catalog';
 
 /**
@@ -24,8 +24,19 @@ export function loadEmailRenderer(): NonNullable<typeof renderer> {
 
 interface Job {
   run: () => Promise<void>;
-  resolve: (ok: boolean) => void;
+  resolve: (result: SendResult) => void;
   label: string;
+}
+
+/** How a send ended. `kind` says what a failure means for a retry (see classifySendError). */
+export type SendResult = { ok: true } | { ok: false; kind: SendErrorKind; code: string };
+
+export interface SendOpts {
+  bulk?: boolean;
+  /** Passed to the provider, which then sends at most once per key (outbox rows). */
+  idempotencyKey?: string;
+  /** Extra headers, e.g. List-Unsubscribe. */
+  headers?: Record<string, string>;
 }
 
 const RETRY_DELAYS_MS = [1_000, 3_000];
@@ -68,19 +79,39 @@ export class EmailService {
    * calling request. Resolves once the email was handed to the provider (true) or
    * finally failed (false).
    */
-  async send(to: string, locale: Locale, template: EmailTemplate, opts: { bulk?: boolean } = {}): Promise<boolean> {
+  async send(to: string, locale: Locale, template: EmailTemplate, opts: SendOpts = {}): Promise<boolean> {
+    return (await this.deliver(to, locale, template, opts)).ok;
+  }
+
+  /**
+   * Like send(), but says why a send failed, so a durable caller (the outbox) can decide
+   * between retrying later, waiting for tomorrow's quota and giving up.
+   */
+  async deliver(to: string, locale: Locale, template: EmailTemplate, opts: SendOpts = {}): Promise<SendResult> {
+    let render: Awaited<ReturnType<typeof loadEmailRenderer>>;
+    try {
+      render = await loadEmailRenderer();
+    } catch (err) {
+      this.logger.error(`Failed to load the email templates: ${(err as Error).name}`);
+      return { ok: false, kind: 'retryable', code: 'renderer_unavailable' };
+    }
     let message: { subject: string; html: string; text: string };
     try {
-      const { buildEmail, render } = await loadEmailRenderer();
-      const { subject, element } = buildEmail(template, locale);
-      const [html, text] = await Promise.all([render(element), render(element, { plainText: true })]);
+      const { subject, element } = render.buildEmail(template, locale);
+      const [html, text] = await Promise.all([render.render(element), render.render(element, { plainText: true })]);
       message = { subject, html, text };
     } catch (err) {
+      // The same template data fails the same way next time.
       this.logger.error(`Failed to render "${template.name}" email: ${(err as Error).name}`);
-      return false;
+      return { ok: false, kind: 'permanent', code: 'render_failed' };
     }
-    return new Promise<boolean>((resolve) => {
-      const job: Job = { run: () => this.transport.send({ to, ...message }), resolve, label: template.name };
+    const sendOptions = opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : undefined;
+    return new Promise<SendResult>((resolve) => {
+      const job: Job = {
+        run: () => this.transport.send({ to, ...message, ...(opts.headers ? { headers: opts.headers } : {}) }, sendOptions),
+        resolve,
+        label: template.name,
+      };
       (opts.bulk ? this.lanes.bulk : this.lanes.high).push(job);
       void this.pump();
     });
@@ -91,7 +122,7 @@ export class EmailService {
     this.pumping = true;
     try {
       for (let job = this.next(); job; job = this.next()) {
-        job.resolve(await this.deliver(job));
+        job.resolve(await this.attempt(job));
       }
     } finally {
       this.pumping = false;
@@ -102,14 +133,14 @@ export class EmailService {
     return this.lanes.high.shift() ?? this.lanes.bulk.shift();
   }
 
-  private async deliver(job: Job): Promise<boolean> {
+  private async attempt(job: Job): Promise<SendResult> {
     for (let attempt = 0; ; attempt++) {
       const wait = this.lastSentAt + this.minIntervalMs - Date.now();
       if (wait > 0) await sleep(wait);
       this.lastSentAt = Date.now();
       try {
         await job.run();
-        return true;
+        return { ok: true };
       } catch (err) {
         const retry = err instanceof EmailSendError && err.retryable && attempt < RETRY_DELAYS_MS.length;
         if (retry) {
@@ -121,7 +152,7 @@ export class EmailService {
         this.logger.error(
           `Failed to send "${job.label}" email: ${e.name ?? 'Error'} ${e.code ?? ''} ${e.statusCode ?? e.responseCode ?? ''}`.replace(/\s+/g, ' ').trim(),
         );
-        return false;
+        return { ok: false, kind: classifySendError(err), code: String(e.code ?? e.statusCode ?? e.responseCode ?? e.name ?? 'error').slice(0, 64) };
       }
     }
   }

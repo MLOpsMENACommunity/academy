@@ -102,6 +102,20 @@ export type EmailTemplate =
   | { name: 'assessmentDue'; courseTitle: string; title: string; dueAt: string; url: string; unsubscribeUrl: string }
   /** A quiz, lab or assignment was published (sent once per assessment), to enrolled students who get course reminders. */
   | { name: 'assessmentPublished'; courseTitle: string; title: string; kind: 'QUIZ' | 'LAB' | 'ASSIGNMENT'; dueAt: string | null; url: string; unsubscribeUrl: string }
+  /**
+   * After every course session (30 minutes to 72 hours after it ends), one per student and session.
+   * `courseUrl` is set at the last session: the same email then also asks for the course rating.
+   * `unsubscribeUrl`: the tokened "stop feedback emails for this course" page (no login).
+   */
+  | {
+      name: 'feedbackPrompt';
+      courseTitle: string;
+      sessionTitle: string;
+      sessionOrder: number;
+      url: string;
+      courseUrl?: string | null;
+      unsubscribeUrl: string;
+    }
   /** Points and badges: a badge was awarded (automatically or by the team). */
   | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string }
   /** Enrol by email: an admin enrolled this account directly (no application, no payment). */
@@ -952,6 +966,43 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             ]}
             cta={{ label: ar ? 'افتح التقييم' : 'Open the assessment', url: t.url }}
             note={ar ? `لإيقاف تذكيرات هذه الدورة: ${t.unsubscribeUrl}` : `To stop reminders for this course: ${t.unsubscribeUrl}`}
+          />
+        ),
+      };
+    }
+    case 'feedbackPrompt': {
+      // No "today" or "tonight": sessions run in the Cairo evening and this can arrive the next
+      // morning, in another time zone, or two days later after a late deploy.
+      const last = Boolean(t.courseUrl);
+      const subject = last
+        ? ar
+          ? `كيف كانت «${t.sessionTitle}» ودورة ${t.courseTitle}؟`
+          : `How was "${t.sessionTitle}", and ${t.courseTitle} as a whole?`
+        : ar
+          ? `كيف كانت «${t.sessionTitle}»؟ قيّمها في 10 ثوانٍ`
+          : `How was "${t.sessionTitle}"? Rate it in 10 seconds`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={ar ? `كيف كانت الجلسة ${t.sessionOrder}؟` : `How was session ${t.sessionOrder}?`}
+            paragraphs={[
+              ar
+                ? `انتهت الجلسة ${t.sessionOrder} من ${t.courseTitle}: «${t.sessionTitle}».`
+                : `Session ${t.sessionOrder} of ${t.courseTitle}, "${t.sessionTitle}", has ended.`,
+              last
+                ? ar
+                  ? 'كانت هذه الجلسة الأخيرة. قيّمها، ثم قيّم الدورة كاملة: نجمة واحدة إلى خمس نجوم، وتعليق إن أردت.'
+                  : 'That was the last session. Rate it, then rate the whole course: one to five stars, and a comment if you like.'
+                : ar
+                  ? 'اختر من نجمة واحدة إلى خمس نجوم، وأضف تعليقًا إن أردت. يقرأ فريق الدورة كل تقييم ويحسّن الجلسات القادمة بناءً عليه.'
+                  : 'Pick one to five stars and add a comment if you like. The course team reads every rating and uses it to improve the next sessions.',
+            ]}
+            cta={{ label: ar ? 'قيّم الجلسة' : 'Rate the session', url: t.url }}
+            secondaryCta={t.courseUrl ? { label: ar ? 'قيّم الدورة' : 'Rate the course', url: t.courseUrl } : undefined}
+            noteLink={{ label: ar ? 'أوقف رسائل التقييم لهذه الدورة' : 'Stop feedback emails for this course', url: t.unsubscribeUrl }}
           />
         ),
       };

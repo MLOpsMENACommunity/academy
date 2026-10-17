@@ -366,6 +366,7 @@ model User {
   speakingSlots           SpeakingSlot[]           @relation("SlotBooker")
   speakingSlotsCreated    SpeakingSlot[]           @relation("SlotCreator")
   courseStaff             CourseStaff[]
+  outboundEmails          OutboundEmail[]
 
   @@index([role])
   @@index([createdAt])
@@ -958,6 +959,8 @@ model ReminderPreference {
   courseId       String
   course         Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   emailReminders Boolean @default(true)
+  /// "How was the session?" emails after each session (the tokened link in them turns this off).
+  feedbackEmails Boolean @default(true)
 
   @@id([userId, courseId])
 }
@@ -1790,4 +1793,44 @@ model CourseStaff {
   @@index([userId])
   @@index([instructorId])
   @@index([roleId])
+}
+
+// ============================================================ Email outbox
+
+/// Durable outgoing email (docs/ENGINEERING.md, "Email pipeline"). One row per email, written in
+/// the caller's transaction; OutboxProcessor claims rows with a lease and sends them through the
+/// paced EmailService queue, passing the row id to the provider as its idempotency key.
+/// `lane` and `status` are text with CHECK constraints in the migration (no enums: a new value
+/// then never needs an ALTER TYPE that the previous release can't read).
+model OutboundEmail {
+  id         String    @id @default(cuid())
+  /// The address is looked up when sending, so it is never stored here; a deleted account is SKIPPED.
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Only for mail to an address without an account (none yet). One of userId / toOverride is set.
+  toOverride String?
+  /// The course this email is about, for the per-course opt-outs checked at send time.
+  courseId   String?
+  locale     String    @default("en")
+  /// The EmailTemplate (catalog.tsx), already localised.
+  template   Json
+  /// "transactional" | "bulk"
+  lane       String    @default("bulk")
+  /// What kind of email, e.g. "feedback" or "assessment-published" (opt-outs, logs, retention).
+  category   String
+  /// e.g. feedback:<sessionId>:<userId>. Enqueuing the same key twice is a no-op.
+  dedupeKey  String    @unique
+  /// "PENDING" | "SENDING" | "SENT" | "FAILED" | "SKIPPED"
+  status     String    @default("PENDING")
+  attempts   Int       @default(0)
+  notBefore  DateTime  @default(now())
+  /// While SENDING: when the claim expires and the row goes back to PENDING (a crashed run).
+  leaseUntil DateTime?
+  /// Provider error code or skip reason, never an address.
+  lastError  String?
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, notBefore])
+  @@index([createdAt])
 }

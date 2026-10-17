@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { googleCalendarUrl, liveLinkVisible, recordingKind, sessionPhase, youtubeId } from './learn';
+import { googleCalendarUrl, isCarriedHash, liveLinkVisible, parseSessionHash, recordingKind, sessionPhase, youtubeId } from './learn';
 
 describe('youtubeId / recordingKind', () => {
   it.each([
@@ -40,5 +40,20 @@ describe('googleCalendarUrl', () => {
     const url = googleCalendarUrl({ title: 'S1', startsAt: '2026-10-22T17:00:00.000Z', durationMin: 90, details: 'https://x' });
     expect(url).toContain('dates=20261022T170000Z%2F20261022T183000Z');
     expect(url).not.toContain('meet.google');
+  });
+});
+
+describe('learn page deep links', () => {
+  it('reads #session-N and #session-N-feedback', () => {
+    expect(parseSessionHash('#session-3')).toEqual({ order: 3, feedback: false });
+    expect(parseSessionHash('#session-12-feedback')).toEqual({ order: 12, feedback: true });
+    expect(parseSessionHash('#session-x')).toBeNull();
+    expect(parseSessionHash('#session-3-feedbackx')).toBeNull();
+    expect(parseSessionHash('#reminders')).toBeNull();
+  });
+
+  it('carries only learn-page fragments through sign-in', () => {
+    for (const h of ['#session-2', '#session-2-feedback', '#course-feedback', '#reminders']) expect(isCarriedHash(h)).toBe(true);
+    for (const h of ['', '#', '#email=a%40b.c', '#session-', '#foo']) expect(isCarriedHash(h)).toBe(false);
   });
 });

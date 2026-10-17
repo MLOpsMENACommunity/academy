@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 
 export const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 export const MAILPIT = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
@@ -53,3 +54,45 @@ export const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
+
+/** The compose stack's jobs token (docker-compose.yml): runs the hourly jobs tick on demand. */
+export const JOBS_TOKEN = process.env.E2E_JOBS_TOKEN ?? 'local-compose-jobs-token-not-for-production-0123';
+
+export async function runJobsTick(request: APIRequestContext): Promise<Record<string, number | string>> {
+  const res = await request.post('/api/internal/jobs/tick', { headers: { 'x-jobs-token': JOBS_TOKEN } });
+  expect(res.status(), 'jobs tick').toBe(200);
+  return res.json();
+}
+
+/**
+ * Test fixtures the API can't create, e.g. an enrolment from two days ago. Runs SQL against
+ * the stack's database: E2E_DATABASE_URL (default: the compose Postgres on 127.0.0.1:5433)
+ * with psql, or psql inside the compose container when psql isn't installed. Returns the
+ * rows as tab-separated text. DateTime columns hold UTC: write `(now() AT TIME ZONE 'UTC')`, not
+ * `now()`, which a non-UTC database session would shift.
+ */
+export function sql(query: string): string {
+  const url = process.env.E2E_DATABASE_URL ?? 'postgresql://academy:academy@127.0.0.1:5433/academy';
+  const args = ['-X', '-q', '-t', '-A', '-F', '\t', '-v', 'ON_ERROR_STOP=1', '-c', query];
+  try {
+    return execFileSync('psql', [url, ...args], { encoding: 'utf8' }).trim();
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    return execFileSync('docker', ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'academy', '-d', 'academy', ...args], { encoding: 'utf8' }).trim();
+  }
+}
+
+/** Polls Mailpit for an email to `to` whose subject contains `subject`; returns its subject and HTML. */
+export async function emailWithSubject(request: APIRequestContext, to: string, subject: string): Promise<{ subject: string; html: string }> {
+  for (let i = 0; i < 40; i++) {
+    const res = await request.get(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`);
+    const { messages } = (await res.json()) as { messages?: { ID: string; Subject: string }[] };
+    const hit = messages?.find((m) => m.Subject.includes(subject));
+    if (hit) {
+      const msg = await (await request.get(`${MAILPIT}/api/v1/message/${hit.ID}`)).json();
+      return { subject: msg.Subject as string, html: msg.HTML as string };
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`No email "${subject}" for ${to}`);
+}

@@ -31,6 +31,7 @@ import { EventsModule } from './events/events.module';
 import { LearnModule } from './learn/learn.module';
 import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OutboxModule } from './outbox/outbox.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -54,6 +55,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     CourseAccessModule,
     CourseStaffModule,
     EmailModule,
+    OutboxModule,
     StorageModule,
     FunnelModule,
     NotificationsModule,

@@ -212,7 +212,7 @@ export function SessionCard({
       )}
 
       {s.phase !== 'upcoming' && (
-        <section className="rounded-xl border border-line p-5">
+        <section id={`session-${s.order}-feedback`} className="scroll-mt-6 rounded-xl border border-line p-5">
           <FeedbackForm slug={course.slug} sessionId={s.id} legend={t('learn.feedbackTitle')} initial={s.myFeedback} />
         </section>
       )}
