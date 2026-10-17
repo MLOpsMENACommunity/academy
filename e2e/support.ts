@@ -10,6 +10,18 @@ export const ADMIN = {
 /** The API's CSRF check wants a same-origin Origin header on writes. */
 export const JSON_HEADERS = { Origin: BASE, 'Content-Type': 'application/json' };
 
+/** Sign-ups are limited per IP (10 a minute) and the suite makes many: wait out a 429 rather than fail. */
+export async function registerAccount(api: APIRequestContext, data: Record<string, string>): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await api.post('/api/auth/register', { headers: JSON_HEADERS, data });
+    if (res.status() !== 429 || attempt >= 3) {
+      if (!res.ok()) throw new Error(`register failed: ${res.status()} ${await res.text()}`);
+      return;
+    }
+    await new Promise((r) => setTimeout(r, (Number(res.headers()['retry-after']) || 30) * 1000));
+  }
+}
+
 export async function apiLogin(request: APIRequestContext, email: string, password: string): Promise<void> {
   const res = await request.post('/api/auth/login', { headers: JSON_HEADERS, data: { email, password } });
   expect(res.status(), 'login').toBe(200);

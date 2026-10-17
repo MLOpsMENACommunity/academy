@@ -40,6 +40,8 @@ services:
       secrets: [extra_ca]
     environment:
       NODE_ENV: production
+      # The browser tests sign up and log in far more than any real visitor from one IP.
+      THROTTLE_LIMIT_MULTIPLIER: ${THROTTLE_LIMIT_MULTIPLIER:-10}
       PORT: 4000
       DATABASE_URL: postgresql://academy:academy@postgres:5432/academy?schema=public
       WEB_URL: http://localhost:3000

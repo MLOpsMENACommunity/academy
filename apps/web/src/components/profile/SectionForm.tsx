@@ -133,6 +133,8 @@ function initialValues(section: ProfileSection, p: ProfileDto, language: 'en' | 
         referralSource: p.referralSource,
         communityMember: answer(p.communityMember),
         marketingEmails: answer(p.marketingEmails),
+        telegramUsername: p.telegramUsername ?? '',
+        discordUsername: p.discordUsername ?? '',
       };
     }
   }
@@ -419,6 +421,35 @@ export function SectionForm({
         <div className="space-y-5">
           <SelectField label={f('referralSource')} required value={str('referralSource')} onChange={set('referralSource')} error={errors.referralSource} options={options(REFERRAL_SOURCES, referralSourceLabels, locale)} />
           {yesNo('communityMember', f('communityMember'))}
+          {/* Required for students (the community runs on these chats); an admin may leave them empty. */}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <TextField
+              label={f('telegramUsername')}
+              required={!adminFor}
+              dir="ltr"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="@username"
+              hint={f('telegramUsernameHint')}
+              value={str('telegramUsername')}
+              onChange={set('telegramUsername')}
+              error={errors.telegramUsername}
+            />
+            <TextField
+              label={f('discordUsername')}
+              required={!adminFor}
+              dir="ltr"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="username"
+              hint={f('discordUsernameHint')}
+              value={str('discordUsername')}
+              onChange={set('discordUsername')}
+              error={errors.discordUsername}
+            />
+          </div>
           <hr className="border-line" />
           {yesNo('marketingEmails', f('marketingEmails'), adminFor ? t('admin.studentEdit.consentHint') : undefined)}
         </div>

@@ -3,6 +3,9 @@ import {
   computeCompleteness,
   adminSectionSchemaFor,
   communitySectionSchema,
+  missingCommunityHandles,
+  normalizeDiscordUsername,
+  normalizeTelegramUsername,
   coreSectionSchema,
   educationSectionSchema,
   linksSectionSchema,
@@ -132,16 +135,57 @@ describe('educationSectionSchema', () => {
   });
 });
 
+describe('Telegram and Discord usernames', () => {
+  it('store a Telegram username without its @, 5–32 letters, digits or _', () => {
+    expect(normalizeTelegramUsername('@Layla_ML')).toBe('Layla_ML');
+    expect(normalizeTelegramUsername(' layla_ml ')).toBe('layla_ml');
+    for (const bad of ['abcd', '@abc', 'a'.repeat(33), 'layla.ml', 'layla ml', 'لیلی_ml', '', '@']) expect(normalizeTelegramUsername(bad)).toBeNull();
+    expect(normalizeTelegramUsername('a'.repeat(32))).toBe('a'.repeat(32));
+  });
+
+  it('accept a new-style Discord username (lowered) or a legacy name#1234', () => {
+    expect(normalizeDiscordUsername('layla.ml')).toBe('layla.ml');
+    expect(normalizeDiscordUsername('Layla_ML')).toBe('layla_ml');
+    expect(normalizeDiscordUsername('@layla.ml')).toBe('layla.ml');
+    expect(normalizeDiscordUsername('Layla ML#0420')).toBe('Layla ML#0420');
+    for (const bad of ['l', 'a'.repeat(33), 'layla..ml', 'layla ml', 'layla#12', 'layla#12345', '#1234', 'x#1234', '']) expect(normalizeDiscordUsername(bad)).toBeNull();
+  });
+
+  it('are required in the student\'s community step, and normalised', () => {
+    const base = { referralSource: 'LINKEDIN', communityMember: false, marketingEmails: false };
+    const r = communitySectionSchema.safeParse({ ...base });
+    expect(r.success).toBe(false);
+    expect(r.error!.issues.map((i) => i.path[0]).sort()).toEqual(['discordUsername', 'telegramUsername']);
+    expect(communitySectionSchema.safeParse({ ...base, telegramUsername: '  ', discordUsername: 'x.y' }).success).toBe(false);
+    expect(communitySectionSchema.parse({ ...base, telegramUsername: '@layla_ml', discordUsername: 'Layla.ML' })).toMatchObject({ telegramUsername: 'layla_ml', discordUsername: 'layla.ml' });
+  });
+
+  it('are optional for an admin: empty clears, left out keeps, a bad one is refused', () => {
+    const base = { referralSource: 'LINKEDIN', communityMember: false, marketingEmails: false };
+    const admin = adminSectionSchemaFor('community', null);
+    expect(admin.parse({ ...base, telegramUsername: '', discordUsername: null })).toMatchObject({ telegramUsername: null, discordUsername: null });
+    const kept = admin.parse(base) as Record<string, unknown>;
+    expect(kept.telegramUsername).toBeUndefined();
+    expect(admin.safeParse({ ...base, telegramUsername: 'ab' }).success).toBe(false);
+  });
+
+  it('tell whether a student still has to add them', () => {
+    expect(missingCommunityHandles({ telegramUsername: 'layla_ml', discordUsername: 'layla.ml' })).toBe(false);
+    expect(missingCommunityHandles({ telegramUsername: 'layla_ml', discordUsername: null })).toBe(true);
+    expect(missingCommunityHandles(null)).toBe(true);
+  });
+});
+
 describe('communitySectionSchema', () => {
   it('needs an explicit Yes or No for every question', () => {
-    const ok = { referralSource: 'LINKEDIN', communityMember: false, marketingEmails: false };
+    const ok = { referralSource: 'LINKEDIN', communityMember: false, marketingEmails: false, telegramUsername: 'layla_ml', discordUsername: 'layla.ml' };
     expect(communitySectionSchema.safeParse(ok).success).toBe(true);
     expect(communitySectionSchema.safeParse({ ...ok, marketingEmails: undefined }).success).toBe(false);
     expect(communitySectionSchema.safeParse({ ...ok, referralSource: undefined }).success).toBe(false);
   });
 
   it('no longer asks about job opportunities or hiring partners, and never passes them on', () => {
-    const ok = { referralSource: 'LINKEDIN', communityMember: true, marketingEmails: false };
+    const ok = { referralSource: 'LINKEDIN', communityMember: true, marketingEmails: false, telegramUsername: 'layla_ml', discordUsername: 'layla.ml' };
     expect(communitySectionSchema.safeParse(ok).success).toBe(true);
     // Sent by an old client: dropped, so a save never overwrites the stored answers.
     expect(communitySectionSchema.parse({ ...ok, openToOpportunities: true, shareWithPartners: true })).toEqual(ok);

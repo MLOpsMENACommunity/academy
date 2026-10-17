@@ -61,6 +61,8 @@ export class AdminStudentsService {
         primaryArea: u.profile?.primaryArea ?? null,
         completeness: u.profile?.completeness ?? 0,
         openToOpportunities: u.profile?.openToOpportunities ?? false,
+        telegramUsername: u.profile?.telegramUsername ?? null,
+        discordUsername: u.profile?.discordUsername ?? null,
         applications: u._count.applications,
         enrollments: u._count.enrollments,
         createdAt: u.createdAt.toISOString(),
@@ -136,7 +138,7 @@ export class AdminStudentsService {
       'Student ID', 'Registered', 'Name (EN)', 'Name (AR)', 'Email', 'Phone', 'Country', 'City', 'Employment', 'Job title', 'Company',
       'Industry', 'Experience', 'ML experience', 'Seniority', 'Primary area', 'Secondary areas', 'Education', 'Field of study', 'Institution', 'Skills (1-5)', 'Cloud',
       'Tools', 'Goals', 'Topics', 'Weekly hours', 'Preferred times', 'Format', 'Open to opportunities', 'Share with partners',
-      'Marketing emails', 'LinkedIn', 'GitHub', 'Completeness %',
+      'Marketing emails', 'LinkedIn', 'GitHub', 'Telegram', 'Discord', 'Completeness %',
     ];
     const rows = capRows(users, (u) => {
       const p = u.profile;
@@ -145,7 +147,7 @@ export class AdminStudentsService {
         p?.jobTitle, p?.company, p?.industry, p?.experienceYears, p?.mlExperienceYears, p?.seniority, p?.primaryArea, p?.secondaryAreas,
         p?.educationLevel, p?.fieldOfStudy, p?.university, (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.productionTools,
         p?.learningGoals, p?.interestedTopics, p?.weeklyHours, p?.preferredTimes, p?.preferredFormat, p?.openToOpportunities,
-        p?.shareWithPartners, p?.marketingEmails, p?.linkedinUrl, p?.githubUrl, p?.completeness,
+        p?.shareWithPartners, p?.marketingEmails, p?.linkedinUrl, p?.githubUrl, p?.telegramUsername, p?.discordUsername, p?.completeness,
       ];
     });
     await this.audit.log({ actorId: admin.id, action: 'students.exported', entityType: 'User', metadata: { count: Math.min(users.length, EXPORT_LIMIT) } });

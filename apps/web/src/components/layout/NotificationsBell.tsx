@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, viewerTimezone } from '@/lib/format';
 
 interface Item {
   id: string;
@@ -30,6 +30,7 @@ export function NotificationsBell() {
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const lastOk = useRef(0);
 
@@ -80,10 +81,14 @@ export function NotificationsBell() {
 
   useEffect(() => {
     if (!open) return;
-    api<{ items: Item[]; unread: number }>('/notifications').then((r) => {
-      setItems(r.items);
-      setUnread(r.unread);
-    });
+    setLoadFailed(false);
+    // A failed load says so instead of "Loading…" forever.
+    api<{ items: Item[]; unread: number }>('/notifications')
+      .then((r) => {
+        setItems(r.items);
+        setUnread(r.unread);
+      })
+      .catch(() => setLoadFailed(true));
     const close = (e: MouseEvent | globalThis.KeyboardEvent) => {
       if (e instanceof KeyboardEvent ? e.key === 'Escape' : !panel.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -96,7 +101,8 @@ export function NotificationsBell() {
   }, [open]);
 
   async function markAll() {
-    await api('/notifications/read-all', { method: 'POST' });
+    const ok = await api('/notifications/read-all', { method: 'POST' }).then(() => true, () => false);
+    if (!ok) return;
     setUnread(0);
     setItems((xs) => xs?.map((x) => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })) ?? null);
   }
@@ -131,14 +137,15 @@ export function NotificationsBell() {
             )}
           </div>
           <ul className="max-h-96 overflow-y-auto">
-            {items === null && <li className="p-4 text-sm text-muted">{t('common.loading')}</li>}
+            {items === null && !loadFailed && <li className="p-4 text-sm text-muted">{t('common.loading')}</li>}
+            {items === null && loadFailed && <li className="p-4 text-sm text-danger">{t('errors.generic')}</li>}
             {items?.length === 0 && <li className="p-4 text-sm text-muted">{t('notifications.empty')}</li>}
             {items?.map((n) => {
               const content = (
                 <>
                   <p className={`text-sm ${n.readAt ? 'text-body' : 'font-semibold text-fg'}`}>{locale === 'ar' ? n.titleAr : n.titleEn}</p>
                   <p className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-muted">{locale === 'ar' ? n.bodyAr : n.bodyEn}</p>
-                  <p className="mt-1 text-[11px] text-muted">{formatDateTime(n.createdAt, locale)}</p>
+                  <p className="mt-1 text-[11px] text-muted">{formatDateTime(n.createdAt, locale, viewerTimezone())}</p>
                 </>
               );
               return (
