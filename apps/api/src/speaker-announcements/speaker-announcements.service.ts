@@ -9,11 +9,13 @@ import {
   type SpeakerAnnouncementsDto,
   type SpeakerAssignmentsDto,
   type SpeakerSentAnnouncementDto,
+  type TeachAnnouncementsDto,
 } from '@academy/shared';
 import { Prisma } from '@prisma/client';
 import { AnnouncementDelivery } from '../announcements/announcement-delivery.service';
 import { AuditService } from '../audit/audit.service';
-import { CourseAccessService } from '../course-access/course-access.service';
+import { CourseAccessService, type Teacher } from '../course-access/course-access.service';
+import { setCourseInstructors, syncCourseInstructors } from '../course-staff/staff-sync';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DAY_MS = 86_400_000;
@@ -43,13 +45,13 @@ function limitReached(scope: 'target' | 'day'): HttpException {
 }
 
 /**
- * Speakers' announcements (speaker portal) and their course assignments (admin).
+ * Staff and speakers' announcements, and speakers' course assignments (admin).
  *
- * A speaker is "assigned" to a course when their public speaker profile (Instructor, linked
- * to their account by Instructor.userId) is one of the course's instructors (CourseInstructor):
- * the same link that lists them on the course page. They can then message the course's
- * ENROLLED students; and the registrants of any published live session they speak at, host
- * or guest. Teaching the course (assessments, grading, points, materials) is in teaching/.
+ * Course staff whose role has ANNOUNCE (course-staff/) can message the course's ENROLLED
+ * students (Teaching → {course} → Announcements, or the speaker portal); a speaker can also
+ * message the registrants of any published live session they speak at, host or guest.
+ * "Assigning" a speaker to a course (Admin → Speakers → {speaker}) adds their profile to the
+ * course staff (Co-instructor, or Main instructor when the course has none).
  *
  * Messages reuse the course announcement queue (Announcement + AnnouncementRecipient,
  * AnnouncementDelivery's bulk email lane, in-app notifications, the learn page), go out at
@@ -70,9 +72,20 @@ export class SpeakerAnnouncementsService {
     return this.prisma.instructor.findUnique({ where: { userId }, select: { id: true, name: true, nameAr: true } });
   }
 
-  /** The courses the speaker teaches: the shared rule (CourseAccessService). */
-  private courseWhere(instructorId: string): Prisma.CourseWhereInput {
-    return this.access.teachingWhere(instructorId);
+  /** The courses this account may announce to: on the staff, in a role with ANNOUNCE (CourseAccessService). */
+  private courseWhere(userId: string): Prisma.CourseWhereInput {
+    return this.access.staffCoursesWhere(userId, 'ANNOUNCE');
+  }
+
+  /** "From …" on a message: the speaker profile's name, else the account's, else the course team. */
+  private async sender(userId: string): Promise<{ name: string; nameAr: string | null; instructorId: string | null }> {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { speakerProfile: { select: { id: true, name: true, nameAr: true } }, profile: { select: { fullNameEn: true, fullNameAr: true } } },
+    });
+    if (u?.speakerProfile) return { name: u.speakerProfile.name, nameAr: u.speakerProfile.nameAr || null, instructorId: u.speakerProfile.id };
+    const en = u?.profile?.fullNameEn?.trim();
+    return { name: en || 'The course team', nameAr: u?.profile?.fullNameAr?.trim() || (en ? null : 'فريق الدورة'), instructorId: null };
   }
 
   private sessionWhere(instructorId: string, now: Date): Prisma.LiveEventWhereInput {
@@ -103,7 +116,7 @@ export class SpeakerAnnouncementsService {
     const since = new Date(now.getTime() - DAY_MS);
     const [courses, sessions, recent, history] = await Promise.all([
       this.prisma.course.findMany({
-        where: this.courseWhere(profile.id),
+        where: this.courseWhere(userId),
         orderBy: [{ startDate: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
         select: { ...courseSelect, _count: { select: { applications: { where: { status: 'ENROLLED', user: LIVE_USER } } } } },
       }),
@@ -160,6 +173,42 @@ export class SpeakerAnnouncementsService {
     };
   }
 
+  /**
+   * Teaching → {course} → Announcements (staff with ANNOUNCE, checked by the caller): who would
+   * get a message, what the course's staff sent (counts only, never who), and the limits.
+   */
+  async courseOverview(courseId: string, userId: string, now = new Date()): Promise<TeachAnnouncementsDto> {
+    const since = new Date(now.getTime() - DAY_MS);
+    const [audience, history, today, mine] = await Promise.all([
+      this.prisma.application.count({ where: { courseId, status: 'ENROLLED', user: LIVE_USER } }),
+      this.prisma.announcement.findMany({ where: { courseId, fromName: { not: null } }, orderBy: { createdAt: 'desc' }, take: 30 }),
+      this.prisma.announcement.count({ where: { courseId, fromName: { not: null }, createdAt: { gt: since } } }),
+      this.prisma.announcement.count({ where: { createdById: userId, fromName: { not: null }, createdAt: { gt: since } } }),
+    ]);
+    const counts = await this.prisma.announcementRecipient.groupBy({
+      by: ['announcementId', 'status'],
+      where: { announcementId: { in: history.map((a) => a.id) } },
+      _count: { _all: true },
+    });
+    const n = (id: string, status?: string) => counts.filter((c) => c.announcementId === id && (!status || c.status === status)).reduce((s, c) => s + c._count._all, 0);
+    return {
+      audience,
+      sentToday: today,
+      limits: { perTargetPerDay: SPEAKER_ANNOUNCEMENTS_PER_TARGET_PER_DAY, perDay: SPEAKER_ANNOUNCEMENTS_PER_DAY, sentTodayByMe: mine },
+      sent: history.map((a) => ({
+        id: a.id,
+        at: a.createdAt.toISOString(),
+        subjectEn: a.subjectEn,
+        subjectAr: a.subjectAr || a.subjectEn,
+        from: a.fromName,
+        recipients: n(a.id),
+        sent: n(a.id, 'SENT'),
+        pending: n(a.id, 'PENDING'),
+        failed: n(a.id, 'FAILED'),
+      })),
+    };
+  }
+
   private async withCounts(
     list: (Prisma.AnnouncementGetPayload<{ include: { course: { select: { titleEn: true; titleAr: true } }; event: { select: { titleEn: true; titleAr: true } } } }>)[],
   ): Promise<SpeakerSentAnnouncementDto[]> {
@@ -196,12 +245,13 @@ export class SpeakerAnnouncementsService {
    * speaker's own audience (an unknown id included); 429 past the rate limits.
    */
   async send(
-    userId: string,
+    user: Teacher,
     kind: SpeakerAnnouncementTargetKind,
     targetId: string,
     input: SpeakerAnnouncementInput,
     now = new Date(),
   ): Promise<{ id: string; recipients: number }> {
+    const userId = user.id;
     // Same key = same message (a retried request after a lost response): never send twice.
     const existing = await this.prisma.announcement.findUnique({
       where: { idempotencyKey: input.idempotencyKey },
@@ -209,19 +259,26 @@ export class SpeakerAnnouncementsService {
     });
     if (existing) return this.replay(existing, userId, kind, targetId);
 
-    const profile = await this.profile(userId);
-    if (!profile) throw notYours();
-    const target =
-      kind === 'course'
-        ? await this.prisma.course.findFirst({ where: { id: targetId, ...this.courseWhere(profile.id) }, select: { id: true, slug: true, titleEn: true, titleAr: true } })
-        : await this.prisma.liveEvent.findFirst({ where: { id: targetId, ...this.sessionWhere(profile.id, now) }, select: { id: true, slug: true, titleEn: true, titleAr: true } });
+    let target: { id: string; slug: string; titleEn: string; titleAr: string } | null;
+    let from: { name: string; nameAr: string | null; instructorId: string | null };
+    if (kind === 'course') {
+      // Course staff with ANNOUNCE (and SUPER/ACADEMIC admins): the shared rule, read now.
+      if (!(await this.access.can(user, targetId, 'ANNOUNCE'))) throw notYours();
+      target = await this.prisma.course.findUnique({ where: { id: targetId }, select: { id: true, slug: true, titleEn: true, titleAr: true } });
+      from = await this.sender(userId);
+    } else {
+      const profile = await this.profile(userId);
+      if (!profile) throw notYours();
+      target = await this.prisma.liveEvent.findFirst({ where: { id: targetId, ...this.sessionWhere(profile.id, now) }, select: { id: true, slug: true, titleEn: true, titleAr: true } });
+      from = { name: profile.name, nameAr: profile.nameAr || null, instructorId: profile.id };
+    }
     if (!target) throw notYours();
 
     const people = kind === 'course' ? await this.courseRecipients(target.id) : await this.sessionRecipients(target.id);
     if (!people.length) throw new BadRequestException({ code: 'NO_RECIPIENTS', message: 'Nobody to send this to yet' });
 
-    const fromName = profile.name;
-    const fromNameAr = profile.nameAr || null;
+    const fromName = from.name;
+    const fromNameAr = from.nameAr;
     const subjectAr = input.subjectAr || input.subjectEn;
     const bodyAr = input.bodyAr || input.bodyEn;
     const titleAr = target.titleAr || target.titleEn;
@@ -274,7 +331,7 @@ export class SpeakerAnnouncementsService {
             action: 'announcement.sent_by_speaker',
             entityType: 'Announcement',
             entityId: a.id,
-            metadata: { [kind === 'course' ? 'courseId' : 'eventId']: target.id, instructorId: profile.id, recipients: people.length },
+            metadata: { [kind === 'course' ? 'courseId' : 'eventId']: target.id, instructorId: from.instructorId, recipients: people.length },
           },
           tx,
         );
@@ -313,55 +370,79 @@ export class SpeakerAnnouncementsService {
   private async instructor(id: string) {
     const i = await this.prisma.instructor.findUnique({
       where: { id },
-      select: { id: true, user: { select: { email: true, role: true, deletedAt: true } } },
+      select: { id: true, userId: true, user: { select: { email: true, role: true, deletedAt: true } } },
     });
     if (!i) throw new NotFoundException('Speaker not found');
     return i;
   }
 
+  /** Staff rows of this speaker: by their profile, or by the account behind it. */
+  private staffOf(i: { id: string; userId: string | null }): Prisma.CourseStaffWhereInput {
+    return { OR: [{ instructorId: i.id }, ...(i.userId ? [{ userId: i.userId }] : [])] };
+  }
+
+  /** The courses whose staff this speaker is on (any role), and the ones they could join. */
   async assignments(instructorId: string): Promise<SpeakerAssignmentsDto> {
     const i = await this.instructor(instructorId);
-    const [assigned, available] = await Promise.all([
-      this.prisma.courseInstructor.findMany({
-        where: { instructorId },
+    const [rows, available] = await Promise.all([
+      this.prisma.courseStaff.findMany({
+        where: this.staffOf(i),
         orderBy: { course: { createdAt: 'desc' } },
-        select: { course: { select: courseSelect } },
+        select: { course: { select: courseSelect }, role: { select: { name: true } } },
       }),
       this.prisma.course.findMany({
-        where: { status: { not: 'ARCHIVED' }, instructors: { none: { instructorId } } },
+        where: { status: { not: 'ARCHIVED' }, staff: { none: this.staffOf(i) } },
         orderBy: { createdAt: 'desc' },
         select: courseSelect,
       }),
     ]);
-    const dto = (c: AssignedCourseDto): AssignedCourseDto => ({ id: c.id, slug: c.slug, titleEn: c.titleEn, titleAr: c.titleAr || c.titleEn, status: c.status });
+    const dto = (c: AssignedCourseDto, roleName: string | null = null): AssignedCourseDto => ({
+      id: c.id,
+      slug: c.slug,
+      titleEn: c.titleEn,
+      titleAr: c.titleAr || c.titleEn,
+      status: c.status,
+      roleName,
+    });
+    const seen = new Set<string>();
     return {
-      account: i.user ? { email: i.user.email, role: i.user.role, active: !i.user.deletedAt && i.user.role === 'SPEAKER' } : null,
-      assigned: assigned.map((a) => dto(a.course)),
-      available: available.map(dto),
+      // Any account can be course staff now; it acts while it isn't deleted.
+      account: i.user ? { email: i.user.email, role: i.user.role, active: !i.user.deletedAt } : null,
+      assigned: rows.filter((r) => !seen.has(r.course.id) && seen.add(r.course.id)).map((r) => dto(r.course, r.role.name)),
+      available: available.map((c) => dto(c)),
     };
   }
 
-  /** Adds the speaker to the course's instructors (last in order). Archived courses can't be assigned. */
+  /**
+   * A shortcut to the course staff: adds the speaker's profile (and account) as a Co-instructor,
+   * or as the Main instructor when the course has none. Archived courses can't be assigned.
+   */
   async assign(instructorId: string, courseId: string, actorId: string): Promise<SpeakerAssignmentsDto> {
-    await this.instructor(instructorId);
+    const i = await this.instructor(instructorId);
     const course = await this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, status: true } });
     if (!course) throw new NotFoundException('Course not found');
     if (course.status === 'ARCHIVED') throw new BadRequestException({ code: 'COURSE_ARCHIVED', message: 'Archived courses cannot be assigned' });
     await this.prisma.$transaction(async (tx) => {
-      const exists = await tx.courseInstructor.findUnique({ where: { courseId_instructorId: { courseId, instructorId } } });
-      if (exists) return;
-      const last = await tx.courseInstructor.aggregate({ where: { courseId }, _max: { order: true } });
-      await tx.courseInstructor.create({ data: { courseId, instructorId, order: (last._max.order ?? -1) + 1 } });
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`course-staff:${courseId}`}))`;
+      if (await tx.courseStaff.count({ where: { courseId, ...this.staffOf(i) } })) return;
+      const current = await tx.courseStaff.findMany({
+        where: { courseId, instructorId: { not: null }, role: { builtin: { in: ['MAIN', 'CO'] } } },
+        select: { instructorId: true, order: true, role: { select: { order: true } } },
+      });
+      const ids = current.sort((a, b) => a.role.order - b.role.order || a.order - b.order).map((r) => r.instructorId!);
+      await setCourseInstructors(tx, courseId, [...ids, instructorId]);
       await this.audit.log({ actorId, action: 'instructor.course_assigned', entityType: 'Instructor', entityId: instructorId, metadata: { courseId } }, tx);
     });
     return this.assignments(instructorId);
   }
 
+  /** Takes the speaker off the course staff (their profile and their account). */
   async unassign(instructorId: string, courseId: string, actorId: string): Promise<SpeakerAssignmentsDto> {
-    await this.instructor(instructorId);
+    const i = await this.instructor(instructorId);
     await this.prisma.$transaction(async (tx) => {
-      const removed = await tx.courseInstructor.deleteMany({ where: { courseId, instructorId } });
+      const removed = await tx.courseStaff.deleteMany({ where: { courseId, ...this.staffOf(i) } });
       if (removed.count) {
+        await syncCourseInstructors(tx, courseId);
         await this.audit.log({ actorId, action: 'instructor.course_unassigned', entityType: 'Instructor', entityId: instructorId, metadata: { courseId } }, tx);
       }
     });

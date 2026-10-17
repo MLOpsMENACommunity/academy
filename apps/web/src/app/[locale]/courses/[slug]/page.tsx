@@ -502,7 +502,53 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          {c.instructors.length > 0 && (
+          {c.staff?.length ? (
+            // Course staff in their Shown roles, grouped by role (Main instructor first); anonymous staff never appear.
+            <Section id="instructors" title={c.staff.length === 1 && c.staff[0]!.people.length === 1 ? t('course.instructor') : t('course.team')}>
+              <div className="space-y-10">
+                {c.staff.map((g) => (
+                  <section key={g.roleId} aria-labelledby={`role-${g.roleId}`}>
+                    <h3 id={`role-${g.roleId}`} className="text-sm font-semibold tracking-wide text-muted uppercase">
+                      {pick(locale, g.name, g.nameAr)}
+                    </h3>
+                    <ul className="mt-4 space-y-8">
+                      {g.people.map((i) => (
+                        <li key={i.id} className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                          {i.photoUrl ? (
+                            // unoptimized: admins may paste photos from any host (e.g. LinkedIn's CDN).
+                            <Image src={i.photoUrl} alt="" width={72} height={72} unoptimized className="size-18 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <span aria-hidden className="grid size-18 shrink-0 place-items-center rounded-full bg-logo-cyan-soft text-2xl font-semibold text-primary">
+                              {pick(locale, i.name, i.nameAr).replace(/\[.*?\]\s*/, '').charAt(0)}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xl">
+                              {i.slug ? (
+                                <Link href={speakerPath(locale, i.slug)} className="hover:text-primary">
+                                  {pick(locale, i.name, i.nameAr)}
+                                </Link>
+                              ) : (
+                                pick(locale, i.name, i.nameAr)
+                              )}
+                            </h4>
+                            {i.titleEn && pick(locale, i.titleEn, i.titleAr) && <p className="mt-1 text-muted">{pick(locale, i.titleEn, i.titleAr)}</p>}
+                            {i.bioEn && pick(locale, i.bioEn, i.bioAr).trim() && <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, i.bioEn, i.bioAr)}</p>}
+                            {i.linkedinUrl && (
+                              <a href={i.linkedinUrl} rel="noopener" className="mt-2 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">
+                                LinkedIn
+                              </a>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            </Section>
+          ) : (
+            c.instructors.length > 0 && (
             <Section id="instructors" title={c.instructors.length > 1 ? t('course.instructors') : t('course.instructor')}>
               <ul className="space-y-10">
                 {c.instructors.map((i) => (
@@ -543,6 +589,7 @@ export default async function CoursePage({ params }: Props) {
                 ))}
               </ul>
             </Section>
+          )
           )}
 
           {details.length > 0 && (

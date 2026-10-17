@@ -144,6 +144,12 @@ describe('admin routes', () => {
     }
   });
 
+  it('keeps course staff and roles with the academic preset', () => {
+    const staff = routes.filter((r) => r.path.startsWith('admin/courses/:id/staff'));
+    expect(staff.length).toBe(7);
+    for (const r of staff) expect(r.adminCan).toEqual(['ACADEMIC']);
+  });
+
   it('serves uploaded images publicly, and only there', () => {
     const media = find('GET', 'media/:name');
     expect(media.isPublic).toBe(true);

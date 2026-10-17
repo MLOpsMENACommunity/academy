@@ -7,6 +7,7 @@ import { MyCourses, type CourseMeta } from '@/components/applications/MyCourses'
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
+import { TeachingCard } from '@/components/teach/TeachCourses';
 import { MyCertificates } from '@/components/certificates/MyCertificates';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { PathProgressFrom } from '@/components/paths/PathProgress';
@@ -146,6 +147,8 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
           <NextUp />
 
           <PointsCard className={card} />
+
+          <TeachingCard className={card} />
 
           {!user.profile.coreComplete ? (
             <div className={`${card} flex flex-col gap-3 p-5`}>

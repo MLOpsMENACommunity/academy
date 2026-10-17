@@ -10,6 +10,7 @@ import {
   PUBLIC_COURSE_STATUSES,
 } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
+import { CourseStaffService } from '../course-staff/course-staff.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NO_SEATS, toCourseDetail, toCourseSummary, type SeatCount } from './course.mapper';
 
@@ -18,7 +19,10 @@ const LIVE_ACCOUNT = { user: { deletedAt: null } } satisfies Prisma.ApplicationW
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staff: CourseStaffService,
+  ) {}
 
   /**
    * Per course: seats held (shortlisted through enrolled) and active enrolments. A deleted
@@ -80,8 +84,8 @@ export class CoursesService {
       },
     });
     if (!course) throw new NotFoundException('Course not found');
-    const seats = await this.seatCounts([course.id]);
-    return toCourseDetail(course, seats.get(course.id) ?? NO_SEATS);
+    const [seats, staff] = await Promise.all([this.seatCounts([course.id]), this.staff.publicGroups(course.id)]);
+    return toCourseDetail(course, seats.get(course.id) ?? NO_SEATS, new Date(), staff);
   }
 
   async myStatus(slug: string, userId: string): Promise<MyCourseStatusDto> {

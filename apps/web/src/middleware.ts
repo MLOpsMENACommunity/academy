@@ -8,7 +8,7 @@ import { defaultLocale, isLocale, LOCALE_COOKIE } from './i18n/config';
  *    login with a returnTo so they land back where they started. (The API is
  *    still the real gatekeeper; this only avoids rendering an empty shell.)
  */
-const PROTECTED = /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/(apply|notify)(\/|$)/;
+const PROTECTED = /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn|teach)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/(apply|notify)(\/|$)/;
 
 export function middleware(req: NextRequest) {
   const { search } = req.nextUrl;

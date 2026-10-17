@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         disallow: [
           '/api/',
-          ...['admin', 'dashboard', 'profile', 'learn', 'onboarding'].flatMap((p) => [`/en/${p}`, `/ar/${p}`]),
+          ...['admin', 'dashboard', 'profile', 'learn', 'onboarding', 'teach'].flatMap((p) => [`/en/${p}`, `/ar/${p}`]),
           '/*/courses/*/apply',
           '/*/courses/*/notify',
         ],

@@ -365,6 +365,7 @@ model User {
   speakerProfile          Instructor?
   speakingSlots           SpeakingSlot[]           @relation("SlotBooker")
   speakingSlotsCreated    SpeakingSlot[]           @relation("SlotCreator")
+  courseStaff             CourseStaff[]
 
   @@index([role])
   @@index([createdAt])
@@ -554,6 +555,8 @@ model Instructor {
   updatedAt  DateTime @updatedAt
 
   courses CourseInstructor[]
+  /// Course staff rows that show this profile on a course page (see CourseStaff).
+  staff   CourseStaff[]
   events  LiveEvent[]
   /// Sessions they hosted or joined as a guest (besides each session's main speaker).
   coSpeaking LiveEventSpeaker[]
@@ -643,7 +646,10 @@ model Course {
   attendancePartialPoints  Int         @default(5)
   attendanceAbsentPoints   Int         @default(0)
 
+  /// Derived from CourseStaff (see there): kept for the old readers (catalog cards, certificates).
   instructors        CourseInstructor[]
+  staffRoles         CourseRole[]
+  staff              CourseStaff[]
   screeningQuestions ScreeningQuestion[]
   sessions           CourseSession[]
   applications       Application[]
@@ -664,6 +670,9 @@ model Course {
   speakingSlot        SpeakingSlot?
 }
 
+/// Not edited directly any more: rewritten from CourseStaff on every staff change
+/// (src/course-staff/staff-sync.ts). It lists the people in the Main instructor and
+/// Co-instructor roles who have a public speaker profile and whose role is SHOWN, in order.
 model CourseInstructor {
   courseId     String
   course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -1705,4 +1714,80 @@ model LeaderboardOptIn {
 
   @@id([userId, courseId])
   @@index([courseId, optedIn])
+}
+
+// ---------------------------------------------------------------- Course staff
+
+enum CoursePermission {
+  MANAGE_ASSESSMENTS
+  GRADE
+  MANAGE_MATERIALS
+  VIEW_ROSTER
+  UPLOAD_ATTENDANCE
+  MANAGE_POINTS
+  ANNOUNCE
+  VIEW_FEEDBACK
+  EDIT_COURSE
+  MANAGE_SESSIONS
+  MANAGE_APPLICATIONS
+  ENROL
+  ISSUE_CERTIFICATES
+  MANAGE_RULES
+}
+
+enum StaffVisibility {
+  SHOWN
+  ANONYMOUS
+}
+
+enum BuiltinCourseRole {
+  MAIN
+  CO
+  MODERATOR
+}
+
+/// A role in one course: a name, what its people may do there, and whether they are shown on
+/// the public course page. Every course has the three built-in roles (renamable, MAIN can't be deleted).
+model CourseRole {
+  id          String             @id @default(cuid())
+  courseId    String
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name        String
+  nameAr      String?
+  permissions CoursePermission[] @default([])
+  visibility  StaffVisibility    @default(SHOWN)
+  builtin     BuiltinCourseRole?
+  order       Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  staff       CourseStaff[]
+
+  @@unique([courseId, builtin])
+  @@index([courseId])
+}
+
+/// One person on a course's staff, in one of its roles. The source of truth for who teaches a
+/// course and who is shown on its page (CourseInstructor is derived from it).
+///   userId: the account that may act (permissions of the role); null = display-only.
+///   instructorId: the public speaker profile shown on the course page (else the account name).
+/// At least one is set (check constraint), and an account is on a course's staff once.
+model CourseStaff {
+  id           String      @id @default(cuid())
+  courseId     String
+  course       Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  roleId       String
+  role         CourseRole  @relation(fields: [roleId], references: [id], onDelete: NoAction)
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  instructorId String?
+  instructor   Instructor? @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  order        Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([courseId, userId])
+  @@unique([courseId, instructorId])
+  @@index([userId])
+  @@index([instructorId])
+  @@index([roleId])
 }

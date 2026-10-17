@@ -17,6 +17,7 @@ import {
 } from './enums';
 import type { FaqItem, Included, LocalizedList, LocalizedText, OutlineModule, QuestionOption } from './course-content';
 import { audienceLevelLabels } from './labels';
+import type { PublicStaffGroupDto } from './course-staff';
 
 // ------------------------------------------------------------------ levels
 
@@ -251,7 +252,10 @@ export interface CourseDetailDto extends CourseSummaryDto {
   externalPlatform: string | null;
   externalUrl: string | null;
   publicRecordings: boolean;
+  /** The course's instructors (Main and Co-instructor roles with a public speaker profile, SHOWN only). */
   instructors: InstructorDto[];
+  /** Everyone in a SHOWN course role, grouped by role, Main instructor first. Never anonymous staff or emails. */
+  staff: PublicStaffGroupDto[];
   sessions: PublicSessionDto[];
   screeningQuestions: ScreeningQuestionDto[];
   updatedAt: string;

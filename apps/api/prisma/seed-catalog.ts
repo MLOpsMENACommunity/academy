@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { setCourseInstructors } from '../src/course-staff/staff-sync';
 import type { SeedCourse, SeedInstructorRevision, SeedRevision } from './seed-data';
 
 /** Setting row listing every slug the seed has ever created (not a user-facing setting). */
@@ -44,10 +45,9 @@ export async function seedCatalog(prisma: PrismaClient, courses: SeedCourse[], e
     }
 
     const created = await prisma.course.create({ data });
-    if (instructor) {
-      const inst = await prisma.instructor.create({ data: instructor });
-      await prisma.courseInstructor.create({ data: { courseId: created.id, instructorId: inst.id } });
-    }
+    const inst = instructor ? await prisma.instructor.create({ data: instructor }) : null;
+    // Course staff: the built-in roles, and the seeded instructor as the Main instructor.
+    await prisma.$transaction((tx) => setCourseInstructors(tx, created.id, inst ? [inst.id] : []));
     if (questions.length) {
       await prisma.screeningQuestion.createMany({
         data: questions.map((q, order) => ({ ...q, order, courseId: created.id })) as Prisma.ScreeningQuestionCreateManyInput[],
@@ -142,16 +142,25 @@ async function refreshPlaceholder(prisma: PrismaClient, courseId: string, seed: 
     const { slug: _slug, ...fields } = data;
     await tx.course.update({ where: { id: courseId }, data: fields as Prisma.CourseUpdateInput });
 
-    const links = await tx.courseInstructor.findMany({ where: { courseId }, include: { instructor: true } });
-    for (const l of links.filter((x) => x.instructor.name.startsWith(PLACEHOLDER))) {
-      await tx.courseInstructor.delete({ where: { courseId_instructorId: { courseId, instructorId: l.instructorId } } });
-      if (!(await tx.courseInstructor.count({ where: { instructorId: l.instructorId } }))) {
+    // The Main instructor and Co-instructors with a profile (shown or not), in order.
+    const links = (
+      await tx.courseStaff.findMany({
+        where: { courseId, instructorId: { not: null }, role: { builtin: { in: ['MAIN', 'CO'] } } },
+        select: { instructorId: true, order: true, role: { select: { order: true } }, instructor: { select: { name: true } } },
+      })
+    ).sort((a, b) => a.role.order - b.role.order || a.order - b.order);
+    // A course created before course staff existed (only CourseInstructor rows): read those.
+    const legacy = links.length ? [] : await tx.courseInstructor.findMany({ where: { courseId }, orderBy: { order: 'asc' }, include: { instructor: { select: { name: true } } } });
+    const all = [...links.map((l) => ({ instructorId: l.instructorId!, name: l.instructor!.name })), ...legacy.map((l) => ({ instructorId: l.instructorId, name: l.instructor.name }))];
+    const placeholders = all.filter((x) => x.name.startsWith(PLACEHOLDER));
+    const keep = all.filter((x) => !x.name.startsWith(PLACEHOLDER)).map((x) => x.instructorId);
+    const added = seed.instructor && keep.length === 0 ? await tx.instructor.create({ data: seed.instructor }) : null;
+    // Course staff (CourseInstructor follows): placeholders out, the seeded instructor in.
+    await setCourseInstructors(tx, courseId, added ? [added.id] : keep);
+    for (const l of placeholders) {
+      if (!(await tx.courseInstructor.count({ where: { instructorId: l.instructorId } })) && !(await tx.courseStaff.count({ where: { instructorId: l.instructorId } }))) {
         await tx.instructor.delete({ where: { id: l.instructorId } });
       }
-    }
-    if (seed.instructor && links.every((l) => l.instructor.name.startsWith(PLACEHOLDER))) {
-      const inst = await tx.instructor.create({ data: seed.instructor });
-      await tx.courseInstructor.create({ data: { courseId, instructorId: inst.id } });
     }
 
     if ((await tx.application.count({ where: { courseId } })) === 0) {

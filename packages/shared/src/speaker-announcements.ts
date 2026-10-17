@@ -95,6 +95,8 @@ export interface AssignedCourseDto {
   titleEn: string;
   titleAr: string;
   status: CourseStatus;
+  /** Their role on the course staff (assigned courses only). */
+  roleName?: string | null;
 }
 
 export interface SpeakerAssignmentsDto {

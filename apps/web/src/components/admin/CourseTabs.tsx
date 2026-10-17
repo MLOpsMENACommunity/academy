@@ -263,7 +263,7 @@ export function weeklyDates(first: string, count: number, skipWeeks: number[]): 
   return out;
 }
 
-function WeeklySessions({ courseId, nextNumber, onCreated, onCancel }: { courseId: string; nextNumber: number; onCreated: (rows: SessionRow[]) => void; onCancel: () => void }) {
+function WeeklySessions({ apiBase, nextNumber, onCreated, onCancel }: { apiBase: string; nextNumber: number; onCreated: (rows: SessionRow[]) => void; onCancel: () => void }) {
   const { locale, t } = useI18n();
   const c = (k: string, v?: Record<string, string | number>) => t(`admin.courses.weekly.${k}`, v);
   const [first, setFirst] = useState('');
@@ -282,7 +282,7 @@ function WeeklySessions({ courseId, nextNumber, onCreated, onCancel }: { courseI
     if (!dates.length) return;
     setBusy(true);
     try {
-      const rows = await api<SessionRow[]>(`/admin/courses/${courseId}/sessions/bulk`, {
+      const rows = await api<SessionRow[]>(`${apiBase}/sessions/bulk`, {
         method: 'POST',
         json: {
           sessions: dates.map((d, i) => ({
@@ -338,12 +338,31 @@ function WeeklySessions({ courseId, nextNumber, onCreated, onCancel }: { courseI
   );
 }
 
-export function SessionsEditor({ courseId, initial, onChange }: { courseId: string; initial: SessionRow[]; onChange?: () => void }) {
+/**
+ * The course's sessions. `apiBase` is the course's API path (/admin/courses/{id}, or
+ * /teach/courses/{id} for course staff with MANAGE_SESSIONS); `attendanceHref` links each
+ * session to its attendance (null hides the link).
+ */
+export function SessionsEditor({
+  courseId,
+  initial,
+  onChange,
+  apiBase,
+  attendanceHref,
+}: {
+  courseId: string;
+  initial: SessionRow[];
+  onChange?: () => void;
+  apiBase?: string;
+  attendanceHref?: ((sessionId: string) => string) | null;
+}) {
   const { locale, t } = useI18n();
   const [sessions, setSessions] = useState<SessionRow[]>(initial);
   const [editing, setEditing] = useState<string | 'new' | 'weekly' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const base = `/admin/courses/${courseId}/sessions`;
+  const courseApi = apiBase ?? `/admin/courses/${courseId}`;
+  const base = `${courseApi}/sessions`;
+  const attendanceLink = attendanceHref === undefined ? (sid: string) => `/${locale}/admin/courses/${courseId}?tab=attendance&session=${encodeURIComponent(sid)}` : attendanceHref;
   const toDraft = (s: SessionRow): SessionDraft => ({ ...s, startsAt: toLocalInput(s.startsAt) });
   const payload = (s: SessionDraft) => ({ ...s, startsAt: fromLocalInput(s.startsAt) });
 
@@ -417,9 +436,11 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
                     <button type="button" onClick={() => setEditing(s.id)} className="rounded border border-line px-2 py-1">
                       {t('admin.common.edit')}
                     </button>
-                    <Link href={`/${locale}/admin/courses/${courseId}?tab=attendance&session=${encodeURIComponent(s.id)}`} className="rounded border border-line px-2 py-1">
-                      {t('attendance.tab')}
-                    </Link>
+                    {attendanceLink && (
+                      <Link href={attendanceLink(s.id)} className="rounded border border-line px-2 py-1">
+                        {t('attendance.tab')}
+                      </Link>
+                    )}
                     <button type="button" onClick={() => remove(s)} className="rounded border border-danger/40 px-2 py-1 text-danger">
                       {t('admin.common.delete')}
                     </button>
@@ -445,7 +466,7 @@ export function SessionsEditor({ courseId, initial, onChange }: { courseId: stri
         </Card>
       ) : editing === 'weekly' ? (
         <WeeklySessions
-          courseId={courseId}
+          apiBase={courseApi}
           nextNumber={sessions.length + 1}
           onCancel={() => setEditing(null)}
           onCreated={(rows) => {

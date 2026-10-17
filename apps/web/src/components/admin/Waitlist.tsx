@@ -17,8 +17,10 @@ import { issuesToErrors } from '@/lib/zod-errors';
 const newKey = () => crypto.randomUUID();
 
 /** The course admin's "Waiting list" tab: who's waiting, export, and "the course is open" email. */
-export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: string; status: CourseStatus; titleEn: string; titleAr: string }) {
+export function Waitlist({ courseId, status, titleEn, titleAr, apiBase }: { courseId: string; status: CourseStatus; titleEn: string; titleAr: string; apiBase?: string }) {
   const { locale, t } = useI18n();
+  /** /admin/courses/{id}, or /teach/courses/{id} for course staff with ENROL. */
+  const courseApi = apiBase ?? `/admin/courses/${courseId}`;
   const w = (k: string, v?: Record<string, string | number>) => t(`admin.courses.wl.${k}`, v);
   const [data, setData] = useState<WaitlistDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +38,10 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
   }));
 
   const load = useCallback(() => {
-    api<WaitlistDto>(`/admin/courses/${courseId}/waitlist`)
+    api<WaitlistDto>(`${courseApi}/waitlist`)
       .then(setData)
       .catch((err) => setError(errorMessage(err, t)));
-  }, [courseId, t]);
+  }, [courseApi, t]);
   useEffect(load, [load]);
 
   // While emails are going out, refresh the counts.
@@ -66,7 +68,7 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
     if (!data?.waiting || !window.confirm(w('confirm', { count: data.waiting }))) return;
     setBusy(true);
     try {
-      const r = await api<{ recipients: number }>(`/admin/courses/${courseId}/waitlist/notify`, { method: 'POST', json: parsed.data });
+      const r = await api<{ recipients: number }>(`${courseApi}/waitlist/notify`, { method: 'POST', json: parsed.data });
       setDone(w('sent', { count: r.recipients }));
       setKey(newKey());
       load();
@@ -81,7 +83,7 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
     if (!window.confirm(w('removeConfirm', { email }))) return;
     setError(null);
     try {
-      await api(`/admin/courses/${courseId}/waitlist/${id}`, { method: 'DELETE' });
+      await api(`${courseApi}/waitlist/${id}`, { method: 'DELETE' });
       load();
     } catch (err) {
       setError(errorMessage(err, t));
@@ -91,7 +93,7 @@ export function Waitlist({ courseId, status, titleEn, titleAr }: { courseId: str
   async function exportCsv() {
     setError(null);
     try {
-      await downloadViaApi(`/admin/courses/${courseId}/waitlist/export.csv`, 'waiting-list.csv');
+      await downloadViaApi(`${courseApi}/waitlist/export.csv`, 'waiting-list.csv');
     } catch (err) {
       setError(errorMessage(err, t));
     }

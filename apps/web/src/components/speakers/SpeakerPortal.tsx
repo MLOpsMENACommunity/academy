@@ -25,7 +25,7 @@ import { useSearchParam } from '@/lib/use-search-param';
 import { BookingForm, type BookingValues } from './BookingForm';
 import { byMonth, monthLabel, SPEAKER_APP_TONE, speakerError } from './shared';
 import { SpeakerAnnouncements } from './SpeakerAnnouncements';
-import { SpeakerCourses } from './teaching/SpeakerCourses';
+import { TeachCourses } from '@/components/teach/TeachCourses';
 
 /** /speaker: the speaker's home (application, open slots, bookings). */
 export function SpeakerPortal() {
@@ -147,7 +147,7 @@ function Portal() {
         )}
       </Card>
 
-      <SpeakerCourses />
+      <TeachCourses />
 
       <SpeakerAnnouncements />
 

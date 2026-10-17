@@ -180,7 +180,9 @@ describe('speaker announcements (e2e)', () => {
       const again = await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', spk.cookie).send(body).expect(201);
       expect(again.body).toEqual(first.body);
       expect(await prisma.announcement.count({ where: { idempotencyKey: body.idempotencyKey } })).toBe(1);
+      // Another staff member of the same course can't reuse the key either.
       const thief = await speaker('Key Thief');
+      await assign(thief.instructorId, course.id).expect(200);
       const res = await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', thief.cookie).send(body).expect(409);
       expect(res.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
     });
@@ -191,7 +193,8 @@ describe('speaker announcements (e2e)', () => {
       await assign(u.instructorId, course.id).expect(200);
       for (const id of [other.id, 'does-not-exist']) {
         const res = await http().post(`/api/speaker/courses/${id}/announcements`).set('Cookie', u.cookie).send(message()).expect(403);
-        expect(res.body.code).toBe('NOT_YOUR_AUDIENCE');
+        // The course routes answer for an unknown course the same as for someone else's.
+        expect(res.body.code).toBe('NOT_YOUR_COURSE');
       }
       expect(await prisma.announcement.count({ where: { courseId: other.id } })).toBe(0);
     });
@@ -225,7 +228,7 @@ describe('speaker announcements (e2e)', () => {
       await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', spk.cookie).send(message()).expect(201);
     });
 
-    it('loses access when unassigned, switched back to a student, or deleted', async () => {
+    it('loses access when unassigned or deleted (switched to a student, they stay course staff)', async () => {
       const s = await speaker('Leaving Speaker');
       await assign(s.instructorId, course.id).expect(200);
       await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', s.cookie).send(message()).expect(201);
@@ -236,7 +239,7 @@ describe('speaker announcements (e2e)', () => {
 
       await assign(s.instructorId, course.id).expect(200);
       await prisma.user.update({ where: { id: s.id }, data: { role: 'STUDENT' } });
-      await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', s.cookie).send(message()).expect(403);
+      await http().post(`/api/teach/courses/${course.id}/announcements`).set('Cookie', s.cookie).send(message()).expect(201);
       await prisma.user.update({ where: { id: s.id }, data: { role: 'SPEAKER', deletedAt: new Date() } });
       await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', s.cookie).send(message()).expect(401);
 
@@ -252,8 +255,11 @@ describe('speaker announcements (e2e)', () => {
     it('students and admins cannot use the speaker endpoints; a speaker without a profile has nothing', async () => {
       for (const who of [enrolled[0]!, admin]) {
         await http().get('/api/speaker/announcements').set('Cookie', who.cookie).expect(403);
-        await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', who.cookie).send(message()).expect(403);
       }
+      // Course announcements: a student off the staff gets 403; an admin preset without courses too.
+      await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', enrolled[0]!.cookie).send(message()).expect(403);
+      const content = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['CONTENT'], prefix: 'spk-ann-content' });
+      await http().post(`/api/speaker/courses/${course.id}/announcements`).set('Cookie', content.cookie).send(message()).expect(403);
       await http().post(`/api/speaker/courses/${course.id}/announcements`).send(message()).expect(401);
       const bare = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'spk-ann-bare', coreComplete: false });
       expect((await http().get('/api/speaker/announcements').set('Cookie', bare.cookie).expect(200)).body).toMatchObject({ hasProfile: false, courses: [], sessions: [] });

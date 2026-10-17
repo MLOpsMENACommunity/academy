@@ -6,7 +6,7 @@ import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorator
 import { ZodPipe } from '../common/zod.pipe';
 import { SpeakerAnnouncementsService } from './speaker-announcements.service';
 
-/** A speaker's announcements to their assigned courses and their own live sessions. Speaker accounts only. */
+/** A speaker's announcements to their own live sessions, and the overview of their courses and sessions. Speaker accounts only. */
 @ApiTags('speaker')
 @Roles('SPEAKER')
 @Controller('speaker')
@@ -19,16 +19,13 @@ export class SpeakerAnnouncementsController {
     return this.service.overview(user.id);
   }
 
-  @Post('courses/:id/announcements')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  toCourse(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(speakerAnnouncementSchema)) body: SpeakerAnnouncementInput) {
-    return this.service.send(user.id, 'course', id, body);
-  }
+  // POST speaker/courses/:courseId/announcements (to a course) is served by the Teaching routes
+  // (teaching/teaching.controller.ts), for any course staff whose role has ANNOUNCE.
 
   @Post('sessions/:id/announcements')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   toSession(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(speakerAnnouncementSchema)) body: SpeakerAnnouncementInput) {
-    return this.service.send(user.id, 'session', id, body);
+    return this.service.send(user, 'session', id, body);
   }
 }
 
