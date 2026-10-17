@@ -424,7 +424,10 @@ describe('course staff, roles and permissions (e2e)', () => {
     // skipPayment on a free course is refused too (it is a waiver flag).
     expect((await enrol(free.id, main, b.email, true).expect(403)).body.code).toBe('PAYMENT_WAIVER_ADMIN_ONLY');
     // The overview tells the web app to hide the option.
-    expect((await http().get(`/api/teach/courses/${paid.id}`).set('Cookie', main.cookie).expect(200)).body.canWaivePayment).toBe(false);
+    const detail = (await http().get(`/api/teach/courses/${paid.id}`).set('Cookie', main.cookie).expect(200)).body;
+    expect(detail.canWaivePayment).toBe(false);
+    // The Assessments tab's note when the certificate rule doesn't ask for assessments (default: it does).
+    expect(detail.certRequireAssessments).toBe(true);
 
     // A free course: enrolled.
     expect((await enrol(free.id, main, b.email).expect(200)).body.enrolled).toBe(1);

@@ -434,6 +434,28 @@ describe('assessments (e2e)', () => {
     expect(attempt.questions[1]).toMatchObject({ kind: 'TRUE_FALSE', promptAr: '', options: [{ labelEn: 'True', labelAr: '' }, { labelEn: 'False', labelAr: '' }] });
   });
 
+  it('tells students which assessments are required for the certificate, only when the course requires them', async () => {
+    const { course, admin, student } = await setup();
+    const mandatory = await createAssessment(course.id, admin.cookie, englishOnly({ status: 'PUBLISHED', titleEn: 'Mandatory', countsForCertificate: true }));
+    await createAssessment(course.id, admin.cookie, englishOnly({ status: 'PUBLISHED', titleEn: 'Optional' }));
+    const tags = async () =>
+      Object.fromEntries(((await http().get(`/api/learn/${course.slug}/assessments`).set('Cookie', student.cookie).expect(200)).body as { titleEn: string; certificateTag: string | null }[]).map((r) => [r.titleEn, r.certificateTag]));
+    // The default: no certificate offered yet, so nothing is shown.
+    await prisma.course.update({ where: { id: course.id }, data: { included: { certificate: false } } });
+    expect(await tags()).toEqual({ Mandatory: null, Optional: null });
+    // A certificate whose rule requires the mandatory assessments (the default rule).
+    await prisma.course.update({ where: { id: course.id }, data: { included: { certificate: true } } });
+    expect(await tags()).toEqual({ Mandatory: 'REQUIRED', Optional: 'OPTIONAL' });
+    expect((await http().get(`/api/learn/${course.slug}/assessments/${mandatory.id}`).set('Cookie', student.cookie).expect(200)).body).toMatchObject({ countsForCertificate: true, certificateTag: 'REQUIRED' });
+    // The rule no longer asks for assessments: no badge, the setting itself is kept.
+    await http().put(`/api/admin/courses/${course.id}/certificate-rule`).set('Cookie', admin.cookie).send({ minSessionsPercent: 50, requireAssessments: false }).expect(200);
+    expect(await tags()).toEqual({ Mandatory: null, Optional: null });
+    const rows = (await http().get(`/api/admin/courses/${course.id}/assessments`).set('Cookie', admin.cookie).expect(200)).body as { titleEn: string; countsForCertificate: boolean }[];
+    expect(Object.fromEntries(rows.map((r) => [r.titleEn, r.countsForCertificate]))).toEqual({ Mandatory: true, Optional: false });
+    // The admin course (Assessments tab note) carries the rule's switch.
+    expect((await http().get(`/api/admin/courses/${course.id}`).set('Cookie', admin.cookie).expect(200)).body.certRequireAssessments).toBe(false);
+  });
+
   it('keeps Arabic written before when the English-only editor saves', async () => {
     const { course, admin } = await setup();
     const created = await createAssessment(course.id, admin.cookie, quizInput({ status: 'DRAFT' }));

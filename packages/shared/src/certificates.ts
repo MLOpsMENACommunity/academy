@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CourseResults } from './assessments';
+import type { CertificateTag, CourseResults } from './assessments';
 
 /**
  * Completion certificates: one per student per course, issued by the course team.
@@ -35,7 +35,7 @@ export function formatSerial(year: number, random: Uint8Array): string {
 export interface CertificateRule {
   /** Share of the course's sessions marked complete, 0–100; null: no requirement. */
   minSessionsPercent: number | null;
-  /** Every published assessment marked "counts toward certificate" must be passed. */
+  /** Every published assessment marked mandatory for the certificate (countsForCertificate) must be passed. */
   requireAssessments: boolean;
   /** Optional wording shown to students instead of the generated sentence. */
   textEn: string;
@@ -43,6 +43,24 @@ export interface CertificateRule {
 }
 
 export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, textEn: '', textAr: '' };
+
+/** The course team wrote or configured a rule beyond the defaults. */
+export const ruleIsSet = (r: Pick<CertificateRule, 'minSessionsPercent' | 'textEn' | 'textAr'>): boolean => r.minSessionsPercent !== null || Boolean(r.textEn || r.textAr);
+
+/** Whether students see the course's certificate (the learn page's card): it's included, a rule is set, or one was issued. */
+export function certificateOffered(rule: CertificateRule, included: { certificate?: boolean } | null | undefined, issued = false): boolean {
+  return Boolean(included?.certificate) || ruleIsSet(rule) || issued;
+}
+
+/**
+ * What students are told about one assessment and the certificate: REQUIRED (mandatory) or
+ * OPTIONAL, only when the course offers a certificate whose rule requires assessments; else null
+ * (nothing shown). Only wording: eligibility is certificateEligibility.
+ */
+export function certificateTag(rule: CertificateRule, included: { certificate?: boolean } | null | undefined, countsForCertificate: boolean): CertificateTag | null {
+  if (!rule.requireAssessments || !certificateOffered(rule, included)) return null;
+  return countsForCertificate ? 'REQUIRED' : 'OPTIONAL';
+}
 
 export const certificateRuleSchema = z.object({
   minSessionsPercent: z.number().int().min(1).max(100).nullable(),

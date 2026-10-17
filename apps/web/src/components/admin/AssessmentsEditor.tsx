@@ -19,9 +19,10 @@ import {
   type ScoringPolicy,
   type SubmissionKind,
 } from '@academy/shared';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { ZodIssue } from 'zod';
-import { CheckboxField, focusFirstInvalid, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
+import { CheckboxField, focusFirstInvalid, RadioGroup, SelectField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button, buttonClass } from '@/components/ui/Button';
@@ -287,16 +288,66 @@ function QuestionEditor({
 
 // ------------------------------------------------------------------ form
 
+/**
+ * Mandatory or optional for the certificate (countsForCertificate true/false). When the course's
+ * rule doesn't ask for assessments, a note says the choice has no effect yet.
+ */
+function CertificateChoice({
+  value,
+  onChange,
+  error,
+  certRequireAssessments,
+  certificatesHref,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  error?: string;
+  certRequireAssessments: boolean;
+  certificatesHref?: string;
+}) {
+  const { t } = useI18n();
+  const f = (k: string) => t(`admin.assessments.form.${k}`);
+  return (
+    <div className="flex flex-col gap-2">
+      <RadioGroup
+        legend={f('certificateLegend')}
+        required
+        value={value ? 'MANDATORY' : 'OPTIONAL'}
+        onChange={(v) => onChange(v === 'MANDATORY')}
+        error={error}
+        options={[
+          { value: 'MANDATORY', label: f('certificateMandatory'), description: f('certificateMandatoryHint') },
+          { value: 'OPTIONAL', label: f('certificateOptional'), description: f('certificateOptionalHint') },
+        ]}
+      />
+      {!certRequireAssessments && (
+        <p className="max-w-3xl text-sm text-muted">
+          {f('certificateNotRequired')}{' '}
+          {certificatesHref && (
+            <Link href={certificatesHref} className="font-semibold text-primary underline underline-offset-4">
+              {f('certificateRuleLink')}
+            </Link>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AssessmentForm({
   endpoints,
   sessions,
   id,
+  certRequireAssessments,
+  certificatesHref,
   onSaved,
   onCancel,
 }: {
   endpoints: AssessmentEndpoints;
   sessions: AssessmentSessionOption[];
   id: string | null;
+  certRequireAssessments: boolean;
+  certificatesHref?: string;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -394,10 +445,14 @@ function AssessmentForm({
           <TextField label={f('maxPoints')} required type="number" min={1} max={1000} value={String(draft.maxPoints)} onChange={(v) => set('maxPoints')(Number(v || 0))} error={errors.maxPoints} />
           <TextField label={f('passPercent')} required type="number" min={0} max={100} value={String(draft.passPercent)} onChange={(v) => set('passPercent')(Number(v || 0))} error={errors.passPercent} />
         </div>
-        <div className="flex flex-col gap-2">
-          <CheckboxField label={f('allowLate')} checked={draft.allowLate} onChange={set('allowLate')} error={errors.allowLate} />
-          <CheckboxField label={f('certificate')} checked={draft.countsForCertificate} onChange={set('countsForCertificate')} error={errors.countsForCertificate} />
-        </div>
+        <CheckboxField label={f('allowLate')} checked={draft.allowLate} onChange={set('allowLate')} error={errors.allowLate} />
+        <CertificateChoice
+          value={draft.countsForCertificate}
+          onChange={set('countsForCertificate')}
+          error={errors.countsForCertificate}
+          certRequireAssessments={certRequireAssessments}
+          certificatesHref={certificatesHref}
+        />
 
         {quiz ? (
           <section aria-labelledby="quiz-settings" className="flex flex-col gap-3 border-t border-line pt-4">
@@ -498,9 +553,15 @@ export function AssessmentsEditor({
   sessions,
   endpoints: given,
   previewSlug,
+  certRequireAssessments = true,
+  certificatesHref,
 }: {
   courseId: string;
   sessions: AssessmentSessionOption[];
+  /** The course's certificate rule requires passing every mandatory assessment (else the editor says the choice has no effect yet). */
+  certRequireAssessments?: boolean;
+  /** The Certificates tab, when this person can open it. */
+  certificatesHref?: string;
   /** Where to call the API: the admin routes unless given (a teaching speaker's course routes). */
   endpoints?: AssessmentEndpoints;
   /** Show "Preview" on published ones: the student page for this course slug. */
@@ -565,6 +626,8 @@ export function AssessmentsEditor({
         endpoints={endpoints}
         sessions={sessions}
         id={view.id}
+        certRequireAssessments={certRequireAssessments}
+        certificatesHref={certificatesHref}
         onCancel={() => setView({ mode: 'list' })}
         onSaved={() => {
           setNotice(a('saved'));
@@ -652,7 +715,7 @@ export function AssessmentsEditor({
                       <Badge tone={r.type === 'QUIZ' ? 'primary' : 'accent'}>{t(`assessments.type.${r.type}`)}</Badge>
                       <Badge tone={r.status === 'PUBLISHED' ? 'success' : 'warning'}>{a(`status.${r.status}`)}</Badge>
                       {r.type === 'QUIZ' ? <Badge>{t('assessments.questions', { count: r.questionCount })}</Badge> : r.submissionKind && <Badge>{t(`admin.assessments.form.kind.${r.submissionKind}`)}</Badge>}
-                      {r.countsForCertificate && <Badge tone="info">{t('assessments.certificate')}</Badge>}
+                      <Badge tone={r.countsForCertificate ? 'info' : 'neutral'}>{a(r.countsForCertificate ? 'mandatory' : 'optional')}</Badge>
                       <Badge>{a('submittedCount', { count: r.submitted })}</Badge>
                       {r.toGrade > 0 && <Badge tone="danger">{a('toGrade', { count: r.toGrade })}</Badge>}
                     </div>
