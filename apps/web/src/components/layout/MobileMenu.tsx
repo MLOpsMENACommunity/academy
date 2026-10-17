@@ -2,9 +2,10 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { leaveAfterLogout } from '@/lib/forward';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
 import { IconChevron, IconClose, IconMenu } from '../ui/Icons';
@@ -26,7 +27,6 @@ const rowClass = 'flex min-h-12 w-full items-center justify-between gap-3 rounde
 export function MobileMenu({ data }: { data: MenuData }) {
   const { locale, t } = useI18n();
   const { user, loading, logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname() ?? '';
   const sections = useMemo(() => menuSections(t, locale, data), [t, locale, data]);
   const [open, setOpen] = useState(false);
@@ -163,7 +163,8 @@ export function MobileMenu({ data }: { data: MenuData }) {
                       onClick={async () => {
                         close();
                         await logout();
-                        router.replace(`/${locale}`);
+                        // A full page load: drops pages the router cached while signed in.
+                        leaveAfterLogout(`/${locale}`);
                       }}
                     >
                       {t('nav.logout')}

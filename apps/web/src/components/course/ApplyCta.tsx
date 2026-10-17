@@ -106,6 +106,8 @@ export function ApplyCta({ slug, availability: served, applicationDeadline = nul
     action = (
       <Link
         href={`/${locale}/courses/${slug}/apply${query}`}
+        // Signed out, the prefetch is only the middleware's redirect to login; don't keep it.
+        prefetch={user ? undefined : false}
         onClick={() => trackFunnel(slug, 'APPLY_CLICKED')}
         className={buttonClass('accent', 'lg', 'w-full')}
       >

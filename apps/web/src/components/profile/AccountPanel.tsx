@@ -2,7 +2,6 @@
 
 import { passwordSchema, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { RadioGroup, TextField } from '@/components/forms/fields';
@@ -26,8 +25,7 @@ function Block({ title, children, tone }: { title: string; children: ReactNode; 
 
 export function AccountPanel({ user }: { user: MeResponse }) {
   const { locale, t } = useI18n();
-  const { reload, setUser } = useAuth();
-  const router = useRouter();
+  const { reload } = useAuth();
   const [msg, setMsg] = useState<Record<string, { tone: 'success' | 'danger'; text: string } | undefined>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [curPw, setCurPw] = useState('');
@@ -120,8 +118,8 @@ export function AccountPanel({ user }: { user: MeResponse }) {
                 method: 'POST',
                 json: { currentPassword: curPw || undefined, newPassword: newPw },
               });
-              setUser(null);
-              router.replace(`/${locale}/login?returnTo=${encodeURIComponent(`/${locale}/profile`)}`);
+              // A full page load, not setUser(null) + router.replace (see the delete below, and lib/forward.ts).
+              window.location.assign(`/${locale}/login?returnTo=${encodeURIComponent(`/${locale}/profile`)}`);
             });
           }}
         >

@@ -3,15 +3,16 @@
 import { homePath, isStudentOnlyPath, loginSchema, type MeResponse, type SignupRole } from '@academy/shared';
 import { postLoginPath } from '@/lib/post-login';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { GoogleButton } from '@/components/auth/GoogleButton';
 import { initialSignupRole, RoleChooser } from '@/components/auth/RoleChooser';
+import { SignedInForward, useHasSessionCookie } from '@/components/auth/SignedInForward';
 import { TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage, loginErrorMessage } from '@/lib/errors';
@@ -23,8 +24,8 @@ export { postLoginPath };
 
 export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const { locale, t } = useI18n();
-  const { user, setUser } = useAuth();
-  const router = useRouter();
+  const { user, loading, setUser } = useAuth();
+  const sessionCookie = useHasSessionCookie();
   const returnTo = useReturnTo();
   const errorCode = useSearchParam('error');
   const asParam = useSearchParam('as');
@@ -46,11 +47,6 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
     if (errorCode) setError(loginErrorMessage(errorCode, t));
   }, [errorCode, t]);
 
-  // Already signed in (e.g. a valid refresh cookie): continue straight away.
-  useEffect(() => {
-    if (user) router.replace(postLoginPath(user, locale, returnTo));
-  }, [user, router, locale, returnTo]);
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -63,14 +59,18 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
     setFieldErrors({});
     setBusy(true);
     try {
-      const me = await api<MeResponse>('/auth/login', { method: 'POST', json: parsed.data });
-      setUser(me);
-      router.replace(postLoginPath(me, locale, returnTo));
+      // Signed in: the render below forwards (a full page load, see SignedInForward).
+      setUser(await api<MeResponse>('/auth/login', { method: 'POST', json: parsed.data }));
     } catch (err) {
       setError(errorMessage(err, t));
       setBusy(false);
     }
   }
+
+  // Signed in already (another tab, a valid refresh cookie) or just now: never the form.
+  if (user) return <SignedInForward target={postLoginPath(user, locale, returnTo)} />;
+  // A session cookie, and /me still loading: wait for it rather than flash the form.
+  if (loading && sessionCookie) return <PageSpinner />;
 
   return (
     <AuthCard title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
