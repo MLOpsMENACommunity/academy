@@ -146,3 +146,54 @@ test('admin issues a certificate; the student sees it; the public page verifies 
 
   expect(errors).toEqual([]);
 });
+
+test('assessments say whether they are mandatory or optional for the certificate', async ({ page, browser }) => {
+  // Runs after the test above (same course, its student enrolled).
+  const lab = (titleEn: string, countsForCertificate: boolean) => ({
+    type: 'LAB',
+    status: 'PUBLISHED',
+    titleEn,
+    instructionsEn: 'Push your work.',
+    maxPoints: 10,
+    submissionKind: 'LINK',
+    countsForCertificate,
+  });
+  for (const [title, mandatory] of [['Capstone lab', true], ['Bonus lab', false]] as const) {
+    const r = await admin.post(`/api/admin/courses/${courseId}/assessments`, { headers: JSON_HEADERS, data: lab(title, mandatory) });
+    expect(r.status(), await r.text()).toBe(201);
+  }
+
+  // The student: the course offers a certificate whose rule requires assessments.
+  await apiLogin(page.request, student.email, student.password);
+  await page.goto(`/en/learn/${slug}`);
+  await expect(page.getByRole('link', { name: /Capstone lab/ })).toContainText('Required for certificate');
+  await expect(page.getByRole('link', { name: /Bonus lab/ })).toContainText('Optional');
+
+  // The admin: Mandatory/Optional on each row; the rule says "mandatory"; turning it off shows a note.
+  const adminContext = await browser.newContext();
+  const ap = await adminContext.newPage();
+  await adminContext.request.post('/api/auth/login', { headers: JSON_HEADERS, data: { email: ADMIN.email, password: ADMIN.password } });
+  await ap.goto(`/en/admin/courses/${courseId}?tab=assessments`);
+  await expect(ap.getByRole('listitem').filter({ hasText: 'Capstone lab' }).getByText('Mandatory', { exact: true })).toBeVisible();
+  await expect(ap.getByRole('listitem').filter({ hasText: 'Bonus lab' }).getByText('Optional', { exact: true })).toBeVisible();
+  await ap.getByRole('tab', { name: 'Certificates' }).click();
+  await ap.getByText('Certificate rule').click();
+  const rule = ap.getByRole('checkbox', { name: 'Students must pass every mandatory assessment' });
+  await expect(rule).toBeChecked();
+  await expect(ap.getByText('Mark assessments as mandatory or optional in the Assessments tab.')).toBeVisible();
+  await rule.uncheck();
+  await ap.getByRole('button', { name: 'Save rule' }).click();
+  // The saved rule reloads (the form closes) and its summary no longer mentions assessments.
+  await expect(ap.getByText('The course team issues the certificate when you complete the course.')).toBeVisible();
+  await ap.getByRole('tab', { name: 'Assessments' }).click();
+  await ap.getByRole('listitem').filter({ hasText: 'Bonus lab' }).getByRole('button', { name: 'Edit' }).click();
+  await expect(ap.getByRole('radio', { name: /^Optional/ })).toBeChecked();
+  await expect(ap.getByText("This course's certificate doesn't currently require any assessment")).toBeVisible();
+  await expect(ap.getByRole('link', { name: 'Change the rule in the Certificates tab' })).toHaveAttribute('href', `/en/admin/courses/${courseId}?tab=certificates`);
+  await adminContext.close();
+
+  // Students now see no certificate badge at all.
+  await page.reload();
+  await expect(page.getByRole('link', { name: /Capstone lab/ })).toBeVisible();
+  await expect(page.getByText('Required for certificate')).toHaveCount(0);
+});

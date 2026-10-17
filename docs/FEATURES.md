@@ -526,8 +526,12 @@ Admin → Courses → course → **Assessments** (speakers: Speaker portal → M
 Assessments):
 
 - **New quiz / lab / assignment**, attached to a session or to the whole course (e.g. midpoint quiz,
-  capstone). Fields: title, Markdown instructions, due date, **max points**, **pass mark** (%), **counts
-  toward certificate**, Draft/Published, late work allowed or not. Since PR #60 the form is English only
+  capstone). Fields: title, Markdown instructions, due date, **max points**, **pass mark** (%),
+  **Mandatory for the certificate** (the student must pass it) or **Optional** (graded and earns points,
+  but doesn't affect the certificate), Draft/Published, late work allowed or not. New quizzes, labs and
+  assignments start as Optional. When the course's certificate rule doesn't require assessments, the
+  form says the choice has no effect yet, with a link to the Certificates tab. Each row in the list
+  shows a **Mandatory** or **Optional** badge. Since PR #60 the form is English only
   (Arabic text from before is kept; students see English where Arabic is empty).
 - **Quiz builder:** single choice, multiple choice (all-or-nothing) and true/false; each question has a
   weight, the correct answer(s) and an explanation. Settings: attempts (0 = unlimited), best or last
@@ -540,7 +544,7 @@ Assessments):
 - **Order** with ↑/↓ buttons (Staging).
 - Guards: once anyone has submitted, max points, questions, weights and the key are locked (wording
   stays editable); "answers after the due date" needs late work off; a practice quiz (unlimited attempts
-  with answers after each) can't count toward the certificate.
+  with answers after each) can't be mandatory for the certificate.
 
 ### Taking (students)
 
@@ -552,6 +556,9 @@ Assessments):
   "Couldn't verify" if GitHub is unreachable), **Drive/Docs link** (drive.google.com or
   docs.google.com, with a sharing tick), **PDF** (5 MB) or **any https link**. Resubmit until the due
   date or until graded. Late work is flagged, or refused when late work is off.
+- When the course offers a certificate whose rule requires assessments, each assessment in the learn
+  page's lists and on its own page shows **Required for certificate** or **Optional**; otherwise
+  neither badge is shown.
 
 ### Grading and the gradebook
 
@@ -580,8 +587,8 @@ Assessments):
 **Status:** Live. **Who:** ACADEMIC issues; students download and share; anyone verifies.
 
 1. Admin → Courses → course → **Certificates** → **Certificate rule**: minimum % of sessions completed
-   (optional), "pass every assessment marked *counts toward certificate*", and optional wording in
-   English and Arabic (otherwise generated).
+   (optional), "Students must pass every **mandatory** assessment" (assessments are marked mandatory or
+   optional in the Assessments tab), and optional wording in English and Arabic (otherwise generated).
 2. The **roster** shows every enrolled student with sessions %, required assessments passed (and any
    waiting to be graded), average %, capstone state and an **Eligible** badge. Filters: all, eligible,
    not issued, issued, revoked.
@@ -882,6 +889,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Mandatory/optional assessments | Assessments say plainly whether they're **mandatory or optional for the certificate**: a two-option choice in the editor (admin and Teaching) instead of the "Counts toward the certificate" checkbox, with a note and link when the course's rule doesn't require assessments; Mandatory/Optional badges in the admin list; "Required for certificate" / "Optional" badges for students when the course's certificate requires assessments; the Certificates rule reads "Students must pass every mandatory assessment". Same data and eligibility as before (en/ar) | Pending |
 | Admin enrolled totals | Admins always see each course's enrolled total (the public count, even when hidden publicly): an Enrolled students column with the capacity ("12 / 30") in Admin → Courses, "12 enrolled · 18 seats left" and a tab count in the course, and an Enrolled students figure on the dashboard course cards (en/ar); admin API `enrolledCount` (and `seatsLeft` on a course) | Pending |
 | Accounts audit | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Pending |
 | Enrolled count | Course pages and cards show "N students enrolled" and "X seats left" / "Course full" (en/ar); per-course "Show enrolled count publicly" switch (on by default); enrolments and withdrawals refresh the public pages within seconds; public API `enrolledCount` and `seatsLeft` | Pending |

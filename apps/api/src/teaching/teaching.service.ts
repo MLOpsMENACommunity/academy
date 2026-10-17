@@ -113,7 +113,7 @@ export class TeachingService {
   async course(courseId: string, m: CourseMembership, user: Teacher): Promise<TeachingCourseDetailDto> {
     const c = await this.prisma.course.findUnique({
       where: { id: courseId },
-      select: { id: true, slug: true, titleEn: true, titleAr: true, status: true, type: true, sessions: { orderBy: { order: 'asc' } } },
+      select: { id: true, slug: true, titleEn: true, titleAr: true, status: true, type: true, certRequireAssessments: true, sessions: { orderBy: { order: 'asc' } } },
     });
     if (!c) throw new NotFoundException('Course not found');
     return {
@@ -128,6 +128,7 @@ export class TeachingService {
       roleName: m.roleName,
       roleNameAr: m.roleNameAr,
       canWaivePayment: this.access.canWaivePayment(user),
+      certRequireAssessments: c.certRequireAssessments,
     };
   }
 

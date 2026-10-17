@@ -120,9 +120,14 @@ test('admin builds a weighted quiz; an enrolled student takes it and sees the sc
   // Weights 1 and 3: getting only the heavy one right scores 3/4 of 10 = 7.5.
   await question(1, 'Which tool tracks experiments?', '1', ['MLflow', 'Nginx']);
   await question(2, 'Which one schedules containers?', '3', ['Kubernetes', 'Excel']);
+  // Mandatory or optional for the certificate: optional unless chosen.
+  const forCertificate = form.getByRole('radiogroup', { name: /Certificate/ });
+  await expect(forCertificate.getByRole('radio', { name: /^Optional/ })).toBeChecked();
+  await forCertificate.getByRole('radio', { name: /^Mandatory for the certificate/ }).check();
   await form.getByRole('button', { name: 'Save assessment' }).click();
   await expect(ap.getByText('Saved.')).toBeVisible();
   await expect(ap.getByText(QUIZ)).toBeVisible();
+  await expect(ap.getByRole('listitem').filter({ hasText: QUIZ }).getByText('Mandatory', { exact: true })).toBeVisible();
   await adminContext.close();
 
   // 2. A student registers, confirms the email, completes the profile and enrols (via the API).
@@ -131,6 +136,8 @@ test('admin builds a weighted quiz; an enrolled student takes it and sees the sc
   // 3. The course page lists the quiz as due; the student opens and starts it.
   await page.goto(`/en/learn/${slug}`);
   await expect(page.getByRole('link', { name: /Assessments\s*1 due/ })).toBeVisible();
+  // This course offers no certificate: no "Required for certificate" badge.
+  await expect(page.getByText('Required for certificate')).toHaveCount(0);
   await page.getByRole('link', { name: new RegExp(QUIZ) }).click();
   await page.getByRole('button', { name: 'Start the quiz' }).click();
   // The answer key is never in what the browser received.

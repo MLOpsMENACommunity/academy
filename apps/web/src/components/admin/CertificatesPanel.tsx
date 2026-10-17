@@ -35,7 +35,7 @@ const matches = (r: CertificateRosterRow, f: Filter) =>
   (f === 'revoked' && Boolean(r.certificate?.revokedAt));
 
 /** The course's certificate rule: minimum sessions, required assessments, optional wording. */
-function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: CertificateRule; onSaved: () => void }) {
+function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: CertificateRule; onSaved: (rule: CertificateRule) => void }) {
   const { locale, t } = useI18n();
   const r = (k: string, v?: Record<string, string | number>) => t(`admin.certificates.rule.${k}`, v);
   const [min, setMin] = useState(rule.minSessionsPercent === null ? '' : String(rule.minSessionsPercent));
@@ -61,7 +61,7 @@ function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: Certi
     try {
       await api(`${courseApi}/certificate-rule`, { method: 'PUT', json: { minSessionsPercent: n, requireAssessments, textEn, textAr } });
       setSaved(true);
-      onSaved();
+      onSaved({ minSessionsPercent: n, requireAssessments, textEn, textAr });
     } catch (err) {
       setError(certError(err, t));
     } finally {
@@ -165,7 +165,16 @@ function ActionPanel({ certBase, row, kind, onDone, onClose }: { certBase: strin
 }
 
 /** Admin › course › Certificates: eligibility per enrolled student, bulk issue, revoke and re-issue, CSV. */
-export function CertificatesPanel({ courseId, apiBase }: { courseId: string; apiBase?: string }) {
+export function CertificatesPanel({
+  courseId,
+  apiBase,
+  onRuleSaved,
+}: {
+  courseId: string;
+  apiBase?: string;
+  /** After the rule is saved: whether it now requires the mandatory assessments (the Assessments tab says so). */
+  onRuleSaved?: (requireAssessments: boolean) => void;
+}) {
   const { locale, t } = useI18n();
   /** /admin/courses/{id} (certificates at /admin/certificates/{id}), or /teach/courses/{id} for staff with ISSUE_CERTIFICATES. */
   const courseApi = apiBase ?? `/admin/courses/${courseId}`;
@@ -313,7 +322,15 @@ export function CertificatesPanel({ courseId, apiBase }: { courseId: string; api
 
   return (
     <div className="flex flex-col gap-5">
-      <RuleForm key={JSON.stringify(data.rule)} courseApi={courseApi} rule={data.rule} onSaved={load} />
+      <RuleForm
+        key={JSON.stringify(data.rule)}
+        courseApi={courseApi}
+        rule={data.rule}
+        onSaved={(rule) => {
+          load();
+          onRuleSaved?.(rule.requireAssessments);
+        }}
+      />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-body">
         <span>{c('counts.enrolled', { count: data.counts.enrolled })}</span>

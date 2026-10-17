@@ -508,6 +508,8 @@ export type WorkSubmissionInput = z.infer<typeof workSubmissionSchema>;
 // ------------------------------------------------------------------ DTOs (student)
 
 export type AssessmentState = 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED' | 'GRADED' | 'MISSED';
+/** Mandatory (must be passed) or optional for the course certificate, as students are told (see certificateTag). */
+export type CertificateTag = 'REQUIRED' | 'OPTIONAL';
 
 export interface AssessmentSummaryDto {
   id: string;
@@ -521,6 +523,8 @@ export interface AssessmentSummaryDto {
   maxPoints: number;
   passPercent: number;
   countsForCertificate: boolean;
+  /** The badge students see; null when the course's certificate doesn't require assessments (no badge). */
+  certificateTag: CertificateTag | null;
   submissionKind: SubmissionKind | null;
   attemptsAllowed: number;
   timeLimitMin: number | null;

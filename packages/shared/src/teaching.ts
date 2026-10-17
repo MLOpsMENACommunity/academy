@@ -57,6 +57,8 @@ export interface TeachingCourseDetailDto {
   roleNameAr: string | null;
   /** SUPER or ADMISSIONS admin: may enrol people in a paid course without payment (Enrolment tab). */
   canWaivePayment: boolean;
+  /** The certificate rule requires passing every mandatory assessment (the Assessments tab says so when it doesn't). */
+  certRequireAssessments: boolean;
 }
 
 /**

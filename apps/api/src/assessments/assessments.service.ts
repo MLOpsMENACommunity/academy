@@ -4,6 +4,7 @@ import {
   assessmentResult,
   attemptEnd,
   attemptsLeft,
+  certificateTag,
   countedAttempt,
   githubRepoUrl,
   gradeQuiz,
@@ -189,7 +190,7 @@ export class AssessmentsService {
     return a.type === 'QUIZ' ? this.closeExpired(a, subs, now) : subs;
   }
 
-  private summary(a: Assessment & { _count?: { questions: number } }, subs: Submission[], questionCount: number, now: Date): AssessmentSummaryDto & { closed: ClosedReason | null } {
+  private summary(course: Course, a: Assessment & { _count?: { questions: number } }, subs: Submission[], questionCount: number, now: Date): AssessmentSummaryDto & { closed: ClosedReason | null } {
     const submitted = subs.filter((s) => s.submittedAt);
     const inProgress = subs.find((s) => !s.submittedAt) ?? null;
     const counted = countedAttempt(submitted, a.scoring);
@@ -218,6 +219,11 @@ export class AssessmentsService {
       maxPoints: a.maxPoints,
       passPercent: a.passPercent,
       countsForCertificate: a.countsForCertificate,
+      certificateTag: certificateTag(
+        { minSessionsPercent: course.certMinSessionsPercent, requireAssessments: course.certRequireAssessments, textEn: course.certRuleEn, textAr: course.certRuleAr },
+        course.included as { certificate?: boolean } | null,
+        a.countsForCertificate,
+      ),
       submissionKind: a.submissionKind,
       attemptsAllowed: a.attemptsAllowed,
       timeLimitMin: a.timeLimitMin,
@@ -249,7 +255,7 @@ export class AssessmentsService {
     for (const a of items) {
       let mine = subs.filter((s) => s.assessmentId === a.id);
       if (a.type === 'QUIZ') mine = await this.closeExpired(a, mine, now);
-      const { closed: _closed, ...dto } = this.summary(a, mine, a._count.questions, now);
+      const { closed: _closed, ...dto } = this.summary(course, a, mine, a._count.questions, now);
       out.push(dto);
     }
     return out;
@@ -259,7 +265,7 @@ export class AssessmentsService {
     const course = await this.access(user, slug);
     const a = await this.published(course.id, id);
     const subs = await this.mine(a, user.id, now);
-    const { closed: closedReason, ...summary } = this.summary(a, subs, a.questions.length, now);
+    const { closed: closedReason, ...summary } = this.summary(course, a, subs, a.questions.length, now);
     const submitted = subs.filter((s) => s.submittedAt);
     const open = subs.find((s) => !s.submittedAt) ?? null;
     const revealed =

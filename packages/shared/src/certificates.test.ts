@@ -3,7 +3,9 @@ import { assessmentResult, summarizeResults, type ResultAssessment, type ResultS
 import {
   reissueCertificateSchema,
   certificateEligibility,
+  certificateOffered,
   certificateRuleSchema,
+  certificateTag,
   describeRule,
   formatSerial,
   issueCertificatesSchema,
@@ -184,6 +186,28 @@ describe('rule input and wording', () => {
     expect(issueCertificatesSchema.parse({ userIds: ['a'] })).toEqual({ userIds: ['a'], grade: null, force: false });
     expect(issueCertificatesSchema.parse({ userIds: ['a'], grade: '  Distinction ' }).grade).toBe('Distinction');
     expect(issueCertificatesSchema.safeParse({ userIds: [] }).success).toBe(false);
+  });
+});
+
+describe('mandatory or optional for the certificate (what students are told)', () => {
+  const rule = DEFAULT_CERTIFICATE_RULE;
+  it('tags each assessment only when the course offers a certificate that requires assessments', () => {
+    expect(certificateTag(rule, { certificate: true }, true)).toBe('REQUIRED');
+    expect(certificateTag(rule, { certificate: true }, false)).toBe('OPTIONAL');
+    // A rule set by the team counts as offering a certificate.
+    expect(certificateTag({ ...rule, minSessionsPercent: 50 }, { certificate: false }, true)).toBe('REQUIRED');
+    // The rule doesn't ask for assessments: no badge at all.
+    expect(certificateTag({ ...rule, requireAssessments: false }, { certificate: true }, true)).toBeNull();
+    // No certificate on this course.
+    expect(certificateTag(rule, { certificate: false }, true)).toBeNull();
+    expect(certificateTag(rule, null, false)).toBeNull();
+  });
+
+  it('offers the certificate when included, when a rule is set, or once one is issued', () => {
+    expect(certificateOffered(rule, { certificate: true })).toBe(true);
+    expect(certificateOffered({ ...rule, textAr: 'نص' }, {})).toBe(true);
+    expect(certificateOffered(rule, {}, true)).toBe(true);
+    expect(certificateOffered(rule, {})).toBe(false);
   });
 });
 

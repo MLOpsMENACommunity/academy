@@ -25,6 +25,8 @@ export interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'n
   enrolledCount: number;
   /** Capacity minus seats held, null without a capacity. */
   seatsLeft: number | null;
+  /** The certificate rule requires passing every mandatory assessment (set in the Certificates tab). */
+  certRequireAssessments: boolean;
 }
 
 export function toForm(c: AdminCourse): CourseFormValue {

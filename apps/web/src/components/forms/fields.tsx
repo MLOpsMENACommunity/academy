@@ -278,7 +278,8 @@ export function RadioGroup({
   legend: ReactNode;
   hint?: ReactNode;
   error?: string;
-  options: Option[];
+  /** An option may carry a line under its label explaining what it means. */
+  options: (Option & { description?: string })[];
   value: string | null | undefined;
   onChange: (v: string) => void;
   required?: boolean;
@@ -324,11 +325,18 @@ export function RadioGroup({
               value={o.value}
               checked={value === o.value}
               onChange={() => onChange(o.value)}
-              className="size-4 accent-[var(--brand-primary)]"
+              className="size-4 shrink-0 accent-[var(--brand-primary)]"
               required={required}
               aria-invalid={error ? true : undefined}
             />
-            {o.label}
+            {o.description ? (
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="font-semibold text-fg">{o.label}</span>
+                <span className="text-xs text-muted">{o.description}</span>
+              </span>
+            ) : (
+              o.label
+            )}
           </label>
         ))}
       </div>
