@@ -20,9 +20,17 @@ test('a cached course page carries no personal data; the signed-in header loads 
   const page = await student.newPage();
 
   await page.goto('/en/courses');
-  const first = page.locator('main a[href^="/en/courses/"]').first();
-  test.skip((await first.count()) === 0, 'no published course');
-  const path = (await first.getAttribute('href'))!;
+  // The catalog is cached, so it can still list a course another spec archived a moment ago:
+  // use the first one whose page actually answers.
+  const hrefs = [...new Set(await page.locator('main a[href^="/en/courses/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? '')))].filter(Boolean);
+  let path = '';
+  for (const href of hrefs) {
+    if ((await student.request.get(href)).status() === 200) {
+      path = href;
+      break;
+    }
+  }
+  test.skip(!path, 'no published course');
 
   // The student's view: their account in the header, once loaded.
   await page.goto(path);
