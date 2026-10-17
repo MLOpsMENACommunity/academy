@@ -245,6 +245,11 @@ languages; contact details come from Settings (support email and WhatsApp; empty
   enrolments can become a speaker and keeps them; admin accounts can't be switched there.
 - The team can also **create a student account** (Admin → Students → Add student): the person gets a
   "choose your password" email, valid 7 days.
+- **Already signed in?** `/login` and `/register` never show the form: a spinner while the session
+  loads, then a full page load to where you belong (the `returnTo`, onboarding, or the speaker
+  portal). If that keeps bouncing back, "You are signed in" with a Continue link. Logging in,
+  registering and logging out all end with a full page load, so no page the browser cached under
+  the previous session is reused.
 
 ### 3.2 Google sign-in
 
@@ -896,6 +901,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Login loop fix | Signed-in users never see the login form: after clicking Apply (or any private link) while signed out and then logging in, people landed back on the login page with the header showing them signed in (the browser reused a cached redirect to /login). Login, register and logout now end with a full page load; /login and /register show a spinner, never the form, to a signed-in user, with a "You are signed in → Continue" fallback if forwarding keeps bouncing; `returnTo` never points at a sign-in page (en/ar) | Pending |
 | Mandatory/optional assessments | Assessments say plainly whether they're **mandatory or optional for the certificate**: a two-option choice in the editor (admin and Teaching) instead of the "Counts toward the certificate" checkbox, with a note and link when the course's rule doesn't require assessments; Mandatory/Optional badges in the admin list; "Required for certificate" / "Optional" badges for students when the course's certificate requires assessments; the Certificates rule reads "Students must pass every mandatory assessment". Same data and eligibility as before (en/ar) | Pending |
 | Speakers can learn | Speaker accounts can also apply to courses and study like students (profile, apply, withdraw, pay, enrol by email, learn page, assessments, attendance, feedback, points, leaderboards, certificates, waiting list, calendar, reminders); their home stays `/speaker`, with **My learning** in the header menu and on the portal once they have a course; sign-in keeps an Apply or lesson link for speakers; enrolled speakers count as students for certificates, feedback emails and the profile review email; Admin → Students lists speakers who applied or enrolled (Speaker badge, "Speaker" CSV column); Enrol by email enrols speaker accounts; a student with courses can be switched to a speaker | Pending |
 | Admin enrolled totals | Admins always see each course's enrolled total (the public count, even when hidden publicly): an Enrolled students column with the capacity ("12 / 30") in Admin → Courses, "12 enrolled · 18 seats left" and a tab count in the course, and an Enrolled students figure on the dashboard course cards (en/ar); admin API `enrolledCount` (and `seatsLeft` on a course) | Pending |

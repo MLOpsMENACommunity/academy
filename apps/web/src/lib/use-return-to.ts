@@ -16,9 +16,17 @@ import { useSearchParam } from './use-search-param';
  */
 export function useReturnTo(): string {
   const { locale } = useI18n();
-  const returnTo = safeReturnTo(useSearchParam('returnTo'), `/${locale}/dashboard`);
+  const fallback = `/${locale}/dashboard`;
+  const raw = safeReturnTo(useSearchParam('returnTo'), fallback);
+  // Back to the login page after logging in would show the form to a signed-in user.
+  const returnTo = isAuthPage(raw) ? fallback : raw;
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => '');
   return !returnTo.includes('#') && isCarriedHash(hash) && /^\/(en|ar)\/learn\//.test(returnTo) ? `${returnTo}${hash}` : returnTo;
+}
+
+/** The sign-in pages themselves: never a place to return to after signing in. */
+export function isAuthPage(path: string): boolean {
+  return /^\/(?:(?:en|ar)\/)?(?:login|register|forgot-password|reset-password)(?:[/?#]|$)/.test(path);
 }
 
 function subscribeHash(onChange: () => void): () => void {

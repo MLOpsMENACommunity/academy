@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { leaveAfterLogout } from '@/lib/forward';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
 import { accountLinks } from './account-links';
@@ -28,7 +29,6 @@ export function initials(name: string | null | undefined, email: string): string
 export function UserNav() {
   const { locale, t } = useI18n();
   const { user, loading, logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname() ?? '';
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -145,7 +145,8 @@ export function UserNav() {
                 onClick={async () => {
                   setOpen(false);
                   await logout();
-                  router.replace(`/${locale}`);
+                  // A full page load: drops pages the router cached while signed in.
+                  leaveAfterLogout(`/${locale}`);
                 }}
               >
                 {t('nav.logout')}

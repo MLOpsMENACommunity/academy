@@ -209,7 +209,12 @@
       "studentHint": "Apply to courses and register for free live sessions.",
       "speakerHint": "Apply to give a free live session for the community, then book a slot."
     },
-    "speakerRegisterSubtitle": "Free. Create your account, then tell us about the session you'd like to give."
+    "speakerRegisterSubtitle": "Free. Create your account, then tell us about the session you'd like to give.",
+    "signedIn": {
+      "title": "You are signed in",
+      "body": "We could not take you to your page automatically.",
+      "continue": "Continue"
+    }
   },
   "account": {
     "title": "Account",

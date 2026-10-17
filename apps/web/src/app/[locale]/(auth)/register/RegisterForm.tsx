@@ -2,15 +2,16 @@
 
 import { homePath, registerSchema, type MeResponse, type SignupRole } from '@academy/shared';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { GoogleButton } from '@/components/auth/GoogleButton';
 import { initialSignupRole, RoleChooser } from '@/components/auth/RoleChooser';
+import { SignedInForward, useHasSessionCookie } from '@/components/auth/SignedInForward';
 import { TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { PageSpinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
@@ -21,8 +22,10 @@ import { postLoginPath } from '../login/LoginForm';
 
 export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
   const { locale, t } = useI18n();
-  const { user, setUser } = useAuth();
-  const router = useRouter();
+  const { user, loading, setUser } = useAuth();
+  const sessionCookie = useHasSessionCookie();
+  /** Where the account just created here goes (set with the user, so the render below forwards there). */
+  const [registeredTarget, setRegisteredTarget] = useState<string | null>(null);
   const returnTo = useReturnTo();
   const [email, setEmail] = useState('');
   // Prefilled from an "Enrol by email" invitation link (#email=…, kept out of server logs); never overwrites typing.
@@ -39,10 +42,6 @@ export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
   useEffect(() => setRole(initialSignupRole(asParam)), [asParam]);
   const speaker = role === 'SPEAKER';
 
-  useEffect(() => {
-    if (user) router.replace(postLoginPath(user, locale, returnTo, true));
-  }, [user, router, locale, returnTo]);
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -55,14 +54,18 @@ export function RegisterForm({ googleEnabled }: { googleEnabled?: boolean }) {
     setBusy(true);
     try {
       const me = await api<MeResponse>('/auth/register', { method: 'POST', json: parsed.data });
-      setUser(me);
       // Speakers skip student onboarding and land on their portal.
-      router.replace(me.role === 'SPEAKER' ? homePath('SPEAKER', locale) : withReturnTo(`/${locale}/onboarding`, returnTo));
+      setRegisteredTarget(me.role === 'SPEAKER' ? homePath('SPEAKER', locale) : withReturnTo(`/${locale}/onboarding`, returnTo));
+      setUser(me);
     } catch (err) {
       setError(errorMessage(err, t));
       setBusy(false);
     }
   }
+
+  // Signed in already, or just registered: never the form (a full page load forwards, see SignedInForward).
+  if (user) return <SignedInForward target={registeredTarget ?? postLoginPath(user, locale, returnTo, true)} />;
+  if (loading && sessionCookie) return <PageSpinner />;
 
   const terms = (
     <Link href={`/${locale}/terms`} className="text-primary underline" target="_blank">
