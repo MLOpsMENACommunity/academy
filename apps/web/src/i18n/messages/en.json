@@ -41,7 +41,8 @@
     "sessions": "Live sessions",
     "primary": "Main",
     "account": "Account menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "myLearning": "My learning"
   },
   "footer": {
     "about": "The course platform of MLOps MENA Community, a bilingual community for ML, MLOps and AI engineers across the MENA region.",
@@ -760,7 +761,8 @@
       "noCv": "No CV uploaded",
       "profile": "Profile",
       "readOnly": "Profiles are read-only for admins. Use internal notes.",
-      "community": "Telegram / Discord"
+      "community": "Telegram / Discord",
+      "speakerBadge": "Speaker"
     },
     "courses": {
       "title": "Courses",
@@ -814,7 +816,6 @@
           "INVITE_UNVERIFIED": "Invite",
           "ALREADY_ENROLLED": "Already enrolled",
           "ALREADY_INVITED": "Already invited",
-          "SPEAKER": "Speaker account, not enrolled",
           "ADMIN": "Admin account, skipped",
           "CLOSED": "Closed account, skipped",
           "INVALID": "Not a valid email",
@@ -826,7 +827,6 @@
           "INVITE_UNVERIFIED": "Has an account that hasn't confirmed its email: enrolled once it does.",
           "ALREADY_ENROLLED": "Nothing to do.",
           "ALREADY_INVITED": "Waiting for them to sign up. Resend the invitation from the list below.",
-          "SPEAKER": "Speaker accounts can't be students. Switch the account to student first (Speakers page).",
           "ADMIN": "Admins aren't enrolled as students.",
           "CLOSED": "The account was deleted.",
           "INVALID": "Check the spelling.",
@@ -1277,12 +1277,12 @@
       "profile": "Public profile",
       "profileHint": "Edit the bio, Arabic name and photo there. The page goes live with their first published session.",
       "account": "Account type",
-      "accountHint": "One account, one role. Speakers use the speaker portal and can't apply to courses; switch the account if they'd rather study (or speak).",
+      "accountHint": "One role per account. Speakers use the speaker portal and can also apply to courses and study; switch the account if they'd rather only study (or speak).",
       "studentAccount": "Student account",
       "toStudent": "Switch to a student account",
       "toSpeaker": "Switch to a speaker account",
       "toStudentConfirm": "Switch this account to a student account? They'll lose access to the speaker portal.",
-      "toSpeakerConfirm": "Switch this account to a speaker account? They'll use the speaker portal and can no longer apply to courses.",
+      "toSpeakerConfirm": "Switch this account to a speaker account? They'll use the speaker portal and keep their courses: speakers can study too.",
       "nowSpeaker": "This account is now a speaker account. They can apply to speak at /speaker.",
       "edit": "Edit application",
       "editHint": "You're editing the speaker's application. The decision doesn't change and the speaker isn't told. The public profile is edited on the speaker's page.",
@@ -2267,7 +2267,6 @@
         "SLOT_IN_PAST": "Choose a time in the future.",
         "SLOT_NOT_OPEN": "Only open slots can be changed.",
         "TOO_MANY_SLOTS": "That's too many slots at once. Choose fewer days or months.",
-        "HAS_COURSES": "This student has course applications or enrolments, so the account stays a student account. They can sign up as a speaker with another email.",
         "BOOKING_BUSY": "The academy is busy right now and nothing was booked. Please try again in a minute.",
         "BOOKING_FAILED": "The booking couldn't be saved and nothing was booked. Please try again, or tell the team if it keeps happening.",
         "BOOKING_LOCKED": "This session is already published. Ask the team to change it.",
@@ -2275,7 +2274,14 @@
         "unavailable": "The academy is waking up or busy (error 503), and nothing was saved. Wait a few seconds and try again."
       },
       "cta": "Practitioner in the region? Give a free live session for the community.",
-      "ctaButton": "Apply to speak"
+      "ctaButton": "Apply to speak",
+      "learning": {
+        "title": "My learning",
+        "body": "Your course applications and enrolments are on your student dashboard.",
+        "cta": "Go to my courses",
+        "emptyBody": "Speakers can study too: apply to any of our courses like a student.",
+        "browse": "Browse courses"
+      }
     },
     "details": {
       "kind": "What would you like to give?",

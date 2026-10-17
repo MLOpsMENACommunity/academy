@@ -9,6 +9,7 @@ import { ProfileFilters } from '@/components/admin/ProfileFilters';
 import { useQueryState } from '@/components/admin/query';
 import { SavedViews } from '@/components/admin/SavedViews';
 import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
@@ -20,6 +21,8 @@ import { useSearchParam } from '@/lib/use-search-param';
 interface Row {
   id: string;
   email: string;
+  /** Speakers who applied to or enrolled in a course are listed too, with a badge. */
+  role: 'STUDENT' | 'SPEAKER';
   name: string | null;
   country: string | null;
   jobTitle: string | null;
@@ -135,6 +138,11 @@ export function StudentsDirectory() {
                   <Link href={`/${locale}/admin/students/${r.id}`} className="font-semibold text-primary hover:underline">
                     {r.name ?? r.email}
                   </Link>
+                  {r.role === 'SPEAKER' && (
+                    <span className="ms-2 inline-block align-middle">
+                      <Badge tone="info">{t('admin.students.speakerBadge')}</Badge>
+                    </span>
+                  )}
                   <p className="text-xs text-muted">{[r.jobTitle, r.country ? countryName(r.country, locale) : null].filter(Boolean).join(' · ')}</p>
                 </td>
                 <td className="p-3">{r.experienceYears ? experienceRangeLabels[r.experienceYears as keyof typeof experienceRangeLabels][locale] : '—'}</td>

@@ -27,6 +27,7 @@ import { capRows } from '../admin/export';
 import type { Actor } from '../applications/workflow.service';
 import { AssessmentsService } from '../assessments/assessments.service';
 import { AuditService } from '../audit/audit.service';
+import { LEARNER_ROLE_FILTER } from '../common/learners';
 import type { AuthUser } from '../common/decorators';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
@@ -142,8 +143,8 @@ export class CertificatesService {
 
   private async enrolled(courseId: string) {
     return this.prisma.enrollment.findMany({
-      // Certificates are for students: not admins previewing, not speakers, not deleted accounts.
-      where: { courseId, user: { deletedAt: null, role: 'STUDENT' } },
+      // Certificates are for learners (students, and speakers who enrolled to study): not admins previewing, not deleted accounts.
+      where: { courseId, user: { deletedAt: null, role: LEARNER_ROLE_FILTER } },
       orderBy: { enrolledAt: 'asc' },
       take: 5001,
       select: {
@@ -314,7 +315,7 @@ export class CertificatesService {
     const course = await this.course(courseId);
     const userIds = [...new Set(input.userIds)];
     const enrollments = await this.prisma.enrollment.findMany({
-      where: { courseId, userId: { in: userIds }, user: { deletedAt: null, role: 'STUDENT' } },
+      where: { courseId, userId: { in: userIds }, user: { deletedAt: null, role: LEARNER_ROLE_FILTER } },
       select: { id: true, userId: true, certificate: { select: { serial: true, revokedAt: true } } },
     });
     const byUser = new Map(enrollments.map((e) => [e.userId, e]));

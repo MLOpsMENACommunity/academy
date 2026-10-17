@@ -5,6 +5,7 @@ import {
   ADMIN_PERMISSIONS,
   adminTransitionSchema,
   applySchema,
+  LEARNER_ROLES,
   type AdminTransitionInput,
   type ApplyInput,
   type MyApplicationDetailDto,
@@ -23,8 +24,8 @@ export class ApplicationsController {
     private readonly workflow: ApplicationWorkflow,
   ) {}
 
-  /** Students (and admins testing). One account, one role: a speaker asks the team to switch the account to study. */
-  @Roles('STUDENT', 'ADMIN')
+  /** Learners (students and speakers, who can study too) and admins testing the flow on their own account. */
+  @Roles(...LEARNER_ROLES, 'ADMIN')
   // Any admin may try the student flow on their own account.
   @AdminCan(...ADMIN_PERMISSIONS)
   @Post('applications')

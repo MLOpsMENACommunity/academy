@@ -32,7 +32,6 @@ const OUTCOME_TONE: Record<InviteOutcome, Tone> = {
   INVITE_UNVERIFIED: 'info',
   ALREADY_ENROLLED: 'neutral',
   ALREADY_INVITED: 'neutral',
-  SPEAKER: 'warning',
   ADMIN: 'warning',
   CLOSED: 'warning',
   INVALID: 'danger',

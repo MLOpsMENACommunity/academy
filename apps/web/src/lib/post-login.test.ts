@@ -12,14 +12,20 @@ const me = (role: MeResponse['role'], coreComplete = false): MeResponse => ({
   hasPassword: true,
   hasGoogle: false,
   name: null,
+  learning: role === 'STUDENT',
   profile: { completeness: 0, coreComplete, needsCommunityHandles: false, updatedAt: null },
 });
 
 describe('where people land after signing in', () => {
-  it('sends speakers to the speaker portal instead of student pages, skipping onboarding', () => {
+  it('lands speakers on their portal when they asked for nothing, and keeps the page they asked for', () => {
     expect(postLoginPath(me('SPEAKER'), 'en', '/en/dashboard')).toBe('/en/speaker');
-    expect(postLoginPath(me('SPEAKER'), 'ar', '/ar/courses/mlops/apply', true)).toBe('/ar/speaker');
-    expect(postLoginPath(me('SPEAKER'), 'en', '/en/onboarding')).toBe('/en/speaker');
+    expect(postLoginPath(me('SPEAKER'), 'en', '/en/dashboard', true)).toBe('/en/speaker');
+    // Speakers study too: applying is honoured, through onboarding while the profile is incomplete.
+    expect(postLoginPath(me('SPEAKER'), 'ar', '/ar/courses/mlops/apply', true)).toBe('/ar/onboarding?returnTo=%2Far%2Fcourses%2Fmlops%2Fapply');
+    expect(postLoginPath(me('SPEAKER', true), 'ar', '/ar/courses/mlops/apply')).toBe('/ar/courses/mlops/apply');
+    expect(postLoginPath(me('SPEAKER'), 'en', '/en/learn/mlops')).toBe('/en/learn/mlops');
+    expect(postLoginPath(me('SPEAKER'), 'en', '/en/dashboard/applications/x')).toBe('/en/dashboard/applications/x');
+    expect(postLoginPath(me('SPEAKER'), 'en', '/en/onboarding')).toBe('/en/onboarding');
     // Anywhere else they were going is kept.
     expect(postLoginPath(me('SPEAKER'), 'en', '/en/sessions/ama')).toBe('/en/sessions/ama');
     expect(postLoginPath(me('SPEAKER'), 'en', '/en/speaker/apply')).toBe('/en/speaker/apply');

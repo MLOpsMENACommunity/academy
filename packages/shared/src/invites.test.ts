@@ -73,6 +73,8 @@ describe('classifyInvite', () => {
     expect(classifyInvite({ ...base, account: student })).toBe('ENROL');
     expect(classifyInvite(base)).toBe('INVITE');
     expect(classifyInvite({ ...base, account: { ...student, verified: false } })).toBe('INVITE_UNVERIFIED');
+    // Speakers can study too.
+    expect(classifyInvite({ ...base, account: { ...student, role: 'SPEAKER' } })).toBe('ENROL');
   });
 
   it('skips what needs nothing or must not be enrolled', () => {
@@ -80,7 +82,6 @@ describe('classifyInvite', () => {
     expect(classifyInvite({ ...base, duplicate: true, account: student })).toBe('DUPLICATE');
     expect(classifyInvite({ ...base, account: student, enrolled: true })).toBe('ALREADY_ENROLLED');
     expect(classifyInvite({ ...base, invite: 'PENDING' })).toBe('ALREADY_INVITED');
-    expect(classifyInvite({ ...base, account: { ...student, role: 'SPEAKER' } })).toBe('SPEAKER');
     expect(classifyInvite({ ...base, account: { ...student, role: 'ADMIN' } })).toBe('ADMIN');
     expect(classifyInvite({ ...base, account: { ...student, deleted: true } })).toBe('CLOSED');
   });

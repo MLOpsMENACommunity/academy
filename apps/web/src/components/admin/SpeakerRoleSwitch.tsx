@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 
-/** One account, one role: turns a student account into a speaker account (they then use /speaker). */
+/** Turns a student account into a speaker account (they then use /speaker, and keep studying). */
 export function SpeakerRoleSwitch({ userId }: { userId: string }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);

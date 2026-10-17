@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { MyCourses, type CourseMeta } from '@/components/applications/MyCourses';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
-import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { TeachingCard } from '@/components/teach/TeachCourses';
 import { MyCertificates } from '@/components/certificates/MyCertificates';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
@@ -38,7 +37,8 @@ export interface DashboardPath {
 const card = 'rounded-card border border-line bg-card';
 
 export function Dashboard({ courses, paths }: { courses: Record<string, CourseMeta>; paths: DashboardPath[] }) {
-  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <SpeakerRedirect /> : <Home user={user} courses={courses} paths={paths} />)}</RequireAuth>;
+  // Speakers study too: this is their student side ("My learning"); their home stays the speaker portal.
+  return <RequireAuth>{(user) => <Home user={user} courses={courses} paths={paths} />}</RequireAuth>;
 }
 
 /** The soonest of my course sessions and my registered live sessions. */

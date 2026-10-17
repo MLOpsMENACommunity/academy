@@ -7,12 +7,24 @@ export const Locale = defineEnum(LOCALES);
 export type Locale = (typeof LOCALES)[number];
 
 /**
- * One account, one role. SPEAKER accounts use the speaker portal (apply, book a slot) and
- * never apply to courses; an admin can switch a STUDENT and a SPEAKER account either way.
+ * One role per account. SPEAKER accounts use the speaker portal (apply, book a slot) and can
+ * also study like a STUDENT (apply to courses, enrol, learn); an admin can switch a STUDENT
+ * and a SPEAKER account either way.
  */
 export const ROLES = ['STUDENT', 'ADMIN', 'SPEAKER'] as const;
 export const Role = defineEnum(ROLES);
 export type Role = (typeof ROLES)[number];
+
+/**
+ * Accounts that study: they apply, enrol and count as students of the courses they're
+ * enrolled in (certificates, feedback prompts, the roster). Admins may try the student flows
+ * on their own account but never count as students.
+ */
+export const LEARNER_ROLES = ['STUDENT', 'SPEAKER'] as const satisfies readonly Role[];
+export type LearnerRole = (typeof LEARNER_ROLES)[number];
+export function isLearnerRole(role: Role): role is LearnerRole {
+  return (LEARNER_ROLES as readonly Role[]).includes(role);
+}
 
 /**
  * What an ADMIN account may do (presets; an admin has one or more). SUPER can do everything,

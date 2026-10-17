@@ -328,7 +328,7 @@ describe('enrol by email (e2e)', () => {
     expect(sent('courseInvite')).toHaveLength(1);
   });
 
-  it('skips speaker and admin accounts and closed accounts, and they never claim invites', async () => {
+  it('enrols speaker accounts (speakers study too), skips admin and closed accounts', async () => {
     const course = await createCourse(prisma);
     const speaker = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'inv-speaker' });
     const otherAdmin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'inv-admin2' });
@@ -336,17 +336,18 @@ describe('enrol by email (e2e)', () => {
     await prisma.user.update({ where: { id: closed.id }, data: { deletedAt: new Date() } });
 
     const res = await enrol(course.id, [speaker.email, otherAdmin.email, closed.email]).expect(200);
-    expect(res.body.rows.map((r: { outcome: string }) => r.outcome)).toEqual(['SPEAKER', 'ADMIN', 'CLOSED']);
-    expect(res.body).toMatchObject({ enrolled: 0, invited: 0 });
-    expect(await prisma.enrollment.count({ where: { courseId: course.id } })).toBe(0);
+    expect(res.body.rows.map((r: { outcome: string }) => r.outcome)).toEqual(['ENROL', 'ADMIN', 'CLOSED']);
+    expect(res.body).toMatchObject({ enrolled: 1, invited: 0 });
+    expect(await enrolled(speaker.id, course.id)).toBe(1);
+    expect(await prisma.enrollment.count({ where: { courseId: course.id } })).toBe(1);
 
-    // A speaker who signs up with an invited address isn't enrolled either.
+    // A speaker who signs up with an invited address claims the invite once the address is confirmed.
     const email = uniqueEmail('inv-speaker-new');
     await enrol(course.id, [email]).expect(200);
     const s = await http().post('/api/auth/register').send({ email, password, role: 'SPEAKER' }).expect(201);
     await verify(s.body.id, email, cookieHeader(s.headers['set-cookie'] as unknown as string[]));
-    expect(await prisma.enrollment.count({ where: { courseId: course.id } })).toBe(0);
-    expect(await prisma.courseInvite.findUniqueOrThrow({ where: { courseId_email: { courseId: course.id, email } } })).toMatchObject({ status: 'PENDING' });
+    expect(await enrolled(s.body.id as string, course.id)).toBe(1);
+    expect(await prisma.courseInvite.findUniqueOrThrow({ where: { courseId_email: { courseId: course.id, email } } })).toMatchObject({ status: 'ENROLLED' });
   });
 
   it('requires the payment waiver for paid courses', async () => {

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PROFILE_REVIEW_DAYS } from '@academy/shared';
+import { LEARNER_USER } from '../common/learners';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
@@ -31,7 +32,7 @@ export class AccountJobs {
     return n;
   }
 
-  /** Email students whose profile hasn't been touched for ~6 months (once per stale period). */
+  /** Email learners (students, and speakers who study) whose profile hasn't been touched for ~6 months (once per stale period). */
   @Cron(CronExpression.EVERY_DAY_AT_10AM, { timeZone: 'Africa/Cairo' })
   async promptProfileReview(): Promise<number> {
     if (!this.env.JOBS_ENABLED) return 0;
@@ -45,7 +46,7 @@ export class AccountJobs {
         updatedAt: { lt: cutoff },
         coreCompletedAt: { not: null },
         OR: [{ reviewPromptSentAt: null }, { reviewPromptSentAt: { lt: cutoff } }],
-        user: { deletedAt: null, role: 'STUDENT' },
+        user: { deletedAt: null, ...LEARNER_USER },
       },
       select: { id: true, user: { select: { email: true, locale: true } } },
       take: 100,

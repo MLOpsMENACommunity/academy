@@ -66,8 +66,8 @@ function Tabs({ user }: { user: MeResponse }) {
   const completeness = computeCompleteness(profile);
   // Mark every required tab that still has a gap, not just Basics.
   const missingSections = new Set<string>(completeness.missingCore.map((f) => CORE_FIELD_SECTION[f]));
-  // Students from before the Telegram and Discord usernames were asked: needed for their next application.
-  const needsHandles = user.role === 'STUDENT' && missingCommunityHandles(profile);
+  // Learners from before the Telegram and Discord usernames were asked: needed for their next application.
+  const needsHandles = user.learning && missingCommunityHandles(profile);
   if (needsHandles) missingSections.add('community');
 
   return (

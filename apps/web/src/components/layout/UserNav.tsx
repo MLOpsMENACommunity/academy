@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
+import { accountLinks } from './account-links';
 import { NotificationsBell } from './NotificationsBell';
 
 /** "Nour Adel" -> "NA"; falls back to the email's first letter. */
@@ -62,11 +63,7 @@ export function UserNav() {
     );
   }
 
-  const links: [string, string][] = [
-    user.role === 'SPEAKER' ? [`/${locale}/speaker`, t('speakers.portal.nav')] : [`/${locale}/dashboard`, t('nav.dashboard')],
-    [`/${locale}/profile`, t('nav.profile')],
-    ...(user.role === 'ADMIN' ? ([[`/${locale}/admin`, t('nav.admin')]] as [string, string][]) : []),
-  ];
+  const links = accountLinks(user, locale, t);
 
   function onMenuKey(e: KeyboardEvent<HTMLDivElement>) {
     const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])];

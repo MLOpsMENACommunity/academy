@@ -16,8 +16,8 @@ import {
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { RequireAuth } from '@/components/auth/RequireAuth';
-import { SpeakerRedirect } from '@/components/auth/SpeakerRedirect';
 import { invalidateCourseStatus } from '@/components/course/ApplyCta';
 import { ChipGroup, focusFirstInvalid, RadioGroup, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -30,14 +30,15 @@ import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 export function ApplyForm() {
-  // Speaker accounts don't apply to courses (an admin can switch the account to a student one).
-  return <RequireAuth>{(user) => (user.role === 'SPEAKER' ? <SpeakerRedirect /> : <Inner user={user} />)}</RequireAuth>;
+  // Students and speakers (who study too) apply the same way.
+  return <RequireAuth>{(user) => <Inner user={user} />}</RequireAuth>;
 }
 
 type Answers = Record<string, unknown>;
 
 function Inner({ user }: { user: MeResponse }) {
   const { locale, t } = useI18n();
+  const { reload } = useAuth();
   const router = useRouter();
   const { slug } = useParams<{ slug: string }>();
   const search = useSearchParams();
@@ -140,6 +141,8 @@ function Inner({ user }: { user: MeResponse }) {
       });
       // The course page's button reads my-status client-side; drop the cached "not applied".
       invalidateCourseStatus(slug);
+      // A speaker's first application adds "My learning" to their menu.
+      if (!user.learning) void reload();
       router.replace(`/${locale}/dashboard/applications/${app.id}`);
     } catch (err) {
       if (err instanceof ApiError) {

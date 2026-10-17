@@ -19,6 +19,7 @@ import {
   type MyPaymentDto,
   type PaymentInstructionsDto,
   type PaymentStatus,
+  type Role,
 } from '@academy/shared';
 import type { Payment } from '@prisma/client';
 import { ApplicationWorkflow, type Actor } from '../applications/workflow.service';
@@ -98,11 +99,12 @@ export class PaymentsService {
   }
 
   async submit(
-    userId: string,
+    user: { id: string; role: Role },
     applicationId: string,
     fields: Record<string, unknown>,
     file: Express.Multer.File | undefined,
   ): Promise<MyPaymentDto> {
+    const userId = user.id;
     const app = await this.ownApplication(userId, applicationId);
     if (!(PAYABLE as readonly string[]).includes(app.status)) {
       throw new ConflictException({ code: 'NOT_AWAITING_PAYMENT', message: 'This application is not awaiting payment' });
@@ -140,7 +142,7 @@ export class PaymentsService {
     const p = parsed.data;
     let payment: Payment | undefined;
     try {
-      await this.workflow.transition(applicationId, 'SUBMIT_PAYMENT', { id: userId, role: 'STUDENT' }, {
+      await this.workflow.transition(applicationId, 'SUBMIT_PAYMENT', { id: userId, role: user.role }, {
         within: async (tx) => {
           payment = await tx.payment.create({
             data: {

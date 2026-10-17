@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Locale } from '@academy/shared';
+import { LEARNER_ROLE_FILTER } from '../common/learners';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { ScheduledJob, type ScheduledJobRunner } from '../jobs/jobs-registry';
@@ -39,7 +40,7 @@ function texts(s: { order: number; titleEn: string; titleAr: string }, c: { titl
  * in-app notification and an email (through the outbox, dedupeKey feedback:<session>:<user>).
  * At the course's last session the same email also asks for the course rating.
  *
- * Who: students (role STUDENT) enrolled before the session ended, account not deleted, who
+ * Who: learners (students, and speakers who enrolled to study; never admins) enrolled before the session ended, account not deleted, who
  * haven't rated the session yet. Courses that are Open, Closed or Completed: it goes by the
  * session's time, not the course status. Students who turned feedback emails off for the
  * course still get the in-app notification; their email row is written as SKIPPED.
@@ -114,7 +115,7 @@ export class FeedbackPromptJobs implements ScheduledJobRunner {
       where: {
         courseId: s.courseId,
         enrolledAt: { lte: endedAt },
-        user: { role: 'STUDENT', deletedAt: null, anonymizedAt: null, sessionFeedback: { none: { sessionId: s.id } } },
+        user: { role: LEARNER_ROLE_FILTER, deletedAt: null, anonymizedAt: null, sessionFeedback: { none: { sessionId: s.id } } },
       },
       select: {
         user: {

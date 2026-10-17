@@ -295,6 +295,8 @@ export class AuthService {
   async me(userId: string): Promise<MeResponse> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { profile: true } });
     if (user.deletedAt) throw new UnauthorizedException();
+    // Students always have a student side; a speaker once they applied to or enrolled in a course.
+    const learning = user.role === 'STUDENT' || (user.role === 'SPEAKER' && (await this.hasCourses(user.id)));
     return {
       id: user.id,
       email: user.email,
@@ -305,13 +307,23 @@ export class AuthService {
       hasPassword: Boolean(user.passwordHash),
       hasGoogle: Boolean(user.googleId),
       name: user.profile?.fullNameEn ?? null,
+      learning,
       profile: {
         completeness: user.profile?.completeness ?? 0,
         coreComplete: Boolean(user.profile?.coreCompletedAt),
-        // Students only: speakers and admins never apply.
-        needsCommunityHandles: user.role === 'STUDENT' && missingCommunityHandles(user.profile),
+        // Learners only (admins never count as students): asked before applying.
+        needsCommunityHandles: learning && missingCommunityHandles(user.profile),
         updatedAt: user.profile?.updatedAt.toISOString() ?? null,
       },
     };
+  }
+
+  /** Any course application or enrolment (withdrawn and rejected ones still have a page on the dashboard). */
+  private async hasCourses(userId: string): Promise<boolean> {
+    const [app, enrolment] = await Promise.all([
+      this.prisma.application.findFirst({ where: { userId }, select: { id: true } }),
+      this.prisma.enrollment.findFirst({ where: { userId }, select: { id: true } }),
+    ]);
+    return Boolean(app || enrolment);
   }
 }
