@@ -126,7 +126,16 @@ function Course({ courseId }: { courseId: string }) {
           </div>
 
           <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
-            {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} endpoints={endpoints} previewSlug={course.slug} />}
+            {tab === 'assessments' && (
+              <AssessmentsEditor
+                courseId={course.id}
+                sessions={course.sessions}
+                endpoints={endpoints}
+                previewSlug={course.slug}
+                certRequireAssessments={course.certRequireAssessments}
+                certificatesHref={tabs.includes('certificates') ? `/${locale}/teach/courses/${courseId}?tab=certificates` : undefined}
+              />
+            )}
             {tab === 'gradebook' && <TeachingGradebook courseId={course.id} endpoints={endpoints} />}
             {tab === 'materials' && <TeachingMaterials courseId={course.id} sessions={course.sessions} onChange={updateSession} />}
             {tab === 'attendance' && (
@@ -154,7 +163,9 @@ function Course({ courseId }: { courseId: string }) {
                 </section>
               </div>
             )}
-            {tab === 'certificates' && <CertificatesPanel courseId={course.id} apiBase={base} />}
+            {tab === 'certificates' && (
+              <CertificatesPanel courseId={course.id} apiBase={base} onRuleSaved={(requireAssessments) => setCourse((c) => (c ? { ...c, certRequireAssessments: requireAssessments } : c))} />
+            )}
           </div>
         </>
       )}

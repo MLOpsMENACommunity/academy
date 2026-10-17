@@ -172,11 +172,18 @@ function CourseEditor() {
             onSession={(sid) => router.replace(`/${locale}/admin/courses/${id}?tab=attendance${sid ? `&session=${encodeURIComponent(sid)}` : ''}`, { scroll: false })}
           />
         )}
-        {tab === 'assessments' && <AssessmentsEditor courseId={course.id} sessions={course.sessions} />}
+        {tab === 'assessments' && (
+          <AssessmentsEditor
+            courseId={course.id}
+            sessions={course.sessions}
+            certRequireAssessments={course.certRequireAssessments}
+            certificatesHref={tabs.includes('certificates') ? `/${locale}/admin/courses/${id}?tab=certificates` : undefined}
+          />
+        )}
         {tab === 'leaderboard' && <CourseLeaderboard courseId={course.id} />}
         {tab === 'enrolled' && <EnrolledStudents courseId={course.id} usesDrive={course.recordingsPlatform === 'GOOGLE_DRIVE' || Boolean(course.driveFolderUrl)} initialPendingOnly={search.get('driveAccess') === 'pending'} />}
         {tab === 'invites' && <EnrolByEmail courseId={course.id} paid={course.type === 'PAID'} onChange={refresh} />}
-        {tab === 'certificates' && <CertificatesPanel courseId={course.id} />}
+        {tab === 'certificates' && <CertificatesPanel courseId={course.id} onRuleSaved={refresh} />}
         {tab === 'announcements' && <Announcements courseId={course.id} />}
         {tab === 'waitlist' && <Waitlist courseId={course.id} status={course.status} titleEn={course.titleEn} titleAr={course.titleAr} />}
         {tab === 'feedback' && <FeedbackPanel courseId={course.id} />}

@@ -210,7 +210,7 @@ function Inner() {
           <Badge tone={quiz ? 'primary' : 'accent'}>{t(`assessments.type.${detail.type}`)}</Badge>
           <Badge tone={stateTone[detail.state]}>{t(`assessments.state.${detail.state}`)}</Badge>
           {detail.late && <Badge tone="warning">{t('assessments.late')}</Badge>}
-          {detail.countsForCertificate && <Badge tone="info">{t('assessments.certificate')}</Badge>}
+          {detail.certificateTag && <Badge tone={detail.certificateTag === 'REQUIRED' ? 'info' : 'neutral'}>{t(`assessments.forCertificate.${detail.certificateTag}`)}</Badge>}
         </p>
         <h1 dir={title.dir} className="text-2xl leading-snug sm:text-3xl">
           {title.text}

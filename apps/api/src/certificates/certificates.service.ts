@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, GoneException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   certificateEligibility,
+  certificateOffered,
   certificatePath,
   formatSerial,
   linkedInAddUrl,
@@ -76,8 +77,6 @@ const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessmen
   textEn: c.certRuleEn,
   textAr: c.certRuleAr,
 });
-
-const ruleIsSet = (r: CertificateRule) => r.minSessionsPercent !== null || Boolean(r.textEn || r.textAr);
 
 /** Completion certificates: issue and revoke (admin), the public verification page, and the PDF. */
 @Injectable()
@@ -506,9 +505,8 @@ export class CertificatesService {
     if (!enrollment && !hasAdminPermission(user, ['ACADEMIC'])) throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
     const rule = ruleOf(course);
     const eligibility = (await this.eligibilityFor(course, [user.id])).get(user.id)!;
-    const included = (course.included ?? {}) as { certificate?: boolean };
     const certificate = enrollment?.certificate ? this.toMine(enrollment.certificate) : null;
-    return { offered: Boolean(included.certificate) || ruleIsSet(rule) || Boolean(certificate), rule, eligibility, certificate };
+    return { offered: certificateOffered(rule, course.included as { certificate?: boolean } | null, Boolean(certificate)), rule, eligibility, certificate };
   }
 
   // ------------------------------------------------------------------ public verification
