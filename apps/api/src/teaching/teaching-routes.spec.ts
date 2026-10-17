@@ -71,6 +71,7 @@ describe('Teaching routes', () => {
 
   it('maps each area to its permission', () => {
     expect(tag(teaching, 'POST', ':courseId/assessments')).toEqual(['MANAGE_ASSESSMENTS']);
+    expect(tag(teaching, 'POST', ':courseId/assessments/import')).toEqual(['MANAGE_ASSESSMENTS']);
     expect(tag(teaching, 'GET', ':courseId/assessments')).toEqual(['MANAGE_ASSESSMENTS', 'GRADE']);
     expect(tag(teaching, 'PUT', ':courseId/submissions/:id/grade')).toEqual(['GRADE']);
     expect(tag(teaching, 'GET', ':courseId/gradebook.csv')).toEqual(['GRADE']);

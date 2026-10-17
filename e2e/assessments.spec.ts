@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, request as playwrightRequest, test, type APIRequestContext } from '@playwright/test';
 import { writeXlsx } from '../packages/shared/src/xlsx';
 import { ADMIN, apiLogin, BASE, JSON_HEADERS, latestEmail, MAILPIT, registerAccount } from './support';
@@ -279,5 +280,75 @@ test('admin uploads questions from .xlsx and .csv, reorders, publishes; enrolled
 
   await out.dispose();
   await adminContext.close();
+  expect(errors).toEqual([]);
+});
+
+test('admin imports two quizzes for sessions 1 and 2 from the downloaded template', async ({ browser }) => {
+  const errors: string[] = [];
+  // Two sessions to attach the quizzes to.
+  for (const n of [1, 2]) {
+    const s = await admin.post(`/api/admin/courses/${courseId}/sessions`, {
+      headers: JSON_HEADERS,
+      data: { titleEn: `Import session ${n}`, titleAr: `جلسة الاستيراد ${n}`, startsAt: new Date(Date.UTC(2030, 0, n, 17)).toISOString(), durationMin: 90 },
+    });
+    expect(s.ok(), await s.text()).toBeTruthy();
+  }
+  const ctx = await browser.newContext({ acceptDownloads: true });
+  const ap = await ctx.newPage();
+  ap.on('pageerror', (e) => errors.push(String(e)));
+  await ctx.request.post('/api/auth/login', { headers: JSON_HEADERS, data: { email: ADMIN.email, password: ADMIN.password } });
+  await ap.goto(`/en/admin/courses/${courseId}?tab=assessments`);
+  await ap.getByRole('button', { name: 'Import quizzes from a file' }).click();
+  const panel = ap.getByRole('region', { name: 'Import quizzes from a file' });
+  await expect(panel.getByRole('button', { name: 'Nothing to import' })).toBeDisabled();
+
+  // 1. Download the template (.xlsx), then upload it as it is.
+  const [download] = await Promise.all([ap.waitForEvent('download'), panel.getByRole('button', { name: 'Download the template (.xlsx)' }).click()]);
+  expect(download.suggestedFilename()).toBe('quizzes-template.xlsx');
+  const file = { name: download.suggestedFilename(), mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: readFileSync(await download.path()) };
+  await panel.locator('input[type=file]').setInputFiles(file);
+
+  // 2. The preview: one row per quiz, with its session, questions, weights and settings.
+  await expect(panel.getByText('2 quizzes with 6 questions ready.')).toBeVisible();
+  const quiz = (title: string) => panel.getByRole('row').filter({ has: ap.getByRole('rowheader', { name: new RegExp(title) }) });
+  await expect(quiz('Session 1 check-in')).toContainText('Session 1: Import session 1');
+  await expect(quiz('Session 1 check-in')).toContainText('1 + 2 + 1');
+  await expect(quiz('Session 1 check-in')).toContainText('Pass 70%');
+  await expect(quiz('Session 1 check-in')).toContainText('Due 1 Mar 2027');
+  await expect(quiz('Session 1 check-in')).toContainText('Mandatory');
+  await expect(quiz('Session 2 review')).toContainText('Session 2: Import session 2');
+  await expect(quiz('Session 2 review')).toContainText('2 + 3 + 1');
+  await expect(quiz('Session 2 review')).toContainText('Draft');
+  await expect(quiz('Session 2 review')).toContainText('New');
+
+  // 3. Save: both quizzes are listed on their sessions, as drafts.
+  await panel.getByRole('button', { name: 'Import 2 quizzes' }).click();
+  await expect(ap.getByText('Import finished: 2 quizzes created, 0 replaced, 0 skipped')).toBeVisible();
+  const item = (title: string) => ap.getByRole('listitem').filter({ hasText: title });
+  await expect(item('Session 1 check-in')).toContainText('Session 1: Import session 1');
+  await expect(item('Session 1 check-in')).toContainText('3 questions');
+  await expect(item('Session 2 review')).toContainText('Session 2: Import session 2');
+  await expect(item('Session 2 review')).toContainText('Draft');
+
+  // 4. The weights came through: 2, 3 and 1 on the session 2 quiz.
+  await item('Session 2 review').getByRole('button', { name: 'Edit' }).click();
+  const edit = ap.locator('form', { has: ap.getByRole('heading', { name: 'Edit assessment' }) });
+  await expect(edit.getByLabel('Session')).toHaveValue(/.+/);
+  for (const [n, w] of [[1, '2'], [2, '3'], [3, '1']] as const) {
+    await expect(edit.getByRole('group', { name: `Question ${n}` }).getByLabel('Weight (points)')).toHaveValue(w);
+  }
+  await expect(edit.getByText('Total weight: 6')).toBeVisible();
+  await edit.getByRole('button', { name: 'Cancel' }).click();
+
+  // 5. The same file again: both already exist in their sessions, so nothing would be saved.
+  await ap.getByRole('button', { name: 'Import quizzes from a file' }).click();
+  await panel.locator('input[type=file]').setInputFiles(file);
+  await expect(quiz('Session 2 review')).toContainText('Skipped: already exists');
+  await expect(panel.getByRole('button', { name: 'Nothing to import' })).toBeDisabled();
+  await panel.getByRole('checkbox', { name: 'Replace existing quizzes with the same title' }).check();
+  await expect(quiz('Session 2 review')).toContainText('Replaces the existing quiz');
+  await expect(panel.getByRole('button', { name: 'Import 2 quizzes' })).toBeEnabled();
+
+  await ctx.close();
   expect(errors).toEqual([]);
 });
