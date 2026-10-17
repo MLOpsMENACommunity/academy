@@ -14,6 +14,7 @@ import { Waitlist } from '@/components/admin/Waitlist';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
 import { DuplicateCourse } from '@/components/admin/DuplicateCourse';
 import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
+import { enrolledTotal } from '@/components/admin/enrolled-total';
 import { CourseForm } from '@/components/admin/CourseForm';
 import { toForm, type AdminCourse } from '@/components/admin/admin-course';
 import { CourseStaffPanel } from '@/components/admin/CourseStaffPanel';
@@ -110,6 +111,10 @@ function CourseEditor() {
         </div>
         )}
       </div>
+      {/* Always the number for admins, even when the course hides it publicly. */}
+      <p className="mt-1 text-sm font-semibold text-muted tabular-nums" data-testid="enrolled-total">
+        {enrolledTotal(course, locale)}
+      </p>
 
       {course.source === 'import' && <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.courses.importedHint')}</p>}
       {course.source === 'speaker-booking' && course.status === 'DRAFT' && (
@@ -146,6 +151,7 @@ function CourseEditor() {
             {k === 'staff' ? t('admin.staff.tab') : k === 'attendance' ? t('attendance.tab') : k === 'assessments' ? t('admin.assessments.tab') : k === 'leaderboard' ? t('admin.points.boardTab') : k === 'certificates' ? t('admin.certificates.tab') : t(`admin.courses.${k}`)}
             {k === 'sessions' && ` (${course.sessions.length})`}
             {k === 'questions' && ` (${course.questions.length})`}
+            {k === 'enrolled' && ` (${course.enrolledCount})`}
             {k === 'waitlist' && waiting && ` (${waiting.count})`}
             {k === 'applications' && applications !== null && ` (${applications})`}
           </button>

@@ -769,6 +769,7 @@
       "questions": "Screening questions",
       "sessions": "Sessions",
       "enrolled": "Enrolled students",
+      "enrolledTotal": "{count, plural, one {# enrolled} other {# enrolled}}",
       "invites": "Enrol by email",
       "inv": {
         "title": "Enrol by email",

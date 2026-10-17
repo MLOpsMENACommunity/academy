@@ -4,6 +4,7 @@ import { courseStatusLabels, courseTypeLabels, hasAdminPermission, type Applicat
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { DeleteCourse } from '@/components/admin/DeleteCourse';
+import { enrolledOfCapacity } from '@/components/admin/enrolled-total';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -22,7 +23,8 @@ interface Row {
   source: string | null;
   startDate: string | null;
   capacity: number | null;
-  enrollments: number;
+  /** Active enrolments of accounts that aren't deleted: the public count, shown here even when the course hides it. */
+  enrolledCount: number;
   sessions: number;
   applications: Record<ApplicationStatus, number>;
 }
@@ -102,9 +104,10 @@ export default function AdminCourses() {
                     </Link>
                     {c.applications.SUBMITTED > 0 && <span className="ms-2 text-xs text-warning">(+{c.applications.SUBMITTED})</span>}
                   </td>
-                  <td className="p-3">
-                    {c.enrollments}
-                    {c.capacity ? ` / ${c.capacity}` : ''}
+                  <td className="p-3 whitespace-nowrap tabular-nums">
+                    <Link href={`/${locale}/admin/courses/${c.id}?tab=enrolled`} className="text-primary hover:underline" dir="ltr">
+                      {enrolledOfCapacity(c.enrolledCount, c.capacity)}
+                    </Link>
                   </td>
                   <td className="p-3">{c.sessions}</td>
                   <td className="p-3">

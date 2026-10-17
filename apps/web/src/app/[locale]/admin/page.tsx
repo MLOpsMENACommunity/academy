@@ -31,6 +31,8 @@ interface Dashboard {
     titleAr: string;
     status: CourseStatus;
     capacity: number | null;
+    /** Active enrolments of accounts that aren't deleted: the public count, even when the course hides it. */
+    enrolledCount: number;
     statusCounts: Record<ApplicationStatus, number>;
     funnel: Record<FunnelEvent, number>;
   }[];
@@ -95,7 +97,29 @@ export default function AdminHome() {
             </div>
             <div className="mt-4 grid gap-6 lg:grid-cols-2">
               <section>
-                <h3 className="text-sm font-semibold text-muted">{t('admin.dashboard.statuses')}</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-muted">{t('admin.dashboard.statuses')}</h3>
+                  {/* Enrolled students (not an application status): the public count, always shown to admins. */}
+                  {(() => {
+                    const figure = (
+                      <>
+                        <span>{t('admin.courses.enrolled')}</span>
+                        <span className="font-semibold tabular-nums">{c.enrolledCount}</span>
+                      </>
+                    );
+                    const look = 'inline-flex items-center gap-2 rounded-lg bg-primary-soft px-3 text-sm text-primary';
+                    // A link to the Enrolled students tab for the presets that can open it.
+                    return can('ACADEMIC', 'ADMISSIONS') ? (
+                      <Link href={`/${locale}/admin/courses/${c.id}?tab=enrolled`} className={`${look} min-h-11 hover:bg-primary-soft-hover sm:min-h-9`} data-testid="dashboard-enrolled">
+                        {figure}
+                      </Link>
+                    ) : (
+                      <p className={`${look} min-h-9`} data-testid="dashboard-enrolled">
+                        {figure}
+                      </p>
+                    );
+                  })()}
+                </div>
                 <ul className="mt-2 grid grid-cols-2 gap-2 text-sm">
                   {APPLICATION_STATUSES.map((s) => (
                     <li key={s}>

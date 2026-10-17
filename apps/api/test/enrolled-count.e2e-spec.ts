@@ -136,6 +136,40 @@ describe('public enrolled count and seats left (e2e)', () => {
     expect(await view(course.slug)).toMatchObject({ enrolledCount: 0, seatsLeft: 2 });
   });
 
+  it('always gives admins the enrolled total (course list, course, dashboard), even when the course hides it', async () => {
+    const course = await createCourse(prisma, { requiresApproval: false, capacity: 5 });
+    await prisma.course.update({ where: { id: course.id }, data: { showEnrolledCount: false } });
+    const stays = await createUser(app, prisma, { prefix: 'enc-tot-a' });
+    const leaves = await createUser(app, prisma, { prefix: 'enc-tot-b' });
+    await apply(stays.cookie, course).expect(201);
+    await apply(leaves.cookie, course).expect(201);
+    // A deleted account isn't counted here either: the same number as the public count.
+    await prisma.user.update({ where: { id: leaves.id }, data: { deletedAt: new Date() } });
+    expect(await view(course.slug)).toMatchObject({ enrolledCount: null, seatsLeft: 4 });
+
+    const admissions = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ADMISSIONS'], prefix: 'enc-tot-adm' });
+    const academic = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC'], prefix: 'enc-tot-aca' });
+    const finance = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['FINANCE'], prefix: 'enc-tot-fin' });
+    for (const a of [admissions, academic]) {
+      const rows = (await http().get('/api/admin/courses').set('Cookie', a.cookie).expect(200)).body as { id: string; enrolledCount: number; capacity: number | null }[];
+      expect(rows.find((r) => r.id === course.id)).toMatchObject({ enrolledCount: 1, capacity: 5 });
+      expect((await http().get(`/api/admin/courses/${course.id}`).set('Cookie', a.cookie).expect(200)).body).toMatchObject({
+        showEnrolledCount: false,
+        enrolledCount: 1,
+        seatsLeft: 4,
+      });
+    }
+    const dash = (await http().get('/api/admin/dashboard').set('Cookie', finance.cookie).expect(200)).body as { courses: { id: string; enrolledCount: number }[] };
+    expect(dash.courses.find((c) => c.id === course.id)).toMatchObject({ enrolledCount: 1 });
+    // The presets the routes already had: finance has no course list.
+    await http().get('/api/admin/courses').set('Cookie', finance.cookie).expect(403);
+    // Every course in the list carries a number, without a capacity too.
+    const open = await createCourse(prisma, { requiresApproval: false, capacity: null });
+    const rows = (await http().get('/api/admin/courses').set('Cookie', academic.cookie).expect(200)).body as { id: string; enrolledCount: number }[];
+    expect(rows.find((r) => r.id === open.id)).toMatchObject({ enrolledCount: 0 });
+    expect((await http().get(`/api/admin/courses/${open.id}`).set('Cookie', academic.cookie).expect(200)).body).toMatchObject({ enrolledCount: 0, seatsLeft: null });
+  });
+
   it('counts a student enrolled by email by the course team', async () => {
     const course = await createCourse(prisma, { capacity: 4 });
     const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'enc-admin4' });

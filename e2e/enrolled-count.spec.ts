@@ -129,3 +129,21 @@ test('the course page shows the enrolled count and seats left, and updates after
     .toBe('19 seats left');
   await visitor.context().close();
 });
+
+test('admins always see the enrolled total: course list, course header and tab, dashboard', async ({ page }) => {
+  // The previous test enrolled one student and hid the count publicly: admins still see it.
+  await uiLogin(page, ADMIN.email, ADMIN.password);
+  await page.goto(`/en/admin/courses/${courseId}?tab=enrolled`);
+  await expect(page.getByTestId('enrolled-total')).toHaveText('1 enrolled · 19 seats left');
+  await expect(page.getByRole('tab', { name: 'Enrolled students (1)' })).toBeVisible();
+  await page.goto(`/ar/admin/courses/${courseId}`);
+  await expect(page.getByTestId('enrolled-total')).toHaveText('طالب واحد مسجّل · متبقٍ 19 مقعدًا');
+
+  await page.goto('/en/admin/courses');
+  await expect(page.getByRole('row').filter({ hasText: title }).getByRole('link', { name: '1 / 20' })).toBeVisible();
+
+  await page.goto('/en/admin');
+  // The course's dashboard card: the nearest block around its title that holds the figure.
+  const card = page.getByRole('heading', { name: title }).locator('xpath=ancestor::div[.//*[@data-testid="dashboard-enrolled"]][1]');
+  await expect(card.getByTestId('dashboard-enrolled')).toHaveText(/Enrolled students\s*1$/);
+});

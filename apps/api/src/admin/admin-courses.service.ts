@@ -14,7 +14,8 @@ import { Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { copyStaff, ensureBuiltinRoles, setCourseInstructors } from '../course-staff/staff-sync';
-import { toInstructorDto } from '../courses/course.mapper';
+import { NO_SEATS, toInstructorDto, type SeatCount } from '../courses/course.mapper';
+import { CoursesService } from '../courses/courses.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type Json = Prisma.InputJsonValue;
@@ -32,19 +33,33 @@ export async function freeInstructorSlug(prisma: Prisma.TransactionClient, name:
   }
 }
 
+/**
+ * The admin's enrolled total: always the number (even when the course hides it publicly) and
+ * seats left by the public rule (capacity minus seats held), null without a capacity.
+ */
+export function enrolledTotals(capacity: number | null, seats: SeatCount): { enrolledCount: number; seatsLeft: number | null } {
+  return { enrolledCount: seats.enrolled, seatsLeft: capacity === null ? null : Math.max(0, capacity - seats.taken) };
+}
+
 @Injectable()
 export class AdminCoursesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly catalog: CoursesService,
   ) {}
 
   async list() {
     const courses = await this.prisma.course.findMany({
       orderBy: [{ archivedAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'desc' }],
-      include: { _count: { select: { enrollments: true, sessions: true } } },
+      include: { _count: { select: { sessions: true } } },
     });
-    const counts = await this.prisma.application.groupBy({ by: ['courseId', 'status'], _count: { _all: true } });
+    // One batched count for every course (no per-row queries): the same number as the public
+    // "N students enrolled", shown to admins whatever the course's showEnrolledCount says.
+    const [counts, seats] = await Promise.all([
+      this.prisma.application.groupBy({ by: ['courseId', 'status'], _count: { _all: true } }),
+      this.catalog.seatCounts(courses.map((c) => c.id)),
+    ]);
     return courses.map((c) => ({
       id: c.id,
       slug: c.slug,
@@ -55,7 +70,7 @@ export class AdminCoursesService {
       source: c.source,
       startDate: c.startDate?.toISOString() ?? null,
       capacity: c.capacity,
-      enrollments: c._count.enrollments,
+      enrolledCount: (seats.get(c.id) ?? NO_SEATS).enrolled,
       sessions: c._count.sessions,
       applications: Object.fromEntries(
         APPLICATION_STATUSES.map((s) => [s, counts.find((x) => x.courseId === c.id && x.status === s)?._count._all ?? 0]),
@@ -74,8 +89,10 @@ export class AdminCoursesService {
     });
     if (!c) throw new NotFoundException('Course not found');
     const { instructors, screeningQuestions, sessions, ...course } = c;
+    const seats = (await this.catalog.seatCounts([id])).get(id) ?? NO_SEATS;
     return {
       ...course,
+      ...enrolledTotals(course.capacity, seats),
       // The Main instructor and Co-instructors with a speaker profile, shown or anonymous (the
       // Instructors field edits these; everything else about staff is in the Staff tab).
       instructorIds: await this.instructorIds(id),
