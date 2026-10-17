@@ -81,6 +81,8 @@ export class ReminderJobs {
             hoursBefore: w.hours,
             url: page,
             unsubscribeUrl: `${page}#reminders`,
+            // Only in the 1-hour reminder, so the link isn't sitting in inboxes a day early.
+            liveUrl: kind === 'H1' ? s.liveUrl : null,
           }, { bulk: true });
           if (ok) {
             sent++;

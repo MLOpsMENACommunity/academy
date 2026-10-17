@@ -121,6 +121,21 @@ describe('learn (e2e)', () => {
     expect(logs.filter((l) => l.userId === other.id)).toHaveLength(0);
   });
 
+  it('puts the live link in the 1-hour reminder only', async () => {
+    const { student, soon, later } = await setup();
+    const { EmailService } = await import('../src/email/email.service');
+    const spy = jest.spyOn(app.get(EmailService), 'send').mockResolvedValue(true);
+    await app.get(ReminderJobs).run();
+    const sent = spy.mock.calls.filter(([to]) => to === student.email).map(([, , t]) => t as { name: string; hoursBefore: number; liveUrl?: string | null });
+    spy.mockRestore();
+    const soonRow = await prisma.courseSession.findUniqueOrThrow({ where: { id: soon.id } });
+    const laterRow = await prisma.courseSession.findUniqueOrThrow({ where: { id: later.id } });
+    expect(soonRow.liveUrl).toBeTruthy();
+    expect(sent.find((t) => t.hoursBefore === 1)?.liveUrl).toBe(soonRow.liveUrl);
+    expect(sent.find((t) => t.hoursBefore === 24)?.liveUrl ?? null).toBeNull();
+    expect(laterRow.liveUrl).toBeTruthy();
+  });
+
   it('lists the next sessions on the dashboard', async () => {
     const { student, soon } = await setup();
     const res = await http().get('/api/me/next-sessions').set('Cookie', student.cookie).expect(200);
