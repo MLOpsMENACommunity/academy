@@ -23,3 +23,12 @@ export function tokenMatches(given: string | null, expected: string | undefined)
   for (let i = 0; i < b.length; i++) diff |= (a[i] ?? 0) ^ b[i]!;
   return diff === 0;
 }
+
+/**
+ * Whether a path is one of the API's internal endpoints (/api/internal/…), which the Worker never
+ * forwards from outside. Case-insensitive: Express matches routes regardless of case, so
+ * /api/Internal/jobs/tick would otherwise reach the API.
+ */
+export function isInternalApiPath(pathname: string): boolean {
+  return pathname.toLowerCase().startsWith('/api/internal/');
+}

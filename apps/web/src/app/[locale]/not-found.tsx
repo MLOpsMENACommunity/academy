@@ -1,12 +1,7 @@
-import type { Metadata } from 'next';
 import { NotFoundView } from './NotFoundView';
-import { pageTitle } from '@/lib/seo';
 
-// "Page not found | MLOps MENA Academy" instead of the homepage title.
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
-  return pageTitle((await params).locale, 'errors.notFoundTitle');
-}
-
+// Its title ("Page not found | MLOps MENA Academy") comes from the page that called notFound():
+// Next gives not-found.tsx no params, so it can't know the locale (see notFoundMetadata in lib/seo.ts).
 export default function NotFound() {
   return <NotFoundView />;
 }

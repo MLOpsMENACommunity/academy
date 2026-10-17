@@ -59,6 +59,10 @@ export class AuthController {
   ) {}
 
   private async startSession(res: Response, user: User, req: Request, amr: SessionInfo['amr']): Promise<void> {
+    // Signing in (or up) over an existing session replaces its cookies: end that session on the
+    // server too, or its refresh token would stay valid for 30 days with nobody holding it.
+    const previous: unknown = req.cookies?.[REFRESH_COOKIE];
+    if (typeof previous === 'string' && previous) await this.tokens.revoke(previous);
     const session: SessionInfo = { amr, authTime: new Date() };
     const access = await this.tokens.signAccess(user, session);
     const refresh = await this.tokens.issueRefresh(user.id, req.headers['user-agent'], session);
@@ -247,7 +251,8 @@ export class AuthController {
       const e = err as Error;
       // Error type and Google's error string only; never the code, tokens or email.
       this.logger.warn(`Google sign-in failed: ${e.name} ${e.message.slice(0, 80)}`);
-      fail('google_failed');
+      const code = (err as { getResponse?: () => unknown }).getResponse?.();
+      fail(code && typeof code === 'object' && (code as { code?: unknown }).code === 'ACCOUNT_DELETED' ? 'account_deleted' : 'google_failed');
     }
   }
 }

@@ -12,7 +12,7 @@ const me = (role: MeResponse['role'], coreComplete = false): MeResponse => ({
   hasPassword: true,
   hasGoogle: false,
   name: null,
-  profile: { completeness: 0, coreComplete, updatedAt: null },
+  profile: { completeness: 0, coreComplete, needsCommunityHandles: false, updatedAt: null },
 });
 
 describe('where people land after signing in', () => {

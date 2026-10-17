@@ -9,7 +9,8 @@ import { Arrow } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { LEARNING_PATHS, resolveSteps } from '@/lib/paths';
-import { alternates } from '@/lib/seo';
+import { alternates, openGraph } from '@/lib/seo';
+import { absoluteUrl } from '@/lib/site';
 import { serverGet } from '@/lib/server-api';
 
 type Props = { params: Promise<{ locale: string }> };
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t('paths.title'),
     description: t('paths.intro'),
     alternates: alternates(locale, '/learning-paths'),
-    openGraph: { title: t('paths.title'), description: t('paths.intro') },
+    openGraph: openGraph(locale, { title: t('paths.title'), description: t('paths.intro'), url: absoluteUrl(`/${locale}/learning-paths`) }),
   };
 }
 
