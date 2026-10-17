@@ -19,6 +19,7 @@ import {
   type InvitePreviewRow,
   type Locale,
   type Role,
+  isLearnerRole,
 } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
 import { capRows, EXPORT_LIMIT } from '../admin/export';
@@ -321,7 +322,7 @@ export class InvitesService {
   // ------------------------------------------------------------------ claiming
 
   /**
-   * Enrols a verified student account in every course its address was invited to. Called when
+   * Enrols a verified learner account (student or speaker) in every course its address was invited to. Called when
    * an account proves it owns its address (email confirmed, password reset by email, Google
    * sign-in) and on sign-in; idempotent (each invite is claimed by a conditional update in
    * the enrolling transaction). Never throws: signing in must not fail because of an invite.
@@ -333,8 +334,8 @@ export class InvitesService {
         where: { id: userId },
         select: { id: true, email: true, role: true, emailVerifiedAt: true, deletedAt: true },
       });
-      // Unverified: whoever registered may not own the inbox. Speakers and admins are never students here.
-      if (!user || !user.emailVerifiedAt || user.deletedAt || user.role !== 'STUDENT') return [];
+      // Unverified: whoever registered may not own the inbox. Speakers study too; admins are never students here.
+      if (!user || !user.emailVerifiedAt || user.deletedAt || !isLearnerRole(user.role)) return [];
       const pending = await this.prisma.courseInvite.findMany({
         where: { email: user.email.toLowerCase(), status: 'PENDING' },
         select: { id: true, courseId: true, invitedById: true, course: { select: { slug: true, status: true } } },

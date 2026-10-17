@@ -96,14 +96,14 @@ describe('speaker portal (e2e)', () => {
       const state = (cookie: string) => JSON.parse(Buffer.from(decodeURIComponent(/oauth_state=([^;]+)/.exec(cookie)![1]!), 'base64url').toString());
 
       // Speaker: the state says so, and the new account is a speaker landing on the portal.
-      const start = await http().get('/api/auth/google?locale=ar&as=speaker&returnTo=%2Far%2Fonboarding').expect(302);
+      const start = await http().get('/api/auth/google?locale=ar&as=speaker&returnTo=%2Far%2Fdashboard').expect(302);
       const jar = cookieHeader(start.headers['set-cookie']);
       const s = state(jar);
       expect(s).toMatchObject({ role: 'SPEAKER', locale: 'ar' });
       const email = uniqueEmail('g-spk');
       exchange.mockResolvedValueOnce({ sub: `g-${Date.now()}`, email, emailVerified: true, name: 'Google Speaker' });
       const cb = await http().get(`/api/auth/google/callback?code=c&state=${s.nonce}`).set('Cookie', jar).expect(302);
-      // Speakers skip student onboarding.
+      // With nowhere in particular to go (the bare dashboard), a speaker lands on the portal.
       expect(cb.headers.location).toMatch(/\/ar\/speaker$/);
       expect((await prisma.user.findUniqueOrThrow({ where: { email } })).role).toBe('SPEAKER');
 
@@ -120,6 +120,14 @@ describe('speaker portal (e2e)', () => {
       exchange.mockResolvedValueOnce({ sub: googleId, email: student.email, emailVerified: true, name: 'Student' });
       await http().get(`/api/auth/google/callback?code=c&state=${state(jar2).nonce}`).set('Cookie', jar2).expect(302);
       expect((await prisma.user.findUniqueOrThrow({ where: { id: student.id } })).role).toBe('STUDENT');
+
+      // Speakers study too: a speaker signing in on the way to applying lands on the Apply page.
+      const back = await http().get('/api/auth/google?locale=en&returnTo=%2Fen%2Fcourses%2Fmlops%2Fapply').expect(302);
+      const jar3 = cookieHeader(back.headers['set-cookie']);
+      exchange.mockResolvedValueOnce({ sub: `g-${email}`, email, emailVerified: true, name: 'Google Speaker' });
+      await prisma.user.update({ where: { email }, data: { googleId: `g-${email}` } });
+      const cb3 = await http().get(`/api/auth/google/callback?code=c&state=${state(jar3).nonce}`).set('Cookie', jar3).expect(302);
+      expect(cb3.headers.location).toMatch(/\/en\/courses\/mlops\/apply$/);
       jest.restoreAllMocks();
       jest.spyOn(app.get(EmailService), 'send').mockImplementation(async (to, _locale, template, opts) => {
         sent.push({ to, template, bulk: Boolean(opts?.bulk) });
@@ -339,7 +347,7 @@ describe('speaker portal (e2e)', () => {
   });
 
   describe('access control', () => {
-    it('keeps students, unapproved speakers and admins out of booking, and speakers out of course applications', async () => {
+    it('keeps students, unapproved speakers and admins out of booking; speakers may apply to courses', async () => {
       const slot = await slotAt(new Date(Date.now() + 40 * DAY));
       const student = await createUser(app, prisma, { prefix: 'nb-stu' });
       const pending = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'nb-spk' });
@@ -351,7 +359,8 @@ describe('speaker portal (e2e)', () => {
       await http().post(`/api/speaker/slots/${slot.id}/booking`).set('Cookie', admin.cookie).send(booking).expect(403);
       expect((await prisma.speakingSlot.findUniqueOrThrow({ where: { id: slot.id } })).status).toBe('OPEN');
 
-      await http().post('/api/applications').set('Cookie', pending.cookie).send({ courseId: 'x', answers: {} }).expect(403);
+      // Speakers study too: the course application is let through to validation (no longer 403).
+      await http().post('/api/applications').set('Cookie', pending.cookie).send({ courseId: 'x', answers: {} }).expect(400);
     });
 
     it('lets an admin switch a student and a speaker account, never to or from admin', async () => {
@@ -362,12 +371,13 @@ describe('speaker portal (e2e)', () => {
       expect((await prisma.user.findUniqueOrThrow({ where: { id: s.id } })).role).toBe('STUDENT');
       // The role is read from the database: the old session is now a student's.
       await http().get('/api/speaker').set('Cookie', s.cookie).expect(403);
-      // A student with course applications stays a student (their dashboard holds them).
+      // A student with course applications can become a speaker: speakers study too, and keep them.
       const student = await createUser(app, prisma, { prefix: 'switch-stu' });
       const course = await createCourse(prisma);
       await prisma.application.create({ data: { userId: student.id, courseId: course.id, answers: {}, profileSnapshot: {} } });
-      const busy = await http().put(`/api/admin/users/${student.id}/role`).set('Cookie', admin.cookie).send({ role: 'SPEAKER' }).expect(409);
-      expect(busy.body.code).toBe('HAS_COURSES');
+      await http().put(`/api/admin/users/${student.id}/role`).set('Cookie', admin.cookie).send({ role: 'SPEAKER' }).expect(200);
+      const mine = await http().get('/api/me/applications').set('Cookie', student.cookie).expect(200);
+      expect(mine.body).toHaveLength(1);
       await http().put(`/api/admin/users/${s.id}/role`).set('Cookie', admin.cookie).send({ role: 'SPEAKER' }).expect(200);
       const other = await createUser(app, prisma, { role: 'ADMIN', prefix: 'switch-adm' });
       await http().put(`/api/admin/users/${other.id}/role`).set('Cookie', admin.cookie).send({ role: 'STUDENT' }).expect(403);

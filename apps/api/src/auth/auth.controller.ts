@@ -5,7 +5,7 @@ import {
   forgotPasswordSchema,
   homePath,
   isLocaleValue,
-  isStudentOnlyPath,
+  landingPath,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
@@ -243,9 +243,9 @@ export class AuthController {
       const identity = await this.google.exchange(code);
       const { user } = await this.auth.loginWithGoogle(identity, lang, state.role);
       await this.startSession(res, user, req, 'google');
-      let to = safeReturnTo(state.returnTo, homePath(user.role, lang));
-      // Speakers skip the student pages (onboarding, dashboard, applying): their home is the portal.
-      if (user.role === 'SPEAKER' && isStudentOnlyPath(to, lang)) to = homePath('SPEAKER', lang);
+      // Speakers study too: the page they asked for (applying, a lesson) is honoured; asking
+      // for nothing (the bare dashboard) lands them on their home, the speaker portal.
+      const to = landingPath(user.role, safeReturnTo(state.returnTo, homePath(user.role, lang)), lang);
       res.redirect(`${this.env.WEB_URL}${to}`);
     } catch (err) {
       const e = err as Error;

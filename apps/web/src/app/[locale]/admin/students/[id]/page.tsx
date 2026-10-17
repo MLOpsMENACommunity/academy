@@ -13,6 +13,7 @@ import { StudentPoints } from '@/components/admin/StudentPoints';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageSpinner } from '@/components/ui/Spinner';
@@ -55,7 +56,14 @@ export default function StudentDetail() {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl break-words">{s.profile.fullNameEn ?? s.email}</h1>
+          <h1 className="text-2xl break-words">
+            {s.profile.fullNameEn ?? s.email}
+            {s.role === 'SPEAKER' && (
+              <span className="ms-2 inline-block align-middle">
+                <Badge tone="info">{t('admin.students.speakerBadge')}</Badge>
+              </span>
+            )}
+          </h1>
           <p className="text-sm break-all text-muted">
             <span className="ltr-embed">{s.email}</span> · {t('admin.students.joined')} {formatDate(s.createdAt, locale)}
           </p>
@@ -88,7 +96,7 @@ export default function StudentDetail() {
         </Card>
         <div className="space-y-5">
           <CvCard studentId={s.id} hasCv={s.profile.hasCv} />
-          <SpeakerRoleSwitch userId={s.id} />
+          {s.role === 'STUDENT' && <SpeakerRoleSwitch userId={s.id} />}
           {academic && <StudentPoints studentId={s.id} />}
           <Card>
             <h2 className="text-lg">{t('admin.students.applications')}</h2>

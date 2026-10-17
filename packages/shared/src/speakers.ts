@@ -316,16 +316,16 @@ export function canCancelBooking(startsAt: Date | string, cancelDays: number, no
 
 // ------------------------------------------------------------------ routing
 
-/** Pages only students use: a speaker landing on one goes to the speaker portal instead. */
-export function isStudentOnlyPath(path: string, locale: string): boolean {
-  const p = path.split(/[?#]/)[0] ?? '';
-  return (
-    p === `/${locale}/dashboard` ||
-    p.startsWith(`/${locale}/dashboard/`) ||
-    p === `/${locale}/onboarding` ||
-    p.startsWith(`/${locale}/learn`) ||
-    /^\/[a-z]{2}\/courses\/[^/]+\/apply$/.test(p)
-  );
+/**
+ * Where an account goes after signing in, given where it was heading (`to`, already safe).
+ * Speakers study too, so a student page they asked for (applying, a lesson, an application)
+ * is honoured; only the bare dashboard, which is where sign-in goes when nothing was asked
+ * for, becomes the speaker portal: that is their home.
+ */
+export function landingPath(role: Role, to: string, locale: string): string {
+  if (role !== 'SPEAKER') return to;
+  const p = to.split(/[?#]/)[0] ?? '';
+  return p === `/${locale}/dashboard` || p === `/${locale}/dashboard/` ? homePath('SPEAKER', locale) : to;
 }
 
 /** Where an account lands by default. */

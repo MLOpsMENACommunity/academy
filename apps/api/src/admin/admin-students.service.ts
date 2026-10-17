@@ -3,13 +3,14 @@ import { toCsv, type StudentFilter } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
+import { LEARNER_USER } from '../common/learners';
 import { PrismaService } from '../prisma/prisma.service';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
 import { toProfileDto } from '../users/profile.service';
 import { capRows, EXPORT_LIMIT } from './export';
 import { hasProfileFilter, profileWhere, userSearch } from './profile-filter';
 
-/** All registered students (not only applicants): find people for future courses. Read-only. */
+/** All registered students (not only applicants), and speakers who study: find people for future courses. Read-only. */
 @Injectable()
 export class AdminStudentsService {
   constructor(
@@ -20,9 +21,9 @@ export class AdminStudentsService {
 
   where(f: StudentFilter): Prisma.UserWhereInput {
     return {
-      role: 'STUDENT',
       deletedAt: null,
-      ...userSearch(f.q),
+      // Students, and speakers who applied to or enrolled in a course (shown with a Speaker badge).
+      AND: [LEARNER_USER, userSearch(f.q)],
       ...(hasProfileFilter(f) ? { profile: profileWhere(f) } : {}),
     };
   }
@@ -53,6 +54,7 @@ export class AdminStudentsService {
       items: users.map((u) => ({
         id: u.id,
         email: u.email,
+        role: u.role,
         name: u.profile?.fullNameEn ?? null,
         country: u.profile?.country ?? null,
         jobTitle: u.profile?.jobTitle ?? null,
@@ -138,7 +140,7 @@ export class AdminStudentsService {
       'Student ID', 'Registered', 'Name (EN)', 'Name (AR)', 'Email', 'Phone', 'Country', 'City', 'Employment', 'Job title', 'Company',
       'Industry', 'Experience', 'ML experience', 'Seniority', 'Primary area', 'Secondary areas', 'Education', 'Field of study', 'Institution', 'Skills (1-5)', 'Cloud',
       'Tools', 'Goals', 'Topics', 'Weekly hours', 'Preferred times', 'Format', 'Open to opportunities', 'Share with partners',
-      'Marketing emails', 'LinkedIn', 'GitHub', 'Telegram', 'Discord', 'Completeness %',
+      'Marketing emails', 'LinkedIn', 'GitHub', 'Telegram', 'Discord', 'Completeness %', 'Speaker',
     ];
     const rows = capRows(users, (u) => {
       const p = u.profile;
@@ -147,7 +149,7 @@ export class AdminStudentsService {
         p?.jobTitle, p?.company, p?.industry, p?.experienceYears, p?.mlExperienceYears, p?.seniority, p?.primaryArea, p?.secondaryAreas,
         p?.educationLevel, p?.fieldOfStudy, p?.university, (p?.skills ?? []).map((s) => `${s.skill}:${s.level}`), p?.cloudPlatforms, p?.productionTools,
         p?.learningGoals, p?.interestedTopics, p?.weeklyHours, p?.preferredTimes, p?.preferredFormat, p?.openToOpportunities,
-        p?.shareWithPartners, p?.marketingEmails, p?.linkedinUrl, p?.githubUrl, p?.telegramUsername, p?.discordUsername, p?.completeness,
+        p?.shareWithPartners, p?.marketingEmails, p?.linkedinUrl, p?.githubUrl, p?.telegramUsername, p?.discordUsername, p?.completeness, u.role === 'SPEAKER',
       ];
     });
     await this.audit.log({ actorId: admin.id, action: 'students.exported', entityType: 'User', metadata: { count: Math.min(users.length, EXPORT_LIMIT) } });

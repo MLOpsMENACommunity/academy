@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { registerSchema } from './auth';
+import { isLearnerRole, LEARNER_ROLES } from './enums';
 import { DEFAULT_SETTINGS, sessionTeamEmailsSchema, settingsSchema, settingsUpdateSchema } from './settings';
 import {
   cairoMonthKey,
   canCancelBooking,
   generateSlotTimes,
   homePath,
-  isStudentOnlyPath,
+  landingPath,
   slotGeneratorSchema,
   speakerApplicationSchema,
   speakerReviewSchema,
@@ -52,14 +53,22 @@ describe('role routing', () => {
     expect(homePath('ADMIN', 'en')).toBe('/en/admin');
   });
 
-  it('knows which pages are for students only', () => {
-    expect(isStudentOnlyPath('/en/dashboard', 'en')).toBe(true);
-    expect(isStudentOnlyPath('/en/onboarding?returnTo=%2Fen%2Fdashboard', 'en')).toBe(true);
-    expect(isStudentOnlyPath('/ar/courses/mlops/apply', 'ar')).toBe(true);
-    expect(isStudentOnlyPath('/en/learn/mlops', 'en')).toBe(true);
-    expect(isStudentOnlyPath('/en/speaker', 'en')).toBe(false);
-    expect(isStudentOnlyPath('/en/sessions/ama', 'en')).toBe(false);
-    expect(isStudentOnlyPath('/en/profile?tab=account', 'en')).toBe(false);
+  it('lands a speaker on the page they asked for, and on the portal when they asked for nothing', () => {
+    expect(landingPath('SPEAKER', '/en/dashboard', 'en')).toBe('/en/speaker');
+    expect(landingPath('SPEAKER', '/ar/dashboard?x=1', 'ar')).toBe('/ar/speaker');
+    expect(landingPath('SPEAKER', '/ar/courses/mlops/apply', 'ar')).toBe('/ar/courses/mlops/apply');
+    expect(landingPath('SPEAKER', '/en/learn/mlops#session-2-feedback', 'en')).toBe('/en/learn/mlops#session-2-feedback');
+    expect(landingPath('SPEAKER', '/en/dashboard/applications/abc', 'en')).toBe('/en/dashboard/applications/abc');
+    expect(landingPath('SPEAKER', '/en/onboarding?returnTo=%2Fen%2Fcourses%2Fx%2Fapply', 'en')).toBe('/en/onboarding?returnTo=%2Fen%2Fcourses%2Fx%2Fapply');
+    expect(landingPath('STUDENT', '/en/dashboard', 'en')).toBe('/en/dashboard');
+    expect(landingPath('ADMIN', '/en/dashboard', 'en')).toBe('/en/dashboard');
+  });
+
+  it('counts students and speakers as learners, never admins', () => {
+    expect(LEARNER_ROLES).toEqual(['STUDENT', 'SPEAKER']);
+    expect(isLearnerRole('SPEAKER')).toBe(true);
+    expect(isLearnerRole('STUDENT')).toBe(true);
+    expect(isLearnerRole('ADMIN')).toBe(false);
   });
 });
 

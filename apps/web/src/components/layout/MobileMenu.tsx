@@ -8,6 +8,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { leaveAfterLogout } from '@/lib/forward';
 import { useI18n } from '@/i18n/client';
 import { buttonClass } from '../ui/Button';
+import { accountLinks } from './account-links';
 import { IconChevron, IconClose, IconMenu } from '../ui/Icons';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { MenuItem } from './MegaNav';
@@ -71,13 +72,7 @@ export function MobileMenu({ data }: { data: MenuData }) {
   }, [open]);
 
   const close = () => setOpen(false);
-  const account: [string, string][] = user
-    ? [
-        user.role === 'SPEAKER' ? [`/${locale}/speaker`, t('speakers.portal.nav')] : [`/${locale}/dashboard`, t('nav.dashboard')],
-        [`/${locale}/profile`, t('nav.profile')],
-        ...(user.role === 'ADMIN' ? ([[`/${locale}/admin`, t('nav.admin')]] as [string, string][]) : []),
-      ]
-    : [];
+  const account: [string, string][] = user ? accountLinks(user, locale, t) : [];
 
   return (
     <div className="lg:hidden">

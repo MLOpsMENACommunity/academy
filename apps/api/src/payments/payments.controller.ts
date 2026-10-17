@@ -49,7 +49,7 @@ export class PaymentsController {
     @Body() body: Record<string, unknown>,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<MyPaymentDto> {
-    return this.payments.submit(user.id, id, body, file);
+    return this.payments.submit(user, id, body, file);
   }
 
   // ------------------------------------------------------------------ admin

@@ -1,6 +1,6 @@
 'use client';
 
-import { homePath, isStudentOnlyPath, loginSchema, type MeResponse, type SignupRole } from '@academy/shared';
+import { loginSchema, type MeResponse, type SignupRole } from '@academy/shared';
 import { postLoginPath } from '@/lib/post-login';
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
@@ -75,7 +75,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled?: boolean }) {
   return (
     <AuthCard title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
       <RoleChooser value={role} onChange={setRole} />
-      <GoogleButton returnTo={role === 'SPEAKER' && isStudentOnlyPath(returnTo, locale) ? homePath('SPEAKER', locale) : returnTo} enabled={googleEnabled} as={role} />
+      <GoogleButton returnTo={returnTo} enabled={googleEnabled} as={role} />
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {error && (
           <Alert tone="danger">

@@ -917,22 +917,14 @@ export class SpeakerPortalService {
     return this.adminGet(id);
   }
 
-  /** One account, one role: switch between student and speaker (never to or from admin). */
+  /** One role per account: switch between student and speaker (never to or from admin). Speakers can study either way. */
   async setRole(userId: string, role: 'STUDENT' | 'SPEAKER', actorId: string): Promise<{ id: string; role: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, deletedAt: true } });
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
     if (user.role === 'ADMIN') throw new ForbiddenException({ code: 'ADMIN_ROLE', message: "An admin account's role can't be changed here" });
     if (user.role === role) return { id: userId, role };
-    if (role === 'SPEAKER') {
-      // Their course applications and enrolments live on the student dashboard, which speakers don't see.
-      const [applications, enrollments] = await Promise.all([
-        this.prisma.application.count({ where: { userId, status: { not: 'REJECTED' } } }),
-        this.prisma.enrollment.count({ where: { userId } }),
-      ]);
-      if (applications || enrollments) {
-        throw new ConflictException({ code: 'HAS_COURSES', message: 'This student has course applications or enrolments. Keep them a student, or ask them to sign up as a speaker with another email.' });
-      }
-    }
+    // Student -> speaker needs no check: speakers keep their course applications and enrolments
+    // (they study too, from the same dashboard).
     if (role === 'STUDENT') {
       const upcoming = await this.prisma.speakingSlot.count({ where: { bookedById: userId, status: 'BOOKED', startsAt: { gt: new Date() } } });
       if (upcoming) throw new ConflictException({ code: 'HAS_BOOKINGS', message: 'This speaker has upcoming bookings. Release them in Availability first.' });

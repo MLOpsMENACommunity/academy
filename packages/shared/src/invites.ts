@@ -21,11 +21,11 @@ export const INVITE_MAX_RESENDS = 3;
 
 /**
  * What enrolling an address would do (the preview), or did (the result).
- * - ENROL: a verified student account: enrolled now.
+ * - ENROL: a verified student or speaker account: enrolled now (speakers can study too).
  * - INVITE: no account yet: invited, enrolled once they sign up and confirm the address.
  * - INVITE_UNVERIFIED: an account that hasn't confirmed its email yet: invited, enrolled once it does.
  * - ALREADY_ENROLLED / ALREADY_INVITED: nothing to do.
- * - SPEAKER / ADMIN: speaker and admin accounts can't be students here: skipped.
+ * - ADMIN: admin accounts can't be students here: skipped.
  * - CLOSED: the account was deleted: skipped.
  * - INVALID: not an email address. DUPLICATE: listed more than once (counted once).
  */
@@ -35,7 +35,6 @@ export const INVITE_OUTCOMES = [
   'INVITE_UNVERIFIED',
   'ALREADY_ENROLLED',
   'ALREADY_INVITED',
-  'SPEAKER',
   'ADMIN',
   'CLOSED',
   'INVALID',
@@ -216,7 +215,6 @@ export function classifyInvite(f: InviteFacts): InviteOutcome {
   if (f.duplicate) return 'DUPLICATE';
   if (f.enrolled) return 'ALREADY_ENROLLED';
   if (f.account?.deleted) return 'CLOSED';
-  if (f.account?.role === 'SPEAKER') return 'SPEAKER';
   if (f.account?.role === 'ADMIN') return 'ADMIN';
   // A verified account is enrolled even with a pending invite (enrolling settles the invite).
   if (f.account?.verified) return 'ENROL';

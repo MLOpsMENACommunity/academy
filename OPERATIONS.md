@@ -203,12 +203,15 @@ him in the admin.
 - **Sign-up:** login and register offer "I'm a student / I'm a speaker". The choice goes
   through email registration and the Google sign-in state; the API accepts only STUDENT or
   SPEAKER (never ADMIN), and Google only applies it when it creates a new account.
-- **One account, one role.** Speaker accounts skip student onboarding, land on `/speaker`
-  and can't apply to courses (the API returns 403). A speaker who wants to study (or a
-  student who wants to speak) asks the team: switch the account in Admin → Speakers →
-  Applications → (application) → Account type, or Admin → Students → (student). A speaker
-  with upcoming bookings must have them released first, and a student with course
-  applications or enrolments stays a student. Admin accounts can't be switched there.
+- **One role per account; speakers can study too.** Speaker accounts skip student onboarding
+  at sign-up and land on `/speaker`, but can apply to courses like students (same profile and
+  Telegram/Discord gate), be enrolled by email, and learn; "My learning" (`/dashboard`) shows
+  in their menu and on the portal once they have a course. Enrolled speakers count as students
+  for certificates, feedback emails and the roster (`LEARNER_ROLES` in `@academy/shared`;
+  admins never do). To switch an account between student and speaker: Admin → Speakers →
+  Applications → (application) → Account type, or Admin → Students → (student). A speaker with
+  upcoming bookings must have them released first; a student with courses keeps them as a
+  speaker. Admin accounts can't be switched there.
 - **Review:** Admin → Speakers → Applications. Approving creates the public speaker profile
   from the application (same slug rule as the speaker editor) or links an existing one, and
   emails the speaker; rejecting needs a note, and the speaker can update and resend.
