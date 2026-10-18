@@ -70,6 +70,8 @@ export interface QuizSheetResult {
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_\-/().#:]+/g, '');
+/** A header or keyword as compared: lower case, without spaces, _, -, /, (), ., #, :. */
+export const normalizeSheetWord = norm;
 
 const OPTION_LETTERS = 'abcdef';
 
@@ -264,13 +266,19 @@ export function parseQuizSheet(rows: string[][]): QuizSheetResult {
   return { questions, errors, rowCount };
 }
 
-/** Spreadsheet cells (text, numbers, booleans, dates, empty) → text, for parseQuizSheet. */
-export function sheetCellsToText(rows: unknown[][]): string[][] {
+/**
+ * Spreadsheet cells (text, numbers, booleans, dates, empty) → text, for parseQuizSheet.
+ * Excel stores a date cell as a wall-clock time with no zone, which the reader hands over as
+ * that time in UTC: `dates: 'wallClock'` writes it back as "YYYY-MM-DD HH:mm", so a parser can
+ * read it in the academy's zone (the quiz import's `due` column).
+ */
+export function sheetCellsToText(rows: unknown[][], opts: { dates?: 'iso' | 'wallClock' } = {}): string[][] {
+  const wallClock = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
   return rows.map((r) =>
     r.map((v) => {
       if (v === null || v === undefined) return '';
       if (typeof v === 'boolean') return v ? 'true' : 'false';
-      if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : v.toISOString();
+      if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : opts.dates === 'wallClock' ? wallClock(v) : v.toISOString();
       if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(Number(v.toFixed(10)));
       return String(v);
     }),

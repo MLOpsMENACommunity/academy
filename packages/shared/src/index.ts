@@ -26,6 +26,7 @@ export * from './speaker-details';
 export * from './assessments';
 export * from './csv';
 export * from './quiz-sheet';
+export * from './quiz-book';
 export * from './xlsx';
 export * from './points';
 export * from './certificates';

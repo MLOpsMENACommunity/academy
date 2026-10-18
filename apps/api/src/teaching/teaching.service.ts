@@ -99,10 +99,14 @@ export class TeachingService {
     }));
   }
 
-  /** 429 once the speaker created SPEAKER_ASSESSMENTS_PER_DAY assessments in the last 24 hours. */
-  async assertCreateQuota(userId: string, now = new Date()): Promise<void> {
+  /**
+   * 429 when creating `adding` more assessments (1, or a quiz import's new quizzes) would take
+   * the speaker past SPEAKER_ASSESSMENTS_PER_DAY in the last 24 hours.
+   */
+  async assertCreateQuota(userId: string, now = new Date(), adding = 1): Promise<void> {
+    if (adding < 1) return;
     const n = await this.prisma.auditLog.count({ where: { actorId: userId, action: 'assessment.created', createdAt: { gt: new Date(now.getTime() - 86_400_000) } } });
-    if (n >= SPEAKER_ASSESSMENTS_PER_DAY) {
+    if (n + adding > SPEAKER_ASSESSMENTS_PER_DAY) {
       throw new HttpException(
         { statusCode: HttpStatus.TOO_MANY_REQUESTS, code: 'SPEAKER_ASSESSMENT_LIMIT', message: `At most ${SPEAKER_ASSESSMENTS_PER_DAY} new assessments in 24 hours` },
         HttpStatus.TOO_MANY_REQUESTS,

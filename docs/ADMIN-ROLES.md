@@ -245,6 +245,7 @@ is listed.
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/feedback` | ACADEMIC |
 | Assessments and grading | GET | `/api/admin/courses/:id/assessments` | ACADEMIC |
 | Assessments and grading | POST | `/api/admin/courses/:id/assessments` | ACADEMIC |
+| Assessments and grading | POST | `/api/admin/courses/:id/assessments/import` | ACADEMIC |
 | Assessments and grading | PUT | `/api/admin/courses/:id/assessments/order` | ACADEMIC |
 | Assessments and grading | GET | `/api/admin/courses/:id/gradebook.csv` | ACADEMIC |
 | Assessments and grading | GET | `/api/admin/assessments/:id` | ACADEMIC |

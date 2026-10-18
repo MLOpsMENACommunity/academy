@@ -6,6 +6,8 @@
 export interface AssessmentEndpoints {
   list: string;
   order: string;
+  /** POST: many quizzes from one file (all or nothing). */
+  import: string;
   gradebookCsv: string;
   one: (id: string) => string;
   submissions: (id: string) => string;
@@ -18,6 +20,7 @@ export function adminAssessmentEndpoints(courseId: string): AssessmentEndpoints 
   return {
     list: `/admin/courses/${courseId}/assessments`,
     order: `/admin/courses/${courseId}/assessments/order`,
+    import: `/admin/courses/${courseId}/assessments/import`,
     gradebookCsv: `/admin/courses/${courseId}/gradebook.csv`,
     one: (id) => `/admin/assessments/${id}`,
     submissions: (id) => `/admin/assessments/${id}/submissions`,
@@ -33,6 +36,7 @@ export function speakerAssessmentEndpoints(courseId: string): AssessmentEndpoint
   return {
     list: `${base}/assessments`,
     order: `${base}/assessments/order`,
+    import: `${base}/assessments/import`,
     gradebookCsv: `${base}/gradebook.csv`,
     one: (id) => `${base}/assessments/${id}`,
     submissions: (id) => `${base}/assessments/${id}/submissions`,

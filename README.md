@@ -11,16 +11,42 @@ showing each enrolled student their session links.
 
 ## Documentation
 
-| Document | For | What's in it |
-|---|---|---|
-| [docs/FEATURES.md](docs/FEATURES.md) | The owner, the team, partners, sponsors | Every feature: who uses it, how, its rules, emails and status (live, staging, pending), plus a changelog |
-| [docs/ENGINEERING.md](docs/ENGINEERING.md) | Developers | Architecture, data model, auth, jobs, email, storage, caching, testing, CI/CD, how to add a feature |
-| [docs/ADMIN-ROLES.md](docs/ADMIN-ROLES.md) | Super admins | Permission presets, every admin route, adding and removing admins, passwords |
-| [docs/POINTS.md](docs/POINTS.md) | The owner, course teams | The points rules as built, and the proposed scheme for the current courses |
+Every guide and reference, by who reads it. A PR that changes a user-visible feature updates
+docs/FEATURES.md (section and changelog) in the same PR.
 
-Operations: [DEPLOY.md](DEPLOY.md), [OPERATIONS.md](OPERATIONS.md), [INTEGRATION.md](INTEGRATION.md),
-[ROADMAP.md](ROADMAP.md). A PR that changes a user-visible feature updates docs/FEATURES.md in the
-same PR.
+**Admins and owners**
+
+| Document | What's in it |
+|---|---|
+| [docs/FEATURES.md](docs/FEATURES.md) | Every feature: who uses it, how, its rules, emails and status (live, staging, pending), plus the changelog |
+| [docs/ADMIN-ROLES.md](docs/ADMIN-ROLES.md) | Admin permission presets, every admin route, adding and removing admins, passwords |
+| [docs/POINTS.md](docs/POINTS.md) | The points rules as built, and the proposed scheme for the current courses |
+| [docs/guides/QUIZZES.md](docs/guides/QUIZZES.md) | Setting up quizzes, labs and assignments: by hand, from one file, or many quizzes for many sessions at once; columns, templates, errors, publishing, grading |
+| [docs/guides/ATTENDANCE.md](docs/guides/ATTENDANCE.md) | Uploading the Google Meet attendance file for a session, matching students, attendance points |
+| [docs/guides/COURSE-STAFF.md](docs/guides/COURSE-STAFF.md) | Course staff roles and permissions, adding people to a course, the Teaching area |
+| [OPERATIONS.md](OPERATIONS.md) | Day-to-day operations: backups, email deliverability, logs, rate limits, secrets, speakers, enrol by email, withdrawals |
+
+**Engineers**
+
+| Document | What's in it |
+|---|---|
+| [docs/ENGINEERING.md](docs/ENGINEERING.md) | Architecture, data model, auth, jobs, email, storage, caching, testing, CI/CD, how to add a feature |
+| [DEPLOY.md](DEPLOY.md) | Environments, costs, capacity and caching, one-time Cloudflare setup, what a deploy does |
+| [deploy/cloudflare/WORKERS-BUILDS.md](deploy/cloudflare/WORKERS-BUILDS.md) | Moving build, test and deploy from GitHub Actions to Cloudflare Workers Builds (one-time setup) |
+| [INTEGRATION.md](INTEGRATION.md) | Links the main mlopsmena.com site should use to point at the academy |
+| [ROADMAP.md](ROADMAP.md) | The v2 backlog |
+| [loadtest/README.md](loadtest/README.md) | Load testing with Locust |
+
+**Release and runbooks**
+
+| Document | What's in it |
+|---|---|
+| [DEPLOY.md: Releasing](DEPLOY.md#releasing) | Tag, release to staging, test, promote the same tag to production, roll back |
+| [docs/ENGINEERING.md: CI/CD and release](docs/ENGINEERING.md#14-cicd-and-release) | What CI runs, the release workflows, backups |
+| [OPERATIONS.md: Backups and restore](OPERATIONS.md#backups-and-restore) | Nightly backups and how to restore one |
+| [OPERATIONS.md: Rotating secrets](OPERATIONS.md#rotating-secrets) | Changing keys and passwords safely |
+| [OPERATIONS.md: Incident checklist](OPERATIONS.md#incident-checklist) | What to do when something breaks in production |
+| [.github/pull_request_template.md](.github/pull_request_template.md) | The PR checklist, including the "Production impact" section |
 
 ## Repository layout
 

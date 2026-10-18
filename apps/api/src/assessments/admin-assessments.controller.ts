@@ -1,6 +1,17 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { assessmentInputSchema, assessmentOrderSchema, gradeInputSchema, submissionFilterSchema, type AssessmentInput, type AssessmentOrderInput, type GradeInput } from '@academy/shared';
+import { Throttle } from '@nestjs/throttler';
+import {
+  assessmentInputSchema,
+  assessmentOrderSchema,
+  gradeInputSchema,
+  quizImportSchema,
+  submissionFilterSchema,
+  type AssessmentInput,
+  type AssessmentOrderInput,
+  type GradeInput,
+  type QuizImportInput,
+} from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
@@ -23,6 +34,14 @@ export class AdminAssessmentsController {
   @Post('courses/:id/assessments')
   create(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(assessmentInputSchema)) body: AssessmentInput) {
     return this.assessments.create(id, body, user);
+  }
+
+  /** Many quizzes from one spreadsheet (parsed in the browser), each on a session: all saved or none. */
+  @Post('courses/:id/assessments/import')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  importQuizzes(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(quizImportSchema)) body: QuizImportInput) {
+    return this.assessments.importQuizzes(id, body, user);
   }
 
   /** The ↑/↓ buttons: the course's assessment ids in their new order. */

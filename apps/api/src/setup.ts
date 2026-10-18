@@ -3,7 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import type { NextFunction, Request, Response } from 'express';
+import { json, type NextFunction, type Request, type Response } from 'express';
 import { ENV } from './config/config.module';
 import type { Env } from './config/env';
 import { bodyParserErrors } from './common/exception.filter';
@@ -12,6 +12,8 @@ import { requestLog } from './common/request-log';
 
 /** Shared by main.ts and the e2e tests so both run the same pipeline. */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** POST …/assessments/import, for admins and course staff (also under the old /speaker/courses prefix). */
+export const QUIZ_IMPORT_PATH = /^\/api\/(?:admin|teach|speaker)\/courses\/[^/]+\/assessments\/import$/;
 
 export function configureApp(app: NestExpressApplication): void {
   const env = app.get<Env>(ENV);
@@ -34,6 +36,8 @@ export function configureApp(app: NestExpressApplication): void {
   });
   const docs = helmet({ strictTransportSecurity: hsts });
   app.use((req: Request, res: Response, next: NextFunction) => (req.path.startsWith('/api/docs') ? docs : strict)(req, res, next));
+  // A quiz import (up to 1,000 questions) is the one larger body; it is parsed first, with its own limit.
+  app.use(QUIZ_IMPORT_PATH, json({ limit: '4mb' }));
   app.useBodyParser('json', { limit: '256kb' });
   // Malformed or oversized bodies get a generic message, not the parser's (exception.filter.ts).
   app.use(bodyParserErrors);
