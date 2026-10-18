@@ -9,6 +9,14 @@
  *
  * Values already in DATABASE_URL always win, so the owner can tune them from the secret
  * alone; otherwise DATABASE_POOL_SIZE / DATABASE_POOL_TIMEOUT (or the defaults below) apply.
+ *
+ * Prisma's pgbouncer mode is off unless asked for (`pgbouncer=true` in the URL, or
+ * DB_PGBOUNCER). Neon's pooler runs PgBouncer 1.22+ with protocol-level prepared statements
+ * (max_prepared_statements=1000), which Prisma supports from PgBouncer 1.21 without the flag.
+ * With the flag Prisma wraps every query in BEGIN; DEALLOCATE ALL; …; COMMIT and re-parses it
+ * each time: about 6 round trips per query instead of 1–2 (docs/PERFORMANCE.md). An old
+ * PgBouncer, or a pooler without prepared statements, still needs `pgbouncer=true` in the URL
+ * (on Cloudflare the Worker doesn't pass DB_PGBOUNCER to the container).
  */
 export const DEFAULT_POOL_SIZE = 10;
 export const DEFAULT_POOL_TIMEOUT_S = 5;
@@ -17,11 +25,11 @@ export interface PoolSettings {
   url: string;
   connectionLimit: number;
   poolTimeoutS: number;
-  /** True when talking to a PgBouncer pooler (Neon's "-pooler" host), which needs pgbouncer=true. */
+  /** True when Prisma's pgbouncer mode is on (asked for in the URL or by DB_PGBOUNCER). */
   pgbouncer: boolean;
 }
 
-/** Neon's pooled endpoints are `<endpoint>-pooler.<region>.aws.neon.tech`; PGBOUNCER=true forces it elsewhere. */
+/** Neon's pooled (PgBouncer, transaction mode) endpoints are `<endpoint>-pooler.<region>.aws.neon.tech`. */
 export function isPooledHost(host: string): boolean {
   return /-pooler\./i.test(host);
 }
@@ -48,7 +56,7 @@ export function poolSettings(
   const poolTimeoutS = positiveInt(q.get('pool_timeout')) ?? opts.poolTimeoutS ?? DEFAULT_POOL_TIMEOUT_S;
   q.set('connection_limit', String(connectionLimit));
   q.set('pool_timeout', String(poolTimeoutS));
-  const pgbouncer = q.get('pgbouncer') === 'true' || (q.get('pgbouncer') === null && (opts.pgbouncer || isPooledHost(url.hostname)));
+  const pgbouncer = q.get('pgbouncer') === 'true' || (q.get('pgbouncer') === null && Boolean(opts.pgbouncer));
   if (pgbouncer) q.set('pgbouncer', 'true');
   return { url: url.toString(), connectionLimit, poolTimeoutS, pgbouncer };
 }
