@@ -6,6 +6,7 @@ import {
   reminderPreferenceSchema,
   type FeedbackDueDto,
   type FeedbackInput,
+  type LearnAnnouncementDto,
   type LearnCourseDto,
   type NextSessionDto,
 } from '@academy/shared';
@@ -41,6 +42,13 @@ export class LearnController {
   @Header('Cache-Control', 'private, no-store')
   course(@CurrentUser() user: AuthUser, @Param('slug') slug: string): Promise<LearnCourseDto> {
     return this.learn.course(user, slug);
+  }
+
+  /** The learn page's Announcements tab: all of the course's announcements this student may read. */
+  @Get('learn/:slug/announcements')
+  @Header('Cache-Control', 'private, no-store')
+  announcements(@CurrentUser() user: AuthUser, @Param('slug') slug: string): Promise<LearnAnnouncementDto[]> {
+    return this.learn.announcements(user, slug);
   }
 
   @Put('learn/:slug/sessions/:sessionId/progress')

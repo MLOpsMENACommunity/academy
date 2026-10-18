@@ -1,9 +1,9 @@
 'use client';
 
-import { isLearnerRole, parseSessionHash, type AssessmentSummaryDto, type LearnCertificateDto, type LearnCourseDto, type LearnSessionDto, type MeResponse } from '@academy/shared';
+import { isLearnerRole, parseSessionHash, type AssessmentSummaryDto, type LearnAnnouncementDto, type LearnCertificateDto, type LearnCourseDto, type LearnSessionDto, type MeResponse } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { CertificateBanner, CertificateRuleCard } from '@/components/certificates/LearnCertificate';
 import { LocalTime } from '@/components/course/LocalTime';
@@ -11,7 +11,7 @@ import { CheckboxField } from '@/components/forms/fields';
 import { AssessmentList } from '@/components/learn/AssessmentList';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { FeedbackForm } from '@/components/learn/FeedbackForm';
-import { CourseAnnouncements } from '@/components/learn/Announcements';
+import { CourseAnnouncements, markAnnouncementsSeen, useNewAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
 import { Leaderboard } from '@/components/points/Leaderboard';
@@ -38,6 +38,11 @@ function defaultSession(sessions: LearnSessionDto[]): number | null {
     sorted[sorted.length - 1];
   return pick?.order ?? null;
 }
+
+/** The main column's two tabs; #announcements (from the announcement emails and notifications) opens the second. */
+type Tab = 'sessions' | 'announcements';
+const ANNOUNCEMENTS_HASH = '#announcements';
+const NO_ANNOUNCEMENTS: LearnAnnouncementDto[] = [];
 
 /** #session-3 (or #session-3-feedback, from the feedback emails and the dashboard) → 3. */
 const hashOrder = () => parseSessionHash(window.location.hash)?.order ?? null;
@@ -69,7 +74,11 @@ function Inner({ user }: { user: MeResponse }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [assessments, setAssessments] = useState<AssessmentSummaryDto[]>([]);
   const [certificate, setCertificate] = useState<LearnCertificateDto | null>(null);
+  const [tab, setTab] = useState<Tab>('sessions');
+  const [seenVersion, setSeenVersion] = useState(0);
   const main = useRef<HTMLDivElement>(null);
+  const latestAnnouncements = course?.announcements ?? NO_ANNOUNCEMENTS;
+  const newAnnouncements = useNewAnnouncements(slug, latestAnnouncements, seenVersion);
 
   // The certificate card is an optional extra too (it follows progress locally, see CertificateRuleCard).
   const loadCertificate = useCallback(() => {
@@ -121,18 +130,29 @@ function Inner({ user }: { user: MeResponse }) {
     initialised.current = true;
     const fromHash = hashOrder();
     setSelected(fromHash && course.sessions.some((s) => s.order === fromHash) ? fromHash : defaultSession(course.sessions));
+    if (window.location.hash === ANNOUNCEMENTS_HASH) setTab('announcements');
     if (window.location.hash === '#reminders') requestAnimationFrame(() => document.getElementById('reminders')?.scrollIntoView({ block: 'start' }));
     scrollToFeedback();
   }, [course]);
   useEffect(() => {
     const onHash = () => {
+      if (window.location.hash === ANNOUNCEMENTS_HASH) return setTab('announcements');
       const n = hashOrder();
-      if (n) setSelected(n);
+      if (n) {
+        setSelected(n);
+        setTab('sessions');
+      }
       scrollToFeedback();
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'announcements' || !latestAnnouncements.length) return;
+    markAnnouncementsSeen(slug, latestAnnouncements);
+    setSeenVersion((v) => v + 1);
+  }, [tab, slug, latestAnnouncements]);
 
   if (error) {
     return (
@@ -170,9 +190,31 @@ function Inner({ user }: { user: MeResponse }) {
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
   const go = (s: LearnSessionDto) => {
     setSelected(s.order);
+    setTab('sessions');
     window.history.replaceState(null, '', `#session-${s.order}`);
     if (window.matchMedia('(max-width: 63.99rem)').matches) main.current?.scrollIntoView({ block: 'start' });
   };
+  const openTab = (next: Tab, focus = false) => {
+    setTab(next);
+    window.history.replaceState(null, '', next === 'announcements' ? ANNOUNCEMENTS_HASH : current ? `#session-${current.order}` : window.location.pathname);
+    if (focus) document.getElementById(`learn-tab-${next}`)?.focus();
+  };
+  // Two tabs: either arrow key moves to the other one (left and right swap in Arabic, as everywhere).
+  const onTabKey = (e: KeyboardEvent) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    openTab(tab === 'sessions' ? 'announcements' : 'sessions', true);
+  };
+  // The sidebar's Assessments and Leaderboard links: their sections are on the Sessions tab.
+  const showOnSessionsTab = (id: string) => {
+    if (tab !== 'sessions') openTab('sessions');
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ block: 'start' });
+      document.getElementById(`${id}-title`)?.focus({ preventScroll: true });
+    });
+  };
+  const tabClass = (k: Tab) =>
+    `inline-flex min-h-11 items-center gap-2 border-b-2 px-3 text-[0.9375rem] font-semibold whitespace-nowrap ${tab === k ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'}`;
 
   return (
     <div>
@@ -259,8 +301,7 @@ function Inner({ user }: { user: MeResponse }) {
               href="#assessments"
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById('assessments')?.scrollIntoView({ block: 'start' });
-                document.getElementById('assessments-title')?.focus({ preventScroll: true });
+                showOnSessionsTab('assessments');
               }}
               className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] font-medium text-fg hover:bg-hover-bg"
             >
@@ -275,8 +316,7 @@ function Inner({ user }: { user: MeResponse }) {
             href="#leaderboard"
             onClick={(e) => {
               e.preventDefault();
-              document.getElementById('leaderboard')?.scrollIntoView({ block: 'start' });
-              document.getElementById('leaderboard-title')?.focus({ preventScroll: true });
+              showOnSessionsTab('leaderboard');
             }}
             className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-[0.9375rem] font-medium text-fg hover:bg-hover-bg"
           >
@@ -325,6 +365,42 @@ function Inner({ user }: { user: MeResponse }) {
         </nav>
 
         <div ref={main} className="flex min-w-0 flex-1 scroll-mt-4 flex-col gap-8 px-5 py-8 sm:px-8 lg:max-w-[60rem] lg:px-10">
+          <div role="tablist" aria-label={title} className="-mt-2 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onTabKey}>
+            <button
+              type="button"
+              id="learn-tab-sessions"
+              role="tab"
+              aria-selected={tab === 'sessions'}
+              aria-controls="learn-panel-sessions"
+              tabIndex={tab === 'sessions' ? 0 : -1}
+              onClick={() => openTab('sessions')}
+              className={tabClass('sessions')}
+            >
+              {t('learn.sessionsTab')}
+            </button>
+            <button
+              type="button"
+              id="learn-tab-announcements"
+              role="tab"
+              aria-selected={tab === 'announcements'}
+              aria-controls="learn-panel-announcements"
+              tabIndex={tab === 'announcements' ? 0 : -1}
+              onClick={() => openTab('announcements')}
+              className={tabClass('announcements')}
+            >
+              {t('learn.announcements')}
+              {newAnnouncements > 0 && tab !== 'announcements' && (
+                <span className="rounded-full bg-cta px-2 py-0.5 text-[0.8125rem] font-semibold text-cta-text">{t('learn.announcementsNew', { count: newAnnouncements })}</span>
+              )}
+            </button>
+          </div>
+
+          {tab === 'announcements' ? (
+            <div role="tabpanel" id="learn-panel-announcements" aria-labelledby="learn-tab-announcements">
+              <CourseAnnouncements slug={course.slug} latest={latestAnnouncements} headingId="announcements" />
+            </div>
+          ) : (
+          <div role="tabpanel" id="learn-panel-sessions" aria-labelledby="learn-tab-sessions" className="flex flex-col gap-8">
           <CertificateBanner data={certificate} />
           {current ? (
             <SessionCard
@@ -382,12 +458,12 @@ function Inner({ user }: { user: MeResponse }) {
             <Leaderboard slug={course.slug} />
           </div>
 
-          <CourseAnnouncements items={course.announcements ?? []} />
-
           {ended && (
             <section id="course-feedback" className="scroll-mt-6 rounded-xl border border-line p-5 sm:p-6">
               <FeedbackForm slug={course.slug} sessionId={null} legend={t('learn.courseFeedback')} initial={course.courseFeedback} />
             </section>
+          )}
+          </div>
           )}
         </div>
       </div>

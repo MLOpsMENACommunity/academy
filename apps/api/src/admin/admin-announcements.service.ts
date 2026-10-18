@@ -80,7 +80,7 @@ export class AdminAnnouncementsService {
             titleAr: `${course.titleAr || course.titleEn}: ${subjectAr}`,
             bodyEn: input.bodyEn,
             bodyAr,
-            link: p.enrolled ? `/learn/${course.slug}` : '/dashboard',
+            link: p.enrolled ? `/learn/${course.slug}#announcements` : '/dashboard',
           })),
         });
         await this.audit.log(

@@ -147,7 +147,7 @@ describe('speaker announcements (e2e)', () => {
 
       const notes = await prisma.notification.findMany({ where: { type: 'course.announcement', userId: { in: [...enrolled, shortlisted, applicant].map((u) => u.id) } } });
       expect(notes.map((x) => x.userId).sort()).toEqual(enrolled.map((e) => e.id).sort());
-      expect(notes[0]).toMatchObject({ bodyEn: expect.stringMatching(/^From Mona Speaker\n/), bodyAr: expect.stringMatching(/^من Mona Speaker \(ع\)\n/), link: `/learn/${course.slug}` });
+      expect(notes[0]).toMatchObject({ bodyEn: expect.stringMatching(/^From Mona Speaker\n/), bodyAr: expect.stringMatching(/^من Mona Speaker \(ع\)\n/), link: `/learn/${course.slug}#announcements` });
 
       await app.get(AnnouncementDelivery).process();
       const mails = sent.filter((m) => m.template.name === 'announcement');

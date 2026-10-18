@@ -160,12 +160,17 @@ test('the team assigns a speaker to a course; the speaker sends an announcement;
   await expect(page.getByRole('heading', { name: 'Sent announcements' })).toBeVisible();
   await expect(page.getByText(SUBJECT)).toBeVisible();
 
-  // The student sees it on the learning page, from the speaker.
+  // The student sees it on the learning page's Announcements tab (badged as new), from the speaker.
   const studentContext = await browser.newContext();
   const student = await studentContext.newPage();
   student.on('pageerror', (e) => errors.push(String(e)));
   await apiLogin(student.request, studentEmail, password);
   await student.goto(`/en/learn/${slug}`);
+  const tab = student.getByRole('tab', { name: /Announcements/ });
+  await expect(tab).toContainText('1 new');
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(student).toHaveURL(/#announcements$/);
   const item = student.getByRole('listitem').filter({ hasText: SUBJECT });
   await expect(item).toBeVisible();
   await expect(item).toContainText(`From ${speaker.name}`);

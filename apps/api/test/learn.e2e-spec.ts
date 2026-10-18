@@ -176,4 +176,37 @@ describe('learn (e2e)', () => {
     await jobs.run();
     expect(await prisma.reminderLog.count({ where: { sessionId: soon.id, userId: student.id, kind: 'H1' } })).toBe(1);
   });
+
+  it('lists every announcement on the Announcements tab, only what the student may read', async () => {
+    const { course, student } = await setup();
+    const slug = await slugOf(course.id);
+    const base = Date.now() - 60 * MIN;
+    await prisma.announcement.createMany({
+      data: Array.from({ length: 25 }, (_, i) => ({
+        courseId: course.id,
+        idempotencyKey: `tab-${course.id}-${i}`,
+        subjectEn: `Note ${i}`,
+        subjectAr: '',
+        bodyEn: 'Body',
+        bodyAr: '',
+        statuses: ['ENROLLED'],
+        createdAt: new Date(base + i * 1000),
+      })),
+    });
+    // Sent to shortlisted applicants only: not for this enrolled student.
+    await prisma.announcement.create({
+      data: { courseId: course.id, idempotencyKey: `tab-${course.id}-short`, subjectEn: 'Shortlist only', subjectAr: '', bodyEn: 'x', bodyAr: '', statuses: ['SHORTLISTED'] },
+    });
+
+    const page = (await http().get(`/api/learn/${slug}`).set('Cookie', student.cookie).expect(200)).body;
+    expect(page.announcements).toHaveLength(20);
+    const all = (await http().get(`/api/learn/${slug}/announcements`).set('Cookie', student.cookie).expect(200)).body as { subjectEn: string; subjectAr: string }[];
+    expect(all).toHaveLength(25);
+    expect(all[0]).toMatchObject({ subjectEn: 'Note 24', subjectAr: 'Note 24' });
+    expect(all.map((a) => a.subjectEn)).not.toContain('Shortlist only');
+
+    const outsider = await createUser(app, prisma);
+    expect((await http().get(`/api/learn/${slug}/announcements`).set('Cookie', outsider.cookie).expect(403)).body.code).toBe('NOT_ENROLLED');
+    await http().get(`/api/learn/${slug}/announcements`).expect(401);
+  });
 });
