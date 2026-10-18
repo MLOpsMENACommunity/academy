@@ -33,6 +33,7 @@ import {
 } from '@academy/shared';
 import { Prisma, type Assessment, type Course, type QuizOption, type QuizQuestion, type Submission } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
+import { courseKey, SignedInCache } from '../common/signed-in-cache';
 import { PrismaService } from '../prisma/prisma.service';
 import { detectFileType, MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
@@ -141,6 +142,7 @@ export class AssessmentsService {
     private readonly github: GithubRepoChecker,
     private readonly points: PointsService,
     private readonly courseAccess: CourseAccessService,
+    private readonly cache: SignedInCache,
   ) {}
 
   /**
@@ -149,15 +151,17 @@ export class AssessmentsService {
    * as enrolled students. Writes (starting, submitting) always need an enrolment.
    */
   private async access(user: AuthUser, slug: string, mode: 'read' | 'write' = 'read'): Promise<Course> {
-    const course = await this.prisma.course.findUnique({ where: { slug } });
+    // Reads take the course from the signed-in cache (any write empties it); writes ask the database.
+    const load = () => this.prisma.course.findUnique({ where: { slug } });
+    const course = mode === 'read' ? await this.cache.get(courseKey(slug), load) : await load();
     if (!course) throw new NotFoundException('Course not found');
-    if (mode === 'read' && (await this.courseAccess.canTeach(user, course.id))) return course;
+    // The enrolment first: most readers are students, so the staff check is rarely needed.
     const enrolled = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
       select: { id: true },
     });
-    if (!enrolled) throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
-    return course;
+    if (enrolled || (mode === 'read' && (await this.courseAccess.canTeach(user, course.id)))) return course;
+    throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
   }
 
   private async published(courseId: string, id: string): Promise<FullAssessment> {

@@ -96,6 +96,7 @@ describe('assessments (e2e)', () => {
     process.env.EMAIL_PROVIDER = 'log';
     process.env.JOBS_ENABLED = 'false';
     process.env.PUBLIC_CACHE_TTL_S ??= '0';
+    process.env.SIGNED_IN_CACHE_TTL_S ??= '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(GITHUB_FETCH).useValue(fakeFetch).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>({ logger: ['error'], bodyParser: false });
     configureApp(app);

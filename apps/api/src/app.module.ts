@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './common/auth.guard';
 import { ApiExceptionFilter } from './common/exception.filter';
 import { PublicCacheInterceptor } from './common/public-cache';
+import { SignedInCacheInterceptor } from './common/signed-in-cache';
 import { PublicDataModule } from './common/public-data';
 import { CalendarModule } from './calendar/calendar.module';
 import { CertificatesModule } from './certificates/certificates.module';
@@ -96,6 +97,8 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     // cache, and invalidation on admin writes (common/public-cache.ts; the cache and the
     // revalidator come from PublicDataModule, so services can report other public changes).
     { provide: APP_INTERCEPTOR, useClass: PublicCacheInterceptor },
+    // Signed-in reads (AuthGuard's account check, courses by address): emptied by every write.
+    { provide: APP_INTERCEPTOR, useClass: SignedInCacheInterceptor },
   ],
 })
 export class AppModule {}

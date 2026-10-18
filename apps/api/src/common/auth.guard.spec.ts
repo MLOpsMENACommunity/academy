@@ -6,6 +6,7 @@ import type { AdminPermission, Role } from '@academy/shared';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from './auth.guard';
 import { AdminCan, Public, Roles } from './decorators';
+import { SignedInCache } from './signed-in-cache';
 
 class Routes {
   @Roles('ADMIN')
@@ -43,7 +44,7 @@ function guardFor(user: { role: Role; adminPermissions: AdminPermission[]; token
   const prisma = {
     user: { findUnique: jest.fn().mockResolvedValue(user ? { tokenVersion: 0, deletedAt: null, ...user } : null) },
   } as unknown as PrismaService;
-  return { guard: new AuthGuard(jwt, new Reflector(), prisma), prisma };
+  return { guard: new AuthGuard(jwt, new Reflector(), prisma, new SignedInCache({ SIGNED_IN_CACHE_TTL_S: 0 })), prisma };
 }
 
 function ctx(cls: object, method: string, cookie = 'token'): { context: ExecutionContext; req: Record<string, unknown> } {
@@ -114,5 +115,41 @@ describe('AuthGuard admin permissions', () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ role: 'ADMIN', adminPermissions: ['CONTENT'], tokenVersion: 0, deletedAt: null });
     await expect(guard.canActivate(ctx(Routes, 'academic').context)).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({ adminPermissions: true }) }));
+  });
+});
+
+describe('AuthGuard with the signed-in cache', () => {
+  function cachedGuard() {
+    const jwt = { verifyAsync: jest.fn().mockResolvedValue({ sub: 'u1', tv: 0, amr: 'pwd', at: 1 }) } as unknown as JwtService;
+    const findUnique = jest.fn().mockResolvedValue({ role: 'STUDENT', adminPermissions: [], tokenVersion: 0, deletedAt: null });
+    const prisma = { user: { findUnique } } as unknown as PrismaService;
+    return { guard: new AuthGuard(jwt, new Reflector(), prisma, new SignedInCache({ SIGNED_IN_CACHE_TTL_S: 15 })), findUnique };
+  }
+  const call = (guard: AuthGuard, method: string) => {
+    const { context, req } = ctx(Routes, 'any');
+    req.method = method;
+    return guard.canActivate(context);
+  };
+
+  it('reuses the account check on reads', async () => {
+    const { guard, findUnique } = cachedGuard();
+    await call(guard, 'GET');
+    await call(guard, 'GET');
+    await call(guard, 'HEAD');
+    expect(findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('always asks the database on writes', async () => {
+    const { guard, findUnique } = cachedGuard();
+    await call(guard, 'GET');
+    for (const m of ['POST', 'PUT', 'PATCH', 'DELETE']) await call(guard, m);
+    expect(findUnique).toHaveBeenCalledTimes(5);
+  });
+
+  it('asks again when the token is newer than the cached account', async () => {
+    const { guard, findUnique } = cachedGuard();
+    findUnique.mockResolvedValueOnce({ role: 'STUDENT', adminPermissions: [], tokenVersion: -1, deletedAt: null });
+    expect(await call(guard, 'GET')).toBe(true);
+    expect(findUnique).toHaveBeenCalledTimes(2);
   });
 });

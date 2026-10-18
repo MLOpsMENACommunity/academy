@@ -16,7 +16,7 @@ academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
 
 Production runs one API container and up to three web containers (`standard-1`), and
 staging one `basic` container of each; see [Capacity and caching](#capacity-and-caching).
-Containers sleep after 2 idle hours in production (30 minutes on staging). The first
+Containers sleep after 15 idle minutes in production (10 on staging; `SLEEP_AFTER` in `wrangler.jsonc`). The first
 request after a sleep takes a few seconds while the container starts. Database migrations run when the API container starts. The seed is
 idempotent and also runs on start: it creates the admin, the settings and the
 placeholder courses.
@@ -249,6 +249,20 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
     the 1 GiB for Prisma's engine and the background seed.
   - **Health:** `/api/health/live` never touches the database (Docker's healthcheck);
     `/api/health` checks it at most every 5 s, with a 2 s limit (the deploy check).
+- **Region:** every container is pinned to Western Europe (`"constraints": { "regions":
+  ["WEUR"] }` in `wrangler.jsonc`), next to the Neon database in Frankfurt. Without it
+  Cloudflare starts a container near whoever wakes it, which can be far from the database:
+  each query then took about 0.5 s and a signed-in click several seconds (measured October
+  2026). Students in Egypt and the Gulf add one ~60–100 ms trip to Europe per request
+  instead. If the database ever moves, move this with it. `ME` can't be used on its own
+  (limited capacity).
+- **Signed-in reads:** the API remembers each account's sign-in check (role, admin presets,
+  token version) and courses by address for 15 s (`SIGNED_IN_CACHE_TTL_S`, 0 turns it off),
+  for GET requests only. Every write request (and every jobs run) empties it once it has
+  committed, so revoking a session, deleting an account or removing an admin applies on the
+  next request; writes always read the database
+  (`apps/api/src/common/signed-in-cache.ts`). A change made outside the API (psql, a script)
+  shows within 15 s. This is one more reason to keep a single API instance.
 - **Worker → containers:** a container that can't be reached, is starting, or doesn't answer
   within 25 s (writes and admin requests: 120 s, as long as the API itself allows) gets a 503 with `Retry-After` from the Worker, logged as a
   warning, never a hang or an opaque 500 (`deploy/cloudflare/src/container-fetch.ts`).
@@ -500,7 +514,7 @@ Add `--env staging` to any of these to act on staging instead of production.
 - **Single API instance.** Rate limits and the login lockout are in memory, so
   keep the API at `max_instances: 1` until they move to a shared store. The web app
   has no such state and runs several instances.
-- **Cold starts.** After 2 idle hours (staging: 30 minutes) the next request waits a
+- **Cold starts.** After 15 idle minutes (staging: 10) the next request waits a
   few seconds for a container to start. The edge cache doesn't help here: its entries
   (30 s) are long gone by then.
 - **Deploys and mixed builds.** Containers roll out after the Worker, so for a while old

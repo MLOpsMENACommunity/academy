@@ -11,6 +11,8 @@ export async function createTestApp(): Promise<{ app: NestExpressApplication; pr
   // Tests edit the database directly and read it back at once: no in-process catalog cache,
   // unless a test turns it on (public-cache.e2e-spec.ts).
   process.env.PUBLIC_CACHE_TTL_S ??= '0';
+  // Nor the signed-in cache (signed-in-cache.e2e-spec.ts turns it on).
+  process.env.SIGNED_IN_CACHE_TTL_S ??= '0';
   // S3_CREATE_BUCKET comes from the environment (true locally and in CI, so the bucket exists).
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: ['error'], bodyParser: false });

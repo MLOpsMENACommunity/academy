@@ -43,6 +43,8 @@
       "image": "../../apps/api/Dockerfile",
       "image_build_context": "../..",
       "instance_type": "basic",
+      // Next to the database (Neon, Frankfurt): every query is a short round trip. See DEPLOY.md, "Region".
+      "constraints": { "regions": ["WEUR"] },
       // Exactly one: rate limits and the login lockout are in memory.
       "max_instances": 1
     },
@@ -52,6 +54,8 @@
       "image_build_context": "../..",
       "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy.mlopsmena.com", "NEXT_PUBLIC_ACADEMY_ENVIRONMENT": "production" },
       "instance_type": "basic",
+      // Next to the database (Neon, Frankfurt): every query is a short round trip. See DEPLOY.md, "Region".
+      "constraints": { "regions": ["WEUR"] },
       // Stateless: the Worker spreads requests over WEB_INSTANCES of these
       // (MAX_WEB_INSTANCES in src/instances.ts must match; a test checks).
       "max_instances": 3,
@@ -102,6 +106,7 @@
           "image": "../../apps/api/Dockerfile",
           "image_build_context": "../..",
           "instance_type": "basic",
+          "constraints": { "regions": ["WEUR"] },
           "max_instances": 1
         },
         {
@@ -111,6 +116,7 @@
           "image_build_context": "../..",
           "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com", "NEXT_PUBLIC_ACADEMY_ENVIRONMENT": "staging" },
           "instance_type": "basic",
+          "constraints": { "regions": ["WEUR"] },
           "max_instances": 1
         }
       ],
