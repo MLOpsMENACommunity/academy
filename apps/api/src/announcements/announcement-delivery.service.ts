@@ -93,7 +93,7 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
         const ar = locale === 'ar';
         // A course's students, or a live session's registrants (exactly one is set).
         const target = (a.course ?? a.event)!;
-        const path = a.event ? `/sessions/${a.event.slug}` : r.enrolled ? `/learn/${target.slug}` : '/dashboard';
+        const path = a.event ? `/sessions/${a.event.slug}` : r.enrolled ? `/learn/${target.slug}#announcements` : '/dashboard';
         const ok = await this.email.send(
           r.user.email,
           locale,

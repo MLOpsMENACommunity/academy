@@ -282,7 +282,7 @@ export class SpeakerAnnouncementsService {
     const subjectAr = input.subjectAr || input.subjectEn;
     const bodyAr = input.bodyAr || input.bodyEn;
     const titleAr = target.titleAr || target.titleEn;
-    const link = kind === 'course' ? `/learn/${target.slug}` : `/sessions/${target.slug}`;
+    const link = kind === 'course' ? `/learn/${target.slug}#announcements` : `/sessions/${target.slug}`;
     const since = new Date(now.getTime() - DAY_MS);
 
     let id: string;

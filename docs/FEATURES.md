@@ -487,7 +487,12 @@ admins can preview any course; assigned speakers can preview assessments (Stagin
 - **Course feedback** opens when the last session starts.
 - **Reminders:** a per-course switch for the 24 h/1 h session emails, assessment due reminders and
   publish notices.
-- **Announcements** from the team and from assigned speakers ("From {name}").
+- **Announcements tab** (next to **Sessions**, at the top of the page): every announcement of the
+  course from the team and from its speakers ("From {name}"), newest first, links clickable. A
+  "N new" badge counts the ones that arrived since the student last opened the tab (remembered in
+  that browser). The in-app notification and the email open it directly (`/learn/<slug>#announcements`).
+  Students see the announcements sent to enrolled students and any sent to them directly, never
+  those for other statuses.
 - **Assessments** list with how many are due, **Leaderboard**, **How to earn the certificate** card or
   the certificate banner.
 - Dashboard (`/dashboard`): my courses (all, in progress, completed), next live sessions, my
@@ -915,6 +920,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Announcements tab | The learn page has **Sessions** and **Announcements** tabs. The Announcements tab lists every announcement of the course (it showed the latest 20 at the bottom of the page before), with a "N new" badge; announcement notifications and emails open it (`#announcements`); new `GET /api/learn/:slug/announcements` (same visibility rules) (en/ar) | Pending |
 | No pgbouncer mode | The API talks to Neon's pooler without Prisma's `pgbouncer=true`, which had wrapped every query in `BEGIN; DEALLOCATE ALL; …; COMMIT` (about 6 round trips per query instead of 1–2). Neon's PgBouncer 1.22+ supports the prepared statements Prisma uses. Checked locally: the whole API e2e suite through PgBouncer 1.26 in transaction mode. No visible change besides speed (DEPLOY.md, "No pgbouncer mode") | Pending |
 | Faster signed-in clicks | Containers pinned to Western Europe, next to the database (a query took ~0.5 s from wherever Cloudflare had placed them); signed-in reads reuse the account check and the course for 15 s, emptied by every write, so revoking access still applies on the next request; the learn page no longer looks up the course and enrolment again for each of its three calls, and assessments check the enrolment before the staff list. No visible change besides speed (DEPLOY.md, "Region" and "Signed-in reads") | Pending |
 | Quiz import | **Import quizzes from a file** in a course's Assessments tab (admin and Teaching): one .xlsx/.csv creates many quizzes, each on its session (by number) or course-level, with questions, weights and settings (pass %, due in Cairo time, attempts, time limit, reveal, mandatory, status, max points, instructions); per-quiz preview with row errors; all-or-nothing save (30 quizzes, 1,000 questions), drafts by default, skip or replace same-title quizzes, audited; template with two quizzes. Single-quiz upload hint explains weights. New guides: guides/QUIZZES.md, guides/ATTENDANCE.md, guides/COURSE-STAFF.md; README documentation index (en/ar) | Pending |

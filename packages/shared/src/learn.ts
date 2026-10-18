@@ -89,12 +89,29 @@ export interface LearnCourseDto {
   progress: { completed: number; total: number; percent: number };
   courseFeedback: { rating: number; comment: string | null } | null;
   sessions: LearnSessionDto[];
-  /**
-   * Messages from the course team, newest first. Arabic falls back to English. `fromEn`/`fromAr`
-   * name the speaker who sent it (null when the team did).
-   */
-  announcements: { id: string; at: string; subjectEn: string; subjectAr: string; bodyEn: string; bodyAr: string; fromEn: string | null; fromAr: string | null }[];
+  /** The latest LEARN_PAGE_ANNOUNCEMENTS announcements (all of them: GET /learn/:slug/announcements). */
+  announcements: LearnAnnouncementDto[];
 }
+
+/**
+ * A message from the course team, newest first. Arabic falls back to English. `fromEn`/`fromAr`
+ * name the speaker who sent it (null when the team did).
+ */
+export interface LearnAnnouncementDto {
+  id: string;
+  at: string;
+  subjectEn: string;
+  subjectAr: string;
+  bodyEn: string;
+  bodyAr: string;
+  fromEn: string | null;
+  fromAr: string | null;
+}
+
+/** How many announcements the learn page itself carries (for the "new" badge and banner). */
+export const LEARN_PAGE_ANNOUNCEMENTS = 20;
+/** The most the Announcements tab lists: far more than a course sends (5 a day per sender at most). */
+export const LEARN_ANNOUNCEMENTS_MAX = 500;
 
 export interface NextSessionDto {
   courseSlug: string;

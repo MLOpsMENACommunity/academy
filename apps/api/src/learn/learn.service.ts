@@ -6,7 +6,10 @@ import {
   youtubeId,
   type FeedbackDueDto,
   type FeedbackInput,
+  type LearnAnnouncementDto,
   type LearnCourseDto,
+  LEARN_ANNOUNCEMENTS_MAX,
+  LEARN_PAGE_ANNOUNCEMENTS,
   type Material,
   type NextSessionDto,
   hasAdminPermission,
@@ -76,16 +79,7 @@ export class LearnService {
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
       this.prisma.profile.findUnique({ where: { userId: user.id }, select: { googleEmail: true } }),
       this.settings.get(),
-      // Course-wide announcements to enrolled students, plus any sent to this student directly.
-      this.prisma.announcement.findMany({
-        where: {
-          courseId: course.id,
-          ...(hasAdminPermission(user, ['ACADEMIC']) ? {} : { OR: [{ statuses: { array_contains: ['ENROLLED'] } }, { recipients: { some: { userId: user.id } } }] }),
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        select: { id: true, createdAt: true, subjectEn: true, subjectAr: true, bodyEn: true, bodyAr: true, fromName: true, fromNameAr: true },
-      }),
+      this.announcementsOf(user, course.id, LEARN_PAGE_ANNOUNCEMENTS),
       // Their own attendance only (from the Meet file or set by the team).
       this.prisma.sessionAttendance.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true, status: true, minutes: true, percent: true } }),
     ]);
@@ -112,16 +106,7 @@ export class LearnService {
       emailReminders: pref?.emailReminders ?? true,
       progress: { completed, total: sessions.length, percent: sessions.length ? Math.round((completed / sessions.length) * 100) : 0 },
       courseFeedback: courseFb ? { rating: courseFb.rating, comment: courseFb.comment } : null,
-      announcements: announcements.map((a) => ({
-        id: a.id,
-        at: a.createdAt.toISOString(),
-        subjectEn: a.subjectEn,
-        subjectAr: a.subjectAr || a.subjectEn,
-        bodyEn: a.bodyEn,
-        bodyAr: a.bodyAr || a.bodyEn,
-        fromEn: a.fromName,
-        fromAr: a.fromName ? a.fromNameAr || a.fromName : null,
-      })),
+      announcements,
       sessions: sessions.map((x) => {
         const visible = hasAdminPermission(user, ['ACADEMIC']) || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
         const fb = fbBySession.get(x.id);
@@ -148,6 +133,35 @@ export class LearnService {
         };
       }),
     };
+  }
+
+  /** The Announcements tab: every announcement of the course this student may read, newest first. */
+  async announcements(user: AuthUser, slug: string): Promise<LearnAnnouncementDto[]> {
+    const course = await this.access(user, slug);
+    return this.announcementsOf(user, course.id, LEARN_ANNOUNCEMENTS_MAX);
+  }
+
+  /** Course-wide announcements to enrolled students, plus any sent to this student directly (ACADEMIC admins: all). */
+  private async announcementsOf(user: AuthUser, courseId: string, take: number): Promise<LearnAnnouncementDto[]> {
+    const rows = await this.prisma.announcement.findMany({
+      where: {
+        courseId,
+        ...(hasAdminPermission(user, ['ACADEMIC']) ? {} : { OR: [{ statuses: { array_contains: ['ENROLLED'] } }, { recipients: { some: { userId: user.id } } }] }),
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: { id: true, createdAt: true, subjectEn: true, subjectAr: true, bodyEn: true, bodyAr: true, fromName: true, fromNameAr: true },
+    });
+    return rows.map((a) => ({
+      id: a.id,
+      at: a.createdAt.toISOString(),
+      subjectEn: a.subjectEn,
+      subjectAr: a.subjectAr || a.subjectEn,
+      bodyEn: a.bodyEn,
+      bodyAr: a.bodyAr || a.bodyEn,
+      fromEn: a.fromName,
+      fromAr: a.fromName ? a.fromNameAr || a.fromName : null,
+    }));
   }
 
   private async sessionOf(user: AuthUser, slug: string, sessionId: string, mode: 'read' | 'write' = 'read') {
