@@ -152,4 +152,12 @@ describe('AuthGuard with the signed-in cache', () => {
     expect(await call(guard, 'GET')).toBe(true);
     expect(findUnique).toHaveBeenCalledTimes(2);
   });
+
+  it('keeps the cached account for an older (revoked) token', async () => {
+    const { guard, findUnique } = cachedGuard();
+    findUnique.mockResolvedValue({ role: 'STUDENT', adminPermissions: [], tokenVersion: 1, deletedAt: null });
+    await expect(call(guard, 'GET')).rejects.toThrow();
+    await expect(call(guard, 'GET')).rejects.toThrow();
+    expect(findUnique).toHaveBeenCalledTimes(1);
+  });
 });

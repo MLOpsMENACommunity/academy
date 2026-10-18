@@ -15,7 +15,9 @@ import type { Env } from '../config/env';
  *     session, a deleted account or a removed admin can't change anything once that commits.
  *   - Any write request (and the Google sign-in callback, the one GET that can end sessions)
  *     clears all of it when the handler finishes, i.e. after its transaction committed, and
- *     before the response goes out. So does every scheduled job run.
+ *     before the response goes out. In production the jobs run through the hourly tick, a
+ *     POST, so they clear it too; so does JobsRegistry.runAll. (The in-process crons, local
+ *     only with JOBS_ENABLED, don't change what is cached.)
  *   - A load that started before a clear is never stored after it (the entry holds the
  *     promise from the start, and clear() drops it).
  * A change made outside this process (a script, psql) shows within SIGNED_IN_CACHE_TTL_S.
@@ -66,13 +68,15 @@ export const courseKey = (slug: string): string => `course:${slug}`;
 /** Upper bound on cached keys (accounts and courses). Oldest go first. */
 export const MAX_ENTRIES = 5000;
 
-const READS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** Methods that only read: the guard may use the cache for them, and they don't clear it. */
+export const READ_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS']);
 /** GETs that write what SignedInCache holds: Google sign-in can claim an account and end its sessions. */
 const WRITING_GETS = new Set(['/api/auth/google/callback']);
 
 /** Whether a request may change what SignedInCache holds (so it clears it when done). */
 export function clearsSignedInCache(req: Pick<Request, 'method' | 'path'>): boolean {
-  return !READS.has(req.method) || WRITING_GETS.has(req.path);
+  // Express matches routes ignoring case and a trailing slash: so does this.
+  return !READ_METHODS.has(req.method) || WRITING_GETS.has(req.path.toLowerCase().replace(/\/+$/, ''));
 }
 
 /** Empties SignedInCache after every request that can write, once its handler finished. */

@@ -55,6 +55,7 @@ describe('SignedInCacheInterceptor', () => {
     expect(clearsSignedInCache({ method: 'HEAD', path: '/api/learn/x' })).toBe(false);
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) expect(clearsSignedInCache({ method, path: '/api/learn/x' })).toBe(true);
     expect(clearsSignedInCache({ method: 'GET', path: '/api/auth/google/callback' })).toBe(true);
+    expect(clearsSignedInCache({ method: 'GET', path: '/api/auth/Google/callback/' })).toBe(true);
   });
 
   it('leaves the cache alone on reads', async () => {

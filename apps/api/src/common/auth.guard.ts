@@ -6,9 +6,7 @@ import { ACCESS_COOKIE } from '../auth/cookies';
 import type { AccessPayload } from '../auth/tokens.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ADMIN_CAN_KEY, IS_PUBLIC, ROLES_KEY, type AuthedRequest } from './decorators';
-import { SignedInCache } from './signed-in-cache';
-
-const READS = new Set(['GET', 'HEAD']);
+import { READ_METHODS, SignedInCache } from './signed-in-cache';
 
 /**
  * Global guard: every route requires a valid session unless marked @Public().
@@ -46,12 +44,12 @@ export class AuthGuard implements CanActivate {
             select: { role: true, adminPermissions: true, tokenVersion: true, deletedAt: true },
           });
         let user;
-        if (READS.has(req.method)) {
+        if (READ_METHODS.has(req.method)) {
           // Reads may use the last few seconds' answer (common/signed-in-cache.ts).
           const key = `user:${payload.sub}`;
           user = await this.cache.get(key, load);
           // A newer token than the cached account (a sign-in that just ended older sessions): ask the database.
-          if (user && user.tokenVersion !== payload.tv) {
+          if (user && user.tokenVersion < payload.tv) {
             this.cache.delete(key);
             user = await this.cache.get(key, load);
           }
