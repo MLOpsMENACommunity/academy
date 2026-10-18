@@ -38,6 +38,7 @@ import { adminAssessmentEndpoints, type AssessmentEndpoints } from './assessment
 import { AssessmentGradebook } from './AssessmentGradebook';
 import { fromLocalInput, toLocalInput } from './CourseForm';
 import { MarkdownField } from './MarkdownField';
+import { QuizImport } from './QuizImport';
 import { QuizUpload } from './QuizUpload';
 
 export interface AssessmentSessionOption {
@@ -545,7 +546,7 @@ function AssessmentForm({
 
 // ------------------------------------------------------------------ the tab
 
-type View = { mode: 'list' } | { mode: 'edit'; id: string | null } | { mode: 'book'; id: string };
+type View = { mode: 'list' } | { mode: 'edit'; id: string | null } | { mode: 'book'; id: string } | { mode: 'import' };
 
 /** The course editor's Assessments tab: the list, the editor (quiz builder) and each gradebook. */
 export function AssessmentsEditor({
@@ -555,9 +556,12 @@ export function AssessmentsEditor({
   previewSlug,
   certRequireAssessments = true,
   certificatesHref,
+  canImport = true,
 }: {
   courseId: string;
   sessions: AssessmentSessionOption[];
+  /** Show "Import quizzes from a file" (admins; course staff who may manage assessments). */
+  canImport?: boolean;
   /** The course's certificate rule requires passing every mandatory assessment (else the editor says the choice has no effect yet). */
   certRequireAssessments?: boolean;
   /** The Certificates tab, when this person can open it. */
@@ -637,6 +641,22 @@ export function AssessmentsEditor({
       />
     );
   }
+  if (view.mode === 'import') {
+    return (
+      <QuizImport
+        endpoints={endpoints}
+        sessions={sessions}
+        existing={rows ?? []}
+        onCancel={() => setView({ mode: 'list' })}
+        onDone={(r) => {
+          setRows(r.rows);
+          setError(null);
+          setNotice(a('importDone', { created: r.created.length, replaced: r.replaced.length, skipped: r.skipped.length }));
+          setView({ mode: 'list' });
+        }}
+      />
+    );
+  }
   if (view.mode === 'book') {
     return (
       <AssessmentGradebook
@@ -664,6 +684,11 @@ export function AssessmentsEditor({
       {notice && <Alert tone="success">{notice}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setView({ mode: 'edit', id: null })}>+ {a('add')}</Button>
+        {canImport && (
+          <Button variant="secondary" onClick={() => setView({ mode: 'import' })}>
+            ⇪ {a('importQuizzes')}
+          </Button>
+        )}
         <Button variant="secondary" onClick={() => downloadViaApi(endpoints.gradebookCsv, 'gradebook.csv').catch((err: unknown) => setError(errorMessage(err, t)))}>
           ⬇ {a('exportGradebook')}
         </Button>

@@ -6,6 +6,7 @@ import {
   attendanceUploadSchema,
   pointsEditSchema,
   pointsVoidSchema,
+  quizImportSchema,
   assessmentInputSchema,
   assessmentOrderSchema,
   gradeInputSchema,
@@ -17,6 +18,7 @@ import {
   type AttendanceUploadInput,
   type PointsEditInput,
   type PointsVoidInput,
+  type QuizImportInput,
   type AssessmentInput,
   type AssessmentOrderInput,
   type GradeInput,
@@ -40,6 +42,8 @@ import { TeachingService } from './teaching.service';
 const WRITE_LIMIT = { default: { limit: 30, ttl: 60_000 } };
 /** Grading a whole class goes quickly, one save per student. */
 const GRADE_LIMIT = { default: { limit: 60, ttl: 60_000 } };
+/** A quiz import writes up to 30 quizzes at once. */
+const IMPORT_LIMIT = { default: { limit: 10, ttl: 60_000 } };
 
 /**
  * Teaching → {course}: course staff work on their courses, each route behind one or more course
@@ -96,6 +100,18 @@ export class TeachingController {
     // Each published one tells every enrolled student: a daily cap keeps a mistake (or a script) from flooding them.
     await this.teaching.assertCreateQuota(user.id);
     return this.assessments.create(courseId, body, user, false);
+  }
+
+  /**
+   * Many quizzes from one spreadsheet (parsed in the browser), all saved or none. New quizzes
+   * count toward the daily cap on new assessments (checked before anything is written).
+   */
+  @CourseCan('MANAGE_ASSESSMENTS')
+  @Post(':courseId/assessments/import')
+  @HttpCode(200)
+  @Throttle(IMPORT_LIMIT)
+  importQuizzes(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Body(new ZodPipe(quizImportSchema)) body: QuizImportInput) {
+    return this.assessments.importQuizzes(courseId, body, user, { staffEmails: false, quota: (n) => this.teaching.assertCreateQuota(user.id, new Date(), n) });
   }
 
   @CourseCan('MANAGE_ASSESSMENTS')

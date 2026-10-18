@@ -132,6 +132,7 @@ function Course({ courseId }: { courseId: string }) {
                 sessions={course.sessions}
                 endpoints={endpoints}
                 previewSlug={course.slug}
+                canImport={course.permissions.includes('MANAGE_ASSESSMENTS')}
                 certRequireAssessments={course.certRequireAssessments}
                 certificatesHref={tabs.includes('certificates') ? `/${locale}/teach/courses/${courseId}?tab=certificates` : undefined}
               />

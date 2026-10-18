@@ -13,6 +13,7 @@ import {
 } from '@academy/shared';
 import type { Course } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
+import { courseKey, SignedInCache } from '../common/signed-in-cache';
 import { PrismaService } from '../prisma/prisma.service';
 import { PointsService } from '../points/points.service';
 import { SettingsService } from '../settings/settings.service';
@@ -33,6 +34,7 @@ export class LearnService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly points: PointsService,
+    private readonly cache: SignedInCache,
   ) {}
 
   /**
@@ -41,31 +43,39 @@ export class LearnService {
    * require a real enrolment so admin clicks never look like student data.
    */
   private async access(user: AuthUser, slug: string, mode: 'read' | 'write' = 'read'): Promise<Course> {
-    const course = await this.prisma.course.findUnique({ where: { slug } });
+    return (await this.accessWithEnrolment(user, slug, mode)).course;
+  }
+
+  /** access(), plus the enrolment it checked (null for an admin previewing a course they aren't in). */
+  private async accessWithEnrolment(
+    user: AuthUser,
+    slug: string,
+    mode: 'read' | 'write' = 'read',
+  ): Promise<{ course: Course; enrollment: { driveAccessGranted: boolean } | null }> {
+    // Reads take the course from the signed-in cache (any write empties it); writes ask the database.
+    const load = () => this.prisma.course.findUnique({ where: { slug } });
+    const course = mode === 'read' ? await this.cache.get(courseKey(slug), load) : await load();
     if (!course) throw new NotFoundException('Course not found');
-    // The academic preset previews (reads) any course; other admins only as enrolled students.
-    if (mode === 'read' && hasAdminPermission(user, ['ACADEMIC'])) return course;
-    const enrolled = await this.prisma.enrollment.findUnique({
+    const enrollment = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },
-      select: { id: true },
+      select: { driveAccessGranted: true },
     });
-    if (!enrolled) throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
-    return course;
+    // The academic preset previews (reads) any course; other admins only as enrolled students.
+    if (!enrollment && !(mode === 'read' && hasAdminPermission(user, ['ACADEMIC']))) {
+      throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
+    }
+    return { course, enrollment };
   }
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
-    const course = await this.access(user, slug);
-    const [sessions, progress, feedback, pref, profile, s, enrollment, announcements, attendance] = await Promise.all([
+    const { course, enrollment } = await this.accessWithEnrolment(user, slug);
+    const [sessions, progress, feedback, pref, profile, s, announcements, attendance] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
       this.prisma.profile.findUnique({ where: { userId: user.id }, select: { googleEmail: true } }),
       this.settings.get(),
-      this.prisma.enrollment.findUnique({
-        where: { userId_courseId: { userId: user.id, courseId: course.id } },
-        select: { driveAccessGranted: true },
-      }),
       // Course-wide announcements to enrolled students, plus any sent to this student directly.
       this.prisma.announcement.findMany({
         where: {

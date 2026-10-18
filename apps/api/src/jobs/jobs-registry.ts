@@ -3,6 +3,7 @@ import { DiscoveryService } from '@nestjs/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
+import { SignedInCache } from '../common/signed-in-cache';
 
 /** A job the tick runs. It should only enqueue work (outbox rows) and return in seconds. */
 export interface ScheduledJobRunner {
@@ -30,6 +31,7 @@ export class JobsRegistry implements OnModuleInit {
   constructor(
     private readonly discovery: DiscoveryService,
     @Inject(ENV) private readonly env: Env,
+    private readonly signedIn: SignedInCache,
   ) {}
 
   onModuleInit(): void {
@@ -64,6 +66,8 @@ export class JobsRegistry implements OnModuleInit {
         this.logger.error(`Job ${name} failed: ${(err as Error).name}`);
       }
     }
+    // Jobs change data outside a write request (the tick's own POST clears it too).
+    this.signedIn.clear();
     return results;
   }
 

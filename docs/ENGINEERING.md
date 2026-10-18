@@ -338,6 +338,7 @@ and `backups/` (encrypted nightly dumps, written by GitHub Actions).
 | Edge cache, assets | `/_next/static`, `/api/media/*` (immutable) | Long |
 | Browser | Everything that went through the edge gets `public, max-age=0, must-revalidate`, so browsers always revalidate (PR #44: Cloudflare's Browser Cache TTL had kept pages for 4 hours) | 0 |
 | API in-memory | Anonymous public reads, keyed on path + allowed query params; concurrent misses share one query; cleared on any admin write, registration change or booking cancel | `PUBLIC_CACHE_TTL_S` 30 s |
+| API in-memory, signed in | GET requests only: each account's sign-in check (AuthGuard) and courses by address (learn page, its assessments and certificate). Emptied by every write request (POST/PUT/PATCH/DELETE, and the Google sign-in callback) after it commits, and by every jobs run; writes always read the database (`common/signed-in-cache.ts`) | `SIGNED_IN_CACHE_TTL_S` 15 s |
 
 Never cached: requests with `access_token`, `has_session` or `refresh_token`, non-GET, RSC navigation
 requests, signed-in areas, `private`/`no-store` responses, certificate verification. An admin edit
@@ -404,7 +405,7 @@ never in the repo):
   `SMTP_HOST`, `SMTP_PORT`, `RESEND_API_KEY`, `EMAIL_ALLOWLIST`, `EMAIL_REDIRECT_TO`, `S3_ENDPOINT`,
   `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`,
   `S3_CREATE_BUCKET`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SENTRY_DSN`, `API_DOCS`, `LOG_JSON`,
-  `ALLOW_INSECURE_PRODUCTION`, `JOBS_ENABLED`, `JOBS_TOKEN`, `PUBLIC_CACHE_TTL_S`, `MAX_IN_FLIGHT`,
+  `ALLOW_INSECURE_PRODUCTION`, `JOBS_ENABLED`, `JOBS_TOKEN`, `PUBLIC_CACHE_TTL_S`, `SIGNED_IN_CACHE_TTL_S`, `MAX_IN_FLIGHT`,
   `PASSWORD_HASH_CONCURRENCY`, `API_MAX_OLD_SPACE_MB`, `ACADEMY_RELEASE`.
 - **Web:** `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_ACADEMY_ENVIRONMENT`, `API_INTERNAL_URL`,
   `NEXT_PUBLIC_ANALYTICS_PROVIDER`, `NEXT_PUBLIC_ANALYTICS_DOMAIN`, `NEXT_PUBLIC_ANALYTICS_SRC`,
@@ -436,6 +437,8 @@ live in the `Setting` table, edited in Admin → Settings (`packages/shared/src/
 - Roles and presets read from the database per request; token versions for instant revocation.
 - CSRF: JSON bodies only, writes refused when `Origin` isn't the site or `Sec-Fetch-Site` is
   cross-site. CORS limited to `WEB_URL` and `CORS_ORIGINS`.
+- Body size: JSON bodies up to 256 KB; only the quiz import (`POST …/assessments/import`, up to 1,000
+  questions) accepts up to 4 MB (`QUIZ_IMPORT_PATH` in `setup.ts`).
 - Headers: CSP (`default-src 'self'`, YouTube nocookie frames only, `frame-ancestors 'none'`), HSTS,
   `X-Frame-Options: DENY`, `nosniff`, strict referrer and permissions policies; Helmet on the API.
 - Private files only through short-lived signed URLs; uploads checked by magic bytes; random keys.

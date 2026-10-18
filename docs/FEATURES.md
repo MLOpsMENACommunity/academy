@@ -22,7 +22,7 @@ Every feature carries one status. As of 12 Oct 2026:
 | **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.12-2` (`main`): PRs #56–#61 |
 | **Pending** | An open pull request, not merged | PR #62 (the waiting list needs an account) |
 
-Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#cicd-and-release)).
+Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#14-cicd-and-release)).
 When the staging release is promoted, change every "Staging" below to "Live".
 
 ## Contents
@@ -553,6 +553,20 @@ Assessments):
   `type, question, option1…option6, correct, weight, explanation`; `correct` accepts `2`, `1,3`, `B`,
   `A,C` or `true/false`; `type` can be guessed. The preview lists each row's problem; **Add after the
   current questions** or **Replace** only when there are no errors. Nothing is saved until **Save**.
+- **Import quizzes from a file** (Pending, PR "Quiz import"): one .xlsx or .csv creates several
+  quizzes, each on a session, with all their questions. Columns: the upload's question columns plus
+  `quiz` (the title: rows with the same title are one quiz), `session` (the session's number in the
+  course, or `course`/empty) and optional settings from each quiz's first row: `pass_percent`, `due`
+  (Cairo time), `attempts`, `time_limit_min`, `reveal`, `mandatory`, `status` (default draft),
+  `max_points`, `instructions`. Headers in any case and order, with aliases. The template has two
+  quizzes on sessions 1 and 2 with every type and weights. The preview shows each quiz's session,
+  questions, total weight, settings and whether it is new, skipped or replaced, plus every row's
+  problem (sheet row and quiz), including sessions the course doesn't have; nothing is saved while
+  there are errors. Saving is all or nothing (30 quizzes, 1,000 questions per file). A quiz whose
+  title already exists in the same session is skipped, or replaced with **Replace existing quizzes
+  with the same title** (refused once students submitted it). Published ones send the usual publish
+  notices. Admins (ACADEMIC/SUPER) and course staff with Manage assessments; staff's new quizzes count
+  toward the 30-a-day cap. Every import is audited. Step by step: [guides/QUIZZES.md](guides/QUIZZES.md).
 - **Order** with ↑/↓ buttons (Staging).
 - Guards: once anyone has submitted, max points, questions, weights and the key are locked (wording
   stays editable); "answers after the due date" needs late work off; a practice quiz (unlimited attempts
@@ -724,7 +738,7 @@ reach only the courses they are on.
 
 | Group | Permission | What it opens |
 |---|---|---|
-| Teaching | Manage assessments | Create, edit, publish and upload quizzes and assignments |
+| Teaching | Manage assessments | Create, edit, publish, upload and import quizzes and assignments |
 | Teaching | Grade | Submissions, feedback, the gradebook and its CSV |
 | Course material | Manage materials | Session materials, recordings, assignment links, descriptions |
 | Students and attendance | See the roster | Enrolled students' name, email (Telegram and Discord once profiles have them) |
@@ -901,6 +915,8 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Faster signed-in clicks | Containers pinned to Western Europe, next to the database (a query took ~0.5 s from wherever Cloudflare had placed them); signed-in reads reuse the account check and the course for 15 s, emptied by every write, so revoking access still applies on the next request; the learn page no longer looks up the course and enrolment again for each of its three calls, and assessments check the enrolment before the staff list. No visible change besides speed (DEPLOY.md, "Region" and "Signed-in reads") | Pending |
+| Quiz import | **Import quizzes from a file** in a course's Assessments tab (admin and Teaching): one .xlsx/.csv creates many quizzes, each on its session (by number) or course-level, with questions, weights and settings (pass %, due in Cairo time, attempts, time limit, reveal, mandatory, status, max points, instructions); per-quiz preview with row errors; all-or-nothing save (30 quizzes, 1,000 questions), drafts by default, skip or replace same-title quizzes, audited; template with two quizzes. Single-quiz upload hint explains weights. New guides: guides/QUIZZES.md, guides/ATTENDANCE.md, guides/COURSE-STAFF.md; README documentation index (en/ar) | Pending |
 | Login loop fix | Signed-in users never see the login form: after clicking Apply (or any private link) while signed out and then logging in, people landed back on the login page with the header showing them signed in (the browser reused a cached redirect to /login). Login, register and logout now end with a full page load; /login and /register show a spinner, never the form, to a signed-in user, with a "You are signed in → Continue" fallback if forwarding keeps bouncing; `returnTo` never points at a sign-in page (en/ar) | Pending |
 | Mandatory/optional assessments | Assessments say plainly whether they're **mandatory or optional for the certificate**: a two-option choice in the editor (admin and Teaching) instead of the "Counts toward the certificate" checkbox, with a note and link when the course's rule doesn't require assessments; Mandatory/Optional badges in the admin list; "Required for certificate" / "Optional" badges for students when the course's certificate requires assessments; the Certificates rule reads "Students must pass every mandatory assessment". Same data and eligibility as before (en/ar) | Pending |
 | Speakers can learn | Speaker accounts can also apply to courses and study like students (profile, apply, withdraw, pay, enrol by email, learn page, assessments, attendance, feedback, points, leaderboards, certificates, waiting list, calendar, reminders); their home stays `/speaker`, with **My learning** in the header menu and on the portal once they have a course; sign-in keeps an Apply or lesson link for speakers; enrolled speakers count as students for certificates, feedback emails and the profile review email; Admin → Students lists speakers who applied or enrolled (Speaker badge, "Speaker" CSV column); Enrol by email enrols speaker accounts; a student with courses can be switched to a speaker | Pending |

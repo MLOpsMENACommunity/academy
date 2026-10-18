@@ -8,6 +8,9 @@ import {
   type AssessmentInput,
   type GradebookRow,
   type GradeInput,
+  type QuizImportInput,
+  type QuizImportItem,
+  type QuizImportResult,
   type QuizQuestionInput,
   type SubmissionFilter,
 } from '@academy/shared';
@@ -44,6 +47,8 @@ const notInCourse = (what: 'Assessment' | 'Submission') => new NotFoundException
 
 /** Saving a long quiz is many statements: more than Prisma's 5-second default. */
 const QUESTIONS_TX_TIMEOUT_MS = 30_000;
+/** An import writes up to 30 quizzes and 1,000 questions in one transaction. */
+const IMPORT_TX_TIMEOUT_MS = 60_000;
 
 /** Would writing `data` change `row`? */
 function changed(row: Record<string, unknown>, data: Record<string, unknown>): boolean {
@@ -369,6 +374,125 @@ export class AdminAssessmentsService {
         q.options.map((o, j) => ({ questionId: idByOrder.get(order)!, order: j, labelEn: o.labelEn, labelAr: o.labelAr ?? '', correct: o.correct })),
       ),
     });
+  }
+
+  // ------------------------------------------------------------------ import (many quizzes from one file)
+
+  /**
+   * Quizzes from a spreadsheet (parsed in the browser by parseQuizBook), each on the session
+   * with that number (its position in the course) or course-level: all saved in one
+   * transaction, or none. A quiz whose title (any case) a quiz of the same session already
+   * uses is skipped, or with `replaceExisting` replaced in place (refused, for the whole file,
+   * when students have submitted it). Published ones tell the students as create() does.
+   * `quota` (Teaching) is told how many new quizzes this would create, before anything is written.
+   */
+  async importQuizzes(
+    courseId: string,
+    input: QuizImportInput,
+    actor: Actor,
+    opts: { staffEmails?: boolean; quota?: (newQuizzes: number) => Promise<void> } = {},
+  ): Promise<QuizImportResult & { rows: AdminAssessmentRow[] }> {
+    await this.course(courseId);
+    const sessions = await this.prisma.courseSession.findMany({ where: { courseId }, orderBy: [{ order: 'asc' }, { startsAt: 'asc' }], select: { id: true, order: true } });
+    const sessionByNumber = new Map<number, string>();
+    for (const s of sessions) if (!sessionByNumber.has(s.order)) sessionByNumber.set(s.order, s.id);
+    const unknown = input.quizzes.flatMap((q, i) => (q.session !== null && !sessionByNumber.has(q.session) ? [{ path: `quizzes.${i}.session`, message: `This course has no session ${q.session}` }] : []));
+    if (unknown.length) throw new BadRequestException({ statusCode: 400, message: 'Validation failed', code: 'UNKNOWN_SESSION', errors: unknown });
+
+    const existing = await this.prisma.assessment.findMany({
+      where: { courseId, type: 'QUIZ' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, titleEn: true, sessionId: true, status: true, _count: { select: { submissions: true } } },
+    });
+    const keyOf = (sessionId: string | null, title: string) => `${sessionId ?? ''}|${title.trim().toLowerCase()}`;
+    const byKey = new Map<string, (typeof existing)[number]>();
+    for (const a of existing) if (!byKey.has(keyOf(a.sessionId, a.titleEn))) byKey.set(keyOf(a.sessionId, a.titleEn), a);
+
+    const plan = input.quizzes.map((q) => {
+      const sessionId = q.session === null ? null : sessionByNumber.get(q.session)!;
+      const match = byKey.get(keyOf(sessionId, q.assessment.titleEn)) ?? null;
+      const item: QuizImportItem = { id: match?.id ?? null, title: q.assessment.titleEn, session: q.session, questions: q.assessment.questions.length };
+      return { q, sessionId, match, item, action: !match ? ('create' as const) : input.replaceExisting ? ('replace' as const) : ('skip' as const) };
+    });
+    const locked = plan.filter((p) => p.action === 'replace' && p.match!._count.submissions > 0);
+    if (locked.length) {
+      throw new ConflictException({
+        code: 'HAS_SUBMISSIONS',
+        titles: locked.map((p) => p.item.title),
+        message: `Students have submitted ${locked.map((p) => `"${p.item.title}"`).join(', ')}: those quizzes can't be replaced. Rename them in the file, or turn off "Replace".`,
+      });
+    }
+    const creating = plan.filter((p) => p.action === 'create');
+    await opts.quota?.(creating.length);
+
+    const published = await this.prisma.$transaction(
+      async (tx) => {
+        const last = await tx.assessment.aggregate({ where: { courseId }, _max: { order: true } });
+        let order = last._max.order ?? -1;
+        const notify: string[] = [];
+        for (const p of plan) {
+          if (p.action === 'skip') continue;
+          const data = { ...fields(p.q.assessment), sessionId: p.sessionId };
+          const publish = p.q.assessment.status === 'PUBLISHED';
+          if (p.action === 'create') {
+            const created = await tx.assessment.create({
+              data: {
+                ...data,
+                titleAr: p.q.assessment.titleAr ?? '',
+                instructionsAr: p.q.assessment.instructionsAr ?? '',
+                order: Math.min(++order, 999),
+                courseId,
+                updatedById: actor.id,
+                publishedNotifiedAt: publish ? new Date() : null,
+              },
+            });
+            p.item.id = created.id;
+            await this.saveQuestions(tx, created.id, p.q.assessment.questions);
+            await this.audit.log({ actorId: actor.id, action: 'assessment.created', entityType: 'Assessment', entityId: created.id, metadata: { courseId, type: 'QUIZ', status: p.q.assessment.status, imported: true } }, tx);
+            if (publish) notify.push(created.id);
+          } else {
+            const id = p.match!.id;
+            // The file is the whole quiz: its questions replace the stored ones (none were answered).
+            await tx.quizQuestion.deleteMany({ where: { assessmentId: id } });
+            await tx.assessment.update({ where: { id }, data: { ...data, updatedById: actor.id } });
+            await this.saveQuestions(tx, id, p.q.assessment.questions);
+            await this.audit.log(
+              { actorId: actor.id, action: 'assessment.updated', entityType: 'Assessment', entityId: id, metadata: { courseId, status: p.q.assessment.status, statusBefore: p.match!.status, imported: true } },
+              tx,
+            );
+            // Published for the first time: told once, as in update().
+            if (publish && p.match!.status !== 'PUBLISHED') {
+              const claim = await tx.assessment.updateMany({ where: { id, publishedNotifiedAt: null }, data: { publishedNotifiedAt: new Date() } });
+              if (claim.count === 1) notify.push(id);
+            }
+          }
+        }
+        for (const id of notify) await this.sendPublishedNotices(id, tx);
+        const count = (action: string) => plan.filter((p) => p.action === action).length;
+        await this.audit.log(
+          {
+            actorId: actor.id,
+            action: 'assessment.imported',
+            entityType: 'Course',
+            entityId: courseId,
+            metadata: {
+              created: count('create'),
+              replaced: count('replace'),
+              skipped: count('skip'),
+              questions: plan.filter((p) => p.action !== 'skip').reduce((n, p) => n + p.item.questions, 0),
+              published: plan.filter((p) => p.action !== 'skip' && p.q.assessment.status === 'PUBLISHED').length,
+            },
+          },
+          tx,
+        );
+        return notify.length;
+      },
+      { timeout: IMPORT_TX_TIMEOUT_MS },
+    );
+    if (published) this.outbox.kick();
+    // A replaced quiz had no submissions, so no points to move.
+    const items = (action: string) => plan.filter((p) => p.action === action).map((p) => p.item);
+    return { created: items('create'), replaced: items('replace'), skipped: items('skip'), rows: await this.list(courseId, opts.staffEmails ?? true) };
   }
 
   async remove(id: string, admin: Actor): Promise<void> {
