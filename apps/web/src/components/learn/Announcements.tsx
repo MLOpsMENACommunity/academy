@@ -49,12 +49,15 @@ export function markAnnouncementsSeen(slug: string, items: LearnAnnouncementDto[
   }
 }
 
+/** Before a student ever opens the tab, only this recent counts as new (they had the older ones by email). */
+const FIRST_VISIT_NEW_DAYS = 14;
+
 /** How many of the (newest-first) announcements arrived since the student last opened the tab. */
 export function useNewAnnouncements(slug: string, items: LearnAnnouncementDto[], seenVersion: number): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    const seen = readSeen(slug);
-    setCount(seen ? items.filter((a) => a.at > seen).length : items.length);
+    const since = readSeen(slug) ?? new Date(Date.now() - FIRST_VISIT_NEW_DAYS * 86_400_000).toISOString();
+    setCount(items.filter((a) => a.at > since).length);
   }, [slug, items, seenVersion]);
   return count;
 }
@@ -69,15 +72,21 @@ export function CourseAnnouncements({ slug, latest, headingId }: { slug: string;
   const [items, setItems] = useState<LearnAnnouncementDto[] | null>(null);
   const [failed, setFailed] = useState(false);
 
+  // Again whenever the page learns of a newer announcement (it reloads when the student comes back).
+  const newest = latest[0]?.id;
   useEffect(() => {
     let live = true;
     api<LearnAnnouncementDto[]>(`/learn/${slug}/announcements`)
-      .then((all) => live && setItems(all))
+      .then((all) => {
+        if (!live) return;
+        setItems(all);
+        setFailed(false);
+      })
       .catch(() => live && setFailed(true));
     return () => {
       live = false;
     };
-  }, [slug]);
+  }, [slug, newest]);
 
   const list = items ?? latest;
   return (

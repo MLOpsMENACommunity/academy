@@ -76,6 +76,8 @@ function Inner({ user }: { user: MeResponse }) {
   const [certificate, setCertificate] = useState<LearnCertificateDto | null>(null);
   const [tab, setTab] = useState<Tab>('sessions');
   const [seenVersion, setSeenVersion] = useState(0);
+  // The Announcements panel loads its list the first time it opens, then stays mounted (hidden).
+  const [announcementsOpened, setAnnouncementsOpened] = useState(false);
   const main = useRef<HTMLDivElement>(null);
   const latestAnnouncements = course?.announcements ?? NO_ANNOUNCEMENTS;
   const newAnnouncements = useNewAnnouncements(slug, latestAnnouncements, seenVersion);
@@ -144,10 +146,23 @@ function Inner({ user }: { user: MeResponse }) {
       }
       scrollToFeedback();
     };
+    // Next's <Link> (the notifications bell) changes only the hash with pushState, which fires
+    // no hashchange: catch clicks on any link to this page's #announcements too.
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.('a');
+      if (a && a.hash === ANNOUNCEMENTS_HASH && a.pathname === window.location.pathname) setTab('announcements');
+    };
     window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    document.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('hashchange', onHash);
+      document.removeEventListener('click', onClick);
+    };
   }, []);
 
+  useEffect(() => {
+    if (tab === 'announcements') setAnnouncementsOpened(true);
+  }, [tab]);
   useEffect(() => {
     if (tab !== 'announcements' || !latestAnnouncements.length) return;
     markAnnouncementsSeen(slug, latestAnnouncements);
@@ -196,7 +211,7 @@ function Inner({ user }: { user: MeResponse }) {
   };
   const openTab = (next: Tab, focus = false) => {
     setTab(next);
-    window.history.replaceState(null, '', next === 'announcements' ? ANNOUNCEMENTS_HASH : current ? `#session-${current.order}` : window.location.pathname);
+    window.history.replaceState(null, '', next === 'announcements' ? ANNOUNCEMENTS_HASH : current ? `#session-${current.order}` : window.location.pathname + window.location.search);
     if (focus) document.getElementById(`learn-tab-${next}`)?.focus();
   };
   // Two tabs: either arrow key moves to the other one (left and right swap in Arabic, as everywhere).
@@ -395,12 +410,11 @@ function Inner({ user }: { user: MeResponse }) {
             </button>
           </div>
 
-          {tab === 'announcements' ? (
-            <div role="tabpanel" id="learn-panel-announcements" aria-labelledby="learn-tab-announcements">
-              <CourseAnnouncements slug={course.slug} latest={latestAnnouncements} headingId="announcements" />
-            </div>
-          ) : (
-          <div role="tabpanel" id="learn-panel-sessions" aria-labelledby="learn-tab-sessions" className="flex flex-col gap-8">
+          {/* Both panels stay mounted (hidden, not removed), so a half-written rating or a playing video survives a tab switch. */}
+          <div role="tabpanel" id="learn-panel-announcements" aria-labelledby="learn-tab-announcements" hidden={tab !== 'announcements'}>
+            {announcementsOpened && <CourseAnnouncements slug={course.slug} latest={latestAnnouncements} headingId="announcements" />}
+          </div>
+          <div role="tabpanel" id="learn-panel-sessions" aria-labelledby="learn-tab-sessions" hidden={tab !== 'sessions'} className="flex flex-col gap-8">
           <CertificateBanner data={certificate} />
           {current ? (
             <SessionCard
@@ -464,7 +478,6 @@ function Inner({ user }: { user: MeResponse }) {
             </section>
           )}
           </div>
-          )}
         </div>
       </div>
     </div>
