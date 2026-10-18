@@ -234,8 +234,14 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   - **Database pool:** 10 connections (`DATABASE_POOL_SIZE`) and a 5 s wait
     (`DATABASE_POOL_TIMEOUT`); Prisma's own default on a ¼ vCPU is 3 connections and 10 s, which is what made every
     endpoint take 10 s and then fail under the staging load test. When no connection is
-    free in time the API answers **503 `BUSY` with `Retry-After`**, never a 500. `pgbouncer=true`
-    is added automatically for Neon's `-pooler` host. Values in `DATABASE_URL` win.
+    free in time the API answers **503 `BUSY` with `Retry-After`**, never a 500. Values in `DATABASE_URL` win.
+  - **No `pgbouncer` mode:** the API reaches Neon through its `-pooler` host without Prisma's
+    `pgbouncer=true`. Neon runs PgBouncer 1.22+ with protocol-level prepared statements, which
+    Prisma supports without the flag; with it, every query was wrapped in
+    `BEGIN; DEALLOCATE ALL; …; COMMIT` and re-parsed, about 6 round trips instead of 1–2
+    (docs/PERFORMANCE.md). To turn it back on without a code change, add `&pgbouncer=true` to the
+    `DATABASE_URL` secret (`deploy/cloudflare/set-worker-secret.sh`). Migrations and the startup lock
+    use `DIRECT_DATABASE_URL`.
   - **Load shedding:** beyond 200 requests in progress (`MAX_IN_FLIGHT`), new ones get an
     immediate 503 with `Retry-After`. Password hashing (argon2id at OWASP's cost, unchanged)
     runs one at a time (`PASSWORD_HASH_CONCURRENCY`), and a login that would wait more than

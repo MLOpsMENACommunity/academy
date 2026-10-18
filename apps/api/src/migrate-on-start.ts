@@ -30,7 +30,7 @@ export function migrationsOnDisk(dir: string): string[] {
 }
 
 async function appliedMigrations(url: string): Promise<string[] | null> {
-  // One connection; pgbouncer=true when this is a pooler URL (see database-url.ts).
+  // One connection, with the app's own settings (see database-url.ts).
   const prisma = new PrismaClient({ datasourceUrl: poolSettings(url, { poolSize: 1 }).url, errorFormat: 'minimal' });
   try {
     const rows = await prisma.$queryRaw<{ migration_name: string }[]>`

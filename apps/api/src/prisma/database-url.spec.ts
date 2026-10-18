@@ -26,15 +26,15 @@ describe('poolSettings', () => {
     expect(params(s.url).get('sslmode')).toBe('require');
   });
 
-  it('adds pgbouncer=true for Neon pooled hosts, as Prisma requires behind PgBouncer', () => {
+  it("leaves Prisma's pgbouncer mode off for Neon's pooler (PgBouncer 1.22+, prepared statements)", () => {
     const s = poolSettings('postgresql://u:p@ep-cool-name-123-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require');
-    expect(s.pgbouncer).toBe(true);
-    expect(params(s.url).get('pgbouncer')).toBe('true');
-    // The direct (unpooled) host is left alone.
-    expect(poolSettings('postgresql://u:p@ep-cool-name-123.eu-central-1.aws.neon.tech/neondb').pgbouncer).toBe(false);
-    // An explicit pgbouncer=false wins.
-    expect(poolSettings('postgresql://u:p@ep-x-pooler.aws.neon.tech/db?pgbouncer=false').pgbouncer).toBe(false);
+    expect(s.pgbouncer).toBe(false);
+    expect(params(s.url).get('pgbouncer')).toBeNull();
+    // Still available when asked for: in the URL (wins) or by DB_PGBOUNCER.
+    expect(poolSettings('postgresql://u:p@ep-x-pooler.aws.neon.tech/db?pgbouncer=true').pgbouncer).toBe(true);
     expect(poolSettings('postgresql://u:p@pgb.internal/db', { pgbouncer: true }).pgbouncer).toBe(true);
+    expect(params(poolSettings('postgresql://u:p@pgb.internal/db', { pgbouncer: true }).url).get('pgbouncer')).toBe('true');
+    expect(poolSettings('postgresql://u:p@pgb.internal/db?pgbouncer=false', { pgbouncer: true }).pgbouncer).toBe(false);
   });
 
   it('keeps credentials intact (URL-encoded passwords)', () => {
