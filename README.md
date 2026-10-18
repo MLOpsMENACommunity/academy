@@ -32,6 +32,7 @@ docs/FEATURES.md (section and changelog) in the same PR.
 |---|---|
 | [docs/ENGINEERING.md](docs/ENGINEERING.md) | Architecture, data model, auth, jobs, email, storage, caching, testing, CI/CD, how to add a feature |
 | [DEPLOY.md](DEPLOY.md) | Environments, costs, capacity and caching, one-time Cloudflare setup, what a deploy does |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Why the academy feels slow (measurements, ranked causes) and a costed plan to make it faster |
 | [deploy/cloudflare/WORKERS-BUILDS.md](deploy/cloudflare/WORKERS-BUILDS.md) | Moving build, test and deploy from GitHub Actions to Cloudflare Workers Builds (one-time setup) |
 | [INTEGRATION.md](INTEGRATION.md) | Links the main mlopsmena.com site should use to point at the academy |
 | [ROADMAP.md](ROADMAP.md) | The v2 backlog |
