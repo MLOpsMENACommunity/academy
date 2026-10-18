@@ -30,6 +30,7 @@ import { AssessmentsService } from '../assessments/assessments.service';
 import { AuditService } from '../audit/audit.service';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
 import type { AuthUser } from '../common/decorators';
+import { courseKey, SignedInCache } from '../common/signed-in-cache';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
@@ -93,6 +94,7 @@ export class CertificatesService {
     private readonly assessments: AssessmentsService,
     private readonly points: PointsService,
     @Inject(ENV) private readonly env: Env,
+    private readonly cache: SignedInCache,
   ) {}
 
   /** The hook for points and badges (PR D): called once per certificate issued or re-issued. */
@@ -496,7 +498,8 @@ export class CertificatesService {
 
   /** The learn page's card: the rule, my live status against it, and my certificate once issued. */
   async forLearner(user: AuthUser, slug: string): Promise<LearnCertificateDto> {
-    const course = await this.prisma.course.findUnique({ where: { slug } });
+    // A read: the course from the signed-in cache (any write empties it).
+    const course = await this.cache.get(courseKey(slug), () => this.prisma.course.findUnique({ where: { slug } }));
     if (!course) throw new NotFoundException('Course not found');
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: course.id } },

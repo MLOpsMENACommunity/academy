@@ -95,6 +95,8 @@ const envSchema = z.object({
   /** Browser-test stacks only: multiplies every rate limit (see common/throttler.guard.ts). Never set in production. */
   THROTTLE_LIMIT_MULTIPLIER: z.coerce.number().int().min(1).max(100).default(1),
   PUBLIC_CACHE_TTL_S: z.coerce.number().int().min(0).max(300).default(30),
+  /** Signed-in reads (account checks, courses by address), in seconds; any write clears it (common/signed-in-cache.ts). 0 turns it off. */
+  SIGNED_IN_CACHE_TTL_S: z.coerce.number().int().min(0).max(60).default(15),
   /** Requests in progress at once before new ones get a fast 503 (0 turns the limit off). */
   MAX_IN_FLIGHT: z.coerce.number().int().min(0).max(10_000).default(200),
   /** Password hashes (argon2) computed at once; more queue. One is right for a ¼ vCPU. */

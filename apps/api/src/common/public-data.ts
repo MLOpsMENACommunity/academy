@@ -2,6 +2,7 @@ import { Global, Injectable, Module } from '@nestjs/common';
 import { SEAT_HOLDING_STATUSES, type ApplicationStatus } from '@academy/shared';
 import { PublicCache } from './public-cache';
 import { PublicRevalidator } from './revalidate';
+import { SignedInCache } from './signed-in-cache';
 
 /**
  * Whether a status change moves the public numbers of a course: its enrolled count
@@ -37,10 +38,10 @@ export class PublicDataChanges {
   }
 }
 
-/** The public cache, the site revalidator and PublicDataChanges, for every module. */
+/** The public cache, the site revalidator, PublicDataChanges and the signed-in cache, for every module. */
 @Global()
 @Module({
-  providers: [PublicCache, PublicRevalidator, PublicDataChanges],
-  exports: [PublicCache, PublicRevalidator, PublicDataChanges],
+  providers: [PublicCache, PublicRevalidator, PublicDataChanges, SignedInCache],
+  exports: [PublicCache, PublicRevalidator, PublicDataChanges, SignedInCache],
 })
 export class PublicDataModule {}
