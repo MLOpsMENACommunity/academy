@@ -89,7 +89,7 @@ const envSchema = z.object({
   REVALIDATE_TOKEN: z.string().min(32).optional(),
 
   // ---- Capacity (see DEPLOY.md, "Capacity and caching"). Sized for one ¼-vCPU, 1 GiB container.
-  /** Force pgbouncer=true (Neon "-pooler" hosts get it automatically). */
+  /** Prisma's pgbouncer mode, for a PgBouncer older than 1.21 or without prepared statements (Neon's pooler needs neither; see prisma/database-url.ts). Local only: on Cloudflare add pgbouncer=true to DATABASE_URL instead. */
   DB_PGBOUNCER: bool.default('false'),
   /** In-process cache of anonymous public catalog reads, in seconds (0 turns it off). */
   /** Browser-test stacks only: multiplies every rate limit (see common/throttler.guard.ts). Never set in production. */
