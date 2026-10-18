@@ -240,8 +240,12 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
     Prisma supports without the flag; with it, every query was wrapped in
     `BEGIN; DEALLOCATE ALL; …; COMMIT` and re-parsed, about 6 round trips instead of 1–2
     (docs/PERFORMANCE.md). To turn it back on without a code change, add `&pgbouncer=true` to the
-    `DATABASE_URL` secret (`deploy/cloudflare/set-worker-secret.sh`). Migrations and the startup lock
-    use `DIRECT_DATABASE_URL`.
+    `DATABASE_URL` secret (`deploy/cloudflare/set-worker-secret.sh`): the Worker restarts the API
+    container on its next request, because its configuration changed. (`DB_PGBOUNCER` does the
+    same locally, but the Worker doesn't pass it to the container.) The deploy's smoke test calls
+    `/api/health`, which runs a query, so a pooler that refuses prepared statements fails the
+    deploy. Migrations and the startup lock use `DIRECT_DATABASE_URL` when it is set (required on
+    staging); without it they go through the pooler and the lock is skipped.
   - **Load shedding:** beyond 200 requests in progress (`MAX_IN_FLIGHT`), new ones get an
     immediate 503 with `Retry-After`. Password hashing (argon2id at OWASP's cost, unchanged)
     runs one at a time (`PASSWORD_HASH_CONCURRENCY`), and a login that would wait more than

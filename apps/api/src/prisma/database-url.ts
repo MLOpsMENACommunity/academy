@@ -15,7 +15,8 @@
  * (max_prepared_statements=1000), which Prisma supports from PgBouncer 1.21 without the flag.
  * With the flag Prisma wraps every query in BEGIN; DEALLOCATE ALL; …; COMMIT and re-parses it
  * each time: about 6 round trips per query instead of 1–2 (docs/PERFORMANCE.md). An old
- * PgBouncer, or a pooler without prepared statements, still needs `pgbouncer=true`.
+ * PgBouncer, or a pooler without prepared statements, still needs `pgbouncer=true` in the URL
+ * (on Cloudflare the Worker doesn't pass DB_PGBOUNCER to the container).
  */
 export const DEFAULT_POOL_SIZE = 10;
 export const DEFAULT_POOL_TIMEOUT_S = 5;
