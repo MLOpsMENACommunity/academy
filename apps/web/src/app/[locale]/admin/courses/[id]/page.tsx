@@ -135,7 +135,7 @@ function CourseEditor() {
         </Alert>
       )}
 
-      <div role="tablist" aria-label={t('admin.courses.title')} className="mt-5 flex gap-1 overflow-x-auto border-b border-line" onKeyDown={onKey}>
+      <div role="tablist" aria-label={t('admin.courses.title')} className="mt-5 flex gap-1 overflow-x-auto border-b border-line sm:flex-wrap sm:overflow-visible" onKeyDown={onKey}>
         {tabs.map((k) => (
           <button
             key={k}
