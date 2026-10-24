@@ -179,7 +179,7 @@ export function BookingView({ id }: { id: string }) {
         <Alert tone="info">
           {t('consultations.booking.cancelledAt', { time: whenLabel(b.cancelledAt ?? b.createdAt, locale, tz) })}
           {b.cancelReason && <span className="block">{t('consultations.booking.reason', { reason: b.cancelReason })}</span>}
-          {b.paidAt && <span className="block">{t('consultations.booking.refundNote')}</span>}
+          {b.cancelledAt && <span className="block">{t('consultations.booking.refundNote')}</span>}
         </Alert>
       )}
 

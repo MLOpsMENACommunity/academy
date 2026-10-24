@@ -69,6 +69,15 @@ export type CancelledBy = 'student' | 'expert' | 'admin';
 
 const isBooked = (b: Booking): b is Booked => b.startsAt !== null && b.endsAt !== null;
 
+/** A booked call's own time (its Google event shows as busy then). */
+const ownRange = (b: ConsultationBooking): BusyRange | null => (b.startsAt && b.endsAt && b.googleEventId ? { startsAt: b.startsAt, endsAt: b.endsAt } : null);
+
+/** Google busy ranges without the call's own event. */
+function withoutOwn(busy: BusyRange[], own: BusyRange | null | undefined): BusyRange[] {
+  if (!own) return busy;
+  return busy.filter((r) => !(r.startsAt.getTime() >= own.startsAt.getTime() && r.endsAt.getTime() <= own.endsAt.getTime()));
+}
+
 function availabilityOf(p: ConsultantProfile): AvailabilityWindow[] {
   const parsed = availabilitySchema.safeParse(p.availability);
   return parsed.success ? parsed.data : [];
@@ -187,10 +196,10 @@ export class ConsultationsService {
     return this.openTimes(p, durationMin, now);
   }
 
-  private async openTimes(p: ConsultantProfile, durationMin: number, now: Date, exceptId?: string): Promise<string[]> {
+  private async openTimes(p: ConsultantProfile, durationMin: number, now: Date, except?: { id: string; own: BusyRange | null }): Promise<string[]> {
     const busy = [
-      ...(await this.busy(this.prisma, p.id, now, exceptId)),
-      ...(await this.googleBusy(p, now, new Date(now.getTime() + (p.horizonDays + 1) * 86_400_000), true)),
+      ...(await this.busy(this.prisma, p.id, now, except?.id)),
+      ...withoutOwn(await this.googleBusy(p, now, new Date(now.getTime() + (p.horizonDays + 1) * 86_400_000), true), except?.own),
     ];
     return consultationSlots({ ...p, availability: availabilityOf(p) }, durationMin, busy, now).map((d) => d.toISOString());
   }
@@ -211,8 +220,17 @@ export class ConsultationsService {
 
   // ------------------------------------------------------------------ Google Calendar
 
-  private token(p: Pick<ConsultantProfile, 'googleRefreshToken' | 'googleError'>): string | null {
-    return googleUsable(p) ? this.google.decrypt(p.googleRefreshToken!) : null;
+  private token(p: Pick<ConsultantProfile, 'id' | 'googleRefreshToken' | 'googleError'>): string | null {
+    if (!googleUsable(p)) return null;
+    const token = this.google.decrypt(p.googleRefreshToken!);
+    // Unreadable (the key changed): treat it as a broken connection, so the expert is told to reconnect.
+    if (!token) void this.googleFailed(p.id, new GoogleCalendarExpired());
+    return token;
+  }
+
+  /** The expert can hold a call now: a fixed link, or a working Google Calendar that makes Meet links. */
+  private canMeet(p: ConsultantProfile): boolean {
+    return Boolean(p.meetingUrl) || (googleUsable(p) && this.google.decrypt(p.googleRefreshToken!) !== null);
   }
 
   /**
@@ -270,9 +288,9 @@ export class ConsultationsService {
     }
   }
 
-  /** The expert has something else in their Google Calendar then (asked fresh, not from the cache). */
-  private async refuseIfGoogleBusy(p: ConsultantProfile, startsAt: Date, endsAt: Date): Promise<void> {
-    const busy = await this.googleBusy(p, startsAt, endsAt);
+  /** The expert has something else in their Google Calendar then (asked fresh, not from the cache). `own`: the call's current time, not counted. */
+  private async refuseIfGoogleBusy(p: ConsultantProfile, startsAt: Date, endsAt: Date, own?: BusyRange | null): Promise<void> {
+    const busy = withoutOwn(await this.googleBusy(p, startsAt, endsAt), own);
     if (busy.some((b) => b.startsAt < endsAt && startsAt < b.endsAt)) {
       throw new ConflictException({ code: 'SLOT_TAKEN', message: 'That time is no longer available. Pick another one.' });
     }
@@ -304,19 +322,22 @@ export class ConsultationsService {
     const methods = consultationPaymentMethods(await this.settings.get());
     if (!methods.length) throw new ServiceUnavailableException({ code: 'PAYMENTS_NOT_SET_UP', message: 'Payments open once the academy has set up payment details' });
     if (!methods.some((m) => m.kind === input.method)) throw new BadRequestException({ code: 'METHOD_NOT_AVAILABLE', message: 'This payment method is not available. Choose another one.' });
+    // Nobody pays for a call the expert can't hold (e.g. Google-only and the connection broke).
+    if (!this.canMeet(p)) throw new ConflictException({ code: 'NO_MEETING_LINK', message: "This expert can't take calls right now. Contact us on WhatsApp." });
     if (!file) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'Upload a screenshot of the payment' });
     if (file.size > MAX_UPLOAD_BYTES) throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'The file must be 5 MB or smaller' });
     const mime = detectFileType(file.buffer);
     if (!mime) throw new BadRequestException({ code: 'FILE_TYPE', message: 'Upload a JPG, PNG or PDF file' });
-    const unbooked = await this.prisma.consultationBooking.count({ where: { studentId: session.id, status: { in: UNBOOKED } } });
-    if (unbooked >= CONSULTATION_MAX_UNBOOKED) {
-      throw new ConflictException({ code: 'TOO_MANY_UNBOOKED', message: 'Book a time for the calls you already paid for before paying for another' });
-    }
-
     const key = await this.storage.put('payments', file.buffer, mime);
     let id: string;
     try {
       id = await this.prisma.$transaction(async (tx) => {
+        // Under a lock on the student: parallel uploads can't get past the limit.
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${session.id} FOR NO KEY UPDATE`;
+        const unbooked = await tx.consultationBooking.count({ where: { studentId: session.id, status: { in: UNBOOKED } } });
+        if (unbooked >= CONSULTATION_MAX_UNBOOKED) {
+          throw new ConflictException({ code: 'TOO_MANY_UNBOOKED', message: 'Book a time for the calls you already paid for before paying for another' });
+        }
         const created = await this.createWithReference(tx, {
           consultantId: p.id,
           studentId: session.id,
@@ -384,7 +405,7 @@ export class ConsultationsService {
   async myOpenTimes(session: AuthUser, id: string, now = new Date()): Promise<string[]> {
     const b = await this.own(session, id);
     if (b.status !== 'PAID' && b.status !== 'CONFIRMED') return [];
-    return this.openTimes(b.consultant, b.durationMin, now, b.id);
+    return this.openTimes(b.consultant, b.durationMin, now, { id: b.id, own: ownRange(b) });
   }
 
   /** Books a time for a paid call. With Google connected, the call gets its own Meet link and an event. */
@@ -393,6 +414,8 @@ export class ConsultationsService {
     if (before.status !== 'PAID') throw new ConflictException({ code: 'NOT_PAID', message: 'This call is not ready to book' });
     const startsAt = new Date(startsAtIso);
     const endsAt = new Date(startsAt.getTime() + before.durationMin * 60_000);
+    // Checked before Google is asked to invite the student (and again under the lock below).
+    await this.requireOpen(this.prisma, before, startsAt, now);
     await this.refuseIfGoogleBusy(before.consultant, startsAt, endsAt);
     const timed = { ...before, startsAt, endsAt };
     const event = await this.withGoogle(before.consultant, (token) =>
@@ -433,11 +456,12 @@ export class ConsultationsService {
       throw err;
     }
     this.outbox.kick();
+    this.googleBusyCache.delete(before.consultantId);
     return this.mine(session, id, now);
   }
 
   /** Under the expert's lock: the time is one of their open times right now. */
-  private async requireOpen(tx: Prisma.TransactionClient, b: Booking, startsAt: Date, now: Date): Promise<void> {
+  private async requireOpen(tx: Prisma.TransactionClient | PrismaService, b: Booking, startsAt: Date, now: Date): Promise<void> {
     const busy = await this.busy(tx, b.consultantId, now, b.id);
     const open = consultationSlots({ ...b.consultant, availability: availabilityOf(b.consultant) }, b.durationMin, busy, now);
     if (!open.some((s) => s.getTime() === startsAt.getTime())) {
@@ -450,7 +474,7 @@ export class ConsultationsService {
     const before = await this.own(session, id);
     const startsAt = new Date(startsAtIso);
     const endsAt = new Date(startsAt.getTime() + before.durationMin * 60_000);
-    await this.refuseIfGoogleBusy(before.consultant, startsAt, endsAt);
+    await this.refuseIfGoogleBusy(before.consultant, startsAt, endsAt, ownRange(before));
 
     const moved = await this.prisma.$transaction(async (tx) => {
       await this.lock(tx, before.consultantId);
@@ -475,6 +499,7 @@ export class ConsultationsService {
     });
     this.outbox.kick();
     if (moved.googleEventId) await this.withGoogle(moved.consultant, (token) => this.google.moveEvent(token, moved.googleEventId!, startsAt, endsAt));
+    this.googleBusyCache.delete(moved.consultantId);
     return this.mine(session, id, now);
   }
 
@@ -719,25 +744,29 @@ export class ConsultationsService {
    * students told. Never throws: deletion must not fail on this.
    */
   async releaseForDeletedAccount(userId: string, now = new Date()): Promise<void> {
-    const reason = 'The account was closed';
-    const open = { OR: [{ status: { in: UNBOOKED } }, { status: 'CONFIRMED', startsAt: { gt: now } }] };
-    const asStudent = await this.prisma.consultationBooking.findMany({ where: { studentId: userId, ...open }, select: { id: true } });
-    const profile = await this.prisma.consultantProfile.findFirst({ where: { instructor: { userId } } });
-    const asExpert = profile ? await this.prisma.consultationBooking.findMany({ where: { consultantId: profile.id, ...open }, select: { id: true } }) : [];
-    for (const [rows, by] of [
-      [asStudent, 'student'],
-      [asExpert, 'expert'],
-    ] as const) {
-      for (const { id } of rows) {
-        await this.cancel(id, by, userId, reason, now, () => null).catch(() => undefined);
+    try {
+      const reason = 'The account was closed';
+      // Unlisted first, so no new payment lands while their calls are being cancelled.
+      const profile = await this.prisma.consultantProfile.findFirst({ where: { instructor: { userId } } });
+      if (profile) await this.prisma.consultantProfile.update({ where: { id: profile.id }, data: { enabled: false } });
+      const open = { OR: [{ status: { in: UNBOOKED } }, { status: 'CONFIRMED', startsAt: { gt: now } }] };
+      const asStudent = await this.prisma.consultationBooking.findMany({ where: { studentId: userId, ...open }, select: { id: true } });
+      const asExpert = profile ? await this.prisma.consultationBooking.findMany({ where: { consultantId: profile.id, ...open }, select: { id: true } }) : [];
+      for (const [rows, by] of [
+        [asStudent, 'student'],
+        [asExpert, 'expert'],
+      ] as const) {
+        for (const { id } of rows) {
+          await this.cancel(id, by, userId, reason, now, () => null).catch(() => undefined);
+        }
       }
-    }
-    if (profile) {
-      const token = profile.googleRefreshToken ? this.google.decrypt(profile.googleRefreshToken) : null;
-      if (token) await this.google.revoke(token);
-      await this.prisma.consultantProfile
-        .update({ where: { id: profile.id }, data: { enabled: false, googleRefreshToken: null, googleEmail: null, googleConnectedAt: null, googleError: null } })
-        .catch(() => undefined);
+      if (profile) {
+        const token = profile.googleRefreshToken ? this.google.decrypt(profile.googleRefreshToken) : null;
+        if (token) await this.google.revoke(token);
+        await this.prisma.consultantProfile.update({ where: { id: profile.id }, data: { googleRefreshToken: null, googleEmail: null, googleConnectedAt: null, googleError: null } });
+      }
+    } catch (err) {
+      this.logger.error(`Releasing consultations for a deleted account failed: ${(err as Error).name}`);
     }
   }
 
@@ -829,7 +858,8 @@ export class ConsultationsService {
         data: { status: 'CANCELLED', cancelledAt: now, cancelledBy: by, cancelReason: reason || null },
       });
       if (r.count !== 1) throw new ConflictException({ code: 'CHANGED', message: 'This booking changed meanwhile. Reload and try again.' });
-      const wasPaid = current.status === 'PAID' || current.status === 'CONFIRMED';
+      // Pay first: the money was sent even while the proof is under review, so any cancellation is refunded.
+      const wasPaid = true;
       await this.audit.log({ actorId, action: 'consultation.cancelled', entityType: 'ConsultationBooking', entityId: current.id, metadata: { by, wasPaid } }, tx);
       // The student always hears; the expert only about calls that had a time (the others never reached them).
       const emails = [this.cancelledEmail(current, 'student', by, reason, wasPaid)];
@@ -839,6 +869,7 @@ export class ConsultationsService {
     });
     this.outbox.kick();
     if (b.googleEventId) await this.withGoogle(b.consultant, (token) => this.google.deleteEvent(token, b.googleEventId!));
+    this.googleBusyCache.delete(b.consultantId);
   }
 
   /** The call's link: set when it was booked (a Meet link, or the expert's fixed link then). */
@@ -879,21 +910,35 @@ export class ConsultationsService {
     };
   }
 
-  /** Admins: who paid, the proof, and other bookings that used the same screenshot or reference. */
+  /**
+   * Admins: who paid, the proof, and other bookings or course payments that used the same
+   * screenshot or reference (indexed lookups: the screenshot hash, and the reference as written).
+   */
   private async adminDtos(rows: Booking[], now: Date): Promise<ConsultationBookingAdminDto[]> {
     const shas = [...new Set(rows.map((b) => b.screenshotSha256).filter((x): x is string => Boolean(x)))];
-    const refs = [...new Set(rows.map((b) => normalizeTransactionRef(b.transactionRef)).filter(Boolean))];
-    const others = shas.length || refs.length
-      ? await this.prisma.consultationBooking.findMany({
-          where: { OR: [{ screenshotSha256: { in: shas } }, ...(refs.length ? [{ transactionRef: { not: '' } }] : [])] },
-          select: { id: true, reference: true, screenshotSha256: true, transactionRef: true },
-        })
-      : [];
+    const refs = [...new Set(rows.map((b) => b.transactionRef.trim()).filter(Boolean))];
+    const keys = [...new Set(refs.map(normalizeTransactionRef).filter(Boolean))];
+    const [others, payments] = await Promise.all([
+      shas.length || refs.length
+        ? this.prisma.consultationBooking.findMany({
+            where: { OR: [...(shas.length ? [{ screenshotSha256: { in: shas } }] : []), ...(refs.length ? [{ transactionRef: { in: refs, mode: 'insensitive' as const } }] : [])] },
+            select: { id: true, reference: true, screenshotSha256: true, transactionRef: true },
+          })
+        : [],
+      shas.length || keys.length
+        ? this.prisma.payment.findMany({
+            where: { OR: [...(shas.length ? [{ screenshotSha256: { in: shas } }] : []), ...(keys.length ? [{ transactionRefKey: { in: keys } }] : [])] },
+            select: { id: true, screenshotSha256: true, transactionRefKey: true },
+          })
+        : [],
+    ]);
     return rows.map((b) => {
-      const ref = normalizeTransactionRef(b.transactionRef);
-      const same = others
-        .filter((o) => o.id !== b.id && ((b.screenshotSha256 && o.screenshotSha256 === b.screenshotSha256) || (ref && normalizeTransactionRef(o.transactionRef) === ref)))
-        .map((o) => o.reference);
+      const key = normalizeTransactionRef(b.transactionRef);
+      const sameSha = (x: string | null) => Boolean(b.screenshotSha256 && x === b.screenshotSha256);
+      const same = [
+        ...others.filter((o) => o.id !== b.id && (sameSha(o.screenshotSha256) || (key && normalizeTransactionRef(o.transactionRef) === key))).map((o) => o.reference),
+        ...payments.filter((p) => sameSha(p.screenshotSha256) || (key && p.transactionRefKey === key)).map((p) => `course payment ${p.id.slice(-6)}`),
+      ];
       return {
         ...this.dto(b, now, 'admin'),
         student: { id: b.student.id, name: studentName(b.student), email: b.student.email },

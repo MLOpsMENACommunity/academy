@@ -150,7 +150,7 @@ function Bookings() {
                 {b.startsAt && <p className="text-[0.875rem] text-muted">{t('consultations.admin.callAt', { time: whenLabel(b.startsAt, locale, tz) })}</p>}
                 {b.status === 'PAID' && <p className="text-[0.875rem] text-muted">{t('consultations.admin.waitingForTime')}</p>}
                 {b.sameProofAs.length > 0 && <Alert tone="warning">{t('consultations.admin.sameProof', { refs: b.sameProofAs.join(', ') })}</Alert>}
-                {b.status === 'CANCELLED' && b.paidAt && <Badge tone="warning">{t('consultations.admin.refundDue')}</Badge>}
+                {b.status === 'CANCELLED' && <Badge tone="warning">{t('consultations.admin.refundDue')}</Badge>}
                 {b.rejectionReason && <p className="text-[0.875rem] text-muted">{t('consultations.booking.reason', { reason: b.rejectionReason })}</p>}
                 {b.cancelReason && <p className="text-[0.875rem] text-muted">{t('consultations.booking.reason', { reason: b.cancelReason })}</p>}
                 {b.note && <p className="text-[0.875rem] whitespace-pre-line text-muted">{b.note}</p>}

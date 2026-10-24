@@ -279,6 +279,9 @@ describe('consultations (e2e)', () => {
       expect((await prisma.consultantProfile.findUniqueOrThrow({ where: { instructorId: ig.id } })).googleError).toBe('EXPIRED');
       expect(await emails(`consultation-google-expired:${stored.id}:`)).toHaveLength(1);
       expect((await bookTime(second.student.cookie, second.id, at2).expect(409)).body.code).toBe('NO_MEETING_LINK');
+      // And nobody can pay for a call they couldn't book.
+      const late = await createUser(app, prisma, { prefix: 'cons-glate' });
+      expect((await pay(late.cookie, { slug: slugG }).expect(409)).body.code).toBe('NO_MEETING_LINK');
       await http().put(`/api/admin/consultations/experts/${ig.id}`).set('Cookie', speakersTeam.cookie).send(settings()).expect(200);
       expect((await bookTime(second.student.cookie, second.id, at2).expect(200)).body.meetingUrl).toBe('https://meet.google.com/abc-defg-hij');
       expect((await http().delete('/api/consultations/expert/google').set('Cookie', u.cookie).expect(200)).body).toMatchObject({ connected: false });
@@ -319,6 +322,8 @@ describe('consultations (e2e)', () => {
     expect((await prisma.consultationBooking.findUniqueOrThrow({ where: { id } })).status).toBe('CANCELLED');
     expect((await prisma.consultationBooking.findUniqueOrThrow({ where: { id: pendingId } })).status).toBe('CANCELLED');
     expect(await emails(`consultation-cancelled:${id}:expert`)).toHaveLength(1);
+    // The transfer still under review was money sent too: refund due.
+    expect((await emails(`consultation-cancelled:${pendingId}:student`))[0]?.template).toMatchObject({ wasPaid: true });
     await app.get(AccountService).anonymize(student.id);
     expect(await prisma.consultationBooking.findUniqueOrThrow({ where: { id: pendingId } })).toMatchObject({ note: '', transactionRef: '', screenshotKey: null });
 
