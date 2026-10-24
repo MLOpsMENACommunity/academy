@@ -442,6 +442,18 @@ function SessionAttendance({ base, sessionId, students, onSaved }: { base: strin
         )}
       </Card>
 
+      <BulkMark
+        url={url}
+        students={students}
+        current={new Map((stored.rows ?? []).map((r) => [r.userId, r.status]))}
+        onSaved={(msg) => {
+          setError(null);
+          setDone(msg);
+          load();
+          onSaved();
+        }}
+      />
+
       <Card>
         <h3 className="text-lg">{a('recorded')}</h3>
         {!stored.recorded ? (
@@ -581,5 +593,94 @@ function AttendanceTable({
       </table>
     </div>
     </>
+  );
+}
+
+/**
+ * Mark by hand, many at once: every enrolled student with a checkbox (their current status beside
+ * it), "Select all", then Present, Partial or Absent for the selected. Works without a Meet file;
+ * points follow the course's rule, as with an upload.
+ */
+function BulkMark({
+  url,
+  students,
+  current,
+  onSaved,
+}: {
+  url: string;
+  students: AttendanceCourseDto['students'];
+  current: Map<string, AttendanceStatus>;
+  onSaved: (message: string) => void;
+}) {
+  const { t } = useI18n();
+  const a = (k: string, v?: Record<string, string | number>) => t(`attendance.${k}`, v);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<AttendanceStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const all = students.length > 0 && picked.size === students.length;
+  const toggle = (id: string) =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  async function mark(status: AttendanceStatus) {
+    setBusy(status);
+    setError(null);
+    try {
+      const r = await api<{ marked: number }>(`${url}/bulk`, { method: 'POST', json: { userIds: [...picked], status } });
+      setPicked(new Set());
+      onSaved(a('bulkSaved', { count: r.marked, status: t(`attendance.statuses.${status}`) }));
+    } catch (err) {
+      setError(errorMessage(err, t));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Card>
+      <h3 className="text-lg">{a('bulkTitle')}</h3>
+      <p className="mt-1 text-sm text-muted">{a('bulkHint')}</p>
+      {students.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">{a('noStudents')}</p>
+      ) : (
+        <>
+          <label className="mt-3 flex min-h-11 items-center gap-3 border-b border-line pb-2 text-sm font-medium">
+            <input type="checkbox" className="size-5" checked={all} onChange={() => setPicked(all ? new Set() : new Set(students.map((s) => s.userId)))} />
+            {a('selectAll', { count: students.length })}
+          </label>
+          <ul className="max-h-96 divide-y divide-line-soft overflow-y-auto">
+            {students.map((s) => (
+              <li key={s.userId}>
+                <label className="flex min-h-11 items-center gap-3 py-1.5 text-sm">
+                  <input type="checkbox" className="size-5" checked={picked.has(s.userId)} onChange={() => toggle(s.userId)} />
+                  <span className="min-w-0 flex-1">
+                    <bdi className="block break-words">{s.name ?? s.email}</bdi>
+                    {s.name && <span className="block text-xs text-muted ltr-embed">{s.email}</span>}
+                  </span>
+                  {current.has(s.userId) && <Badge tone={STATUS_TONE[current.get(s.userId)!]}>{t(`attendance.statuses.${current.get(s.userId)}`)}</Badge>}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {error && (
+            <Alert tone="danger" className="mt-3">
+              {error}
+            </Alert>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted">{a('bulkSelected', { count: picked.size })}</span>
+            {ATTENDANCE_STATUSES.map((status) => (
+              <Button key={status} type="button" size="sm" variant={status === 'PRESENT' ? 'primary' : 'secondary'} disabled={picked.size === 0 || busy !== null} loading={busy === status} onClick={() => void mark(status)}>
+                {a('bulkMark', { status: t(`attendance.statuses.${status}`) })}
+              </Button>
+            ))}
+          </div>
+        </>
+      )}
+    </Card>
   );
 }

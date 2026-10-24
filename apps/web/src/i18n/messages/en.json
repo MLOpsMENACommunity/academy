@@ -2003,7 +2003,7 @@
     }
   },
   "learn": {
-    "progress": "{completed} of {total, plural, one {# session} other {# sessions}} done",
+    "progress": "{completed} of {total, plural, one {# session} other {# sessions}} attended",
     "sessions": "Sessions",
     "session": "Session {n}",
     "live": "Live now",
@@ -2020,7 +2020,6 @@
     "noRecording": "The recording will appear here after the session.",
     "materials": "Materials",
     "assignment": "Assignment",
-    "markDone": "Mark as attended / watched",
     "done": "Attended / watched",
     "addToCalendar": "Add to calendar",
     "downloadIcs": "Download .ics",
@@ -2935,7 +2934,13 @@
       "PRESENT": "Present · {minutes} min",
       "PARTIAL": "Partial · {minutes} min",
       "ABSENT": "Absent"
-    }
+    },
+    "bulkTitle": "Mark by hand",
+    "bulkHint": "Tick students and set their attendance, with or without a Meet file. Points follow the course's rule.",
+    "selectAll": "Select all ({count})",
+    "bulkSelected": "{count} selected",
+    "bulkMark": "Mark {status}",
+    "bulkSaved": "{count, plural, one {# student} other {# students}} marked {status}."
   },
   "pointsLedger": {
     "title": "Points entries",

@@ -2,7 +2,6 @@ import { Body, Controller, Get, Header, HttpCode, Inject, Param, Put, Res } from
 import { ApiTags } from '@nestjs/swagger';
 import {
   feedbackSchema,
-  progressSchema,
   reminderPreferenceSchema,
   type FeedbackDueDto,
   type FeedbackInput,
@@ -51,15 +50,10 @@ export class LearnController {
     return this.learn.announcements(user, slug);
   }
 
+  /** Retired (410): sessions are counted from attendance now. Kept so an old page gets a clear answer. */
   @Put('learn/:slug/sessions/:sessionId/progress')
-  @HttpCode(204)
-  async progress(
-    @CurrentUser() user: AuthUser,
-    @Param('slug') slug: string,
-    @Param('sessionId') sessionId: string,
-    @Body(new ZodPipe(progressSchema)) body: z.infer<typeof progressSchema>,
-  ): Promise<void> {
-    await this.learn.setProgress(user, slug, sessionId, body.completed);
+  async progress(): Promise<void> {
+    await this.learn.setProgress();
   }
 
   @Put('learn/:slug/feedback')

@@ -5,9 +5,7 @@ import { useState } from 'react';
 import { LocalTime } from '@/components/course/LocalTime';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
-import { IconCheck } from '@/components/ui/Icons';
 import { useI18n } from '@/i18n/client';
-import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { AssessmentList } from './AssessmentList';
@@ -24,38 +22,22 @@ const rowLink = 'flex min-h-14 items-center justify-between gap-4 px-5 py-3.5 ho
 export function SessionCard({
   course,
   session: s,
-  onProgress,
   total,
   assessments = [],
 }: {
   course: LearnCourseDto;
   session: LearnSessionDto;
-  onProgress: (sessionId: string, completed: boolean) => void;
   /** Number of sessions in the course ("Session 2 of 6"). */
   total?: number;
   /** Published assessments attached to this session. */
   assessments?: AssessmentSummaryDto[];
 }) {
   const { locale, t } = useI18n();
-  const [completed, setCompleted] = useState(s.completed);
   const [actionError, setActionError] = useState<string | null>(null);
   const title = locale === 'ar' ? s.titleAr : s.titleEn;
   const desc = locale === 'ar' ? s.descriptionAr : s.descriptionEn;
   const courseTitle = locale === 'ar' ? course.titleAr : course.titleEn;
   const pageUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
-
-  async function toggle(next: boolean) {
-    setCompleted(next);
-    onProgress(s.id, next);
-    setActionError(null);
-    try {
-      await api(`/learn/${course.slug}/sessions/${s.id}/progress`, { method: 'PUT', json: { completed: next } });
-    } catch (err) {
-      setCompleted(!next);
-      onProgress(s.id, !next);
-      setActionError(errorMessage(err, t));
-    }
-  }
 
   const hasMaterials = s.materials.length > 0 || Boolean(s.assignmentUrl);
 
@@ -104,23 +86,6 @@ export function SessionCard({
             <LocalTime iso={s.startsAt} style="weekday-datetime" /> · {t('course.minutes', { count: s.durationMin })}
           </p>
         </div>
-        {s.phase !== 'upcoming' && (
-          <label
-            className={`inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-4 text-[0.9375rem] font-medium ${
-              completed ? 'border-success/40 bg-success-soft text-success' : 'border-line-button bg-card text-fg hover:bg-hover-bg'
-            }`}
-          >
-            <input type="checkbox" checked={completed} onChange={(e) => toggle(e.target.checked)} className="size-5 accent-[var(--success)]" />
-            {completed ? (
-              <span className="inline-flex items-center gap-1.5">
-                <IconCheck size={16} />
-                {t('learn.done')}
-              </span>
-            ) : (
-              t('learn.markDone')
-            )}
-          </label>
-        )}
       </div>
 
       {s.phase !== 'ended' &&

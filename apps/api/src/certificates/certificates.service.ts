@@ -21,6 +21,7 @@ import {
   type MyCertificateDto,
   type PublicCertificateDto,
   hasAdminPermission,
+  ATTENDED_STATUSES,
 } from '@academy/shared';
 import { Prisma, type Certificate, type Course } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
@@ -123,7 +124,12 @@ export class CertificatesService {
     const [total, progress, results, capstones] = await Promise.all([
       this.prisma.courseSession.count({ where: { courseId: course.id } }),
       userIds.length
-        ? this.prisma.sessionProgress.groupBy({ by: ['userId'], where: { userId: { in: userIds }, session: { courseId: course.id } }, _count: { _all: true } })
+        ? // Sessions attended (Present or Partial), from the Meet file or marked by the team.
+          this.prisma.sessionAttendance.groupBy({
+            by: ['userId'],
+            where: { userId: { in: userIds }, status: { in: [...ATTENDED_STATUSES] }, session: { courseId: course.id } },
+            _count: { _all: true },
+          })
         : Promise.resolve([]),
       this.assessments.courseResultsFor(course.id, userIds),
       // The capstone: a course-level lab or assignment that counts toward the certificate.

@@ -16,6 +16,7 @@ import {
   type AttendanceStatus,
   type AttendanceUploadInput,
   type MyAttendanceDto,
+  ATTENDED_STATUSES,
 } from '@academy/shared';
 import type { Course, CourseSession, Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
@@ -55,6 +56,8 @@ function counts(rows: { status: AttendanceStatus }[]) {
 
 /** "Attendance changed for this session": one at a time, so a re-upload never races a hand edit. */
 const lockKey = (sessionId: string) => `attendance:${sessionId}`;
+
+const isAttended = (s: AttendanceStatus) => (ATTENDED_STATUSES as readonly string[]).includes(s);
 
 /** Attendance (and its points) is only saved for a session that has started; a preview is fine. */
 function assertStarted(s: CourseSession, now: Date): void {
@@ -303,7 +306,13 @@ export class AttendanceService {
       );
       return before;
     });
+    await this.finishers(courseId, planned.filter((p) => isAttended(p.row.status)).map((p) => p.row.userId));
     return result(held, false);
+  }
+
+  /** "Finisher" for the students who have now attended every session (never fails the request). */
+  private async finishers(courseId: string, userIds: string[]): Promise<void> {
+    for (const userId of userIds) await this.points.checkFinisher(userId, courseId).catch(() => undefined);
   }
 
   /** Marks one enrolled student by hand (with or without an upload). Points follow; audited. */
@@ -330,7 +339,45 @@ export class AttendanceService {
         tx,
       );
       return this.rowDto(student, row, settings, held);
+    }).then(async (dto) => {
+      if (isAttended(status)) await this.finishers(courseId, [userId]);
+      return dto;
     });
+  }
+
+  /**
+   * Marks many enrolled students at once ("select all → Present"), with or without an upload: each
+   * gets the status by hand, and points follow, as with one. One transaction; audited once.
+   */
+  async markMany(courseId: string, sessionId: string, userIds: string[], status: AttendanceStatus, actor: Actor, now = new Date()): Promise<{ marked: number }> {
+    const [course, session] = await Promise.all([this.courseRow(courseId), this.sessionIn(courseId, sessionId)]);
+    assertStarted(session, now);
+    const enrolled = new Map((await this.enrolled(courseId)).map((s) => [s.userId, s]));
+    const ids = [...new Set(userIds)];
+    const missing = ids.filter((id) => !enrolled.has(id));
+    if (missing.length) throw new NotFoundException({ code: 'NOT_ENROLLED', message: `${missing.length} of these are not students of this course` });
+    const settings = settingsOf(course);
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey(sessionId)}))`;
+        const prev = new Map((await tx.sessionAttendance.findMany({ where: { sessionId, userId: { in: ids } } })).map((r) => [r.userId, r]));
+        for (const userId of ids) {
+          const p = prev.get(userId);
+          const minutes = p?.minutes ?? 0;
+          const percent = p?.percent ?? attendanceStatus(minutes, session.durationMin, settings.presentPercent).percent;
+          await tx.sessionAttendance.upsert({
+            where: { sessionId_userId: { sessionId, userId } },
+            update: { status, source: 'MANUAL', uploadedById: actor.id },
+            create: { sessionId, userId, minutes, percent, status, source: 'MANUAL', matchedBy: null, uploadedById: actor.id },
+          });
+          await this.points.syncSourceTx(tx, { userId, courseId, sourceType: POINTS_SOURCES.ATTENDANCE, sourceId: sessionId, reason: 'ATTENDANCE' }, attendancePoints(status, settings), now);
+        }
+        await this.audit.log({ actorId: actor.id, action: 'attendance.marked_many', entityType: 'CourseSession', entityId: sessionId, metadata: { courseId, status, students: ids.length } }, tx);
+      },
+      { timeout: 60_000 },
+    );
+    if (isAttended(status)) await this.finishers(courseId, ids);
+    return { marked: ids.length };
   }
 
   // ------------------------------------------------------------------ export and the learn page

@@ -20,6 +20,7 @@ import {
   type PointsReason,
   type PointsVoidInput,
   type UserBadgeDto,
+  ATTENDED_STATUSES,
 } from '@academy/shared';
 import { createHash } from 'node:crypto';
 import { Prisma, type Badge, type PointsEntry, type UserBadge } from '@prisma/client';
@@ -210,10 +211,11 @@ export class PointsService {
     }
   }
 
+  /** "Finisher": attended (Present or Partial) every session of the course. */
   async checkFinisher(userId: string, courseId: string): Promise<boolean> {
     const [total, done] = await Promise.all([
       this.prisma.courseSession.count({ where: { courseId } }),
-      this.prisma.sessionProgress.count({ where: { userId, session: { courseId } } }),
+      this.prisma.sessionAttendance.count({ where: { userId, status: { in: [...ATTENDED_STATUSES] }, session: { courseId } } }),
     ]);
     if (!total || done < total) return false;
     return Boolean(await this.awardBadge(BADGE_CODES.FINISHER, userId, { courseId }));

@@ -8,6 +8,8 @@ import {
   type AttendanceMarkInput,
   type AttendanceSettingsInput,
   type AttendanceUploadInput,
+  attendanceBulkMarkSchema,
+  type AttendanceBulkMarkInput,
 } from '@academy/shared';
 import type { Response } from 'express';
 import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
@@ -65,6 +67,14 @@ export class AdminAttendanceController {
   @Throttle(UPLOAD_LIMIT)
   upload(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('sessionId') sessionId: string, @Body(new ZodPipe(attendanceUploadSchema)) body: AttendanceUploadInput) {
     return this.attendance.upload(id, sessionId, body, user);
+  }
+
+  /** Many students at once ("select all → Present"). */
+  @Post(':id/sessions/:sessionId/attendance/bulk')
+  @HttpCode(200)
+  @Throttle(UPLOAD_LIMIT)
+  markMany(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('sessionId') sessionId: string, @Body(new ZodPipe(attendanceBulkMarkSchema)) body: AttendanceBulkMarkInput) {
+    return this.attendance.markMany(id, sessionId, body.userIds, body.status, user);
   }
 
   @Put(':id/sessions/:sessionId/attendance/:userId')

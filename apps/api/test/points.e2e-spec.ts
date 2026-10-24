@@ -153,19 +153,26 @@ describe('points, badges and leaderboards (e2e)', () => {
     expect(await sum(s!.id)).toBe(9);
   });
 
-  it('gives session points, takes them back when unmarked, and awards "Finisher"', async () => {
-    // Every session has started (a session that hasn't can't be marked done).
-    const { course, sessions, students } = await setup({ startedDaysAgo: 20 });
-    const [s] = students;
-    const mark = (id: string, completed: boolean) => http().put(`/api/learn/${course.slug}/sessions/${id}/progress`).set('Cookie', s!.cookie).send({ completed }).expect(204);
-    await mark(sessions[0]!.id, true);
-    await mark(sessions[0]!.id, true); // idempotent
-    expect(await sum(s!.id)).toBe(5);
-    await mark(sessions[0]!.id, false);
+  it('gives attendance points when the team marks students (one or many at once), and "Finisher" for attending every session', async () => {
+    // Every session has started (attendance is only saved for a session that has).
+    const { course, sessions, students, admin } = await setup({ startedDaysAgo: 20 });
+    const [s, other] = students;
+    const bulk = (sessionId: string, userIds: string[], status: string) =>
+      http().post(`/api/admin/courses/${course.id}/sessions/${sessionId}/attendance/bulk`).set('Cookie', admin.cookie).send({ userIds, status });
+    // Students can't mark themselves any more.
+    await http().put(`/api/learn/${course.slug}/sessions/${sessions[0]!.id}/progress`).set('Cookie', s!.cookie).send({ completed: true }).expect(410);
+    await http().post(`/api/admin/courses/${course.id}/sessions/${sessions[0]!.id}/attendance/bulk`).set('Cookie', s!.cookie).send({ userIds: [s!.id], status: 'PRESENT' }).expect(403);
+
+    expect((await bulk(sessions[0]!.id, [s!.id, other!.id], 'PRESENT').expect(200)).body).toEqual({ marked: 2 });
+    expect(await sum(s!.id)).toBe(10);
+    expect(await sum(other!.id)).toBe(10);
+    await bulk(sessions[0]!.id, [s!.id], 'ABSENT').expect(200);
     expect(await sum(s!.id)).toBe(0);
-    for (const x of sessions) await mark(x.id, true);
-    expect(await sum(s!.id)).toBe(15);
+    await bulk(sessions[0]!.id, ['not-a-student'], 'PRESENT').expect(404);
+    for (const x of sessions) await bulk(x.id, [s!.id], 'PRESENT').expect(200);
+    expect(await sum(s!.id)).toBe(30);
     expect(await prisma.userBadge.count({ where: { userId: s!.id, badge: { code: 'finisher' }, courseId: course.id } })).toBe(1);
+    expect(await prisma.userBadge.count({ where: { userId: other!.id, badge: { code: 'finisher' }, courseId: course.id } })).toBe(0);
   });
 
   it('lets admins award, adjust and audit points and manual badges (and nobody else)', async () => {

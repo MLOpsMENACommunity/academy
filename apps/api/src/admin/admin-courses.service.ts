@@ -9,6 +9,7 @@ import {
   type InstructorInput,
   type QuestionInput,
   type SessionInput,
+  ATTENDED_STATUSES,
 } from '@academy/shared';
 import { Prisma } from '@prisma/client';
 import type { Actor } from '../applications/workflow.service';
@@ -565,9 +566,10 @@ export class AdminCoursesService {
         user: { select: { id: true, email: true, deletedAt: true, profile: { select: { fullNameEn: true, googleEmail: true, phone: true } } } },
       },
     });
-    const progress = await this.prisma.sessionProgress.groupBy({
+    // Sessions attended (Present or Partial).
+    const progress = await this.prisma.sessionAttendance.groupBy({
       by: ['userId'],
-      where: { userId: { in: rows.map((r) => r.userId) }, session: { courseId } },
+      where: { userId: { in: rows.map((r) => r.userId) }, status: { in: [...ATTENDED_STATUSES] }, session: { courseId } },
       _count: { _all: true },
     });
     const done = new Map(progress.map((p) => [p.userId, p._count._all]));

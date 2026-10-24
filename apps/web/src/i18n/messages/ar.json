@@ -2003,7 +2003,7 @@
     }
   },
   "learn": {
-    "progress": "أنهيت {completed} من {total, plural, one {جلسة واحدة} two {جلستين} few {# جلسات} many {# جلسة} other {# جلسة}}",
+    "progress": "حضرت {completed} من {total, plural, one {جلسة واحدة} two {جلستين} few {# جلسات} many {# جلسة} other {# جلسة}}",
     "sessions": "الجلسات",
     "session": "الجلسة {n}",
     "live": "مباشر الآن",
@@ -2020,7 +2020,6 @@
     "noRecording": "سيظهر التسجيل هنا بعد الجلسة.",
     "materials": "المواد",
     "assignment": "الواجب",
-    "markDone": "تعليم كمحضور / مُشاهَد",
     "done": "تم الحضور / المشاهدة",
     "addToCalendar": "أضف إلى التقويم",
     "downloadIcs": "تنزيل ملف .ics",
@@ -2935,7 +2934,13 @@
       "PRESENT": "حاضر · {minutes} دقيقة",
       "PARTIAL": "حضور جزئي · {minutes} دقيقة",
       "ABSENT": "غائب"
-    }
+    },
+    "bulkTitle": "التسجيل يدويًا",
+    "bulkHint": "حدّد الطلاب وسجّل حضورهم، مع ملف Meet أو بدونه. تُحتسب النقاط وفق قاعدة الدورة.",
+    "selectAll": "تحديد الكل ({count})",
+    "bulkSelected": "المحدد: {count}",
+    "bulkMark": "سجّل {status}",
+    "bulkSaved": "{count, plural, one {سُجّل طالب واحد} two {سُجّل طالبان} few {سُجّل # طلاب} many {سُجّل # طالبًا} other {سُجّل # طالب}}: {status}."
   },
   "pointsLedger": {
     "title": "سجل النقاط",

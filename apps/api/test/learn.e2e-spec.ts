@@ -67,24 +67,24 @@ describe('learn (e2e)', () => {
     expect(JSON.stringify(res.body)).not.toContain('later-link');
   });
 
-  it('refuses to mark a session done before it starts (no free points, Finisher or certificate progress)', async () => {
-    const { course, student, later } = await setup();
+  it('no longer lets students mark sessions done (410): no points, Finisher or certificate progress from it', async () => {
+    const { course, student, past } = await setup();
     const slug = await slugOf(course.id);
-    const r = await http().put(`/api/learn/${slug}/sessions/${later.id}/progress`).set('Cookie', student.cookie).send({ completed: true }).expect(409);
-    expect(r.body.code).toBe('NOT_STARTED');
+    const r = await http().put(`/api/learn/${slug}/sessions/${past.id}/progress`).set('Cookie', student.cookie).send({ completed: true }).expect(410);
+    expect(r.body.code).toBe('PROGRESS_RETIRED');
     expect(await prisma.sessionProgress.count({ where: { userId: student.id } })).toBe(0);
     expect(await prisma.pointsEntry.count({ where: { userId: student.id } })).toBe(0);
-    // Unmarking is always allowed (and harmless).
-    await http().put(`/api/learn/${slug}/sessions/${later.id}/progress`).set('Cookie', student.cookie).send({ completed: false }).expect(204);
   });
 
-  it('tracks progress and feedback', async () => {
+  it('counts progress from attendance (Present or Partial) and tracks feedback', async () => {
     const { course, student, past, later } = await setup();
     const slug = await slugOf(course.id);
-    await http().put(`/api/learn/${slug}/sessions/${past.id}/progress`).set('Cookie', student.cookie).send({ completed: true }).expect(204);
+    await prisma.sessionAttendance.create({ data: { sessionId: past.id, userId: student.id, minutes: 0, percent: 0, status: 'ABSENT', source: 'MANUAL' } });
     let res = await http().get(`/api/learn/${slug}`).set('Cookie', student.cookie).expect(200);
+    expect(res.body.progress).toEqual({ completed: 0, total: 3, percent: 0 });
+    await prisma.sessionAttendance.update({ where: { sessionId_userId: { sessionId: past.id, userId: student.id } }, data: { status: 'PARTIAL' } });
+    res = await http().get(`/api/learn/${slug}`).set('Cookie', student.cookie).expect(200);
     expect(res.body.progress).toEqual({ completed: 1, total: 3, percent: 33 });
-    await http().put(`/api/learn/${slug}/sessions/${past.id}/progress`).set('Cookie', student.cookie).send({ completed: false }).expect(204);
 
     expect((await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: later.id, rating: 5 }).expect(403)).body.code).toBe('NOT_STARTED');
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: past.id, rating: 4, comment: 'Great' }).expect(204);
@@ -160,7 +160,7 @@ describe('learn (e2e)', () => {
     const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin' });
     const view = await http().get(`/api/learn/${slug}`).set('Cookie', admin.cookie).expect(200);
     expect(view.body.sessions.every((s: { liveUrl: string | null }) => s.liveUrl)).toBe(true);
-    expect((await http().put(`/api/learn/${slug}/sessions/${past.id}/progress`).set('Cookie', admin.cookie).send({ completed: true }).expect(403)).body.code).toBe('NOT_ENROLLED');
+    await http().put(`/api/learn/${slug}/sessions/${past.id}/progress`).set('Cookie', admin.cookie).send({ completed: true }).expect(410);
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', admin.cookie).send({ sessionId: past.id, rating: 5 }).expect(403);
   });
 
