@@ -16,6 +16,7 @@ import { AuditService } from '../audit/audit.service';
 import { copyStaff, ensureBuiltinRoles, setCourseInstructors } from '../course-staff/staff-sync';
 import { NO_SEATS, toInstructorDto, type SeatCount } from '../courses/course.mapper';
 import { CoursesService } from '../courses/courses.service';
+import { completedSessionsBy } from '../attendance/completed-sessions';
 import { PrismaService } from '../prisma/prisma.service';
 
 type Json = Prisma.InputJsonValue;
@@ -569,12 +570,8 @@ export class AdminCoursesService {
         user: { select: { id: true, email: true, deletedAt: true, profile: { select: { fullNameEn: true, googleEmail: true, phone: true } } } },
       },
     });
-    const progress = await this.prisma.sessionProgress.groupBy({
-      by: ['userId'],
-      where: { userId: { in: rows.map((r) => r.userId) }, session: { courseId } },
-      _count: { _all: true },
-    });
-    const done = new Map(progress.map((p) => [p.userId, p._count._all]));
+    // Sessions attended (Present or Partial), plus any marked done before that box was retired.
+    const done = new Map([...(await completedSessionsBy(this.prisma, courseId, rows.map((r) => r.userId)))].map(([userId, set]) => [userId, set.size]));
     return rows.map((e) => {
       // A deleted account shows only the address to remove, nothing else about the person.
       const deleted = Boolean(e.user.deletedAt);

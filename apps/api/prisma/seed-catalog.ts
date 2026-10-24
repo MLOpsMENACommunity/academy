@@ -175,7 +175,9 @@ async function refreshPlaceholder(prisma: PrismaClient, courseId: string, seed: 
     }
 
     const used =
-      (await tx.sessionProgress.count({ where: { session: { courseId } } })) + (await tx.sessionFeedback.count({ where: { courseId } }));
+      (await tx.sessionProgress.count({ where: { session: { courseId } } })) +
+      (await tx.sessionFeedback.count({ where: { courseId } })) +
+      (await tx.sessionAttendance.count({ where: { session: { courseId } } }));
     if (used === 0) {
       await tx.courseSession.deleteMany({ where: { courseId } });
       if (seed.sessions.length) {

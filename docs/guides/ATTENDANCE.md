@@ -61,8 +61,13 @@ added together. Up to 2,000 rows and 5 MB per file.
 
 ## After the upload
 
-- **Mark by hand:** change one student's status in **Recorded attendance** at any time (also without
-  a file, for example for someone who joined by phone and isn't in the report). Their points follow.
+- **Mark by hand, many at once:** the **Mark by hand** card lists every enrolled student with a
+  checkbox. Tick them (or **Select all**), then **Mark Present**, **Mark Partial** or **Mark Absent**.
+  It works without a file too, for example to mark the whole class present. Points follow the rule.
+- **One student:** change their status in **Recorded attendance** at any time (for example someone who
+  joined by phone and isn't in the report). Their points follow.
+- **What attendance drives:** students no longer mark sessions done themselves. Present or Partial
+  counts as attended for their progress bar, the certificate's sessions rule and the Finisher badge.
 - **Attendance CSV** (top of the tab): one row per student, one column per session, then Present,
   Partial, Absent and Attendance points.
 - **Students** see their own attendance under each session on the learn page ("Present · 85 min").

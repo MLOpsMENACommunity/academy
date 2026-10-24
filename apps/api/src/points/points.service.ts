@@ -27,6 +27,7 @@ import type { Actor } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { completedSessionsBy } from '../attendance/completed-sessions';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -210,10 +211,11 @@ export class PointsService {
     }
   }
 
+  /** "Finisher": completed every session of the course (attended, or marked done before that box was retired). */
   async checkFinisher(userId: string, courseId: string): Promise<boolean> {
     const [total, done] = await Promise.all([
       this.prisma.courseSession.count({ where: { courseId } }),
-      this.prisma.sessionProgress.count({ where: { userId, session: { courseId } } }),
+      completedSessionsBy(this.prisma, courseId, [userId]).then((m) => m.get(userId)!.size),
     ]);
     if (!total || done < total) return false;
     return Boolean(await this.awardBadge(BADGE_CODES.FINISHER, userId, { courseId }));

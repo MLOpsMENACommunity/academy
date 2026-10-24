@@ -48,11 +48,12 @@ the same moment, never double-counts.
 
 ### 1.3 Sessions
 
-- A student clicks **Mark as done** on a session in the learn page: `sessionCompletedPoints` (5).
-  Unmarking appends −5. If the setting changes later, points already given are kept.
-- It is **self-reported**: nothing checks that the student attended or watched. It also drives the
-  certificate's "sessions completed %" and the **Finisher** badge.
-- There is no attendance tracking yet.
+- **Retired (PR "Attendance only"):** students no longer click **Mark as done**; the endpoint answers
+  410. Session points already given (`SESSION_COMPLETED`, 5 each) are kept.
+- Sessions now count from **attendance** (the Google Meet file, or the team marking students, one or
+  many at once): **Present or Partial** counts as attended for the learn-page progress, the
+  certificate's "sessions completed %" and the **Finisher** badge. Attendance points follow each
+  course's rule (`ATTENDANCE`, see guides/ATTENDANCE.md).
 
 ### 1.4 Certificate bonus
 
@@ -86,7 +87,7 @@ course board.
 | 🏅 Top of the week | Auto | Ranks 1–3 of a closed course week (ties share a rank, so more than 3 can win) | Per course week |
 | 🏆 Top of the course | Auto | Ranks 1–3 once the course has ended | Per course |
 | 💯 Perfect score | Auto | 100 % on a published quiz (any attempt); kept after a regrade | Once per course |
-| 🏁 Finisher | Auto | Every session of the course marked done | Once per course |
+| 🏁 Finisher | Auto | Attended (Present or Partial) every session of the course | Once per course |
 | 🎓 Certified | Auto | A certificate issued (removed on revoke) | Per course |
 | ⭐ Top performer | Manual | Awarded by the team | Once per course, or once overall |
 | 🤝 Community helper | Manual | Awarded by the team | Once per course, or once overall |

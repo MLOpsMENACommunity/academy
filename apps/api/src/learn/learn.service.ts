@@ -1,4 +1,5 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
+import { completedSessionsBy } from '../attendance/completed-sessions';
 import {
   liveLinkVisible,
   recordingKind,
@@ -72,9 +73,8 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const { course, enrollment } = await this.accessWithEnrolment(user, slug);
-    const [sessions, progress, feedback, pref, profile, s, announcements, attendance] = await Promise.all([
+    const [sessions, feedback, pref, profile, s, announcements, attendance] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
-      this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
       this.prisma.profile.findUnique({ where: { userId: user.id }, select: { googleEmail: true } }),
@@ -84,7 +84,8 @@ export class LearnService {
       this.prisma.sessionAttendance.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true, status: true, minutes: true, percent: true } }),
     ]);
     const attended = new Map(attendance.map((a) => [a.sessionId, { status: a.status, minutes: a.minutes, percent: a.percent }]));
-    const done = new Set(progress.map((p) => p.sessionId));
+    // Progress is attendance (Present or Partial), plus sessions marked done before that box was retired.
+    const done = (await completedSessionsBy(this.prisma, course.id, [user.id])).get(user.id)!;
     const fbBySession = new Map(feedback.filter((f) => f.sessionId).map((f) => [f.sessionId!, f]));
     const courseFb = feedback.find((f) => !f.sessionId) ?? null;
     const reveal = s.liveLinkRevealMinutes;
@@ -171,25 +172,12 @@ export class LearnService {
     return { course, session };
   }
 
-  async setProgress(user: AuthUser, slug: string, sessionId: string, completed: boolean, now = new Date()): Promise<void> {
-    const { session } = await this.sessionOf(user, slug, sessionId, 'write');
-    // A session can only be done once it has started (the learn page hides the box until then):
-    // otherwise marking every session at once would hand out session points, "Finisher" and
-    // the certificate's sessions requirement. Unmarking is always allowed.
-    if (completed && session.startsAt > now) {
-      throw new ConflictException({ code: 'NOT_STARTED', message: 'You can mark a session done once it has started' });
-    }
-    if (completed) {
-      await this.prisma.sessionProgress.upsert({
-        where: { userId_sessionId: { userId: user.id, sessionId } },
-        update: {},
-        create: { userId: user.id, sessionId },
-      });
-    } else {
-      await this.prisma.sessionProgress.deleteMany({ where: { userId: user.id, sessionId } });
-    }
-    // Session points (and "Finisher"); unmarking takes the points back.
-    await this.points.syncSession(user.id, sessionId, completed);
+  /**
+   * Retired: students no longer mark sessions done. Progress, the certificate's sessions rule and
+   * "Finisher" follow attendance (the Meet file or the team's marks). Points already earned stay.
+   */
+  async setProgress(): Promise<never> {
+    throw new GoneException({ code: 'PROGRESS_RETIRED', message: 'Sessions are counted from attendance now' });
   }
 
   async setFeedback(user: AuthUser, slug: string, input: FeedbackInput, now = new Date()): Promise<void> {

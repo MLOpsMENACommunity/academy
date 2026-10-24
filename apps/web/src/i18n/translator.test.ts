@@ -11,7 +11,7 @@ describe('ICU plurals (QA L1)', () => {
     expect(en('catalog.results', { count: 0 })).toBe('0 courses');
     expect(en('sessions.recordingsCount', { count: 1 })).toBe('1 recording');
     expect(en('course.sessionsCount', { count: 1 })).toBe('1 session');
-    expect(en('learn.progress', { completed: 1, total: 1 })).toBe('1 of 1 session done');
+    expect(en('learn.progress', { completed: 1, total: 1 })).toBe('1 of 1 session attended');
   });
 
   it('Arabic: one, two, 3–10, 11–99 and 100+ use their own forms', () => {
@@ -25,7 +25,7 @@ describe('ICU plurals (QA L1)', () => {
     expect(ar('sessions.recordingsCount', { count: 2 })).toBe('تسجيلان');
     expect(ar('sessions.minutes', { count: 45 })).toBe('45 دقيقة');
     expect(ar('catalog.weeks', { count: 7 })).toBe('7 أسابيع');
-    expect(ar('learn.progress', { completed: 1, total: 3 })).toBe('أنهيت 1 من 3 جلسات');
+    expect(ar('learn.progress', { completed: 1, total: 3 })).toBe('حضرت 1 من 3 جلسات');
   });
 
   it('every {count} message with a counted noun uses a plural', () => {

@@ -479,11 +479,12 @@ admins can preview any course; assigned speakers can preview assessments (Stagin
 
 `/learn/<course-slug>`, reached from the dashboard ("Continue course") or the course page:
 
-- **Progress** bar (sessions marked done) and **Next session**.
+- **Progress** bar (sessions attended: Present or Partial, from the team's attendance) and **Next session**.
 - **Sessions**, each with: date and time in your zone, phase (upcoming, live, ended), **Join** (the
   Google Meet/YouTube link, visible from 60 minutes before), **Add to calendar**, description ("what we
   cover"), **Recording** (YouTube player or the Drive folder for paid courses), **Materials** links,
-  **Assignment** link, its **Assessments**, **Mark as done** (worth points, see section 8), and
+  **Assignment** link, its **Assessments**, the student's **attendance** once recorded (students no
+  longer mark sessions done themselves), and
   **Feedback** (1–5 stars and a comment, once the session has started).
 - **Course feedback** opens when the last session starts.
 - **Reminders:** a per-course switch for the 24 h/1 h session emails, assessment due reminders and
@@ -654,7 +655,7 @@ for the two courses are in [POINTS.md](POINTS.md).
   Cairo time from the first session's day. Students who haven't opted in see privately where they would
   rank. After the course ends the board becomes **Best of the course**.
 - **Badges:** automatic *Top of the week*, *Top of the course* (ranks 1–3), *Perfect score* (100 % on a
-  quiz), *Finisher* (every session marked done), *Certified*; manual *Top performer*, *Community
+  quiz), *Finisher* (attended every session), *Certified*; manual *Top performer*, *Community
   helper*, *Speaker* (also automatic when a speaker's first published session ends). Badge awards send
   an in-app notification and the `badgeAwarded` email.
 - **Admin** (ACADEMIC): Admin → Points & badges (badge catalog, add manual badges, activate/deactivate,
@@ -983,6 +984,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Attendance only | Students no longer mark sessions done (the box is gone; the old endpoint answers 410; session points already earned stay). Progress on the learn page, the certificate's sessions rule, the admin roster's sessions count and **Finisher** follow attendance (Present or Partial); sessions students marked done before this change still count, so nobody loses progress or eligibility. The Attendance tab (admin and Teaching) gets **Mark by hand**: every enrolled student with a checkbox, Select all, then Present, Partial or Absent, with or without a Meet file; points follow the course rule (en/ar) | Pending |
 | Consultations | Paid 1:1 calls with listed speakers, pay first then book: open times shown first; the student uploads the InstaPay, Vodafone Cash, Orange Cash or e& money screenshot; FINANCE approves (the student is told to book) or rejects with a reason; the student books an open time. No refunds for paid calls but one move up to 24 h before (Refund Policy updated); optional Google Calendar per expert (busy times, a Meet link and calendar event per call). Top-menu **Consultations**, My consultations, the expert's page, Admin → Consultations: weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migrations: two new tables, then new columns (all additive) | Pending |
 | Admin course tabs wrap | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Pending |
 | Announcements tab | The learn page has **Sessions** and **Announcements** tabs. The Announcements tab lists every announcement of the course (it showed the latest 20 at the bottom of the page before), with a "N new" badge; announcement notifications and emails open it (`#announcements`); new `GET /api/learn/:slug/announcements` (same visibility rules) (en/ar) | Pending |

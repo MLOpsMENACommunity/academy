@@ -25,6 +25,8 @@ import {
   type SessionMaterialsInput,
   type SpeakerAnnouncementInput,
   type TeachingPointsInput,
+  attendanceBulkMarkSchema,
+  type AttendanceBulkMarkInput,
 } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
@@ -267,6 +269,20 @@ export class TeachingController {
   @Throttle(GRADE_LIMIT)
   attendanceUpload(@CurrentUser() user: AuthUser, @Param('courseId') courseId: string, @Param('sessionId') sessionId: string, @Body(new ZodPipe(attendanceUploadSchema)) body: AttendanceUploadInput) {
     return this.attendance.upload(courseId, sessionId, body, user);
+  }
+
+  /** Many students at once ("select all → Present"). */
+  @CourseCan('UPLOAD_ATTENDANCE')
+  @Post(':courseId/sessions/:sessionId/attendance/bulk')
+  @HttpCode(200)
+  @Throttle(GRADE_LIMIT)
+  attendanceMarkMany(
+    @CurrentUser() user: AuthUser,
+    @Param('courseId') courseId: string,
+    @Param('sessionId') sessionId: string,
+    @Body(new ZodPipe(attendanceBulkMarkSchema)) body: AttendanceBulkMarkInput,
+  ) {
+    return this.attendance.markMany(courseId, sessionId, body.userIds, body.status, user);
   }
 
   @CourseCan('UPLOAD_ATTENDANCE')

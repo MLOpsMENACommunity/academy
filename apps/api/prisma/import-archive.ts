@@ -316,7 +316,9 @@ export async function importArchive(prisma: PrismaClient, archive: Archive, opts
           // rather than store a hash that claims lessons were imported when they weren't.
           if (replaceLessons) {
             const used =
-              (await tx.sessionProgress.count({ where: { session: { courseId: p.id } } })) + (await tx.sessionFeedback.count({ where: { courseId: p.id } }));
+              (await tx.sessionProgress.count({ where: { session: { courseId: p.id } } })) +
+              (await tx.sessionFeedback.count({ where: { courseId: p.id } })) +
+              (await tx.sessionAttendance.count({ where: { session: { courseId: p.id } } }));
             if (used > 0) p = { action: 'skip', reason: 'its lessons changed, but students have progress on them: update it in the admin' };
           }
         }

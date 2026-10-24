@@ -43,8 +43,8 @@ describe('certificates (e2e)', () => {
     });
     quizId = quiz.id;
     for (const u of [ready, behind]) await prisma.enrollment.create({ data: { userId: u.id, courseId: course.id } });
-    // ready: half the sessions and a passing score; behind: nothing.
-    await prisma.sessionProgress.create({ data: { userId: ready.id, sessionId: s1.id } });
+    // ready: attended half the sessions and a passing score; behind: nothing.
+    await prisma.sessionAttendance.create({ data: { userId: ready.id, sessionId: s1.id, minutes: 60, percent: 100, status: 'PRESENT', source: 'MANUAL' } });
     await prisma.submission.create({ data: { assessmentId: quizId, userId: ready.id, attempt: 1, submittedAt: new Date(), score: 8, maxScore: 10 } });
   });
 

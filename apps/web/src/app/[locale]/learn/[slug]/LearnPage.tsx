@@ -192,14 +192,6 @@ function Inner({ user }: { user: MeResponse }) {
   const index = current ? sessions.indexOf(current) : -1;
   const prev = index > 0 ? sessions[index - 1] : null;
   const next = index >= 0 && index < sessions.length - 1 ? sessions[index + 1] : null;
-  const onProgress = (id: string, completed: boolean) => {
-    setCourse((c) => {
-      if (!c) return c;
-      const list = c.sessions.map((s) => (s.id === id ? { ...s, completed } : s));
-      const done = list.filter((s) => s.completed).length;
-      return { ...c, sessions: list, progress: { completed: done, total: list.length, percent: list.length ? Math.round((done / list.length) * 100) : 0 } };
-    });
-  };
   const ended = sessions.length > 0 && sessions.every((s) => s.phase === 'ended');
   const dueCount = assessments.filter((a) => a.due).length;
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
@@ -421,7 +413,6 @@ function Inner({ user }: { user: MeResponse }) {
               key={current.id}
               course={course}
               session={current}
-              onProgress={onProgress}
               total={sessions.length}
               assessments={assessments.filter((a) => a.sessionId === current.id)}
             />
