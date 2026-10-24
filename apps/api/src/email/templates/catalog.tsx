@@ -973,7 +973,7 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
       };
     }
     case 'consultationReserved': {
-      const subject = ar ? `احجز مكالمتك مع ${t.expertName}: أكمل الدفع` : `Your call with ${t.expertName}: complete the payment`;
+      const subject = ar ? `مكالمتك مع ${t.expertName}: أكمل الدفع` : `Your call with ${t.expertName}: complete the payment`;
       const pay = [t.instapayHandle, t.instapayName && `(${t.instapayName})`].filter(Boolean).join(' ');
       return {
         subject,
@@ -1034,9 +1034,14 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
         : ar
           ? `أُلغيت المكالمة مع ${t.otherName}`
           : `Cancelled: your call with ${t.otherName}`;
-      const who = ar
-        ? { student: 'ألغاها الطالب', expert: 'ألغاها الخبير', admin: 'ألغاها فريق الأكاديمية', expired: 'لم يصل الدفع في الوقت' }[t.by]
-        : { student: 'The student cancelled it', expert: 'The expert cancelled it', admin: 'The academy team cancelled it', expired: 'The payment didn’t arrive in time' }[t.by];
+      const who =
+        t.by === t.role
+          ? ar
+            ? 'ألغيتها أنت'
+            : 'You cancelled it'
+          : ar
+            ? { student: 'ألغاها الطالب', expert: 'ألغاها الخبير', admin: 'ألغاها فريق الأكاديمية', expired: 'لم يصل الدفع في الوقت' }[t.by]
+            : { student: 'The student cancelled it', expert: 'The expert cancelled it', admin: 'The academy team cancelled it', expired: 'The payment didn’t arrive in time' }[t.by];
       return {
         subject,
         element: (
@@ -1045,7 +1050,7 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             preview={subject}
             heading={subject}
             paragraphs={[
-              ar ? `الموعد: ${t.when}. ${who}.` : `The call was ${t.when}. ${who}.`,
+              ar ? `الموعد: ${t.when}. ${who}.` : `The call: ${t.when}. ${who}.`,
               ...(t.reason ? [ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`] : []),
               ...(t.role === 'student' && t.wasPaid
                 ? [ar ? 'سنتواصل معك على واتساب لرد المبلغ.' : "We'll contact you on WhatsApp about your refund."]

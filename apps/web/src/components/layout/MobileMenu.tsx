@@ -14,6 +14,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { MenuItem } from './MegaNav';
 import type { MenuData } from './menu';
 import { menuSections, type MenuSection } from './sections';
+import { ConsultationsLink } from './ConsultationsLink';
 import { WhatsNewLink } from './WhatsNew';
 
 const rowClass = 'flex min-h-12 w-full items-center justify-between gap-3 rounded-[10px] px-4 text-start text-fg';
@@ -133,6 +134,7 @@ export function MobileMenu({ data }: { data: MenuData }) {
                 </div>
               );
             })}
+            <ConsultationsLink onNavigate={close} className={`${rowClass} justify-start! gap-2 aria-[current=page]:font-medium`} />
             <WhatsNewLink onNavigate={close} className={`${rowClass} justify-start! gap-2 aria-[current=page]:font-medium`} />
           </nav>
 

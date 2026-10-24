@@ -72,6 +72,12 @@ describe('consultationSlots', () => {
     expect(consultationSlots({ ...schedule, minNoticeHours: 30 }, 30, [], now)[0]!.toISOString()).toBe('2026-11-01T16:00:00.000Z');
   });
 
+  it('keeps the day of a spring-forward clock change (a 23-hour day)', () => {
+    // Cairo moves to summer time at midnight starting Friday 24 April 2026.
+    const fridays = { timezone: 'Africa/Cairo', minNoticeHours: 3, horizonDays: 3, availability: [{ weekday: 5, start: '10:00', end: '11:00' }] };
+    expect(iso(consultationSlots(fridays, 30, [], new Date('2026-04-23T21:30:00Z')))).toEqual(['2026-04-24T07:00:00.000Z', '2026-04-24T07:30:00.000Z']);
+  });
+
   it('is empty without weekly hours', () => {
     expect(consultationSlots({ ...schedule, availability: [] }, 30, [], now)).toEqual([]);
   });
@@ -98,7 +104,7 @@ describe('studentCanCancel', () => {
 });
 
 describe('schemas', () => {
-  const base = { price30Egp: 500, price60Egp: null, meetingUrl: 'https://meet.google.com/abc-defg-hij', availability: [] };
+  const base = { price30Egp: 500, price60Egp: null, meetingUrl: 'https://meet.google.com/abc-defg-hij', timezone: 'Africa/Cairo', minNoticeHours: 24, horizonDays: 30, availability: [] };
 
   it('rejects overlapping or reversed weekly ranges and off-grid times', () => {
     expect(availabilitySchema.safeParse([{ weekday: 1, start: '18:00', end: '20:00' }, { weekday: 1, start: '19:30', end: '21:00' }]).success).toBe(false);
@@ -107,8 +113,11 @@ describe('schemas', () => {
     expect(availabilitySchema.safeParse([{ weekday: 1, start: '18:15', end: '20:00' }]).success).toBe(false);
   });
 
-  it('defaults the time zone to Cairo and refuses unknown zones and http links', () => {
-    expect(consultantSettingsSchema.parse(base).timezone).toBe('Africa/Cairo');
+  it('requires every field (a save replaces them all), and refuses unknown zones, http links and free calls', () => {
+    expect(consultantSettingsSchema.safeParse(base).success).toBe(true);
+    const { availability: _hours, ...noHours } = base;
+    expect(consultantSettingsSchema.safeParse(noHours).success).toBe(false);
+    expect(consultantSettingsSchema.safeParse({ ...base, price30Egp: 0 }).success).toBe(false);
     expect(consultantSettingsSchema.safeParse({ ...base, timezone: 'Mars/Olympus' }).success).toBe(false);
     expect(consultantSettingsSchema.safeParse({ ...base, meetingUrl: 'http://meet.google.com/x' }).success).toBe(false);
   });

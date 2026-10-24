@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_TIMEZONE, isValidTimezone } from './time';
+import { isValidTimezone } from './time';
 
 // ------------------------------------------------------------------ rules
 
@@ -53,7 +53,8 @@ export const availabilitySchema = z
     'Time ranges on the same day must not overlap',
   );
 
-const price = z.number().int().min(0).max(100_000).nullable();
+/** At least 1 EGP: a free call would sit waiting for a payment that never comes (free office hours are v2). */
+const price = z.number().int().min(1).max(100_000).nullable();
 
 const settingsFields = {
   /** EGP for a 30-minute call; null = not offered. */
@@ -70,15 +71,15 @@ const settingsFields = {
       .max(500)
       .refine((u) => u.startsWith('https://'), 'The link must start with https://'),
   ]),
-  timezone: z.string().trim().refine(isValidTimezone, 'Unknown time zone').default(DEFAULT_TIMEZONE),
+  timezone: z.string().trim().refine(isValidTimezone, 'Unknown time zone'),
   /** How far ahead a call must be booked. */
-  minNoticeHours: z.number().int().min(CONSULTATION_HOLD_LEAD_HOURS + 1).max(168).default(24),
+  minNoticeHours: z.number().int().min(CONSULTATION_HOLD_LEAD_HOURS + 1).max(168),
   /** How many days ahead students can book. */
-  horizonDays: z.number().int().min(1).max(90).default(30),
-  availability: availabilitySchema.default([]),
+  horizonDays: z.number().int().min(1).max(90),
+  availability: availabilitySchema,
 };
 
-/** What an expert edits in the speaker portal. */
+/** What an expert edits in the speaker portal. Every field is required: a save replaces them all, so a missing one must not reset it. */
 export const consultantSettingsSchema = z.object(settingsFields);
 export type ConsultantSettingsInput = z.infer<typeof consultantSettingsSchema>;
 
@@ -119,24 +120,31 @@ interface LocalDay {
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** Building an Intl.DateTimeFormat is slow and the slot finder needs thousands of conversions: one per zone and kind. */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatter(kind: 'day' | 'clock', timezone: string): Intl.DateTimeFormat {
+  const key = `${kind}:${timezone}`;
+  let f = formatters.get(key);
+  if (!f) {
+    f =
+      kind === 'day'
+        ? new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short' })
+        : new Intl.DateTimeFormat('en-US', { timeZone: timezone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+    formatters.set(key, f);
+  }
+  return f;
+}
+
 /** The calendar day (and weekday) an instant falls on in a time zone. */
 export function localDay(at: Date, timezone: string): LocalDay {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short' }).formatToParts(at);
+  const parts = formatter('day', timezone).formatToParts(at);
   const get = (t: string) => parts.find((p) => p.type === t)!.value;
   return { year: Number(get('year')), month: Number(get('month')), day: Number(get('day')), weekday: WEEKDAYS.indexOf(get('weekday')) };
 }
 
 /** Minutes the zone is ahead of UTC at that instant (Cairo: 120 in winter, 180 in summer). */
 function offsetMinutes(at: Date, timezone: string): number {
-  const p = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  }).formatToParts(at);
+  const p = formatter('clock', timezone).formatToParts(at);
   const get = (t: string) => Number(p.find((x) => x.type === t)!.value);
   const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'));
   return Math.round((asUtc - Math.floor(at.getTime() / 60_000) * 60_000) / 60_000);
@@ -177,9 +185,12 @@ export function consultationSlots(s: ConsultantSchedule, durationMin: number, bu
   const latest = now.getTime() + s.horizonDays * 86_400_000;
   const out: Date[] = [];
   const seen = new Set<number>();
+  // Step calendar days in the expert's zone (not 24-hour blocks: a 23-hour day at a clock change would skip one).
   // One extra day each side covers zones far from UTC.
+  const today = localDay(now, s.timezone);
   for (let d = -1; d <= s.horizonDays + 1; d++) {
-    const day = localDay(new Date(now.getTime() + d * 86_400_000), s.timezone);
+    const date = new Date(Date.UTC(today.year, today.month - 1, today.day + d));
+    const day = { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), weekday: date.getUTCDay() };
     for (const w of s.availability) {
       if (w.weekday !== day.weekday) continue;
       for (let m = minutesOf(w.start); m + durationMin <= minutesOf(w.end); m += CONSULTATION_SLOT_STEP_MIN) {
@@ -266,9 +277,9 @@ export interface MyConsultationDto extends ConsultationBookingDto {
   payment: ConsultationPaymentDto | null;
 }
 
-/** The expert's and the admin's view: who booked. */
+/** The expert's and the admin's view: who booked. The email is for admins only (null for the expert). */
 export interface ConsultationBookingAdminDto extends ConsultationBookingDto {
-  student: { id: string; name: string; email: string };
+  student: { id: string; name: string; email: string | null };
   paidAt: string | null;
 }
 

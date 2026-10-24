@@ -12,6 +12,7 @@ import { confirmMatches, type AddStudentInput, type AdminPermission, type Locale
 import { randomToken, sha256 } from '../common/crypto';
 import { ApplicationWorkflow } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
+import { ConsultationsService } from '../consultations/consultations.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
@@ -42,6 +43,7 @@ export class AccountService {
     private readonly speakerPortal: SpeakerPortalService,
     private readonly invites: InvitesService,
     private readonly workflow: ApplicationWorkflow,
+    private readonly consultations: ConsultationsService,
   ) {}
 
   /**
@@ -378,11 +380,9 @@ export class AccountService {
     // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
     // cancelled), the team is told. Never fails the deletion (errors are logged).
     await this.speakerPortal.releaseBookings(user);
-    // Unpaid consultation reservations free their slots. Paid calls stay for the team to refund.
-    await this.prisma.consultationBooking.updateMany({
-      where: { studentId: userId, status: 'AWAITING_PAYMENT' },
-      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledBy: 'student', holdUntil: null },
-    });
+    // Upcoming consultations (as student or as expert) are cancelled and the other side told; an
+    // expert is unlisted. Paid ones show in Admin → Consultations for the refund. Never throws.
+    await this.consultations.releaseForDeletedAccount(userId);
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null, actorId);
     await this.audit.log({ actorId, action: byTeam ? 'account.deleted_by_admin' : 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted', byTeam });

@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { ConsultationJobs } from '../src/consultations/consultations.jobs';
+import { AdminCoursesService } from '../src/admin/admin-courses.service';
 import { AccountService } from '../src/users/account.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp, createUser } from './helpers';
@@ -164,9 +165,9 @@ describe('consultations (e2e)', () => {
     const stranger = await createUser(app, prisma, { prefix: 'cons-stranger' });
     await http().get(`/api/consultations/bookings/${b.id}/calendar.ics`).set('Cookie', stranger.cookie).expect(404);
 
-    // The expert sees who booked and what they want to talk about.
+    // The expert sees who booked and what they want to talk about, never the student's email.
     const overview = (await http().get('/api/speaker/consultations').set('Cookie', expert.cookie).expect(200)).body;
-    expect(overview.bookings.find((x: { id: string }) => x.id === b.id)).toMatchObject({ note: 'Feature store design review', student: { name: 'Test Person' } });
+    expect(overview.bookings.find((x: { id: string }) => x.id === b.id)).toMatchObject({ note: 'Feature store design review', student: { name: 'Test Person', email: null } });
     await http().get('/api/speaker/consultations').set('Cookie', student.cookie).expect(403);
 
     // A student can still cancel a paid call more than 24 hours ahead; the expert is told.
@@ -214,11 +215,95 @@ describe('consultations (e2e)', () => {
     // The payment arrived late and nobody took the slot: finance can still confirm it.
     await http().post(`/api/admin/consultations/bookings/${b.id}/paid`).set('Cookie', finance.cookie).expect(200);
 
-    // Reminders: a confirmed call 23 hours away gets the "tomorrow" email, for both sides, once.
+    // Reminders: a call 23 hours away gets the "tomorrow" email, for both sides, once; but not
+    // right after it was confirmed (that email just went out).
     await prisma.consultationBooking.update({ where: { id: b.id }, data: { startsAt: new Date(Date.now() + 23 * HOUR), endsAt: new Date(Date.now() + 23 * HOUR + 30 * 60_000) } });
+    await jobs.run();
+    expect(await emails(`consultation-reminder24:${b.id}:`)).toHaveLength(0);
+    await prisma.consultationBooking.update({ where: { id: b.id }, data: { paidAt: new Date(Date.now() - 3 * HOUR) } });
     await jobs.run();
     await jobs.run();
     expect((await emails(`consultation-reminder24:${b.id}:`)).length).toBe(2);
+  });
+
+  it('a cancel racing "Mark paid" never cancels a paid call inside 24 hours', async () => {
+    const student = await createUser(app, prisma, { prefix: 'cons-racepay' });
+    const b = (await book(student.cookie, (await slots())[1]!).expect(201)).body;
+    const [paid, cancelled] = await Promise.all([
+      http().post(`/api/admin/consultations/bookings/${b.id}/paid`).set('Cookie', finance.cookie),
+      http().post(`/api/consultations/bookings/${b.id}/cancel`).set('Cookie', student.cookie).send({}),
+    ]);
+    expect([paid.status, cancelled.status].sort()).toEqual([200, 409]);
+    const row = await prisma.consultationBooking.findUniqueOrThrow({ where: { id: b.id } });
+    expect(row.status === 'CONFIRMED' ? paid.status : cancelled.status).toBe(200);
+  });
+
+  it('holds at most 2 unpaid reservations across experts, even booked at the same moment', async () => {
+    const u = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'cons-expert2' });
+    const slug2 = `cons-expert2-${Date.now()}`;
+    const i2 = await prisma.instructor.create({ data: { slug: slug2, name: 'Second Expert', titleEn: 'ML Lead', bioEn: 'Ships models.', userId: u.id } });
+    await http().put(`/api/admin/consultations/experts/${i2.id}`).set('Cookie', speakersTeam.cookie).send(settings()).expect(200);
+    const student = await createUser(app, prisma, { prefix: 'cons-twoexperts' });
+    await book(student.cookie, (await slots())[12]!).expect(201);
+    const other = (await http().get(`/api/consultations/experts/${slug2}/slots?duration=30`).expect(200)).body as string[];
+    const [a, b] = await Promise.all([
+      book(student.cookie, (await slots())[13]!),
+      http().post(`/api/consultations/experts/${slug2}/bookings`).set('Cookie', student.cookie).send({ durationMin: 30, startsAt: other[0], note: '' }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+  });
+
+  it('refuses bookings until payment details are set, an admin confirming their own booking, and a call without a link', async () => {
+    await http().put('/api/admin/settings').set('Cookie', admin.cookie).send({ instapayHandle: '' }).expect(200);
+    const s1 = await createUser(app, prisma, { prefix: 'cons-nopay' });
+    expect((await book(s1.cookie, (await slots())[14]!).expect(503)).body.code).toBe('PAYMENTS_NOT_SET_UP');
+    await http().put('/api/admin/settings').set('Cookie', admin.cookie).send({ instapayHandle: 'academy@instapay' }).expect(200);
+
+    const own = (await book(finance.cookie, (await slots())[14]!).expect(201)).body;
+    expect((await http().post(`/api/admin/consultations/bookings/${own.id}/paid`).set('Cookie', finance.cookie).expect(403)).body.code).toBe('OWN_BOOKING');
+
+    // An expert of its own: the shared one already has confirmed calls ahead.
+    const u = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'cons-nolink-exp' });
+    const slug4 = `cons-nolink-${Date.now()}`;
+    const i4 = await prisma.instructor.create({ data: { slug: slug4, name: 'Linkless Expert', titleEn: 'ML Lead', bioEn: 'Ships models.', userId: u.id } });
+    const put4 = (body: Record<string, unknown>) => http().put(`/api/admin/consultations/experts/${i4.id}`).set('Cookie', speakersTeam.cookie).send(body);
+    await put4(settings()).expect(200);
+    const s2 = await createUser(app, prisma, { prefix: 'cons-nolink' });
+    const at = ((await http().get(`/api/consultations/experts/${slug4}/slots?duration=30`).expect(200)).body as string[])[0]!;
+    const held = (await http().post(`/api/consultations/experts/${slug4}/bookings`).set('Cookie', s2.cookie).send({ durationMin: 30, startsAt: at, note: '' }).expect(201)).body;
+    await put4(settings({ enabled: false, meetingUrl: '' })).expect(200);
+    expect((await http().post(`/api/admin/consultations/bookings/${held.id}/paid`).set('Cookie', finance.cookie).expect(409)).body.code).toBe('NO_MEETING_LINK');
+    await put4(settings()).expect(200);
+    await http().post(`/api/admin/consultations/bookings/${held.id}/paid`).set('Cookie', finance.cookie).expect(200);
+    // With a confirmed call ahead, the link can change but not go empty.
+    expect((await put4(settings({ enabled: false, meetingUrl: '' })).expect(400)).body.code).toBe('LINK_NEEDED');
+    await put4(settings({ meetingUrl: 'https://zoom.us/j/123456789' })).expect(200);
+    // A save that leaves out the weekly hours is refused, not taken as "no hours".
+    const { availability: _hours, ...noHours } = settings();
+    await put4(noHours).expect(400);
+  });
+
+  it('closing an account cancels its upcoming calls: as student (the expert hears) and as expert (unlisted, students hear)', async () => {
+    const student = await createUser(app, prisma, { prefix: 'cons-closed' });
+    const paid = (await book(student.cookie, (await slots())[50]!).expect(201)).body;
+    await http().post(`/api/admin/consultations/bookings/${paid.id}/paid`).set('Cookie', finance.cookie).expect(200);
+    await app.get(AccountService).deleteByAdmin(student.id, student.email, admin.id);
+    expect((await prisma.consultationBooking.findUniqueOrThrow({ where: { id: paid.id } })).status).toBe('CANCELLED');
+    expect(await emails(`consultation-cancelled:${paid.id}:expert`)).toHaveLength(1);
+
+    const u = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'cons-leaving' });
+    const slug3 = `cons-leaving-${Date.now()}`;
+    const i3 = await prisma.instructor.create({ data: { slug: slug3, name: 'Leaving Expert', titleEn: 'ML Lead', bioEn: 'Ships models.', userId: u.id } });
+    await http().put(`/api/admin/consultations/experts/${i3.id}`).set('Cookie', speakersTeam.cookie).send(settings()).expect(200);
+    const s = await createUser(app, prisma, { prefix: 'cons-orphan' });
+    const at = ((await http().get(`/api/consultations/experts/${slug3}/slots?duration=30`).expect(200)).body as string[])[0]!;
+    const held = (await http().post(`/api/consultations/experts/${slug3}/bookings`).set('Cookie', s.cookie).send({ durationMin: 30, startsAt: at, note: '' }).expect(201)).body;
+    // A profile with bookings can't be deleted (they're kept for accounting).
+    await expect(app.get(AdminCoursesService).deleteInstructor(i3.id, 'Leaving Expert', { id: admin.id, role: 'ADMIN' })).rejects.toMatchObject({ status: 409 });
+    await app.get(AccountService).deleteByAdmin(u.id, u.email, admin.id);
+    await http().get(`/api/consultations/experts/${slug3}`).expect(404);
+    expect((await prisma.consultationBooking.findUniqueOrThrow({ where: { id: held.id } })).cancelledBy).toBe('expert');
+    expect(await emails(`consultation-cancelled:${held.id}:student`)).toHaveLength(1);
   });
 
   it('exports bookings with the account, frees unpaid holds on deletion and clears the note on anonymisation', async () => {

@@ -18,6 +18,7 @@ export function accountLinks(user: MeResponse, locale: string, t: Translate): [s
       : [[`/${locale}/dashboard`, t('nav.dashboard')]];
   return [
     ...home,
+    [`/${locale}/consultations/bookings`, t('nav.myConsultations')],
     [`/${locale}/profile`, t('nav.profile')],
     ...(user.role === 'ADMIN'
       ? ([[`/${locale}/admin`, t('nav.admin')]] as [string, string][])

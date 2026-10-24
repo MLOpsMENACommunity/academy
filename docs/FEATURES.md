@@ -778,7 +778,7 @@ actions a minute, 30 new assessments per 24 hours, 5 announcements per course an
 
 ### 9.5 Consultations (paid 1:1 calls)
 
-**Status:** Pending (PR "Consultations", backend first; the pages follow in the next PR).
+**Status:** Pending (PR "Consultations").
 
 **Who:** speakers the team lists as experts (Aya, Sameh and Hossam to start), signed-in students with a
 confirmed email, SPEAKERS admins (who is listed) and FINANCE admins (bookings and payments).
@@ -788,28 +788,42 @@ Paymob arrives.
 1. **Listing an expert** (Admin → Consultations, SPEAKERS): on a speaker profile with a public page,
    set the prices (EGP, for 30 and/or 60 minutes), the expert's fixed Meet or Zoom link, their time
    zone, weekly hours (on the hour or half hour), minimum notice (default 24 h, at least 3 h) and how
-   far ahead students can book (default 30 days). Listing needs a link and at least one price. An expert
-   with a speaker account can change all of this themselves (not whether they're listed).
+   far ahead students can book (default 30 days). Listing needs a link and at least one price (from 1
+   EGP). An expert with a speaker account can change all of this themselves (not whether they're
+   listed). While confirmed calls are ahead, the link can change but not be removed.
 2. **Booking** (`/consultations`): students see each expert's open slots in their own time zone, pick
    one and add a note. The slot is **reserved at once** and held for 24 hours, or until 2 hours before
    the call if that is sooner. Two students can never hold overlapping calls with the same expert, and a
    student holds at most 2 unpaid reservations. The booking page and the `consultationReserved` email
    show the price, the InstaPay details and a WhatsApp link prefilled with the booking reference
-   (`C-XXXXXX`), all from Settings.
+   (`C-XXXXXX`), all from Settings. Booking stays closed until the InstaPay handle and the support
+   WhatsApp number are set.
 3. **Payment:** the student sends the transfer screenshot on WhatsApp. A FINANCE admin checks it and
    clicks **Mark paid**: the booking is confirmed and both sides get `consultationConfirmed` with the
    meeting link, an Add to Google Calendar link and an .ics file (neither carries the link). A
-   reservation that lapsed can still be confirmed if its slot is free.
+   reservation that lapsed can still be confirmed if its slot is free. An admin can't confirm their own
+   booking, and a call can't be confirmed while the expert has no link.
 4. **Lapsing and reminders** (hourly job): unpaid reservations past their hold
    become Expired (the student is told) and the slot reopens; confirmed calls get reminders 24 hours
-   and 1 hour before, to both sides.
+   and 1 hour before, to both sides (no "tomorrow" email within 2 hours of the confirmation).
 5. **Cancelling:** the student, any time while unpaid and until 24 hours before a paid call; the expert
    or a FINANCE admin, any upcoming booking (with an optional reason). Refunds of paid calls are
    arranged by hand on WhatsApp.
-6. **Privacy:** bookings are in the data export; deleting an account cancels its unpaid reservations;
-   anonymisation clears the notes (time, price and status stay for accounting).
+6. **Privacy:** bookings are in the data export; experts see the student's name and note, never their
+   email. Closing an account cancels its upcoming calls (the other side is told; paid ones show in
+   Admin → Consultations for the refund) and unlists an expert; anonymisation clears the notes (time,
+   price and status stay for accounting). A speaker profile with bookings can't be deleted, only unlisted.
 
-Not in v1: Paymob checkout, commission and payouts, reviews, expert applications, packages.
+**Pages:** **Consultations** in the top menu (`/consultations`: the experts and how it works);
+`/consultations/<expert>` (bio, prices, call length, open days and times in the visitor's time zone,
+a note, Reserve); `/consultations/bookings` and `/consultations/bookings/<id>` (the student's
+bookings: how to pay with a WhatsApp button, the hold time, then the link and calendar buttons, and
+Cancel), also under **My consultations** in the account menu; `/speaker/consultations` (the expert's
+upcoming calls and their hours, link and prices; a card on `/speaker` for experts); **Admin →
+Consultations** (Bookings for FINANCE: filter by status, Mark paid, Cancel, "refund due" on paid
+calls that were cancelled; Experts for SPEAKERS: list, edit, add a speaker as an expert).
+
+Not in v1: Paymob checkout, commission and payouts, reviews, expert applications, packages, days off.
 
 ---
 
@@ -956,7 +970,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| Consultations (backend) | Paid 1:1 calls with listed speakers: weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migration: two new tables (additive). Pages follow in the next PR | Pending |
+| Consultations | Paid 1:1 calls with listed speakers (top-menu **Consultations**, booking pages, My consultations, the expert's page in the speaker portal, Admin → Consultations): weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migration: two new tables (additive) | Pending |
 | Admin course tabs wrap | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Pending |
 | Announcements tab | The learn page has **Sessions** and **Announcements** tabs. The Announcements tab lists every announcement of the course (it showed the latest 20 at the bottom of the page before), with a "N new" badge; announcement notifications and emails open it (`#announcements`); new `GET /api/learn/:slug/announcements` (same visibility rules) (en/ar) | Pending |
 | No pgbouncer mode | The API talks to Neon's pooler without Prisma's `pgbouncer=true`, which had wrapped every query in `BEGIN; DEALLOCATE ALL; …; COMMIT` (about 6 round trips per query instead of 1–2). Neon's PgBouncer 1.22+ supports the prepared statements Prisma uses. Checked locally: the whole API e2e suite through PgBouncer 1.26 in transaction mode. No visible change besides speed (DEPLOY.md, "No pgbouncer mode") | Pending |
