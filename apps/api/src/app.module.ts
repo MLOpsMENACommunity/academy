@@ -30,6 +30,7 @@ import { InvitesModule } from './invites/invites.module';
 import { JobsModule } from './jobs/jobs.module';
 import { EventsModule } from './events/events.module';
 import { LearnModule } from './learn/learn.module';
+import { ConsultationsModule } from './consultations/consultations.module';
 import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OutboxModule } from './outbox/outbox.module';
@@ -82,6 +83,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     AdminModule,
     AdminTeamModule,
     MediaModule,
+    ConsultationsModule,
     JobsModule,
   ],
   controllers: [HealthController],

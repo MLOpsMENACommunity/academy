@@ -24,6 +24,8 @@ describe('internal jobs endpoint (e2e)', () => {
     const res = await request(app.getHttpServer()).post('/api/internal/jobs/tick').set('x-jobs-token', token).expect(200);
     expect(res.body).toEqual({
       announcementEmailsPending: expect.any(Number),
+      consultationHoldsExpired: expect.any(Number),
+      consultationRemindersQueued: expect.any(Number),
       eventRemindersSent: expect.any(Number),
       anonymised: expect.any(Number),
       profileReviewEmails: expect.any(Number),

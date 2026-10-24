@@ -132,6 +132,22 @@ export class AccountService {
           select: { startsAt: true, durationMin: true, status: true, title: true, abstract: true, bookedAt: true, event: { select: { slug: true, status: true } } },
           orderBy: { startsAt: 'asc' },
         },
+        consultationsBooked: {
+          select: {
+            reference: true,
+            startsAt: true,
+            durationMin: true,
+            priceEgp: true,
+            note: true,
+            status: true,
+            createdAt: true,
+            paidAt: true,
+            cancelledAt: true,
+            cancelReason: true,
+            consultant: { select: { instructor: { select: { slug: true, name: true } } } },
+          },
+          orderBy: { startsAt: 'asc' },
+        },
         submissions: {
           select: {
             attempt: true,
@@ -236,6 +252,7 @@ export class AccountService {
       speakerApplication: user.speakerApplication,
       speakerProfile: user.speakerProfile,
       speakerBookings: user.speakingSlots,
+      consultations: user.consultationsBooked.map(({ consultant, ...c }) => ({ expert: consultant.instructor, ...c })),
       // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
       assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
       waitingLists: waitingLists.map((w) => ({ course: w.course, email: w.email, language: w.locale, joinedAt: w.createdAt, notifiedAt: w.notifiedAt })),
@@ -361,6 +378,11 @@ export class AccountService {
     // Upcoming speaker bookings: the slot opens again, a draft session goes (a published one is
     // cancelled), the team is told. Never fails the deletion (errors are logged).
     await this.speakerPortal.releaseBookings(user);
+    // Unpaid consultation reservations free their slots. Paid calls stay for the team to refund.
+    await this.prisma.consultationBooking.updateMany({
+      where: { studentId: userId, status: 'AWAITING_PAYMENT' },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledBy: 'student', holdUntil: null },
+    });
     await this.profiles.alertDriveAccess(userId, 'deleted', user.profile?.googleEmail ?? null, actorId);
     await this.audit.log({ actorId, action: byTeam ? 'account.deleted_by_admin' : 'account.deleted', entityType: 'User', entityId: userId });
     await this.email.send(user.email, user.locale, { name: 'accountDeleted', byTeam });
@@ -437,12 +459,14 @@ export class AccountService {
       this.prisma.speakingSlot.updateMany({ where: { bookedById: userId }, data: { abstract: null, details: Prisma.DbNull } }),
       // A profile the portal created that never spoke anywhere has no history to keep: delete it.
       this.prisma.instructor.deleteMany({
-        where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} } },
+        where: { userId, source: 'speaker-portal', events: { none: {} }, coSpeaking: { none: {} }, courses: { none: {} }, consultant: { is: null } },
       }),
       this.prisma.instructor.updateMany({ where: { userId }, data: { userId: null } }),
       // Grades stay (course statistics); links, files and notes go.
       this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null, feedback: null, rubricNotes: null } }),
       this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
+      // Consultation bookings stay for accounting (price, time, status); what they wrote goes.
+      this.prisma.consultationBooking.updateMany({ where: { studentId: userId }, data: { note: '', cancelReason: null } }),
       // Points, badges and leaderboard choices are personal: removed (boards never showed deleted accounts).
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
       // Attendance (minutes per session) is personal too; course counts never included deleted accounts.

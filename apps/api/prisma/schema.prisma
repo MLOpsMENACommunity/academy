@@ -367,6 +367,8 @@ model User {
   speakingSlotsCreated    SpeakingSlot[]           @relation("SlotCreator")
   courseStaff             CourseStaff[]
   outboundEmails          OutboundEmail[]
+  consultationsBooked     ConsultationBooking[]    @relation("ConsultationStudent")
+  consultationsPaidMarked ConsultationBooking[]    @relation("ConsultationPaidBy")
 
   @@index([role])
   @@index([createdAt])
@@ -561,6 +563,8 @@ model Instructor {
   events  LiveEvent[]
   /// Sessions they hosted or joined as a guest (besides each session's main speaker).
   coSpeaking LiveEventSpeaker[]
+  /// 1:1 paid calls with this speaker (Consultations), when an admin set them up.
+  consultant ConsultantProfile?
 
   @@index([previousSlugs], type: Gin)
 }
@@ -1833,4 +1837,64 @@ model OutboundEmail {
 
   @@index([status, notBefore])
   @@index([createdAt])
+}
+
+/// A speaker who offers paid 1:1 calls (Consultations). Listed only while `enabled`.
+model ConsultantProfile {
+  id             String     @id @default(cuid())
+  instructorId   String     @unique
+  instructor     Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  enabled        Boolean    @default(false)
+  /// EGP; null = that call length isn't offered.
+  price30Egp     Int?
+  price60Egp     Int?
+  /// The expert's fixed Meet/Zoom link: only shown on paid bookings.
+  meetingUrl     String     @default("")
+  /// IANA zone the weekly hours are in.
+  timezone       String     @default("Africa/Cairo")
+  minNoticeHours Int        @default(24)
+  horizonDays    Int        @default(30)
+  /// Weekly hours: [{ weekday 0-6 (Sunday first), start "HH:MM", end "HH:MM" }] (availabilitySchema).
+  availability   Json       @default("[]")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  bookings ConsultationBooking[]
+}
+
+/// One booked call. A slot is held while AWAITING_PAYMENT (until holdUntil) or CONFIRMED.
+model ConsultationBooking {
+  id            String            @id @default(cuid())
+  /// Short code the student quotes with their InstaPay payment, e.g. C-7KQ2MX.
+  reference     String            @unique
+  consultantId  String
+  /// Restrict: bookings are kept for accounting.
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Restrict)
+  studentId     String
+  student       User              @relation("ConsultationStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  startsAt      DateTime
+  endsAt        DateTime
+  durationMin   Int
+  /// The price when booked (EGP).
+  priceEgp      Int
+  /// What the student wants to talk about. Cleared when the account is anonymised.
+  note          String            @default("")
+  /// "AWAITING_PAYMENT" | "CONFIRMED" | "CANCELLED" | "EXPIRED" (CHECK constraint)
+  status        String            @default("AWAITING_PAYMENT")
+  /// An unpaid reservation lapses after this.
+  holdUntil     DateTime?
+  paidAt        DateTime?
+  paidById      String?
+  paidBy        User?             @relation("ConsultationPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  cancelledAt   DateTime?
+  /// "student" | "expert" | "admin"
+  cancelledBy   String?
+  cancelReason  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([consultantId, startsAt])
+  @@index([studentId, startsAt])
+  @@index([status, holdUntil])
+  @@index([status, startsAt])
 }

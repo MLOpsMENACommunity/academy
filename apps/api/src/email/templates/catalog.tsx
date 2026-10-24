@@ -140,7 +140,48 @@ export type EmailTemplate =
       courseUrl: string;
     }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
-  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string };
+  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
+  /** Consultations: a slot reserved, waiting for the InstaPay payment (to the student). */
+  | {
+      name: 'consultationReserved';
+      expertName: string;
+      when: string;
+      durationMin: number;
+      priceEgp: number;
+      reference: string;
+      holdUntil: string;
+      instapayHandle: string;
+      instapayName: string;
+      whatsappUrl: string;
+      url: string;
+    }
+  /** Consultations: paid and confirmed, with the meeting link (to the student and the expert). */
+  | {
+      name: 'consultationConfirmed';
+      role: 'student' | 'expert';
+      otherName: string;
+      when: string;
+      durationMin: number;
+      meetingUrl: string;
+      calendarUrl: string;
+      icsUrl: string;
+      url: string;
+      /** The student's note, for the expert. */
+      note: string;
+    }
+  /** Consultations: cancelled by someone, or an unpaid reservation that lapsed. */
+  | {
+      name: 'consultationCancelled';
+      role: 'student' | 'expert';
+      otherName: string;
+      when: string;
+      by: 'student' | 'expert' | 'admin' | 'expired';
+      wasPaid: boolean;
+      reason: string;
+      url: string;
+    }
+  /** Consultations: 24 hours and 1 hour before a confirmed call. */
+  | { name: 'consultationReminder'; role: 'student' | 'expert'; otherName: string; when: string; hours: 24 | 1; meetingUrl: string; url: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -927,6 +968,109 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
               </>,
             ]}
             cta={{ label: ar ? 'اعرض الشهادة' : 'View your certificate', url: t.verifyUrl }}
+          />
+        ),
+      };
+    }
+    case 'consultationReserved': {
+      const subject = ar ? `احجز مكالمتك مع ${t.expertName}: أكمل الدفع` : `Your call with ${t.expertName}: complete the payment`;
+      const pay = [t.instapayHandle, t.instapayName && `(${t.instapayName})`].filter(Boolean).join(' ');
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={ar ? 'حجزنا لك الموعد' : "We've held your slot"}
+            paragraphs={[
+              ar
+                ? `مكالمة ${t.durationMin} دقيقة مع ${t.expertName}، ${t.when}. رقم الحجز: ${t.reference}.`
+                : `A ${t.durationMin}-minute call with ${t.expertName}, ${t.when}. Booking reference: ${t.reference}.`,
+              ar
+                ? `ادفع ${t.priceEgp} جنيه عبر InstaPay${pay ? ` إلى ${pay}` : ''}، ثم أرسل صورة التحويل على واتساب مع رقم الحجز.`
+                : `Pay EGP ${t.priceEgp} by InstaPay${pay ? ` to ${pay}` : ''}, then send the transfer screenshot on WhatsApp with your booking reference.`,
+              ar
+                ? `نحتفظ بالموعد حتى ${t.holdUntil}. بعد تأكيد الدفع يصلك رابط المكالمة.`
+                : `We hold the slot until ${t.holdUntil}. Once the payment is checked, you get the meeting link.`,
+              ...(t.whatsappUrl
+                ? [
+                    <Link key="wa" href={t.whatsappUrl} style={{ textDecoration: 'underline' }}>
+                      {ar ? 'أرسل صورة التحويل على واتساب' : 'Send the screenshot on WhatsApp'}
+                    </Link>,
+                  ]
+                : []),
+            ]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open your booking', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationConfirmed': {
+      const subject = ar ? `تأكدت المكالمة مع ${t.otherName}` : `Confirmed: your call with ${t.otherName}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={ar ? 'تأكد الموعد' : 'Your call is confirmed'}
+            paragraphs={[
+              ar ? `مكالمة ${t.durationMin} دقيقة مع ${t.otherName}، ${t.when}.` : `A ${t.durationMin}-minute call with ${t.otherName}, ${t.when}.`,
+              ar ? `رابط المكالمة: ${t.meetingUrl}` : `Meeting link: ${t.meetingUrl}`,
+              ...(t.role === 'expert' && t.note ? [ar ? `ما يريد الطالب مناقشته: ${t.note}` : `What they'd like to talk about: ${t.note}`] : []),
+              calendarLinks(t, ar),
+            ]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationCancelled': {
+      const lapsed = t.by === 'expired';
+      const subject = lapsed
+        ? ar
+          ? `انتهى حجز المكالمة مع ${t.otherName}`
+          : `Your reservation with ${t.otherName} has lapsed`
+        : ar
+          ? `أُلغيت المكالمة مع ${t.otherName}`
+          : `Cancelled: your call with ${t.otherName}`;
+      const who = ar
+        ? { student: 'ألغاها الطالب', expert: 'ألغاها الخبير', admin: 'ألغاها فريق الأكاديمية', expired: 'لم يصل الدفع في الوقت' }[t.by]
+        : { student: 'The student cancelled it', expert: 'The expert cancelled it', admin: 'The academy team cancelled it', expired: 'The payment didn’t arrive in time' }[t.by];
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              ar ? `الموعد: ${t.when}. ${who}.` : `The call was ${t.when}. ${who}.`,
+              ...(t.reason ? [ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`] : []),
+              ...(t.role === 'student' && t.wasPaid
+                ? [ar ? 'سنتواصل معك على واتساب لرد المبلغ.' : "We'll contact you on WhatsApp about your refund."]
+                : []),
+              ...(t.role === 'student' && lapsed ? [ar ? 'يمكنك حجز موعد جديد في أي وقت.' : 'You can book a new slot any time.'] : []),
+            ]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationReminder': {
+      const soon = t.hours === 1;
+      const subject = ar
+        ? `${soon ? 'بعد ساعة' : 'غدًا'}: مكالمتك مع ${t.otherName}`
+        : `${soon ? 'In 1 hour' : 'Tomorrow'}: your call with ${t.otherName}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[ar ? `الموعد: ${t.when}.` : `It starts ${t.when}.`, ar ? `رابط المكالمة: ${t.meetingUrl}` : `Meeting link: ${t.meetingUrl}`]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
           />
         ),
       };
