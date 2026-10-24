@@ -41,6 +41,7 @@ export const ADMIN_NAV_ITEMS = [
   { key: 'courses', permissions: ['ACADEMIC', 'ADMISSIONS'] },
   { key: 'sessions', permissions: ['ACADEMIC'] },
   { key: 'speakers', permissions: ['SPEAKERS'] },
+  { key: 'consultations', permissions: ['SPEAKERS', 'FINANCE'] },
   { key: 'media', permissions: ['CONTENT'] },
   { key: 'team', permissions: ['SUPER'] },
   { key: 'settings', permissions: ['SUPER'] },

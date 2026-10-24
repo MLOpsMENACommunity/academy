@@ -140,7 +140,49 @@ export type EmailTemplate =
       courseUrl: string;
     }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
-  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string };
+  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
+  /** Consultations: the student's payment proof was received, approved (book a time) or rejected (why). */
+  | {
+      name: 'consultationPayment';
+      kind: 'received' | 'approved' | 'rejected';
+      expertName: string;
+      durationMin: number;
+      priceEgp: number;
+      reference: string;
+      reason: string;
+      url: string;
+    }
+  /** Consultations: paid and confirmed, with the meeting link (to the student and the expert). */
+  | {
+      name: 'consultationConfirmed';
+      role: 'student' | 'expert';
+      /** The student moved the call: the same email says "moved" and gives the new time. */
+      moved?: boolean;
+      otherName: string;
+      when: string;
+      durationMin: number;
+      meetingUrl: string;
+      calendarUrl: string;
+      icsUrl: string;
+      url: string;
+      /** The student's note, for the expert. */
+      note: string;
+    }
+  /** Consultations: cancelled by someone, or an unpaid reservation that lapsed. */
+  | {
+      name: 'consultationCancelled';
+      role: 'student' | 'expert';
+      otherName: string;
+      when: string;
+      by: 'student' | 'expert' | 'admin';
+      wasPaid: boolean;
+      reason: string;
+      url: string;
+    }
+  /** Consultations: 24 hours and 1 hour before a confirmed call. */
+  | { name: 'consultationReminder'; role: 'student' | 'expert'; otherName: string; when: string; hours: 24 | 1; meetingUrl: string; url: string }
+  /** Consultations: the expert's Google Calendar connection stopped working (expired or revoked). */
+  | { name: 'consultationGoogleExpired'; url: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -927,6 +969,135 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
               </>,
             ]}
             cta={{ label: ar ? 'اعرض الشهادة' : 'View your certificate', url: t.verifyUrl }}
+          />
+        ),
+      };
+    }
+    case 'consultationPayment': {
+      const what = ar ? `مكالمة ${t.durationMin} دقيقة مع ${t.expertName}` : `a ${t.durationMin}-minute call with ${t.expertName}`;
+      const copy = {
+        received: {
+          subject: ar ? `استلمنا دفعك: ${t.reference}` : `We received your payment: ${t.reference}`,
+          heading: ar ? 'استلمنا إثبات الدفع' : 'We received your payment proof',
+          lines: [
+            ar ? `دفعت ${t.priceEgp} جنيه مقابل ${what}. رقم الحجز: ${t.reference}.` : `You paid EGP ${t.priceEgp} for ${what}. Booking reference: ${t.reference}.`,
+            ar ? 'سيراجع فريق الأكاديمية الدفع قريبًا، ثم نرسل إليك لتحجز موعد المكالمة.' : "The academy team will check the payment soon. Then we'll tell you to book your time.",
+          ],
+          cta: ar ? 'افتح الحجز' : 'Open your booking',
+        },
+        approved: {
+          subject: ar ? `تأكد الدفع: احجز موعدك مع ${t.expertName}` : `Payment confirmed: book your call with ${t.expertName}`,
+          heading: ar ? 'تأكد الدفع، احجز موعدك الآن' : 'Payment confirmed: book your time',
+          lines: [
+            ar ? `تأكد دفعك مقابل ${what} (${t.reference}).` : `Your payment for ${what} (${t.reference}) is confirmed.`,
+            ar ? 'اختر أحد المواعيد المتاحة من صفحة الحجز، وسيصلك رابط المكالمة فورًا.' : "Pick one of the open times on your booking page, and you'll get the meeting link right away.",
+          ],
+          cta: ar ? 'احجز موعدك' : 'Book your time',
+        },
+        rejected: {
+          subject: ar ? `لم يتأكد الدفع: ${t.reference}` : `Payment not confirmed: ${t.reference}`,
+          heading: ar ? 'لم نتمكن من تأكيد الدفع' : "We couldn't confirm your payment",
+          lines: [
+            ar ? `لم يتأكد دفعك مقابل ${what} (${t.reference}).` : `Your payment for ${what} (${t.reference}) wasn't confirmed.`,
+            ...(t.reason ? [ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`] : []),
+            ar ? 'إذا كنت قد دفعت بالفعل، راسلنا على واتساب مع رقم الحجز.' : 'If you did pay, message us on WhatsApp with your booking reference.',
+          ],
+          cta: ar ? 'افتح الحجز' : 'Open your booking',
+        },
+      }[t.kind];
+      return {
+        subject: copy.subject,
+        element: <Layout {...base} preview={copy.subject} heading={copy.heading} paragraphs={copy.lines} cta={{ label: copy.cta, url: t.url }} />,
+      };
+    }
+    case 'consultationConfirmed': {
+      const subject = t.moved
+        ? ar
+          ? `موعد جديد للمكالمة مع ${t.otherName}`
+          : `New time: your call with ${t.otherName}`
+        : ar
+          ? `تأكدت المكالمة مع ${t.otherName}`
+          : `Confirmed: your call with ${t.otherName}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={t.moved ? (ar ? 'تغيّر موعد المكالمة' : 'Your call has a new time') : ar ? 'تأكد الموعد' : 'Your call is confirmed'}
+            paragraphs={[
+              ar ? `مكالمة ${t.durationMin} دقيقة مع ${t.otherName}، ${t.when}.` : `A ${t.durationMin}-minute call with ${t.otherName}, ${t.when}.`,
+              ar ? `رابط المكالمة: ${t.meetingUrl}` : `Meeting link: ${t.meetingUrl}`,
+              ...(t.role === 'expert' && t.note ? [ar ? `ما يريد الطالب مناقشته: ${t.note}` : `What they'd like to talk about: ${t.note}`] : []),
+              calendarLinks(t, ar),
+            ]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationCancelled': {
+      const subject = ar ? `أُلغيت المكالمة مع ${t.otherName}` : `Cancelled: your call with ${t.otherName}`;
+      const who =
+        t.by === t.role
+          ? ar
+            ? 'ألغيتها أنت'
+            : 'You cancelled it'
+          : ar
+            ? { student: 'ألغاها الطالب', expert: 'ألغاها الخبير', admin: 'ألغاها فريق الأكاديمية' }[t.by]
+            : { student: 'The student cancelled it', expert: 'The expert cancelled it', admin: 'The academy team cancelled it' }[t.by];
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              t.when ? (ar ? `الموعد: ${t.when}. ${who}.` : `The call: ${t.when}. ${who}.`) : `${who}.`,
+              ...(t.reason ? [ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`] : []),
+              ...(t.role === 'student' && t.wasPaid
+                ? [ar ? 'سنتواصل معك على واتساب لرد المبلغ.' : "We'll contact you on WhatsApp about your refund."]
+                : []),
+            ]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationGoogleExpired': {
+      const subject = ar ? 'أعد ربط تقويم Google' : 'Reconnect your Google Calendar';
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              ar
+                ? 'توقف ربط تقويم Google الخاص بك بالأكاديمية (تنتهي صلاحية الربط دوريًا). حتى تعيد ربطه لن نرى أوقات انشغالك، وستستخدم المكالمات الجديدة رابطك الثابت إن وُجد.'
+                : "Your Google Calendar stopped working with the academy (the connection expires from time to time). Until you reconnect it, we can't see when you're busy, and new calls use your fixed link if you have one.",
+            ]}
+            cta={{ label: ar ? 'أعد الربط' : 'Reconnect', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationReminder': {
+      const soon = t.hours === 1;
+      const subject = ar
+        ? `${soon ? 'بعد ساعة' : 'غدًا'}: مكالمتك مع ${t.otherName}`
+        : `${soon ? 'In 1 hour' : 'Tomorrow'}: your call with ${t.otherName}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[ar ? `الموعد: ${t.when}.` : `It starts ${t.when}.`, ar ? `رابط المكالمة: ${t.meetingUrl}` : `Meeting link: ${t.meetingUrl}`]}
+            cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
           />
         ),
       };

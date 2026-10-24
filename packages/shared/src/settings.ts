@@ -21,6 +21,11 @@ export const settingsSchema = z.object({
   instapayName: z.string().trim().max(100).default(''),
   vodafoneCashNumber: z.string().trim().max(30).default(''),
   vodafoneCashName: z.string().trim().max(100).default(''),
+  /** More wallets, offered for consultations (empty = not offered). */
+  orangeCashNumber: z.string().trim().max(30).default(''),
+  orangeCashName: z.string().trim().max(100).default(''),
+  etisalatCashNumber: z.string().trim().max(30).default(''),
+  etisalatCashName: z.string().trim().max(100).default(''),
   /**
    * The one human contact address, shown on the contact and policy pages and in payment help.
    * Empty = not shown (pages point to the community channels instead). Must be a real,

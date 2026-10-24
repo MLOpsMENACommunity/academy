@@ -25,6 +25,7 @@ import { useSearchParam } from '@/lib/use-search-param';
 import { BookingForm, type BookingValues } from './BookingForm';
 import { byMonth, monthLabel, SPEAKER_APP_TONE, speakerError } from './shared';
 import { SpeakerAnnouncements } from './SpeakerAnnouncements';
+import { ExpertPortalCard } from '@/components/consultations/ExpertPortal';
 import { TeachCourses } from '@/components/teach/TeachCourses';
 
 /** /speaker: the speaker's home (application, open slots, bookings). */
@@ -124,6 +125,7 @@ function Portal({ user }: { user: MeResponse }) {
       {sent && app?.status === 'SUBMITTED' && <Alert tone="success">{t('speakers.portal.sent')}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
       {user.learning && <MyLearning learning />}
+      <ExpertPortalCard />
 
       {confirmed && (
         <div ref={confirmation} tabIndex={-1} className="outline-none">

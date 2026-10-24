@@ -531,6 +531,10 @@ export class AdminCoursesService {
     if (!confirmMatches(confirm, i.name)) {
       throw new BadRequestException({ code: 'CONFIRM_MISMATCH', message: "Type the speaker's name exactly to delete the profile" });
     }
+    // Consultation bookings are kept for accounting, so a profile that has any can't go (unlist it instead).
+    if (await this.prisma.consultationBooking.count({ where: { consultant: { instructorId: id } } })) {
+      throw new ConflictException({ code: 'HAS_CONSULTATIONS', message: 'This speaker has consultation bookings: unlist them in Admin → Consultations instead of deleting the profile' });
+    }
     const reopened = await this.prisma.$transaction(async (tx) => {
       await tx.instructor.delete({ where: { id } });
       // A speaker account loses its profile: an approved application goes back to "Under review",

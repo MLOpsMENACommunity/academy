@@ -367,6 +367,8 @@ model User {
   speakingSlotsCreated    SpeakingSlot[]           @relation("SlotCreator")
   courseStaff             CourseStaff[]
   outboundEmails          OutboundEmail[]
+  consultationsBooked     ConsultationBooking[]    @relation("ConsultationStudent")
+  consultationsReviewed   ConsultationBooking[]    @relation("ConsultationReviewer")
 
   @@index([role])
   @@index([createdAt])
@@ -561,6 +563,8 @@ model Instructor {
   events  LiveEvent[]
   /// Sessions they hosted or joined as a guest (besides each session's main speaker).
   coSpeaking LiveEventSpeaker[]
+  /// 1:1 paid calls with this speaker (Consultations), when an admin set them up.
+  consultant ConsultantProfile?
 
   @@index([previousSlugs], type: Gin)
 }
@@ -1833,4 +1837,90 @@ model OutboundEmail {
 
   @@index([status, notBefore])
   @@index([createdAt])
+}
+
+/// A speaker who offers paid 1:1 calls (Consultations). Listed only while `enabled`.
+model ConsultantProfile {
+  id             String     @id @default(cuid())
+  instructorId   String     @unique
+  instructor     Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  enabled        Boolean    @default(false)
+  /// EGP; null = that call length isn't offered.
+  price30Egp     Int?
+  price60Egp     Int?
+  /// The expert's fixed Meet/Zoom link: only shown on paid bookings.
+  meetingUrl     String     @default("")
+  /// IANA zone the weekly hours are in.
+  timezone       String     @default("Africa/Cairo")
+  minNoticeHours Int        @default(24)
+  horizonDays    Int        @default(30)
+  /// Weekly hours: [{ weekday 0-6 (Sunday first), start "HH:MM", end "HH:MM" }] (availabilitySchema).
+  availability   Json       @default("[]")
+  /// Google Calendar, when the expert connected it: busy times hide slots, and paid calls get an
+  /// event with a Meet link. The refresh token is encrypted (consultations/google-calendar.ts).
+  googleRefreshToken String?
+  googleEmail        String?
+  googleConnectedAt  DateTime?
+  /// Why the connection stopped working (e.g. "EXPIRED"); null while it works.
+  googleError        String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  bookings ConsultationBooking[]
+}
+
+/// One paid call, pay first then book: PAYMENT_REVIEW → PAID (approved) → CONFIRMED (a time booked);
+/// or REJECTED, or CANCELLED by the expert or the academy (refunded). Only CONFIRMED holds a slot.
+model ConsultationBooking {
+  id            String            @id @default(cuid())
+  /// Short code the student quotes, e.g. C-7KQ2MX.
+  reference     String            @unique
+  consultantId  String
+  /// Restrict: bookings are kept for accounting.
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Restrict)
+  studentId     String
+  student       User              @relation("ConsultationStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  durationMin   Int
+  /// The price when paid (EGP).
+  priceEgp      Int
+  /// What the student wants to talk about. Cleared when the account is anonymised.
+  note          String            @default("")
+  /// "PAYMENT_REVIEW" | "REJECTED" | "PAID" | "CONFIRMED" | "CANCELLED" (CHECK constraint)
+  status        String            @default("PAYMENT_REVIEW")
+  /// The wallet used: "INSTAPAY" | "VODAFONE_CASH" | "ORANGE_CASH" | "ETISALAT_CASH".
+  method        String
+  /// The transfer's reference number, when given. Cleared on anonymisation.
+  transactionRef String           @default("")
+  /// Random key in the private bucket. Cleared by the retention job and on anonymisation.
+  screenshotKey     String?
+  screenshotSha256  String?
+  screenshotMime    String?
+  screenshotDeletedAt DateTime?
+  reviewedById  String?
+  reviewedBy    User?             @relation("ConsultationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?
+  /// When the payment was approved.
+  paidAt        DateTime?
+  rejectionReason String?
+  /// The call's time, once the student booked one (CONFIRMED).
+  startsAt      DateTime?
+  endsAt        DateTime?
+  /// Times the student moved this call (no refunds: they may move it once instead).
+  rescheduleCount Int             @default(0)
+  /// The call's link, set when it is booked: a Meet link made in the expert's Google Calendar, or their fixed link.
+  meetingUrl    String?
+  /// The event in the expert's Google Calendar, when one was made.
+  googleEventId String?
+  cancelledAt   DateTime?
+  /// "student" | "expert" | "admin"
+  cancelledBy   String?
+  cancelReason  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([consultantId, startsAt])
+  @@index([studentId, createdAt])
+  @@index([status, createdAt])
+  @@index([status, startsAt])
+  @@index([screenshotSha256])
 }
