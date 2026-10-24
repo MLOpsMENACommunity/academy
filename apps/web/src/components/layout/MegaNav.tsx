@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/client';
 import { Arrow, IconArticle, IconCalendar, IconChat, IconChevron, IconCourses, IconExternal, IconMap, IconPath, IconPlay, IconUsers } from '../ui/Icons';
 import type { MenuData } from './menu';
 import { menuSections, type MenuColumn, type MenuIcon, type MenuLink, type MenuSection, type MenuTint } from './sections';
+import { ConsultationsLink } from './ConsultationsLink';
 import { WhatsNewLink } from './WhatsNew';
 
 const icons: Record<MenuIcon, (p: { size?: number }) => ReactNode> = {
@@ -169,6 +170,9 @@ export function MegaNav({ data }: { data: MenuData }) {
             </li>
           );
         })}
+        <li>
+          <ConsultationsLink className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-body transition-colors hover:bg-hover-bg hover:text-fg aria-[current=page]:text-fg aria-[current=page]:font-medium" />
+        </li>
         <li>
           <WhatsNewLink className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-body transition-colors hover:bg-hover-bg hover:text-fg aria-[current=page]:text-fg aria-[current=page]:font-medium" />
         </li>
