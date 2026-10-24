@@ -3,12 +3,10 @@ import {
   adminConsultantSchema,
   availabilitySchema,
   consultantSettingsSchema,
-  consultationBookingSchema,
-  consultationHoldUntil,
+  consultationPurchaseSchema,
   consultationPrice,
   consultationSlots,
   localDay,
-  studentCanCancel,
   studentCanReschedule,
   consultationPaymentMethods,
   zonedTime,
@@ -85,29 +83,14 @@ describe('consultationSlots', () => {
   });
 });
 
-describe('consultationHoldUntil', () => {
+describe('reschedule (no refunds for paid calls)', () => {
   const now = new Date('2026-10-24T12:00:00Z');
-  it('keeps an unpaid reservation 24 hours', () => {
-    expect(consultationHoldUntil(now, new Date('2026-10-30T12:00:00Z')).toISOString()).toBe('2026-10-25T12:00:00.000Z');
-  });
-  it('ends 2 hours before a call that is sooner', () => {
-    expect(consultationHoldUntil(now, new Date('2026-10-25T06:00:00Z')).toISOString()).toBe('2026-10-25T04:00:00.000Z');
-  });
-});
-
-describe('cancel and reschedule (no refunds for paid calls)', () => {
-  const now = new Date('2026-10-24T12:00:00Z');
-  it('lets a student cancel only an unpaid reservation', () => {
-    expect(studentCanCancel({ status: 'AWAITING_PAYMENT' })).toBe(true);
-    expect(studentCanCancel({ status: 'CONFIRMED' })).toBe(false);
-    expect(studentCanCancel({ status: 'CANCELLED' })).toBe(false);
-  });
   it('lets a paid call move once, up to 24 hours before', () => {
     const paid = { status: 'CONFIRMED' as const, startsAt: new Date('2026-10-25T12:00:00Z'), rescheduleCount: 0 };
     expect(studentCanReschedule(paid, now)).toBe(true);
     expect(studentCanReschedule({ ...paid, startsAt: new Date('2026-10-25T11:59:00Z') }, now)).toBe(false);
     expect(studentCanReschedule({ ...paid, rescheduleCount: 1 }, now)).toBe(false);
-    expect(studentCanReschedule({ ...paid, status: 'AWAITING_PAYMENT' }, now)).toBe(false);
+    expect(studentCanReschedule({ ...paid, status: 'PAID', startsAt: null }, now)).toBe(false);
   });
 });
 
@@ -148,9 +131,10 @@ describe('schemas', () => {
     expect(adminConsultantSchema.safeParse({ ...base, enabled: false, meetingUrl: '', price30Egp: null }).success).toBe(true);
   });
 
-  it('books 30 or 60 minutes at an ISO instant', () => {
-    expect(consultationBookingSchema.safeParse({ durationMin: 45, startsAt: '2026-10-25T15:00:00Z' }).success).toBe(false);
-    expect(consultationBookingSchema.parse({ durationMin: 30, startsAt: '2026-10-25T15:00:00Z' }).note).toBe('');
+  it('pays for 30 or 60 minutes with a known wallet (form fields arrive as text)', () => {
+    expect(consultationPurchaseSchema.parse({ durationMin: '60', method: 'VODAFONE_CASH' })).toEqual({ durationMin: 60, method: 'VODAFONE_CASH', transactionRef: '', note: '' });
+    expect(consultationPurchaseSchema.safeParse({ durationMin: '45', method: 'INSTAPAY' }).success).toBe(false);
+    expect(consultationPurchaseSchema.safeParse({ durationMin: '30', method: 'PAYPAL' }).success).toBe(false);
   });
 
   it('prices by call length', () => {

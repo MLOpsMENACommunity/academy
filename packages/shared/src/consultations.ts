@@ -11,15 +11,13 @@ export type ConsultationDuration = (typeof CONSULTATION_DURATIONS)[number];
 /** Slots start on the hour and half hour of the expert's own clock. */
 export const CONSULTATION_SLOT_STEP_MIN = 30;
 
-/** An unpaid reservation is kept this long at most... */
-export const CONSULTATION_HOLD_HOURS = 24;
-/** ...and ends at least this long before the call, so the payment can still be checked in time. */
-export const CONSULTATION_HOLD_LEAD_HOURS = 2;
-/** Unpaid reservations one student may hold at once (so nobody can block an expert's week). */
-export const CONSULTATION_MAX_OPEN_HOLDS = 2;
+/** The shortest notice an expert can ask for (the call is booked after the payment is approved, so no hold is needed). */
+export const CONSULTATION_MIN_NOTICE_HOURS = 3;
+/** Calls one student may have paid for (or be waiting on review for) without a time yet. */
+export const CONSULTATION_MAX_UNBOOKED = 3;
 /**
  * Paid calls aren't refunded to a student who changes their mind: instead they may move a
- * paid call to another open time, once, up to this many hours before it starts. (When the
+ * booked call to another open time, once, up to this many hours before it starts. (When the
  * expert or the academy cancels, the student is refunded.)
  */
 export const CONSULTATION_RESCHEDULE_HOURS = 24;
@@ -59,11 +57,16 @@ export const CONSULTATION_WALLET_LABELS: Record<ConsultationWallet, { en: string
   ETISALAT_CASH: { en: 'e& money', ar: 'e& money' },
 };
 
-/** Stored as text with a CHECK constraint (docs/ENGINEERING.md, "No new enums for state"). */
-export const CONSULTATION_STATUSES = ['AWAITING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'EXPIRED'] as const;
+/**
+ * Pay first, then book: PAYMENT_REVIEW (the student uploaded the transfer screenshot) → PAID (the
+ * academy approved it; the student now picks a time) → CONFIRMED (a time is booked). A rejected
+ * payment is REJECTED; the expert or the academy can cancel a paid call (CANCELLED, refunded).
+ * Stored as text with a CHECK constraint (docs/ENGINEERING.md, "No new enums for state").
+ */
+export const CONSULTATION_STATUSES = ['PAYMENT_REVIEW', 'REJECTED', 'PAID', 'CONFIRMED', 'CANCELLED'] as const;
 export type ConsultationStatus = (typeof CONSULTATION_STATUSES)[number];
-/** The statuses that hold a slot. */
-export const ACTIVE_CONSULTATION_STATUSES = ['AWAITING_PAYMENT', 'CONFIRMED'] as const satisfies readonly ConsultationStatus[];
+/** Paid for (or waiting on review) and not booked yet: limited per student. */
+export const UNBOOKED_CONSULTATION_STATUSES = ['PAYMENT_REVIEW', 'PAID'] as const satisfies readonly ConsultationStatus[];
 
 // ------------------------------------------------------------------ input
 
@@ -113,7 +116,7 @@ const settingsFields = {
   ]),
   timezone: z.string().trim().refine(isValidTimezone, 'Unknown time zone'),
   /** How far ahead a call must be booked. */
-  minNoticeHours: z.number().int().min(CONSULTATION_HOLD_LEAD_HOURS + 1).max(168),
+  minNoticeHours: z.number().int().min(CONSULTATION_MIN_NOTICE_HOURS).max(168),
   /** How many days ahead students can book. */
   horizonDays: z.number().int().min(1).max(90),
   availability: availabilitySchema,
@@ -135,19 +138,27 @@ export const adminConsultantSchema = z
   });
 export type AdminConsultantInput = z.infer<typeof adminConsultantSchema>;
 
-export const consultationBookingSchema = z.object({
-  durationMin: z.union([z.literal(30), z.literal(60)]),
-  startsAt: z.string().datetime({ offset: true }),
+/** Paying for a call (multipart form fields, so numbers arrive as text), with the screenshot as the file. */
+export const consultationPurchaseSchema = z.object({
+  durationMin: z.coerce.number().pipe(z.union([z.literal(30), z.literal(60)])),
+  method: z.enum(CONSULTATION_WALLETS),
+  /** The transfer's reference number, when the app shows one. */
+  transactionRef: z.string().trim().max(100).default(''),
   /** What the student wants to talk about: shown to the expert. */
   note: z.string().trim().max(1000).default(''),
 });
-export type ConsultationBookingInput = z.infer<typeof consultationBookingSchema>;
+export type ConsultationPurchaseInput = z.infer<typeof consultationPurchaseSchema>;
+
+/** Booking (or moving) a paid call to one of the expert's open times. */
+export const consultationTimeSchema = z.object({ startsAt: z.string().datetime({ offset: true }) });
+export type ConsultationTimeInput = z.infer<typeof consultationTimeSchema>;
+
+export const consultationRejectSchema = z.object({ reason: z.string().trim().min(3, 'Say why, so the student can fix it').max(500) });
+export type ConsultationRejectInput = z.infer<typeof consultationRejectSchema>;
 
 export const consultationCancelSchema = z.object({ reason: z.string().trim().max(500).default('') });
 export type ConsultationCancelInput = z.infer<typeof consultationCancelSchema>;
 
-export const consultationRescheduleSchema = z.object({ startsAt: z.string().datetime({ offset: true }) });
-export type ConsultationRescheduleInput = z.infer<typeof consultationRescheduleSchema>;
 export const consultationSlotsQuerySchema = z.object({ duration: z.coerce.number().pipe(z.union([z.literal(30), z.literal(60)])) });
 
 export const adminConsultationsQuerySchema = z.object({ status: z.enum(CONSULTATION_STATUSES).optional() });
@@ -252,20 +263,11 @@ export function consultationSlots(s: ConsultantSchedule, durationMin: number, bu
   return out.sort((a, b) => a.getTime() - b.getTime());
 }
 
-/** When an unpaid reservation made now for a call at startsAt lapses. */
-export function consultationHoldUntil(now: Date, startsAt: Date): Date {
-  return new Date(Math.min(now.getTime() + CONSULTATION_HOLD_HOURS * 3_600_000, startsAt.getTime() - CONSULTATION_HOLD_LEAD_HOURS * 3_600_000));
-}
-
-/** A student cancels an unpaid reservation any time. A paid call isn't refunded: they can move it instead. */
-export function studentCanCancel(b: { status: ConsultationStatus }): boolean {
-  return b.status === 'AWAITING_PAYMENT';
-}
-
 /** A paid call can be moved once, up to 24 hours before it starts. */
-export function studentCanReschedule(b: { status: ConsultationStatus; startsAt: Date; rescheduleCount: number }, now: Date): boolean {
+export function studentCanReschedule(b: { status: ConsultationStatus; startsAt: Date | null; rescheduleCount: number }, now: Date): boolean {
   return (
     b.status === 'CONFIRMED' &&
+    b.startsAt !== null &&
     b.rescheduleCount < CONSULTATION_MAX_RESCHEDULES &&
     b.startsAt.getTime() - now.getTime() >= CONSULTATION_RESCHEDULE_HOURS * 3_600_000
   );
@@ -306,7 +308,7 @@ export interface ConsultationPaymentMethod {
   name: string;
 }
 
-/** How to pay for a reservation (from Settings): only the wallets that are set. */
+/** How to pay (from Settings): only the wallets that are set. Empty `methods` = payments aren't open yet. */
 export interface ConsultationPaymentDto {
   methods: ConsultationPaymentMethod[];
   supportWhatsapp: string;
@@ -316,33 +318,43 @@ export interface ConsultationBookingDto {
   id: string;
   reference: string;
   status: ConsultationStatus;
-  startsAt: string;
-  endsAt: string;
   durationMin: number;
   priceEgp: number;
   note: string;
-  holdUntil: string | null;
+  method: ConsultationWallet;
+  transactionRef: string;
   createdAt: string;
+  /** When the payment was approved. */
+  paidAt: string | null;
+  /** Why the payment was rejected. */
+  rejectionReason: string | null;
+  /** Set once a time is booked. */
+  startsAt: string | null;
+  endsAt: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
-  /** Only once paid. */
+  /** Only for a booked call. */
   meetingUrl: string | null;
-  consultant: { slug: string; name: string; nameAr: string | null; photoUrl: string | null };
-  canCancel: boolean;
+  consultant: { slug: string; name: string; nameAr: string | null; photoUrl: string | null; horizonDays: number };
+  /** Paid, no time yet: the student picks one. */
+  canBook: boolean;
   /** How many times the student moved this call (at most CONSULTATION_MAX_RESCHEDULES). */
   rescheduleCount: number;
   canReschedule: boolean;
+  /** Expert or admin: the call can still be cancelled (refunded). */
+  canCancel: boolean;
 }
 
-/** The student's view of one booking, with how to pay while it waits for payment. */
-export interface MyConsultationDto extends ConsultationBookingDto {
-  payment: ConsultationPaymentDto | null;
-}
+/** The student's view of one booking. */
+export type MyConsultationDto = ConsultationBookingDto;
 
-/** The expert's and the admin's view: who booked. The email is for admins only (null for the expert). */
+/** The expert's and the admin's view: who booked. The email and the payment proof are for admins only. */
 export interface ConsultationBookingAdminDto extends ConsultationBookingDto {
   student: { id: string; name: string; email: string | null };
-  paidAt: string | null;
+  /** Admins: the screenshot can be opened (it is deleted after the retention period). */
+  hasScreenshot: boolean;
+  /** Admins: other bookings that used the same screenshot or the same transaction reference. */
+  sameProofAs: string[];
 }
 
 export interface ConsultantSettingsDto extends ConsultantSettingsInput {

@@ -2,6 +2,7 @@
 
 import {
   CONSULTATION_STATUSES,
+  CONSULTATION_WALLET_LABELS,
   hasAdminPermission,
   type AdminConsultantRowDto,
   type ConsultantSettingsDto,
@@ -66,12 +67,13 @@ export default function AdminConsultationsPage() {
 
 function Bookings() {
   const { locale, t } = useI18n();
-  const [status, setStatus] = useState<ConsultationStatus | ''>('AWAITING_PAYMENT');
+  const [status, setStatus] = useState<ConsultationStatus | ''>('PAYMENT_REVIEW');
   const [rows, setRows] = useState<ConsultationBookingAdminDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tz, setTz] = useState('Africa/Cairo');
-  const [acting, setActing] = useState<{ id: string; kind: 'paid' | 'cancel' } | null>(null);
+  const [acting, setActing] = useState<{ id: string; kind: 'approve' | 'reject' | 'cancel' } | null>(null);
   const [reason, setReason] = useState('');
+  const [shots, setShots] = useState<Record<string, { url: string; mime: string | null }>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -87,11 +89,11 @@ function Bookings() {
     };
   }, [status, t]);
 
-  async function act(id: string, kind: 'paid' | 'cancel') {
+  async function act(id: string, kind: 'approve' | 'reject' | 'cancel') {
     setBusy(true);
     setError(null);
     try {
-      const b = await api<ConsultationBookingAdminDto>(`/admin/consultations/bookings/${id}/${kind}`, { method: 'POST', ...(kind === 'cancel' ? { json: { reason } } : {}) });
+      const b = await api<ConsultationBookingAdminDto>(`/admin/consultations/bookings/${id}/${kind}`, { method: 'POST', ...(kind === 'approve' ? {} : { json: { reason } }) });
       setRows((r) => r && r.map((x) => (x.id === id ? b : x)));
       setActing(null);
       setReason('');
@@ -102,7 +104,15 @@ function Bookings() {
     }
   }
 
-  const now = Date.now();
+  async function viewShot(id: string) {
+    try {
+      const s = await api<{ url: string; mime: string | null }>(`/admin/consultations/bookings/${id}/screenshot`);
+      setShots((m) => ({ ...m, [id]: s }));
+    } catch (err) {
+      setError(errorMessage(err, t));
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="max-w-xs">
@@ -121,64 +131,100 @@ function Bookings() {
         <p className="text-muted">{t('consultations.admin.noBookings')}</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {rows.map((b) => {
-            const payable = (b.status === 'AWAITING_PAYMENT' || b.status === 'EXPIRED') && new Date(b.startsAt).getTime() > now;
-            return (
-              <li key={b.id}>
-                <Card className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="flex-1 font-medium text-fg">
-                      {b.reference} · {expertName(b.consultant, locale)} · {whenLabel(b.startsAt, locale, tz)}
-                    </p>
-                    <StatusBadge status={b.status} t={t} />
-                  </div>
-                  <p className="text-[0.9375rem] text-body">
-                    {b.student.name} · <span dir="ltr">{b.student.email}</span> · {t('consultations.minutes', { min: b.durationMin })} · {egp(b.priceEgp, locale)}
+          {rows.map((b) => (
+            <li key={b.id}>
+              <Card className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="flex-1 font-medium text-fg">
+                    {b.reference} · {expertName(b.consultant, locale)} · {t('consultations.minutes', { min: b.durationMin })} · {egp(b.priceEgp, locale)}
                   </p>
-                  {b.status === 'AWAITING_PAYMENT' && b.holdUntil && (
-                    <p className="text-[0.875rem] text-muted">{t('consultations.admin.heldUntil', { time: whenLabel(b.holdUntil, locale, tz) })}</p>
-                  )}
-                  {b.paidAt && <p className="text-[0.875rem] text-muted">{t('consultations.admin.paidAt', { time: whenLabel(b.paidAt, locale, tz) })}</p>}
-                  {b.status === 'CANCELLED' && b.paidAt && <Badge tone="warning">{t('consultations.admin.refundDue')}</Badge>}
-                  {b.cancelReason && <p className="text-[0.875rem] text-muted">{t('consultations.booking.reason', { reason: b.cancelReason })}</p>}
-                  {b.note && <p className="text-[0.875rem] whitespace-pre-line text-muted">{b.note}</p>}
+                  <StatusBadge status={b.status} t={t} />
+                </div>
+                <p className="text-[0.9375rem] text-body">
+                  {b.student.name} · <span dir="ltr">{b.student.email}</span>
+                </p>
+                <p className="text-[0.875rem] text-muted">
+                  {CONSULTATION_WALLET_LABELS[b.method][locale]}
+                  {b.transactionRef && <span dir="ltr"> · {b.transactionRef}</span>} · {t('consultations.admin.submitted', { time: whenLabel(b.createdAt, locale, tz) })}
+                </p>
+                {b.startsAt && <p className="text-[0.875rem] text-muted">{t('consultations.admin.callAt', { time: whenLabel(b.startsAt, locale, tz) })}</p>}
+                {b.status === 'PAID' && <p className="text-[0.875rem] text-muted">{t('consultations.admin.waitingForTime')}</p>}
+                {b.sameProofAs.length > 0 && <Alert tone="warning">{t('consultations.admin.sameProof', { refs: b.sameProofAs.join(', ') })}</Alert>}
+                {b.status === 'CANCELLED' && b.paidAt && <Badge tone="warning">{t('consultations.admin.refundDue')}</Badge>}
+                {b.rejectionReason && <p className="text-[0.875rem] text-muted">{t('consultations.booking.reason', { reason: b.rejectionReason })}</p>}
+                {b.cancelReason && <p className="text-[0.875rem] text-muted">{t('consultations.booking.reason', { reason: b.cancelReason })}</p>}
+                {b.note && <p className="text-[0.875rem] whitespace-pre-line text-muted">{b.note}</p>}
 
-                  {acting?.id === b.id ? (
-                    <div className="flex flex-col gap-2">
-                      {acting.kind === 'paid' ? (
-                        <p className="text-[0.9375rem] text-fg">{t('consultations.admin.confirmPaid', { ref: b.reference, price: egp(b.priceEgp, locale) })}</p>
-                      ) : (
-                        <TextField label={t('consultations.booking.cancelReason')} value={reason} onChange={setReason} maxLength={500} />
-                      )}
-                      <div className="flex gap-2">
-                        <Button type="button" variant={acting.kind === 'paid' ? 'primary' : 'danger'} size="sm" loading={busy} onClick={() => void act(b.id, acting.kind)}>
-                          {t(acting.kind === 'paid' ? 'consultations.admin.markPaidYes' : 'consultations.booking.cancelYes')}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => setActing(null)}>
-                          {t('consultations.booking.keep')}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    (payable || b.canCancel) && (
-                      <div className="flex flex-wrap gap-2">
-                        {payable && (
-                          <Button type="button" size="sm" onClick={() => setActing({ id: b.id, kind: 'paid' })}>
-                            {t('consultations.admin.markPaid')}
-                          </Button>
-                        )}
-                        {b.canCancel && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setActing({ id: b.id, kind: 'cancel' })}>
-                            {t('consultations.booking.cancel')}
-                          </Button>
-                        )}
-                      </div>
+                {b.hasScreenshot ? (
+                  shots[b.id] ? (
+                    shots[b.id]!.mime === 'application/pdf' ? (
+                      <a href={shots[b.id]!.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                        PDF
+                      </a>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, must not go through the image optimiser
+                      <img src={shots[b.id]!.url} alt={t('payment.screenshot')} className="max-h-[60vh] w-auto self-start rounded-lg border border-line" />
                     )
-                  )}
-                </Card>
-              </li>
-            );
-          })}
+                  ) : (
+                    <Button type="button" variant="secondary" size="sm" className="self-start" onClick={() => void viewShot(b.id)}>
+                      {t('consultations.admin.viewProof')}
+                    </Button>
+                  )
+                ) : (
+                  <p className="text-[0.8125rem] text-muted">{t('admin.payments.screenshotDeleted')}</p>
+                )}
+
+                {acting?.id === b.id ? (
+                  <div className="flex flex-col gap-2">
+                    {acting.kind === 'approve' ? (
+                      <p className="text-[0.9375rem] text-fg">{t('consultations.admin.confirmApprove', { ref: b.reference, price: egp(b.priceEgp, locale) })}</p>
+                    ) : (
+                      <TextField
+                        label={t(acting.kind === 'reject' ? 'consultations.admin.rejectReason' : 'consultations.booking.cancelReason')}
+                        required={acting.kind === 'reject'}
+                        value={reason}
+                        onChange={setReason}
+                        maxLength={500}
+                      />
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={acting.kind === 'approve' ? 'primary' : 'danger'}
+                        size="sm"
+                        loading={busy}
+                        disabled={acting.kind === 'reject' && reason.trim().length < 3}
+                        onClick={() => void act(b.id, acting.kind)}
+                      >
+                        {t(`consultations.admin.${acting.kind}Yes`)}
+                      </Button>
+                      <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => setActing(null)}>
+                        {t('consultations.booking.keep')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {b.status === 'PAYMENT_REVIEW' && (
+                      <>
+                        <Button type="button" size="sm" onClick={() => setActing({ id: b.id, kind: 'approve' })}>
+                          {t('consultations.admin.approve')}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setActing({ id: b.id, kind: 'reject' })}>
+                          {t('consultations.admin.reject')}
+                        </Button>
+                      </>
+                    )}
+                    {b.canCancel && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setActing({ id: b.id, kind: 'cancel' })}>
+                        {t('consultations.booking.cancel')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </Card>
+            </li>
+          ))}
         </ul>
       )}
     </div>

@@ -141,18 +141,15 @@ export type EmailTemplate =
     }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
   | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
-  /** Consultations: a slot reserved, waiting for the InstaPay payment (to the student). */
+  /** Consultations: the student's payment proof was received, approved (book a time) or rejected (why). */
   | {
-      name: 'consultationReserved';
+      name: 'consultationPayment';
+      kind: 'received' | 'approved' | 'rejected';
       expertName: string;
-      when: string;
       durationMin: number;
       priceEgp: number;
       reference: string;
-      holdUntil: string;
-      /** One line per wallet that is set, e.g. "Vodafone Cash: 010… (MLOps MENA)". */
-      methods: string[];
-      whatsappUrl: string;
+      reason: string;
       url: string;
     }
   /** Consultations: paid and confirmed, with the meeting link (to the student and the expert). */
@@ -177,7 +174,7 @@ export type EmailTemplate =
       role: 'student' | 'expert';
       otherName: string;
       when: string;
-      by: 'student' | 'expert' | 'admin' | 'expired';
+      by: 'student' | 'expert' | 'admin';
       wasPaid: boolean;
       reason: string;
       url: string;
@@ -976,37 +973,41 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
         ),
       };
     }
-    case 'consultationReserved': {
-      const subject = ar ? `مكالمتك مع ${t.expertName}: أكمل الدفع` : `Your call with ${t.expertName}: complete the payment`;
+    case 'consultationPayment': {
+      const what = ar ? `مكالمة ${t.durationMin} دقيقة مع ${t.expertName}` : `a ${t.durationMin}-minute call with ${t.expertName}`;
+      const copy = {
+        received: {
+          subject: ar ? `استلمنا دفعك: ${t.reference}` : `We received your payment: ${t.reference}`,
+          heading: ar ? 'استلمنا إثبات الدفع' : 'We received your payment proof',
+          lines: [
+            ar ? `دفعت ${t.priceEgp} جنيه مقابل ${what}. رقم الحجز: ${t.reference}.` : `You paid EGP ${t.priceEgp} for ${what}. Booking reference: ${t.reference}.`,
+            ar ? 'سيراجع فريق الأكاديمية الدفع قريبًا، ثم نرسل إليك لتحجز موعد المكالمة.' : "The academy team will check the payment soon. Then we'll tell you to book your time.",
+          ],
+          cta: ar ? 'افتح الحجز' : 'Open your booking',
+        },
+        approved: {
+          subject: ar ? `تأكد الدفع: احجز موعدك مع ${t.expertName}` : `Payment confirmed: book your call with ${t.expertName}`,
+          heading: ar ? 'تأكد الدفع، احجز موعدك الآن' : 'Payment confirmed: book your time',
+          lines: [
+            ar ? `تأكد دفعك مقابل ${what} (${t.reference}).` : `Your payment for ${what} (${t.reference}) is confirmed.`,
+            ar ? 'اختر أحد المواعيد المتاحة من صفحة الحجز، وسيصلك رابط المكالمة فورًا.' : "Pick one of the open times on your booking page, and you'll get the meeting link right away.",
+          ],
+          cta: ar ? 'احجز موعدك' : 'Book your time',
+        },
+        rejected: {
+          subject: ar ? `لم يتأكد الدفع: ${t.reference}` : `Payment not confirmed: ${t.reference}`,
+          heading: ar ? 'لم نتمكن من تأكيد الدفع' : "We couldn't confirm your payment",
+          lines: [
+            ar ? `لم يتأكد دفعك مقابل ${what} (${t.reference}).` : `Your payment for ${what} (${t.reference}) wasn't confirmed.`,
+            ...(t.reason ? [ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`] : []),
+            ar ? 'إذا كنت قد دفعت بالفعل، راسلنا على واتساب مع رقم الحجز.' : 'If you did pay, message us on WhatsApp with your booking reference.',
+          ],
+          cta: ar ? 'افتح الحجز' : 'Open your booking',
+        },
+      }[t.kind];
       return {
-        subject,
-        element: (
-          <Layout
-            {...base}
-            preview={subject}
-            heading={ar ? 'حجزنا لك الموعد' : "We've held your slot"}
-            paragraphs={[
-              ar
-                ? `مكالمة ${t.durationMin} دقيقة مع ${t.expertName}، ${t.when}. رقم الحجز: ${t.reference}.`
-                : `A ${t.durationMin}-minute call with ${t.expertName}, ${t.when}. Booking reference: ${t.reference}.`,
-              ar
-                ? `ادفع ${t.priceEgp} جنيه بإحدى هذه الطرق، ثم أرسل صورة التحويل على واتساب مع رقم الحجز:`
-                : `Pay EGP ${t.priceEgp} with one of these, then send the transfer screenshot on WhatsApp with your booking reference:`,
-              ...t.methods.map((m) => `• ${m}`),
-              ar
-                ? `نحتفظ بالموعد حتى ${t.holdUntil}. بعد تأكيد الدفع يصلك رابط المكالمة.`
-                : `We hold the slot until ${t.holdUntil}. Once the payment is checked, you get the meeting link.`,
-              ...(t.whatsappUrl
-                ? [
-                    <Link key="wa" href={t.whatsappUrl} style={{ textDecoration: 'underline' }}>
-                      {ar ? 'أرسل صورة التحويل على واتساب' : 'Send the screenshot on WhatsApp'}
-                    </Link>,
-                  ]
-                : []),
-            ]}
-            cta={{ label: ar ? 'افتح الحجز' : 'Open your booking', url: t.url }}
-          />
-        ),
+        subject: copy.subject,
+        element: <Layout {...base} preview={copy.subject} heading={copy.heading} paragraphs={copy.lines} cta={{ label: copy.cta, url: t.url }} />,
       };
     }
     case 'consultationConfirmed': {
@@ -1036,22 +1037,15 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
       };
     }
     case 'consultationCancelled': {
-      const lapsed = t.by === 'expired';
-      const subject = lapsed
-        ? ar
-          ? `انتهى حجز المكالمة مع ${t.otherName}`
-          : `Your reservation with ${t.otherName} has lapsed`
-        : ar
-          ? `أُلغيت المكالمة مع ${t.otherName}`
-          : `Cancelled: your call with ${t.otherName}`;
+      const subject = ar ? `أُلغيت المكالمة مع ${t.otherName}` : `Cancelled: your call with ${t.otherName}`;
       const who =
         t.by === t.role
           ? ar
             ? 'ألغيتها أنت'
             : 'You cancelled it'
           : ar
-            ? { student: 'ألغاها الطالب', expert: 'ألغاها الخبير', admin: 'ألغاها فريق الأكاديمية', expired: 'لم يصل الدفع في الوقت' }[t.by]
-            : { student: 'The student cancelled it', expert: 'The expert cancelled it', admin: 'The academy team cancelled it', expired: 'The payment didn’t arrive in time' }[t.by];
+            ? { student: 'ألغاها الطالب', expert: 'ألغاها الخبير', admin: 'ألغاها فريق الأكاديمية' }[t.by]
+            : { student: 'The student cancelled it', expert: 'The expert cancelled it', admin: 'The academy team cancelled it' }[t.by];
       return {
         subject,
         element: (
@@ -1060,12 +1054,11 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             preview={subject}
             heading={subject}
             paragraphs={[
-              ar ? `الموعد: ${t.when}. ${who}.` : `The call: ${t.when}. ${who}.`,
+              t.when ? (ar ? `الموعد: ${t.when}. ${who}.` : `The call: ${t.when}. ${who}.`) : `${who}.`,
               ...(t.reason ? [ar ? `السبب: ${t.reason}` : `Reason: ${t.reason}`] : []),
               ...(t.role === 'student' && t.wasPaid
                 ? [ar ? 'سنتواصل معك على واتساب لرد المبلغ.' : "We'll contact you on WhatsApp about your refund."]
                 : []),
-              ...(t.role === 'student' && lapsed ? [ar ? 'يمكنك حجز موعد جديد في أي وقت.' : 'You can book a new slot any time.'] : []),
             ]}
             cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
           />

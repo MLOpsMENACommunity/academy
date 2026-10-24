@@ -390,15 +390,20 @@ The route exists only outside production and answers 403 without the right token
    `https://academy.mlopsmena.com/api/auth/google/callback` and
    `https://academy-staging.mlopsmena.com/api/auth/google/callback`.
    **Consultations with Google Calendar** use the same client (no new secret):
-   - In Google Cloud → APIs & Services, **enable the Google Calendar API**.
+   - In Google Cloud → APIs & Services → Library, **enable the Google Calendar API**.
    - Add two more redirect URIs: `https://academy.mlopsmena.com/api/consultations/google/callback`
      and `https://academy-staging.mlopsmena.com/api/consultations/google/callback`.
-   - On the OAuth consent screen, add the scopes `.../auth/calendar.freebusy` and
-     `.../auth/calendar.events` (both "sensitive").
-   - Until Google verifies the app for those scopes, keep it in **Testing** and add each expert's
-     Gmail address under **Test users**. In Testing, Google ends every connection after **7 days**:
-     the expert is emailed and reconnects from `/consultations/expert` (calls fall back to their
-     fixed link meanwhile). Submitting the app for verification removes the 7-day limit.
+   - Google Auth Platform → Data Access: add the scopes `.../auth/calendar.freebusy` and
+     `.../auth/calendar.events` (both "sensitive"), beside `openid`, `.../auth/userinfo.email` and
+     `.../auth/userinfo.profile`.
+   - Google Auth Platform → Audience: **Publish app** (status "In production"). In "Testing" only
+     listed test users can sign in at all, and Google ends calendar connections after 7 days.
+     Published but not yet verified, experts see "Google hasn't verified this app" once when they
+     connect (Advanced → continue) and at most 100 accounts can grant the calendar scopes; student
+     sign-in (basic scopes only) shows no warning. Google's verification removes the warning.
+   - Store the client as the `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` secrets of the GitHub
+     environments `staging` and `production`; the next release applies them. This also turns on
+     **Sign in with Google** for everyone.
    Without Google configured, experts simply use a fixed meeting link.
 7. **Local secrets files** (never commit them, never paste them into chat):
 

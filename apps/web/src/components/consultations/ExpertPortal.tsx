@@ -26,7 +26,7 @@ export function ExpertPortalCard() {
   useEffect(() => {
     if (!user) return;
     api<Overview>('/consultations/expert')
-      .then((o) => setUpcoming(o.bookings.filter((b) => b.status === 'CONFIRMED' && new Date(b.startsAt).getTime() > Date.now()).length))
+      .then((o) => setUpcoming(o.bookings.filter((b) => b.status === 'CONFIRMED' && b.startsAt !== null && new Date(b.startsAt).getTime() > Date.now()).length))
       .catch(() => setUpcoming(null));
   }, [user]);
   if (upcoming === null) return null;
@@ -75,7 +75,11 @@ export function ExpertPortal() {
   if (state === 'error' || !data) return <Alert tone="danger">{error}</Alert>;
 
   const now = Date.now();
-  const upcoming = data.bookings.filter((b) => new Date(b.endsAt).getTime() > now && (b.status === 'CONFIRMED' || b.status === 'AWAITING_PAYMENT'));
+  // Booked calls still ahead, then paid ones the student hasn't booked a time for yet.
+  const upcoming = [
+    ...data.bookings.filter((b) => b.status === 'CONFIRMED' && b.endsAt !== null && new Date(b.endsAt).getTime() > now),
+    ...data.bookings.filter((b) => b.status === 'PAID'),
+  ];
 
   async function cancel(id: string) {
     setBusy(true);
@@ -116,7 +120,7 @@ export function ExpertPortal() {
                 <Card className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="flex-1 font-medium text-fg">
-                      {b.student.name} · {whenLabel(b.startsAt, locale, tz)} · {t('consultations.minutes', { min: b.durationMin })}
+                      {b.student.name} · {b.startsAt ? whenLabel(b.startsAt, locale, tz) : t('consultations.portal.noTimeYet')} · {t('consultations.minutes', { min: b.durationMin })}
                     </p>
                     <StatusBadge status={b.status} t={t} />
                   </div>

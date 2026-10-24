@@ -1,27 +1,29 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
   adminConsultantSchema,
   adminConsultationsQuerySchema,
   consultantSettingsSchema,
-  consultationBookingSchema,
   consultationCancelSchema,
-  consultationRescheduleSchema,
+  consultationRejectSchema,
   consultationSlotsQuerySchema,
+  consultationTimeSchema,
   type AdminConsultantInput,
   type ConsultantSettingsInput,
-  type ConsultationBookingInput,
   type ConsultationCancelInput,
-  type ConsultationRescheduleInput,
+  type ConsultationRejectInput,
+  type ConsultationTimeInput,
 } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import { AdminCan, CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
+import { MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { ConsultationsService } from './consultations.service';
 
-/** The experts and their open slots (public), and the signed-in student's bookings. */
+/** The experts and their open times (public), and the signed-in student's paid calls. */
 @ApiTags('consultations')
 @Controller('consultations')
 export class ConsultationsController {
@@ -39,7 +41,7 @@ export class ConsultationsController {
     return this.consultations.consultant(slug);
   }
 
-  /** Not edge-cached: open slots change with every booking. */
+  /** What a student sees before paying. Not edge-cached: open times change with every booking. */
   @Public()
   @Get('experts/:slug/slots')
   @Header('Cache-Control', 'private, no-store')
@@ -47,10 +49,19 @@ export class ConsultationsController {
     return this.consultations.slots(slug, q.duration);
   }
 
-  @Post('experts/:slug/bookings')
+  /** How to pay (the wallets set in Settings). */
+  @Get('payment')
+  payment() {
+    return this.consultations.payment();
+  }
+
+  /** Pays for a call: the transfer screenshot (`screenshot`) and the form fields, for the academy to review. */
+  @Post('experts/:slug/purchases')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  book(@CurrentUser() user: AuthUser, @Param('slug') slug: string, @Body(new ZodPipe(consultationBookingSchema)) body: ConsultationBookingInput) {
-    return this.consultations.book(user, slug, body);
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('screenshot', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 } }))
+  purchase(@CurrentUser() user: AuthUser, @Param('slug') slug: string, @Body() body: Record<string, unknown>, @UploadedFile() file?: Express.Multer.File) {
+    return this.consultations.purchase(user, slug, body, file);
   }
 
   @Get('bookings')
@@ -63,18 +74,26 @@ export class ConsultationsController {
     return this.consultations.mine(user, id);
   }
 
-  @Post('bookings/:id/cancel')
-  @HttpCode(200)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationCancelSchema)) body: ConsultationCancelInput) {
-    return this.consultations.cancelMine(user, id, body.reason);
+  /** The open times for one of my paid calls (to book, or to move it). */
+  @Get('bookings/:id/slots')
+  @Header('Cache-Control', 'private, no-store')
+  bookingSlots(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.consultations.myOpenTimes(user, id);
   }
 
-  /** Paid calls aren't refunded: the student may move one, once, up to 24 hours before. */
+  /** Once the payment is approved: book one of the open times. */
+  @Post('bookings/:id/book')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  book(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationTimeSchema)) body: ConsultationTimeInput) {
+    return this.consultations.book(user, id, body.startsAt);
+  }
+
+  /** Paid calls aren't refunded: a booked call may move, once, up to 24 hours before. */
   @Post('bookings/:id/reschedule')
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  reschedule(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationRescheduleSchema)) body: ConsultationRescheduleInput) {
+  reschedule(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationTimeSchema)) body: ConsultationTimeInput) {
     return this.consultations.reschedule(user, id, body.startsAt);
   }
 
@@ -84,7 +103,7 @@ export class ConsultationsController {
     res.redirect(303, await this.consultations.googleCallback(user, q.code, q.state, q.error));
   }
 
-  /** For the student or the expert of a confirmed call. */
+  /** For the student or the expert of a booked call. */
   @Get('bookings/:id/calendar.ics')
   async ics(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
     const body = await this.consultations.ics(user, id);
@@ -162,17 +181,31 @@ export class AdminConsultationsController {
     return this.consultations.adminBookings(q.status);
   }
 
-  @Post('bookings/:id/paid')
-  @HttpCode(200)
+  @Get('bookings/:id/screenshot')
   @AdminCan('FINANCE')
+  screenshot(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.consultations.screenshotUrl(user, id);
+  }
+
+  @Post('bookings/:id/approve')
+  @AdminCan('FINANCE')
+  @HttpCode(200)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  paid(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.consultations.markPaid(user, id);
+  approve(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.consultations.approve(user, id);
+  }
+
+  @Post('bookings/:id/reject')
+  @AdminCan('FINANCE')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  reject(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationRejectSchema)) body: ConsultationRejectInput) {
+    return this.consultations.reject(user, id, body.reason);
   }
 
   @Post('bookings/:id/cancel')
-  @HttpCode(200)
   @AdminCan('FINANCE')
+  @HttpCode(200)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationCancelSchema)) body: ConsultationCancelInput) {
     return this.consultations.adminCancel(user, id, body.reason);

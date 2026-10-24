@@ -137,6 +137,8 @@ export class AccountService {
         consultationsBooked: {
           select: {
             reference: true,
+            method: true,
+            transactionRef: true,
             startsAt: true,
             durationMin: true,
             priceEgp: true,
@@ -401,12 +403,14 @@ export class AccountService {
         applications: { include: { payments: true } },
         submissions: { select: { fileKey: true } },
         enrollments: { select: { certificate: { select: { pdfKey: true } } } },
+        consultationsBooked: { select: { screenshotKey: true } },
       },
     });
     const keys = [
       user.profile?.cvKey,
       ...user.applications.flatMap((a) => a.payments.map((p) => p.screenshotKey)),
       ...user.submissions.map((s) => s.fileKey),
+      ...user.consultationsBooked.map((c) => c.screenshotKey),
       // Certificate PDFs print the name.
       ...user.enrollments.map((e) => e.certificate?.pdfKey),
     ].filter((k): k is string => Boolean(k));
@@ -465,8 +469,11 @@ export class AccountService {
       // Grades stay (course statistics); links, files and notes go.
       this.prisma.submission.updateMany({ where: { userId }, data: { url: null, note: null, fileKey: null, fileName: null, feedback: null, rubricNotes: null } }),
       this.prisma.assessmentReminderLog.deleteMany({ where: { userId } }),
-      // Consultation bookings stay for accounting (price, time, status); what they wrote goes.
-      this.prisma.consultationBooking.updateMany({ where: { studentId: userId }, data: { note: '', cancelReason: null } }),
+      // Consultation bookings stay for accounting (price, time, status); what they wrote and the payment proof go.
+      this.prisma.consultationBooking.updateMany({
+        where: { studentId: userId },
+        data: { note: '', cancelReason: null, transactionRef: '', screenshotKey: null, screenshotSha256: null, screenshotDeletedAt: new Date() },
+      }),
       // Points, badges and leaderboard choices are personal: removed (boards never showed deleted accounts).
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
       // Attendance (minutes per session) is personal too; course counts never included deleted accounts.

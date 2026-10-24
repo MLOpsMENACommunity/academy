@@ -252,7 +252,7 @@ hand. Each job is idempotent and isolated (one failing doesn't stop the others):
 | `points` | Re-sync assessment points for work changed in the last 26 h; Top of the week / Top of the course for closed weeks and ended courses (never before `pointsLaunchedAt`, once, within 14 days); Speaker badge |
 | `announcementEmailsPending` | Resume announcement emails left pending by a restart |
 | `feedbackPromptsQueued` | Registered. Feedback prompts for sessions that ended 30 min–72 h ago (outbox rows + notifications) |
-| `consultationHoldsExpired` / `consultationRemindersQueued` | Registered. Lapse unpaid consultation reservations past their hold (the student is told) and queue the 24 h (22–24 h) and 1 h (10–75 min) reminders for confirmed calls; outbox dedupe keys make each send once |
+| `consultationRemindersQueued` / `consultationScreenshotsDeleted` | Registered. Queue the 24 h (22–24 h) and 1 h (10–75 min) reminders for booked consultations (outbox dedupe keys, with the call's time, make each send once), and delete consultation payment screenshots older than `screenshotRetentionDays` (never one waiting for review) |
 | `outboxPending` / `outboxPurged` | Registered. Start sending the email outbox (after the response); delete old finished rows |
 
 **Jobs registry.** New jobs don't touch `jobs.controller.ts`: a provider decorated with

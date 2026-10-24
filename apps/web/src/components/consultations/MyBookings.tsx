@@ -28,7 +28,8 @@ export function MyBookings() {
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!rows) return <PageSpinner />;
   const now = Date.now();
-  const upcoming = rows.filter((b) => new Date(b.endsAt).getTime() > now && (b.status === 'AWAITING_PAYMENT' || b.status === 'CONFIRMED')).reverse();
+  // Waiting on review, paid without a time, or booked and still ahead.
+  const upcoming = rows.filter((b) => b.status === 'PAYMENT_REVIEW' || b.status === 'PAID' || (b.status === 'CONFIRMED' && b.endsAt !== null && new Date(b.endsAt).getTime() > now));
   const past = rows.filter((b) => !upcoming.includes(b));
 
   const list = (items: ConsultationBookingDto[]) => (
@@ -39,7 +40,8 @@ export function MyBookings() {
             <div className="min-w-0 flex-1">
               <p className="font-medium text-fg">{expertName(b.consultant, locale)}</p>
               <p className="text-[0.875rem] text-muted">
-                {whenLabel(b.startsAt, locale, tz)} · {t('consultations.minutes', { min: b.durationMin })} · {egp(b.priceEgp, locale)}
+                {b.startsAt ? whenLabel(b.startsAt, locale, tz) : t(b.status === 'PAID' ? 'consultations.mine.pickTime' : 'consultations.mine.noTime')} ·{' '}
+                {t('consultations.minutes', { min: b.durationMin })} · {egp(b.priceEgp, locale)}
               </p>
             </div>
             <StatusBadge status={b.status} t={t} />

@@ -7,10 +7,11 @@ import { formatMoney } from '@/lib/format';
 import { pick } from '@/lib/sessions';
 
 export const STATUS_TONE: Record<ConsultationStatus, Tone> = {
-  AWAITING_PAYMENT: 'warning',
+  PAYMENT_REVIEW: 'warning',
+  REJECTED: 'danger',
+  PAID: 'info',
   CONFIRMED: 'success',
   CANCELLED: 'neutral',
-  EXPIRED: 'neutral',
 };
 
 export function StatusBadge({ status, t }: { status: ConsultationStatus; t: Translate }) {

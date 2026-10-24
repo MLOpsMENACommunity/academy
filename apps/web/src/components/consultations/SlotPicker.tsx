@@ -8,22 +8,21 @@ import { viewerTimezone } from '@/lib/format';
 import { dateKey, dayLabel, timeLabel } from './shared';
 
 /**
- * An expert's open times for one call length: pick a day, then a time, shown in the visitor's
- * own time zone. `reloadKey` changes to fetch again (after "that time was just taken").
+ * An expert's open times: pick a day, then a time, shown in the visitor's own time zone. `url`
+ * is the API path that lists them. Without `onChange` the times are only shown (before paying).
+ * `reloadKey` changes to fetch again (after "that time was just taken").
  */
 export function SlotPicker({
-  slug,
-  duration,
+  url,
   horizonDays,
-  value,
+  value = null,
   onChange,
   reloadKey = 0,
 }: {
-  slug: string;
-  duration: number;
+  url: string;
   horizonDays: number;
-  value: string | null;
-  onChange: (slot: string | null) => void;
+  value?: string | null;
+  onChange?: (slot: string | null) => void;
   reloadKey?: number;
 }) {
   const { locale, t } = useI18n();
@@ -38,8 +37,8 @@ export function SlotPicker({
     let current = true;
     setSlots(null);
     setFailed(false);
-    onChange(null);
-    api<string[]>(`/consultations/experts/${slug}/slots?duration=${duration}`)
+    onChange?.(null);
+    api<string[]>(url)
       .then((s) => current && setSlots(s))
       .catch(() => current && setFailed(true));
     return () => {
@@ -47,7 +46,7 @@ export function SlotPicker({
     };
     // onChange is the parent's setter: leaving it out keeps a new function from refetching.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, duration, reloadKey, retry]);
+  }, [url, reloadKey, retry]);
 
   const days = useMemo(() => {
     if (!slots || !tz) return [];
@@ -92,7 +91,7 @@ export function SlotPicker({
               aria-pressed={shownDay?.key === d.key}
               onClick={() => {
                 setDay(d.key);
-                onChange(null);
+                onChange?.(null);
               }}
               className={`${chip(shownDay?.key === d.key)} shrink-0 px-3 text-[0.875rem] whitespace-nowrap`}
             >
@@ -105,17 +104,23 @@ export function SlotPicker({
         <fieldset>
           <legend className="text-[0.9375rem] font-medium text-fg">{t('consultations.expert.pickTime')}</legend>
           <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {shownDay.times.map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-pressed={value === s}
-                onClick={() => onChange(s)}
-                className={`min-h-11 rounded-xl border text-[0.9375rem] tabular-nums ${value === s ? 'border-primary bg-primary text-white' : 'border-line text-body hover:bg-muted-bg'}`}
-              >
-                {timeLabel(s, locale, tz)}
-              </button>
-            ))}
+            {shownDay.times.map((s) =>
+              onChange ? (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={value === s}
+                  onClick={() => onChange(s)}
+                  className={`min-h-11 rounded-xl border text-[0.9375rem] tabular-nums ${value === s ? 'border-primary bg-primary text-white' : 'border-line text-body hover:bg-muted-bg'}`}
+                >
+                  {timeLabel(s, locale, tz)}
+                </button>
+              ) : (
+                <span key={s} className="grid min-h-11 place-items-center rounded-xl border border-line text-[0.9375rem] text-body tabular-nums">
+                  {timeLabel(s, locale, tz)}
+                </span>
+              ),
+            )}
           </div>
           <p className="mt-2 text-[0.8125rem] text-muted">{t('consultations.expert.timesIn', { tz })}</p>
         </fieldset>

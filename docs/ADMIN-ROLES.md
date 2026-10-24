@@ -22,7 +22,7 @@ use both sets of pages. `SUPER` can do everything.
 | `CONTENT` | Social media and content | **Admin → Media only**: course and session covers, live session covers, speaker photos, recording and playlist links, image upload | Any student or applicant data, payments, the full course/session/speaker editors, learn previews |
 | `ADMISSIONS` | Admissions | Applications (review, shortlist, accept, reject, waitlist, notes, CSV), students (directory, profile, CV, notes, edit, add, delete, switch to speaker), saved views, enrol by email, waiting lists, enrolled students and Drive access, read-only course list and details | Editing courses, assessments, certificates, payments, speakers |
 | `SPEAKERS` | Speakers | Speaker profiles (create, edit, delete), who is listed for consultations (prices, link, hours), speaker applications (review, approve, reject), availability slots and bookings (generate, edit, release, cancel, create a course draft), assigning speakers to courses, switching accounts between student and speaker, image upload | Students, applications, payments, courses' content |
-| `FINANCE` | Finance | Payments (review proofs, open screenshots, approve, reject), consultation bookings (mark paid, cancel), the admin dashboard | Everything else |
+| `FINANCE` | Finance | Payments (review proofs, open screenshots, approve, reject), consultation payments (view screenshots, approve, reject) and bookings (cancel), the admin dashboard | Everything else |
 
 ### Pages by preset
 
@@ -206,7 +206,9 @@ is listed.
 | Consultations | GET | `/api/admin/consultations/experts` | SPEAKERS |
 | Consultations | PUT | `/api/admin/consultations/experts/:instructorId` | SPEAKERS |
 | Consultations | GET | `/api/admin/consultations/bookings` | FINANCE |
-| Consultations | POST | `/api/admin/consultations/bookings/:id/paid` | FINANCE |
+| Consultations | GET | `/api/admin/consultations/bookings/:id/screenshot` | FINANCE |
+| Consultations | POST | `/api/admin/consultations/bookings/:id/approve` | FINANCE |
+| Consultations | POST | `/api/admin/consultations/bookings/:id/reject` | FINANCE |
 | Consultations | POST | `/api/admin/consultations/bookings/:id/cancel` | FINANCE |
 | Applications | GET | `/api/admin/applications` | ADMISSIONS |
 | Applications | GET | `/api/admin/applications.csv` | ADMISSIONS |
