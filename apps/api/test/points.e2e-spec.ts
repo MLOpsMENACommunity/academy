@@ -171,7 +171,10 @@ describe('points, badges and leaderboards (e2e)', () => {
     await bulk(sessions[0]!.id, ['not-a-student'], 'PRESENT').expect(404);
     for (const x of sessions) await bulk(x.id, [s!.id], 'PRESENT').expect(200);
     expect(await sum(s!.id)).toBe(30);
-    expect(await prisma.userBadge.count({ where: { userId: s!.id, badge: { code: 'finisher' }, courseId: course.id } })).toBe(1);
+    // Badges are checked just after the response.
+    const finisher = () => prisma.userBadge.count({ where: { userId: s!.id, badge: { code: 'finisher' }, courseId: course.id } });
+    for (let i = 0; i < 50 && (await finisher()) === 0; i++) await new Promise((r) => setTimeout(r, 50));
+    expect(await finisher()).toBe(1);
     expect(await prisma.userBadge.count({ where: { userId: other!.id, badge: { code: 'finisher' }, courseId: course.id } })).toBe(0);
   });
 

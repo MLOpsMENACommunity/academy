@@ -449,7 +449,7 @@ export type AttendanceMarkInput = z.infer<typeof attendanceMarkSchema>;
 
 /** Marking many enrolled students at once ("select all → Present"). */
 export const attendanceBulkMarkSchema = z.object({
-  userIds: z.array(z.string().trim().min(1).max(40)).min(1).max(5000),
+  userIds: z.array(z.string().trim().min(1).max(40)).min(1).max(1000),
   status: z.enum(ATTENDANCE_STATUSES),
 });
 export type AttendanceBulkMarkInput = z.infer<typeof attendanceBulkMarkSchema>;
@@ -460,6 +460,15 @@ export type AttendanceBulkMarkInput = z.infer<typeof attendanceBulkMarkSchema>;
  * longer mark sessions done themselves.
  */
 export const ATTENDED_STATUSES = ['PRESENT', 'PARTIAL'] as const satisfies readonly AttendanceStatus[];
+
+/**
+ * Sessions a student completed: attended (Present or Partial), or marked done by the student
+ * before that box was retired (kept, so nobody loses progress or certificate eligibility they had;
+ * no new marks can be made). Counted once per session.
+ */
+export function completedSessions(attended: Iterable<string>, markedBefore: Iterable<string>): Set<string> {
+  return new Set([...attended, ...markedBefore]);
+}
 
 // ------------------------------------------------------------------ responses
 

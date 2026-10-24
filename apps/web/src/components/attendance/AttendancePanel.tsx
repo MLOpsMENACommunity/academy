@@ -630,7 +630,9 @@ function BulkMark({
     setBusy(status);
     setError(null);
     try {
-      const r = await api<{ marked: number }>(`${url}/bulk`, { method: 'POST', json: { userIds: [...picked], status } });
+      // Only students still on the list (one withdrawn meanwhile would fail the whole batch).
+      const enrolled = new Set(students.map((s) => s.userId));
+      const r = await api<{ marked: number }>(`${url}/bulk`, { method: 'POST', json: { userIds: [...picked].filter((id) => enrolled.has(id)), status } });
       setPicked(new Set());
       onSaved(a('bulkSaved', { count: r.marked, status: t(`attendance.statuses.${status}`) }));
     } catch (err) {

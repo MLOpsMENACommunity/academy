@@ -21,12 +21,12 @@ import {
   type MyCertificateDto,
   type PublicCertificateDto,
   hasAdminPermission,
-  ATTENDED_STATUSES,
 } from '@academy/shared';
 import { Prisma, type Certificate, type Course } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { capRows } from '../admin/export';
 import type { Actor } from '../applications/workflow.service';
+import { completedSessionsBy } from '../attendance/completed-sessions';
 import { AssessmentsService } from '../assessments/assessments.service';
 import { AuditService } from '../audit/audit.service';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
@@ -124,12 +124,8 @@ export class CertificatesService {
     const [total, progress, results, capstones] = await Promise.all([
       this.prisma.courseSession.count({ where: { courseId: course.id } }),
       userIds.length
-        ? // Sessions attended (Present or Partial), from the Meet file or marked by the team.
-          this.prisma.sessionAttendance.groupBy({
-            by: ['userId'],
-            where: { userId: { in: userIds }, status: { in: [...ATTENDED_STATUSES] }, session: { courseId: course.id } },
-            _count: { _all: true },
-          })
+        ? // Sessions attended (Present or Partial), plus any marked done before that box was retired.
+          completedSessionsBy(this.prisma, course.id, userIds).then((m) => [...m].map(([userId, set]) => ({ userId, _count: { _all: set.size } })))
         : Promise.resolve([]),
       this.assessments.courseResultsFor(course.id, userIds),
       // The capstone: a course-level lab or assignment that counts toward the certificate.

@@ -1,4 +1,5 @@
 import { ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
+import { completedSessionsBy } from '../attendance/completed-sessions';
 import {
   liveLinkVisible,
   recordingKind,
@@ -13,7 +14,6 @@ import {
   type Material,
   type NextSessionDto,
   hasAdminPermission,
-  ATTENDED_STATUSES,
 } from '@academy/shared';
 import type { Course } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
@@ -84,8 +84,8 @@ export class LearnService {
       this.prisma.sessionAttendance.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true, status: true, minutes: true, percent: true } }),
     ]);
     const attended = new Map(attendance.map((a) => [a.sessionId, { status: a.status, minutes: a.minutes, percent: a.percent }]));
-    // Progress is attendance (Present or Partial), recorded by the team; students don't mark sessions done.
-    const done = new Set(attendance.filter((a) => (ATTENDED_STATUSES as readonly string[]).includes(a.status)).map((a) => a.sessionId));
+    // Progress is attendance (Present or Partial), plus sessions marked done before that box was retired.
+    const done = (await completedSessionsBy(this.prisma, course.id, [user.id])).get(user.id)!;
     const fbBySession = new Map(feedback.filter((f) => f.sessionId).map((f) => [f.sessionId!, f]));
     const courseFb = feedback.find((f) => !f.sessionId) ?? null;
     const reveal = s.liveLinkRevealMinutes;

@@ -372,11 +372,22 @@ export class AttendanceService {
           });
           await this.points.syncSourceTx(tx, { userId, courseId, sourceType: POINTS_SOURCES.ATTENDANCE, sourceId: sessionId, reason: 'ATTENDANCE' }, attendancePoints(status, settings), now);
         }
-        await this.audit.log({ actorId: actor.id, action: 'attendance.marked_many', entityType: 'CourseSession', entityId: sessionId, metadata: { courseId, status, students: ids.length } }, tx);
+        // Ids and previous statuses (no personal data), so a wrong bulk mark can be traced and undone.
+        await this.audit.log(
+          {
+            actorId: actor.id,
+            action: 'attendance.marked_many',
+            entityType: 'CourseSession',
+            entityId: sessionId,
+            metadata: { courseId, status, students: ids.length, changes: ids.map((userId) => ({ userId, from: prev.get(userId)?.status ?? null })) },
+          },
+          tx,
+        );
       },
       { timeout: 60_000 },
     );
-    if (isAttended(status)) await this.finishers(courseId, ids);
+    // After the response: a whole class's badge checks shouldn't hold the request open.
+    if (isAttended(status)) void this.finishers(courseId, ids);
     return { marked: ids.length };
   }
 

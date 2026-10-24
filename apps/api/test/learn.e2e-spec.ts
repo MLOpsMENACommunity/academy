@@ -85,6 +85,10 @@ describe('learn (e2e)', () => {
     await prisma.sessionAttendance.update({ where: { sessionId_userId: { sessionId: past.id, userId: student.id } }, data: { status: 'PARTIAL' } });
     res = await http().get(`/api/learn/${slug}`).set('Cookie', student.cookie).expect(200);
     expect(res.body.progress).toEqual({ completed: 1, total: 3, percent: 33 });
+    // A session the student marked done before the box was retired still counts (once).
+    await prisma.sessionProgress.create({ data: { userId: student.id, sessionId: past.id } });
+    res = await http().get(`/api/learn/${slug}`).set('Cookie', student.cookie).expect(200);
+    expect(res.body.progress).toEqual({ completed: 1, total: 3, percent: 33 });
 
     expect((await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: later.id, rating: 5 }).expect(403)).body.code).toBe('NOT_STARTED');
     await http().put(`/api/learn/${slug}/feedback`).set('Cookie', student.cookie).send({ sessionId: past.id, rating: 4, comment: 'Great' }).expect(204);
