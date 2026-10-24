@@ -1,8 +1,9 @@
 'use client';
 
-import type { ConsultantSettingsDto, ConsultationBookingAdminDto } from '@academy/shared';
+import type { ConsultantSettingsDto, ConsultationBookingAdminDto, ExpertOverviewDto, GoogleCalendarStatusDto } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
 import { Button, buttonClass } from '@/components/ui/Button';
@@ -15,17 +16,19 @@ import { viewerTimezone } from '@/lib/format';
 import { ConsultantSettingsForm } from './ConsultantSettingsForm';
 import { egp, StatusBadge, whenLabel } from './shared';
 
-type Overview = { settings: ConsultantSettingsDto; bookings: ConsultationBookingAdminDto[] };
+type Overview = ExpertOverviewDto;
 
-/** On /speaker: a short card for experts only (nothing for other speakers). */
+/** On /speaker and /consultations: a short card for experts only (nothing for anyone else). */
 export function ExpertPortalCard() {
   const { locale, t } = useI18n();
+  const { user } = useAuth();
   const [upcoming, setUpcoming] = useState<number | null>(null);
   useEffect(() => {
-    api<Overview>('/speaker/consultations')
+    if (!user) return;
+    api<Overview>('/consultations/expert')
       .then((o) => setUpcoming(o.bookings.filter((b) => b.status === 'CONFIRMED' && new Date(b.startsAt).getTime() > Date.now()).length))
       .catch(() => setUpcoming(null));
-  }, []);
+  }, [user]);
   if (upcoming === null) return null;
   return (
     <Card className="flex flex-wrap items-center justify-between gap-3">
@@ -33,14 +36,14 @@ export function ExpertPortalCard() {
         <h2 className="text-xl">{t('consultations.portal.title')}</h2>
         <p className="mt-1 text-muted">{t('consultations.portal.cardBody', { count: upcoming })}</p>
       </div>
-      <Link href={`/${locale}/speaker/consultations`} className={buttonClass('secondary', 'md')}>
+      <Link href={`/${locale}/consultations/expert`} className={buttonClass('secondary', 'md')}>
         {t('consultations.portal.open')}
       </Link>
     </Card>
   );
 }
 
-/** /speaker/consultations: the expert's bookings (name and note, never the student's email) and their settings. */
+/** /consultations/expert: the expert's bookings (name and note, never the student's email), Google Calendar and settings. */
 export function ExpertPortal() {
   const { locale, t } = useI18n();
   const [data, setData] = useState<Overview | null>(null);
@@ -53,7 +56,7 @@ export function ExpertPortal() {
 
   useEffect(() => {
     setTz(viewerTimezone());
-    api<Overview>('/speaker/consultations')
+    api<Overview>('/consultations/expert')
       .then((o) => {
         setData(o);
         setState('ready');
@@ -78,7 +81,7 @@ export function ExpertPortal() {
     setBusy(true);
     setError(null);
     try {
-      const b = await api<ConsultationBookingAdminDto>(`/speaker/consultations/bookings/${id}/cancel`, { method: 'POST', json: { reason } });
+      const b = await api<ConsultationBookingAdminDto>(`/consultations/expert/bookings/${id}/cancel`, { method: 'POST', json: { reason } });
       setData((d) => d && { ...d, bookings: d.bookings.map((x) => (x.id === id ? b : x)) });
       setCancelling(null);
       setReason('');
@@ -92,7 +95,7 @@ export function ExpertPortal() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Link href={`/${locale}/speaker`} className="text-[0.9375rem] text-muted hover:text-fg">
+        <Link href={`/${locale}/consultations`} className="text-[0.9375rem] text-muted hover:text-fg">
           {t('consultations.portal.back')}
         </Link>
         <h1 className="mt-3 text-3xl">{t('consultations.portal.title')}</h1>
@@ -146,6 +149,8 @@ export function ExpertPortal() {
         )}
       </section>
 
+      {data.google.available && <GoogleCard status={data.google} onChange={(google) => setData((d) => d && { ...d, google })} />}
+
       <section aria-labelledby="settings" className="flex flex-col gap-3">
         <h2 id="settings" className="text-xl">
           {t('consultations.portal.settings')}
@@ -163,5 +168,77 @@ export function ExpertPortal() {
         </Card>
       </section>
     </div>
+  );
+}
+
+/** Connect Google Calendar: busy times hide slots, and paid calls get an event with a Meet link. */
+function GoogleCard({ status, onChange }: { status: GoogleCalendarStatusDto; onChange: (s: GoogleCalendarStatusDto) => void }) {
+  const { t } = useI18n();
+  // Back from Google: ?google=connected | cancelled | permissions | failed (read once, then dropped from the address).
+  const [result, setResult] = useState<string | null>(null);
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get('google');
+    if (!r) return;
+    setResult(r);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function connect() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { url } = await api<{ url: string }>('/consultations/expert/google/connect', { method: 'POST' });
+      window.location.assign(url);
+    } catch (err) {
+      setError(errorMessage(err, t));
+      setBusy(false);
+    }
+  }
+  async function disconnect() {
+    setBusy(true);
+    setError(null);
+    try {
+      onChange(await api<GoogleCalendarStatusDto>('/consultations/expert/google', { method: 'DELETE' }));
+    } catch (err) {
+      setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const broken = status.connected && status.error;
+  return (
+    <section aria-labelledby="google" className="flex flex-col gap-3">
+      <h2 id="google" className="text-xl">
+        {t('consultations.google.title')}
+      </h2>
+      <Card className="flex flex-col gap-3">
+        {result && result !== 'connected' && <Alert tone="warning">{t(`consultations.google.result.${result}`)}</Alert>}
+        {result === 'connected' && !broken && <Alert tone="success">{t('consultations.google.result.connected')}</Alert>}
+        {broken ? (
+          <Alert tone="warning">{t('consultations.google.expired')}</Alert>
+        ) : status.connected ? (
+          <p className="text-body">{t('consultations.google.connected', { email: status.email ?? '' })}</p>
+        ) : (
+          <p className="text-body">{t('consultations.google.intro')}</p>
+        )}
+        <p className="text-[0.875rem] text-muted">{t('consultations.google.privacy')}</p>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <div className="flex flex-wrap gap-2">
+          {(!status.connected || broken) && (
+            <Button type="button" onClick={() => void connect()} loading={busy}>
+              {t(broken ? 'consultations.google.reconnect' : 'consultations.google.connect')}
+            </Button>
+          )}
+          {status.connected && (
+            <Button type="button" variant="secondary" onClick={() => void disconnect()} disabled={busy}>
+              {t('consultations.google.disconnect')}
+            </Button>
+          )}
+        </div>
+      </Card>
+    </section>
   );
 }

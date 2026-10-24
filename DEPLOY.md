@@ -389,6 +389,17 @@ The route exists only outside production and answers 403 without the right token
 6. **Optional: Google sign-in.** Create an OAuth client (Web) with the redirect URIs
    `https://academy.mlopsmena.com/api/auth/google/callback` and
    `https://academy-staging.mlopsmena.com/api/auth/google/callback`.
+   **Consultations with Google Calendar** use the same client (no new secret):
+   - In Google Cloud → APIs & Services, **enable the Google Calendar API**.
+   - Add two more redirect URIs: `https://academy.mlopsmena.com/api/consultations/google/callback`
+     and `https://academy-staging.mlopsmena.com/api/consultations/google/callback`.
+   - On the OAuth consent screen, add the scopes `.../auth/calendar.freebusy` and
+     `.../auth/calendar.events` (both "sensitive").
+   - Until Google verifies the app for those scopes, keep it in **Testing** and add each expert's
+     Gmail address under **Test users**. In Testing, Google ends every connection after **7 days**:
+     the expert is emailed and reconnects from `/consultations/expert` (calls fall back to their
+     fixed link meanwhile). Submitting the app for verification removes the 7-day limit.
+   Without Google configured, experts simply use a fixed meeting link.
 7. **Local secrets files** (never commit them, never paste them into chat):
 
    ```bash

@@ -224,6 +224,13 @@ function Experts() {
                 </Button>
               </div>
               {!r.hasAccount && <Alert tone="warning">{t('consultations.admin.noAccount')}</Alert>}
+              <p className="text-[0.875rem] text-muted">
+                {r.google?.connected
+                  ? r.google.error
+                    ? t('consultations.admin.googleExpired')
+                    : t('consultations.admin.googleOn', { email: r.google.email ?? '' })
+                  : t('consultations.admin.googleOff')}
+              </p>
               {editing === r.instructorId && <ConsultantSettingsForm initial={r.settings!} withEnabled onSave={save(r.instructorId)} />}
             </Card>
           </li>

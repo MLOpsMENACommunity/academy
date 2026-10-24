@@ -217,7 +217,10 @@
       "NOT_A_CONSULTANT": "Consultations aren't set up for your profile.",
       "LISTED_NEEDS_LINK_AND_PRICE": "While you're listed, keep a meeting link and at least one price.",
       "NO_PUBLIC_PAGE": "This speaker has no public page yet.",
-      "HAS_CONSULTATIONS": "This speaker has consultation bookings: unlist them in Admin → Consultations instead of deleting the profile."
+      "HAS_CONSULTATIONS": "This speaker has consultation bookings: unlist them in Admin → Consultations instead of deleting the profile.",
+      "CANNOT_RESCHEDULE": "This call can no longer be moved.",
+      "LINK_OR_GOOGLE_NEEDED": "A listed expert needs a meeting link or a connected Google Calendar.",
+      "GOOGLE_NOT_CONFIGURED": "Google Calendar isn't set up for the academy yet."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -1133,7 +1136,9 @@
         "supportEmail": "A real, monitored inbox. Shown on the contact and policy pages and in payment help. Empty: those pages point to the community channels.",
         "supportWhatsapp": "International format, e.g. +20 100 123 4567. Shown in payment help and on the contact page. Empty: hidden.",
         "speakerCancelDays": "0 lets speakers cancel right up to the start.",
-        "sessionTeamEmails": "Each address gets its own email when a speaker books or cancels a slot. Never shown publicly."
+        "sessionTeamEmails": "Each address gets its own email when a speaker books or cancels a slot. Never shown publicly.",
+        "orangeCashNumber": "Offered for consultations. Leave empty to not offer it.",
+        "etisalatCashNumber": "Offered for consultations. Leave empty to not offer it."
       },
       "speakers": "Speaker bookings",
       "speakerMaxOpenBookings": "Upcoming bookings one speaker can hold",
@@ -1143,7 +1148,11 @@
       "teamEmailRemove": "Remove {email}",
       "teamEmailAdd": "Add address",
       "teamEmailsEmpty": "No addresses: nobody will be emailed about speaker bookings (admins still get an in-app notification).",
-      "teamEmailsCount": "{n} of {max} addresses"
+      "teamEmailsCount": "{n} of {max} addresses",
+      "orangeCashNumber": "Orange Cash number",
+      "orangeCashName": "Orange Cash wallet name",
+      "etisalatCashNumber": "e& money number",
+      "etisalatCashName": "e& money wallet name"
     },
     "audit": {
       "title": "Audit log",
@@ -3043,7 +3052,7 @@
     "title": "Consultations",
     "intro": "Book a 1:1 call with a senior engineer from our community: an architecture review, a career question, a second opinion on your ML system.",
     "how1": "Pick an expert, a call length and a time that suits you.",
-    "how2": "We hold the time while you pay by InstaPay and send the screenshot on WhatsApp.",
+    "how2": "We hold the time while you pay by InstaPay or a mobile wallet and send the screenshot on WhatsApp.",
     "how3": "Once we've checked the payment, you get the meeting link by email.",
     "empty": "No experts are taking bookings right now. Check back soon.",
     "bookCta": "Book a call",
@@ -3061,7 +3070,7 @@
       "back": "All experts",
       "metaTitle": "Book a call with {name}",
       "about": "About",
-      "policy": "Cancel any time before you pay, and up to 24 hours before a paid call for a refund. If the expert cancels, you get a full refund.",
+      "policy": "Cancel any time before you pay. Paid calls aren't refunded, but you can move yours to another time once, up to 24 hours before. If the expert cancels, you get a full refund.",
       "bookTitle": "Book a call",
       "length": "Call length",
       "price": "{price} for {min} minutes",
@@ -3073,7 +3082,7 @@
       "note": "What would you like to talk about?",
       "noteHint": "Optional. The expert sees it before the call.",
       "reserve": "Reserve this time",
-      "reserveHint": "We hold it for you while you pay. You'll see how to pay on the next page.",
+      "reserveHint": "We hold it for you while you pay by InstaPay or a mobile wallet. You'll see how to pay on the next page.",
       "signIn": "Sign in to book"
     },
     "mine": {
@@ -3090,7 +3099,7 @@
       "reference": "Booking reference",
       "note": "Your note",
       "payTitle": "How to pay",
-      "payStep1": "Send {price} by InstaPay to {handle}.",
+      "payStep1": "Send {price} with any one of these:",
       "payName": "Account name: {name}",
       "payStep2": "Send the transfer screenshot on WhatsApp with your booking reference, {ref}.",
       "whatsapp": "Send the screenshot on WhatsApp",
@@ -3105,21 +3114,26 @@
       "cancelledAt": "Cancelled {time}.",
       "reason": "Reason: {reason}",
       "cancelConfirm": "Cancel this booking?",
-      "refundNote": "We'll contact you on WhatsApp about your refund.",
       "cancelReason": "Reason (optional)",
       "cancelYes": "Yes, cancel it",
       "keep": "Keep it",
       "cancel": "Cancel booking",
-      "lateCancel": "Less than {hours} hours before a paid call: to cancel, message us on WhatsApp."
+      "moveTitle": "Need another time?",
+      "moveRule": "Paid calls aren't refunded, but you can move yours to another open time once, up to {hours} hours before it starts.",
+      "move": "Change time",
+      "moveYes": "Move my call to this time",
+      "movedAlready": "You've already moved this call once, so it can't be moved again.",
+      "moveTooLate": "It's less than {hours} hours to the call, so it can't be moved any more.",
+      "noRefund": "Paid calls aren't refunded if you cancel or miss them. If the expert cancels, you get a full refund."
     },
     "settings": {
       "enabled": "Listed on the Consultations page",
-      "enabledHint": "Students can see and book this expert. Needs a meeting link and at least one price.",
+      "enabledHint": "Students can see and book this expert. Needs at least one price, and a meeting link or a connected Google Calendar.",
       "price30": "30-minute call (EGP)",
       "price60": "60-minute call (EGP)",
       "priceHint": "Leave empty to not offer this length.",
       "link": "Meeting link",
-      "linkHint": "A fixed Google Meet or Zoom link. Students see it only after their payment is checked.",
+      "linkHint": "A fixed Google Meet or Zoom link. Students see it only after their payment is checked. With Google Calendar connected, each call gets its own Meet link instead (this one stays as the fallback).",
       "timezone": "Time zone",
       "notice": "Minimum notice (hours)",
       "noticeHint": "At least 3.",
@@ -3146,7 +3160,7 @@
       "cardBody": "{count, plural, =0 {No confirmed calls coming up.} one {# confirmed call coming up.} other {# confirmed calls coming up.}}",
       "open": "Open",
       "notSetUp": "Consultations aren't set up for your profile. Ask the academy team if you'd like to offer calls.",
-      "back": "Speaker portal",
+      "back": "Consultations",
       "listed": "You're listed: students can book calls with you in the hours below.",
       "notListed": "You're not listed right now: students can't book new calls. The academy team turns listing on.",
       "upcoming": "Upcoming calls",
@@ -3179,7 +3193,26 @@
       "addTitle": "Add an expert",
       "addPick": "Speaker",
       "addHint": "Speakers with a public page. Set prices, a link and weekly hours, then list them.",
-      "noAccountShort": "no account"
+      "noAccountShort": "no account",
+      "googleOn": "Google Calendar: connected ({email})",
+      "googleOff": "Google Calendar: not connected (the expert connects it from their consultations page)",
+      "googleExpired": "Google Calendar: connection expired, the expert needs to reconnect"
+    },
+    "google": {
+      "title": "Google Calendar",
+      "intro": "Connect your Google Calendar: times when you're busy disappear from your booking page, and each paid call is added to your calendar with its own Google Meet link (the student is invited).",
+      "connected": "Connected to {email}. Busy times are hidden from students, and paid calls go into this calendar with a Meet link.",
+      "expired": "Your Google Calendar connection has stopped working (it expires from time to time). Reconnect it so we can see when you're busy and make Meet links.",
+      "privacy": "We only see when you're busy, never what's in your calendar, and we only add, move or remove the calls booked here.",
+      "connect": "Connect Google Calendar",
+      "reconnect": "Reconnect Google Calendar",
+      "disconnect": "Disconnect",
+      "result": {
+        "connected": "Google Calendar is connected.",
+        "cancelled": "Google Calendar wasn't connected: you cancelled on Google's page.",
+        "permissions": "Google Calendar wasn't connected: please allow both calendar permissions on Google's page.",
+        "failed": "Google Calendar couldn't be connected. Try again."
+      }
     }
   }
 }

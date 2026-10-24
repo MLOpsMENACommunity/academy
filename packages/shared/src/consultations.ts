@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { realValue } from './settings';
 import { isValidTimezone } from './time';
 
 // ------------------------------------------------------------------ rules
@@ -16,8 +17,47 @@ export const CONSULTATION_HOLD_HOURS = 24;
 export const CONSULTATION_HOLD_LEAD_HOURS = 2;
 /** Unpaid reservations one student may hold at once (so nobody can block an expert's week). */
 export const CONSULTATION_MAX_OPEN_HOLDS = 2;
-/** A student may cancel a paid call up to this many hours before it starts (a refund is arranged by hand). */
-export const CONSULTATION_STUDENT_CANCEL_HOURS = 24;
+/**
+ * Paid calls aren't refunded to a student who changes their mind: instead they may move a
+ * paid call to another open time, once, up to this many hours before it starts. (When the
+ * expert or the academy cancels, the student is refunded.)
+ */
+export const CONSULTATION_RESCHEDULE_HOURS = 24;
+export const CONSULTATION_MAX_RESCHEDULES = 1;
+
+/** The wallets a consultation can be paid with, each offered once its number is set in Settings. */
+export const CONSULTATION_WALLETS = ['INSTAPAY', 'VODAFONE_CASH', 'ORANGE_CASH', 'ETISALAT_CASH'] as const;
+export type ConsultationWallet = (typeof CONSULTATION_WALLETS)[number];
+
+type WalletSettings = {
+  instapayHandle: string;
+  instapayName: string;
+  vodafoneCashNumber: string;
+  vodafoneCashName: string;
+  orangeCashNumber: string;
+  orangeCashName: string;
+  etisalatCashNumber: string;
+  etisalatCashName: string;
+};
+
+/** The wallets with real details in Settings, in this order: InstaPay, Vodafone Cash, Orange Cash, e& money. */
+export function consultationPaymentMethods(s: WalletSettings): ConsultationPaymentMethod[] {
+  const all: [ConsultationWallet, string, string][] = [
+    ['INSTAPAY', s.instapayHandle, s.instapayName],
+    ['VODAFONE_CASH', s.vodafoneCashNumber, s.vodafoneCashName],
+    ['ORANGE_CASH', s.orangeCashNumber, s.orangeCashName],
+    ['ETISALAT_CASH', s.etisalatCashNumber, s.etisalatCashName],
+  ];
+  return all.filter(([, handle]) => realValue(handle)).map(([kind, handle, name]) => ({ kind, handle: realValue(handle), name: realValue(name) }));
+}
+
+/** "InstaPay", "Vodafone Cash", … in the reader's language. */
+export const CONSULTATION_WALLET_LABELS: Record<ConsultationWallet, { en: string; ar: string }> = {
+  INSTAPAY: { en: 'InstaPay', ar: 'InstaPay' },
+  VODAFONE_CASH: { en: 'Vodafone Cash', ar: 'فودافون كاش' },
+  ORANGE_CASH: { en: 'Orange Cash', ar: 'أورنج كاش' },
+  ETISALAT_CASH: { en: 'e& money', ar: 'e& money' },
+};
 
 /** Stored as text with a CHECK constraint (docs/ENGINEERING.md, "No new enums for state"). */
 export const CONSULTATION_STATUSES = ['AWAITING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'EXPIRED'] as const;
@@ -83,10 +123,12 @@ const settingsFields = {
 export const consultantSettingsSchema = z.object(settingsFields);
 export type ConsultantSettingsInput = z.infer<typeof consultantSettingsSchema>;
 
-/** What an admin edits: the same, plus whether the expert is listed. Listing needs a link and a price. */
+/**
+ * What an admin edits: the same, plus whether the expert is listed. Listing needs a price (checked
+ * here) and a fixed link or a connected Google Calendar (checked by the API, which knows the latter).
+ */
 export const adminConsultantSchema = z
   .object({ ...settingsFields, enabled: z.boolean() })
-  .refine((c) => !c.enabled || c.meetingUrl !== '', { message: 'Add the meeting link before listing this expert', path: ['meetingUrl'] })
   .refine((c) => !c.enabled || c.price30Egp !== null || c.price60Egp !== null, {
     message: 'Offer at least one call length before listing this expert',
     path: ['price30Egp'],
@@ -104,6 +146,8 @@ export type ConsultationBookingInput = z.infer<typeof consultationBookingSchema>
 export const consultationCancelSchema = z.object({ reason: z.string().trim().max(500).default('') });
 export type ConsultationCancelInput = z.infer<typeof consultationCancelSchema>;
 
+export const consultationRescheduleSchema = z.object({ startsAt: z.string().datetime({ offset: true }) });
+export type ConsultationRescheduleInput = z.infer<typeof consultationRescheduleSchema>;
 export const consultationSlotsQuerySchema = z.object({ duration: z.coerce.number().pipe(z.union([z.literal(30), z.literal(60)])) });
 
 export const adminConsultationsQuerySchema = z.object({ status: z.enum(CONSULTATION_STATUSES).optional() });
@@ -213,10 +257,18 @@ export function consultationHoldUntil(now: Date, startsAt: Date): Date {
   return new Date(Math.min(now.getTime() + CONSULTATION_HOLD_HOURS * 3_600_000, startsAt.getTime() - CONSULTATION_HOLD_LEAD_HOURS * 3_600_000));
 }
 
-/** A student cancels an unpaid reservation any time, and a paid call until 24 hours before. */
-export function studentCanCancel(b: { status: ConsultationStatus; startsAt: Date }, now: Date): boolean {
-  if (b.status === 'AWAITING_PAYMENT') return true;
-  return b.status === 'CONFIRMED' && b.startsAt.getTime() - now.getTime() >= CONSULTATION_STUDENT_CANCEL_HOURS * 3_600_000;
+/** A student cancels an unpaid reservation any time. A paid call isn't refunded: they can move it instead. */
+export function studentCanCancel(b: { status: ConsultationStatus }): boolean {
+  return b.status === 'AWAITING_PAYMENT';
+}
+
+/** A paid call can be moved once, up to 24 hours before it starts. */
+export function studentCanReschedule(b: { status: ConsultationStatus; startsAt: Date; rescheduleCount: number }, now: Date): boolean {
+  return (
+    b.status === 'CONFIRMED' &&
+    b.rescheduleCount < CONSULTATION_MAX_RESCHEDULES &&
+    b.startsAt.getTime() - now.getTime() >= CONSULTATION_RESCHEDULE_HOURS * 3_600_000
+  );
 }
 
 /** The expert's price for a call length, or null when they don't offer it. */
@@ -246,10 +298,17 @@ export interface ConsultantDetailDto extends ConsultantCardDto {
   horizonDays: number;
 }
 
-/** How to pay for a reservation (from Settings). Empty strings = not set. */
+export interface ConsultationPaymentMethod {
+  kind: ConsultationWallet;
+  /** The InstaPay address or the wallet number. */
+  handle: string;
+  /** The account or wallet name ('' when not set). */
+  name: string;
+}
+
+/** How to pay for a reservation (from Settings): only the wallets that are set. */
 export interface ConsultationPaymentDto {
-  instapayHandle: string;
-  instapayName: string;
+  methods: ConsultationPaymentMethod[];
   supportWhatsapp: string;
 }
 
@@ -270,6 +329,9 @@ export interface ConsultationBookingDto {
   meetingUrl: string | null;
   consultant: { slug: string; name: string; nameAr: string | null; photoUrl: string | null };
   canCancel: boolean;
+  /** How many times the student moved this call (at most CONSULTATION_MAX_RESCHEDULES). */
+  rescheduleCount: number;
+  canReschedule: boolean;
 }
 
 /** The student's view of one booking, with how to pay while it waits for payment. */
@@ -287,11 +349,28 @@ export interface ConsultantSettingsDto extends ConsultantSettingsInput {
   enabled: boolean;
 }
 
+/** The expert's Google Calendar connection. */
+export interface GoogleCalendarStatusDto {
+  /** False when the academy hasn't configured Google (no client id/secret): only fixed links then. */
+  available: boolean;
+  connected: boolean;
+  email: string | null;
+  /** "EXPIRED" when the connection stopped working and the expert has to connect again. */
+  error: string | null;
+}
+
+export interface ExpertOverviewDto {
+  settings: ConsultantSettingsDto;
+  google: GoogleCalendarStatusDto;
+  bookings: ConsultationBookingAdminDto[];
+}
+
 export interface AdminConsultantRowDto {
   instructorId: string;
   slug: string | null;
   name: string;
   hasAccount: boolean;
   settings: ConsultantSettingsDto | null;
+  google: Omit<GoogleCalendarStatusDto, 'available'> | null;
   upcoming: number;
 }

@@ -9,6 +9,8 @@ import {
   consultationSlots,
   localDay,
   studentCanCancel,
+  studentCanReschedule,
+  consultationPaymentMethods,
   zonedTime,
 } from './consultations';
 
@@ -93,13 +95,30 @@ describe('consultationHoldUntil', () => {
   });
 });
 
-describe('studentCanCancel', () => {
+describe('cancel and reschedule (no refunds for paid calls)', () => {
   const now = new Date('2026-10-24T12:00:00Z');
-  it('allows an unpaid reservation any time and a paid call until 24 hours before', () => {
-    expect(studentCanCancel({ status: 'AWAITING_PAYMENT', startsAt: new Date('2026-10-24T14:00:00Z') }, now)).toBe(true);
-    expect(studentCanCancel({ status: 'CONFIRMED', startsAt: new Date('2026-10-25T12:00:00Z') }, now)).toBe(true);
-    expect(studentCanCancel({ status: 'CONFIRMED', startsAt: new Date('2026-10-25T11:59:00Z') }, now)).toBe(false);
-    expect(studentCanCancel({ status: 'CANCELLED', startsAt: new Date('2026-11-25T12:00:00Z') }, now)).toBe(false);
+  it('lets a student cancel only an unpaid reservation', () => {
+    expect(studentCanCancel({ status: 'AWAITING_PAYMENT' })).toBe(true);
+    expect(studentCanCancel({ status: 'CONFIRMED' })).toBe(false);
+    expect(studentCanCancel({ status: 'CANCELLED' })).toBe(false);
+  });
+  it('lets a paid call move once, up to 24 hours before', () => {
+    const paid = { status: 'CONFIRMED' as const, startsAt: new Date('2026-10-25T12:00:00Z'), rescheduleCount: 0 };
+    expect(studentCanReschedule(paid, now)).toBe(true);
+    expect(studentCanReschedule({ ...paid, startsAt: new Date('2026-10-25T11:59:00Z') }, now)).toBe(false);
+    expect(studentCanReschedule({ ...paid, rescheduleCount: 1 }, now)).toBe(false);
+    expect(studentCanReschedule({ ...paid, status: 'AWAITING_PAYMENT' }, now)).toBe(false);
+  });
+});
+
+describe('consultationPaymentMethods', () => {
+  it('offers only the wallets whose number is set, in a fixed order', () => {
+    const none = { instapayHandle: '', instapayName: '', vodafoneCashNumber: '', vodafoneCashName: '', orangeCashNumber: '', orangeCashName: '', etisalatCashNumber: '', etisalatCashName: '' };
+    expect(consultationPaymentMethods(none)).toEqual([]);
+    expect(consultationPaymentMethods({ ...none, etisalatCashNumber: '01100000000', instapayHandle: 'academy@instapay', instapayName: 'MLOps MENA' })).toEqual([
+      { kind: 'INSTAPAY', handle: 'academy@instapay', name: 'MLOps MENA' },
+      { kind: 'ETISALAT_CASH', handle: '01100000000', name: '' },
+    ]);
   });
 });
 
@@ -122,9 +141,9 @@ describe('schemas', () => {
     expect(consultantSettingsSchema.safeParse({ ...base, meetingUrl: 'http://meet.google.com/x' }).success).toBe(false);
   });
 
-  it('lists an expert only with a link and at least one price', () => {
+  it('lists an expert only with at least one price (the link-or-Google rule is in the API)', () => {
     expect(adminConsultantSchema.safeParse({ ...base, enabled: true }).success).toBe(true);
-    expect(adminConsultantSchema.safeParse({ ...base, enabled: true, meetingUrl: '' }).success).toBe(false);
+    expect(adminConsultantSchema.safeParse({ ...base, enabled: true, meetingUrl: '' }).success).toBe(true);
     expect(adminConsultantSchema.safeParse({ ...base, enabled: true, price30Egp: null }).success).toBe(false);
     expect(adminConsultantSchema.safeParse({ ...base, enabled: false, meetingUrl: '', price30Egp: null }).success).toBe(true);
   });

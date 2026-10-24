@@ -782,8 +782,8 @@ actions a minute, 30 new assessments per 24 hours, 5 announcements per course an
 
 **Who:** speakers the team lists as experts (Aya, Sameh and Hossam to start), signed-in students with a
 confirmed email, SPEAKERS admins (who is listed) and FINANCE admins (bookings and payments).
-**Business use:** paid 1:1 calls with senior engineers, paid by InstaPay and checked by hand until
-Paymob arrives.
+**Business use:** paid 1:1 calls with senior engineers, paid by InstaPay or a mobile wallet and
+checked by hand until Paymob arrives.
 
 1. **Listing an expert** (Admin → Consultations, SPEAKERS): on a speaker profile with a public page,
    set the prices (EGP, for 30 and/or 60 minutes), the expert's fixed Meet or Zoom link, their time
@@ -796,8 +796,9 @@ Paymob arrives.
    the call if that is sooner. Two students can never hold overlapping calls with the same expert, and a
    student holds at most 2 unpaid reservations. The booking page and the `consultationReserved` email
    show the price, the InstaPay details and a WhatsApp link prefilled with the booking reference
-   (`C-XXXXXX`), all from Settings. Booking stays closed until the InstaPay handle and the support
-   WhatsApp number are set.
+   (`C-XXXXXX`). Payment methods come from Settings: InstaPay, Vodafone Cash, Orange Cash and e&
+   money, each shown once its number is set. Booking stays closed until at least one is set and the
+   support WhatsApp number is.
 3. **Payment:** the student sends the transfer screenshot on WhatsApp. A FINANCE admin checks it and
    clicks **Mark paid**: the booking is confirmed and both sides get `consultationConfirmed` with the
    meeting link, an Add to Google Calendar link and an .ics file (neither carries the link). A
@@ -806,10 +807,19 @@ Paymob arrives.
 4. **Lapsing and reminders** (hourly job): unpaid reservations past their hold
    become Expired (the student is told) and the slot reopens; confirmed calls get reminders 24 hours
    and 1 hour before, to both sides (no "tomorrow" email within 2 hours of the confirmation).
-5. **Cancelling:** the student, any time while unpaid and until 24 hours before a paid call; the expert
-   or a FINANCE admin, any upcoming booking (with an optional reason). Refunds of paid calls are
-   arranged by hand on WhatsApp.
-6. **Privacy:** bookings are in the data export; experts see the student's name and note, never their
+5. **Cancelling and moving (no refunds):** the student can cancel only while unpaid. Paid calls aren't
+   refunded to the student; instead they can **move** the call once to another open time of the
+   same expert, up to 24 hours before (both sides get the new time; reminders follow it). The
+   expert or a FINANCE admin can cancel any upcoming booking; a paid one then shows "refund due"
+   and the student is told they'll be refunded (by hand, on WhatsApp). The Refund Policy page says so.
+6. **Google Calendar (optional, per expert):** on `/consultations/expert` the expert connects their
+   Google Calendar (free/busy and events only). Their busy times disappear from the booking page; a
+   paid call is added to their calendar with its **own Google Meet link** and the student invited;
+   moving or cancelling updates or removes the event. A call keeps the link it was confirmed with.
+   If Google fails or the connection expires (7 days while the app is unverified), slots still show,
+   the expert is emailed to reconnect, and calls use their fixed link (Mark paid is refused if they
+   have neither). Setup: DEPLOY.md step 6.
+7. **Privacy:** bookings are in the data export; experts see the student's name and note, never their
    email. Closing an account cancels its upcoming calls (the other side is told; paid ones show in
    Admin → Consultations for the refund) and unlists an expert; anonymisation clears the notes (time,
    price and status stay for accounting). A speaker profile with bookings can't be deleted, only unlisted.
@@ -817,13 +827,17 @@ Paymob arrives.
 **Pages:** **Consultations** in the top menu (`/consultations`: the experts and how it works);
 `/consultations/<expert>` (bio, prices, call length, open days and times in the visitor's time zone,
 a note, Reserve); `/consultations/bookings` and `/consultations/bookings/<id>` (the student's
-bookings: how to pay with a WhatsApp button, the hold time, then the link and calendar buttons, and
-Cancel), also under **My consultations** in the account menu; `/speaker/consultations` (the expert's
-upcoming calls and their hours, link and prices; a card on `/speaker` for experts); **Admin →
+bookings: how to pay with every wallet and a WhatsApp button, the hold time, then the link, calendar
+buttons and Change time, and Cancel while unpaid), also under **My consultations** in the account
+menu; `/consultations/expert` (the expert's upcoming calls, Google Calendar, and their hours, link
+and prices; for any account whose speaker profile offers calls, admins included; a card on
+`/speaker` and `/consultations` for experts); **Admin →
 Consultations** (Bookings for FINANCE: filter by status, Mark paid, Cancel, "refund due" on paid
-calls that were cancelled; Experts for SPEAKERS: list, edit, add a speaker as an expert).
+calls that were cancelled; Experts for SPEAKERS: list, edit, add a speaker as an expert, see each
+expert's Google Calendar status). Admin → Settings has the Orange Cash and e& money fields.
 
-Not in v1: Paymob checkout, commission and payouts, reviews, expert applications, packages, days off.
+Not in v1: Paymob checkout, commission and payouts, reviews, expert applications, packages, days off
+(a busy Google Calendar covers them for connected experts).
 
 ---
 
@@ -970,7 +984,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| Consultations | Paid 1:1 calls with listed speakers (top-menu **Consultations**, booking pages, My consultations, the expert's page in the speaker portal, Admin → Consultations): weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migration: two new tables (additive) | Pending |
+| Consultations | Paid 1:1 calls with listed speakers (top-menu **Consultations**, booking pages, My consultations, the expert's page, Admin → Consultations), paid by InstaPay, Vodafone Cash, Orange Cash or e& money; no refunds for paid calls but one move up to 24 h before (Refund Policy updated); optional Google Calendar per expert (busy times, a Meet link and calendar event per call): weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migrations: two new tables, then new columns (all additive) | Pending |
 | Admin course tabs wrap | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Pending |
 | Announcements tab | The learn page has **Sessions** and **Announcements** tabs. The Announcements tab lists every announcement of the course (it showed the latest 20 at the bottom of the page before), with a "N new" badge; announcement notifications and emails open it (`#announcements`); new `GET /api/learn/:slug/announcements` (same visibility rules) (en/ar) | Pending |
 | No pgbouncer mode | The API talks to Neon's pooler without Prisma's `pgbouncer=true`, which had wrapped every query in `BEGIN; DEALLOCATE ALL; …; COMMIT` (about 6 round trips per query instead of 1–2). Neon's PgBouncer 1.22+ supports the prepared statements Prisma uses. Checked locally: the whole API e2e suite through PgBouncer 1.26 in transaction mode. No visible change besides speed (DEPLOY.md, "No pgbouncer mode") | Pending |

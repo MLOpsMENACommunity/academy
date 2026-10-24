@@ -1,19 +1,23 @@
 import { randomInt } from 'node:crypto';
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import {
   ACTIVE_CONSULTATION_STATUSES,
   availabilitySchema,
   CONSULTATION_MAX_OPEN_HOLDS,
+  CONSULTATION_WALLET_LABELS,
   consultationHoldUntil,
+  consultationPaymentMethods,
   consultationPrice,
   consultationSlots,
   googleCalendarLink,
   realValue,
   studentCanCancel,
+  studentCanReschedule,
   whatsappUrl,
   type AdminConsultantInput,
   type AdminConsultantRowDto,
   type AvailabilityWindow,
+  type BusyRange,
   type ConsultantCardDto,
   type ConsultantDetailDto,
   type ConsultantSettingsDto,
@@ -22,26 +26,31 @@ import {
   type ConsultationBookingDto,
   type ConsultationBookingInput,
   type ConsultationStatus,
+  type ExpertOverviewDto,
+  type GoogleCalendarStatusDto,
   type Locale,
   type MyConsultationDto,
   type Settings,
 } from '@academy/shared';
 import { Prisma, type ConsultantProfile, type ConsultationBooking, type Instructor } from '@prisma/client';
 import { formatDueAt } from '../assessments/due-format';
-import { ENV } from '../config/config.module';
-import type { Env } from '../config/env';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../common/decorators';
+import { ENV } from '../config/config.module';
+import type { Env } from '../config/env';
 import { EmailService } from '../email/email.service';
 import type { EmailTemplate } from '../email/templates/catalog';
 import { buildIcs } from '../learn/ics';
 import { Outbox, type OutboxMessage } from '../outbox/outbox.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { GoogleCalendar, GoogleCalendarExpired } from './google-calendar';
 
 const REFERENCE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ACTIVE = [...ACTIVE_CONSULTATION_STATUSES];
 const isActive = (s: ConsultationStatus) => (ACTIVE as ConsultationStatus[]).includes(s);
+/** Busy times read from an expert's Google Calendar are reused this long for the public slot lists. */
+const GOOGLE_BUSY_CACHE_MS = 2 * 60_000;
 
 type Profile = ConsultantProfile & { instructor: Instructor & { user: { id: string; email: string; locale: Locale } | null } };
 type Booking = ConsultationBooking & {
@@ -80,6 +89,9 @@ function settingsOf(p: ConsultantProfile): ConsultantSettingsDto {
   };
 }
 
+/** A Google connection that should work (connected, and not marked broken). */
+const googleUsable = (p: Pick<ConsultantProfile, 'googleRefreshToken' | 'googleError'>) => Boolean(p.googleRefreshToken && !p.googleError);
+
 function expertName(i: Pick<Instructor, 'name' | 'nameAr'>, locale: Locale): string {
   return locale === 'ar' ? i.nameAr || i.name : i.name;
 }
@@ -105,20 +117,31 @@ function card(p: Profile): ConsultantCardDto {
 
 /**
  * Consultations: paid 1:1 calls with speakers. A student picks an open slot and it is
- * reserved at once (AWAITING_PAYMENT, until holdUntil); they pay by InstaPay and send the
- * screenshot on WhatsApp; an admin marks the booking paid (CONFIRMED) and both sides get the
- * meeting link. Booking and confirming lock the expert's profile row, so two students can
- * never hold overlapping calls with the same expert. Emails go through the outbox, written
+ * reserved at once (AWAITING_PAYMENT, until holdUntil); they pay by InstaPay or a wallet and
+ * send the screenshot on WhatsApp; an admin marks the booking paid (CONFIRMED) and both sides
+ * get the meeting link. Paid calls aren't refunded to the student: they can move one once.
+ *
+ * Booking, confirming, moving and cancelling lock the expert's profile row, so two students
+ * can never hold overlapping calls with the same expert. Emails go through the outbox, written
  * in the same transaction as the change that causes them.
+ *
+ * An expert who connected Google Calendar: their busy times hide slots, and a paid call gets an
+ * event in their calendar with a new Meet link (the student is invited); moving or cancelling
+ * updates it. Google is called outside every transaction, and a failure never blocks a booking:
+ * their fixed link is used instead, and a broken connection is marked for them to reconnect.
  */
 @Injectable()
 export class ConsultationsService {
+  private readonly logger = new Logger(ConsultationsService.name);
+  private readonly googleBusyCache = new Map<string, { at: number; until: number; ranges: BusyRange[] }>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly email: EmailService,
     private readonly outbox: Outbox,
     private readonly audit: AuditService,
+    private readonly google: GoogleCalendar,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -157,7 +180,7 @@ export class ConsultationsService {
   async slots(slug: string, durationMin: number, now = new Date()): Promise<string[]> {
     const p = await this.listed(slug);
     if (consultationPrice(p, durationMin) === null) return [];
-    const busy = await this.busy(this.prisma, p.id, now);
+    const busy = [...(await this.busy(this.prisma, p.id, now)), ...(await this.googleBusy(p, now, new Date(now.getTime() + (p.horizonDays + 1) * 86_400_000), true))];
     return consultationSlots({ ...p, availability: availabilityOf(p) }, durationMin, busy, now).map((d) => d.toISOString());
   }
 
@@ -171,6 +194,67 @@ export class ConsultationsService {
   /** Serialises bookings for one expert: everything after this in the transaction sees a settled calendar. */
   private async lock(tx: Prisma.TransactionClient, consultantId: string): Promise<void> {
     await tx.$queryRaw`SELECT "id" FROM "ConsultantProfile" WHERE "id" = ${consultantId} FOR UPDATE`;
+  }
+
+  // ------------------------------------------------------------------ Google Calendar
+
+  private token(p: Pick<ConsultantProfile, 'googleRefreshToken' | 'googleError'>): string | null {
+    return googleUsable(p) ? this.google.decrypt(p.googleRefreshToken!) : null;
+  }
+
+  /**
+   * Busy times from the expert's Google Calendar ([] when not connected, or when Google fails:
+   * a failure never blocks booking). `cached` reuses a recent answer, for the public slot lists;
+   * booking and moving always ask again.
+   */
+  private async googleBusy(p: Profile | ConsultantProfile, from: Date, to: Date, cached = false): Promise<BusyRange[]> {
+    const token = this.token(p);
+    if (!token) return [];
+    const hit = this.googleBusyCache.get(p.id);
+    if (cached && hit && Date.now() - hit.at < GOOGLE_BUSY_CACHE_MS && hit.until >= to.getTime()) return hit.ranges;
+    try {
+      const ranges = await this.google.busy(token, from, to);
+      this.googleBusyCache.set(p.id, { at: Date.now(), until: to.getTime(), ranges });
+      return ranges;
+    } catch (err) {
+      await this.googleFailed(p.id, err);
+      return [];
+    }
+  }
+
+  /** A broken connection (expired or revoked) is marked and the expert told once; other errors are only logged. */
+  private async googleFailed(consultantId: string, err: unknown): Promise<void> {
+    if (!(err instanceof GoogleCalendarExpired)) {
+      this.logger.warn(`Google Calendar call failed: ${(err as Error).name}`);
+      return;
+    }
+    this.googleBusyCache.delete(consultantId);
+    const changed = await this.prisma.consultantProfile.updateMany({ where: { id: consultantId, googleError: null }, data: { googleError: 'EXPIRED' } });
+    if (!changed.count) return;
+    const p = await this.prisma.consultantProfile.findUnique({ where: { id: consultantId }, include: profileInclude });
+    const u = p?.instructor.user;
+    if (!u) return;
+    await this.outbox.enqueue([
+      {
+        userId: u.id,
+        locale: u.locale,
+        category: 'consultation',
+        lane: 'transactional',
+        dedupeKey: `consultation-google-expired:${consultantId}:${Date.now()}`,
+        template: { name: 'consultationGoogleExpired', url: this.email.url(u.locale, '/consultations/expert') },
+      },
+    ]);
+  }
+
+  private async withGoogle<T>(p: ConsultantProfile, fn: (token: string) => Promise<T>): Promise<T | null> {
+    const token = this.token(p);
+    if (!token) return null;
+    try {
+      return await fn(token);
+    } catch (err) {
+      await this.googleFailed(p.id, err);
+      return null;
+    }
   }
 
   // ------------------------------------------------------------------ students
@@ -188,9 +272,10 @@ export class ConsultationsService {
     const endsAt = new Date(startsAt.getTime() + input.durationMin * 60_000);
     // Read before the transaction: a query outside it would wait for the connection the transaction holds.
     const settings = await this.settings.get();
-    if (!realValue(settings.instapayHandle) || !realValue(settings.supportWhatsapp)) {
+    if (!consultationPaymentMethods(settings).length || !realValue(settings.supportWhatsapp)) {
       throw new ServiceUnavailableException({ code: 'PAYMENTS_NOT_SET_UP', message: 'Bookings open once the academy has set up payment details' });
     }
+    await this.refuseIfGoogleBusy(p, startsAt, endsAt);
 
     const id = await this.prisma.$transaction(async (tx) => {
       // The student first, then the expert (always this order): the holds limit spans experts.
@@ -228,6 +313,14 @@ export class ConsultationsService {
     return this.mine(session, id, now);
   }
 
+  /** The expert has something else in their Google Calendar then (asked fresh, not from the cache). */
+  private async refuseIfGoogleBusy(p: ConsultantProfile, startsAt: Date, endsAt: Date): Promise<void> {
+    const busy = await this.googleBusy(p, startsAt, endsAt);
+    if (busy.some((b) => b.startsAt < endsAt && startsAt < b.endsAt)) {
+      throw new ConflictException({ code: 'SLOT_TAKEN', message: 'That time is no longer available. Pick another one.' });
+    }
+  }
+
   private async createWithReference(tx: Prisma.TransactionClient, data: Omit<Prisma.ConsultationBookingUncheckedCreateInput, 'reference'>): Promise<{ id: string }> {
     for (let attempt = 0; ; attempt++) {
       const reference = `C-${Array.from({ length: 6 }, () => REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)]).join('')}`;
@@ -248,15 +341,53 @@ export class ConsultationsService {
     const dto = this.dto(b, now, 'student');
     if (dto.status !== 'AWAITING_PAYMENT') return { ...dto, payment: null };
     const s = await this.settings.get();
-    return { ...dto, payment: { instapayHandle: realValue(s.instapayHandle), instapayName: realValue(s.instapayName), supportWhatsapp: realValue(s.supportWhatsapp) } };
+    return { ...dto, payment: { methods: consultationPaymentMethods(s), supportWhatsapp: realValue(s.supportWhatsapp) } };
   }
 
+  /** An unpaid reservation only: paid calls aren't refunded (the student can move one instead). */
   async cancelMine(session: AuthUser, id: string, reason: string, now = new Date()): Promise<MyConsultationDto> {
     const own = await this.prisma.consultationBooking.findFirst({ where: { id, studentId: session.id }, select: { id: true } });
     if (!own) throw new NotFoundException('Booking not found');
-    await this.cancel(id, 'student', session.id, reason, now, (b, status) =>
-      studentCanCancel({ status, startsAt: b.startsAt }, now) ? null : 'This booking can no longer be cancelled here. Contact us on WhatsApp.',
+    await this.cancel(id, 'student', session.id, reason, now, (_b, status) =>
+      studentCanCancel({ status }) ? null : 'Paid calls are not refunded. You can move the call to another time instead.',
     );
+    return this.mine(session, id, now);
+  }
+
+  /** Moves a paid call to another open time of the same expert, once, up to 24 hours before. */
+  async reschedule(session: AuthUser, id: string, startsAtIso: string, now = new Date()): Promise<MyConsultationDto> {
+    const own = await this.prisma.consultationBooking.findFirst({ where: { id, studentId: session.id }, include: { consultant: true } });
+    if (!own) throw new NotFoundException('Booking not found');
+    const startsAt = new Date(startsAtIso);
+    const endsAt = new Date(startsAt.getTime() + own.durationMin * 60_000);
+    await this.refuseIfGoogleBusy(own.consultant, startsAt, endsAt);
+
+    const moved = await this.prisma.$transaction(async (tx) => {
+      await this.lock(tx, own.consultantId);
+      const b = await tx.consultationBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
+      if (!studentCanReschedule({ status: this.status(b, now), startsAt: b.startsAt, rescheduleCount: b.rescheduleCount }, now)) {
+        throw new ConflictException({ code: 'CANNOT_RESCHEDULE', message: 'This call can no longer be moved' });
+      }
+      const busy = await this.busy(tx, b.consultantId, now, b.id);
+      const open = consultationSlots({ ...b.consultant, availability: availabilityOf(b.consultant) }, b.durationMin, busy, now);
+      if (startsAt.getTime() === b.startsAt.getTime() || !open.some((s) => s.getTime() === startsAt.getTime())) {
+        throw new ConflictException({ code: 'SLOT_TAKEN', message: 'That time is no longer available. Pick another one.' });
+      }
+      const r = await tx.consultationBooking.updateMany({
+        where: { id, status: 'CONFIRMED', updatedAt: b.updatedAt },
+        data: { startsAt, endsAt, rescheduleCount: { increment: 1 } },
+      });
+      if (r.count !== 1) throw new ConflictException({ code: 'CHANGED', message: 'This booking changed meanwhile. Reload and try again.' });
+      await this.audit.log(
+        { actorId: session.id, action: 'consultation.rescheduled', entityType: 'ConsultationBooking', entityId: id, metadata: { from: b.startsAt.toISOString(), to: startsAt.toISOString() } },
+        tx,
+      );
+      const after = { ...b, startsAt, endsAt };
+      await this.outbox.enqueue(this.confirmedEmails(after, this.linkOf(after), true), tx);
+      return after;
+    });
+    this.outbox.kick();
+    if (moved.googleEventId) await this.withGoogle(moved.consultant, (token) => this.google.moveEvent(token, moved.googleEventId!, startsAt, endsAt));
     return this.mine(session, id, now);
   }
 
@@ -270,7 +401,7 @@ export class ConsultationsService {
     const asExpert = b.studentId !== session.id;
     const locale = asExpert ? (b.consultant.instructor.user?.locale ?? 'en') : b.student.locale;
     const title = this.calendarTitle(b, asExpert ? 'expert' : 'student', locale);
-    const url = this.email.url(locale, asExpert ? '/speaker/consultations' : `/consultations/bookings/${b.id}`);
+    const url = this.bookingUrl(b, asExpert ? 'expert' : 'student', locale);
     return buildIcs(title, [{ uid: `consultation-${b.id}`, title, description: url, url, start: b.startsAt, durationMin: b.durationMin, updatedAt: b.updatedAt }], now);
   }
 
@@ -282,21 +413,26 @@ export class ConsultationsService {
     return p;
   }
 
-  async expertOverview(userId: string, now = new Date()): Promise<{ settings: ConsultantSettingsDto; bookings: ConsultationBookingAdminDto[] }> {
+  private googleStatus(p: ConsultantProfile): GoogleCalendarStatusDto {
+    return { available: this.google.isEnabled(), connected: Boolean(p.googleRefreshToken), email: p.googleEmail, error: p.googleError };
+  }
+
+  async expertOverview(userId: string, now = new Date()): Promise<ExpertOverviewDto> {
     const p = await this.ownProfile(userId);
     const rows = await this.prisma.consultationBooking.findMany({
       where: { consultantId: p.id, endsAt: { gt: new Date(now.getTime() - 30 * 86_400_000) } },
       include: bookingInclude,
       orderBy: { startsAt: 'asc' },
     });
-    return { settings: settingsOf(p), bookings: rows.map((b) => this.expertDto(b, now)) };
+    return { settings: settingsOf(p), google: this.googleStatus(p), bookings: rows.map((b) => this.expertDto(b, now)) };
   }
 
   async updateExpertSettings(userId: string, input: ConsultantSettingsInput): Promise<ConsultantSettingsDto> {
     const p = await this.ownProfile(userId);
-    if (p.enabled && (!input.meetingUrl || (input.price30Egp === null && input.price60Egp === null))) {
-      throw new BadRequestException({ code: 'LISTED_NEEDS_LINK_AND_PRICE', message: 'While you are listed, keep a meeting link and at least one price' });
+    if (p.enabled && (input.price30Egp === null && input.price60Egp === null)) {
+      throw new BadRequestException({ code: 'LISTED_NEEDS_LINK_AND_PRICE', message: 'While you are listed, keep at least one price' });
     }
+    this.requireLinkWhenListed(p.enabled, input.meetingUrl, p);
     await this.keepLinkForConfirmed(p.id, input.meetingUrl);
     const updated = await this.prisma.consultantProfile.update({ where: { id: p.id }, data: { ...input, availability: input.availability as Prisma.InputJsonValue } });
     await this.audit.log({ actorId: userId, action: 'consultant.settings_updated', entityType: 'ConsultantProfile', entityId: p.id });
@@ -311,10 +447,62 @@ export class ConsultationsService {
     return this.expertDto(await this.prisma.consultationBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude }), now);
   }
 
-  /** Confirmed calls ahead are sent the current link (reminders, booking page): it can change but not go empty. */
+  /** Google's consent page for this expert (calendar free/busy and events). */
+  async googleConnectUrl(userId: string): Promise<{ url: string }> {
+    await this.ownProfile(userId);
+    if (!this.google.isEnabled()) throw new ServiceUnavailableException({ code: 'GOOGLE_NOT_CONFIGURED', message: 'Google Calendar is not set up for the academy' });
+    return { url: this.google.connectUrl(userId) };
+  }
+
+  /** Back from Google: stores the connection (encrypted). Returns the page to send the expert to. */
+  async googleCallback(session: AuthUser, code: string | undefined, state: string | undefined, error: string | undefined): Promise<string> {
+    const { locale } = await this.prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { locale: true } });
+    const page = (result: string) => `${this.env.WEB_URL}/${locale}/consultations/expert?google=${result}`;
+    if (error || !code || !state) return page('cancelled');
+    if (this.google.stateUser(state) !== session.id) return page('failed');
+    const p = await this.ownProfile(session.id);
+    try {
+      const r = await this.google.exchange(code);
+      const needed = ['https://www.googleapis.com/auth/calendar.freebusy', 'https://www.googleapis.com/auth/calendar.events'];
+      if (!needed.every((s) => r.scopes.includes(s))) {
+        await this.google.revoke(r.refreshToken);
+        return page('permissions');
+      }
+      await this.prisma.consultantProfile.update({
+        where: { id: p.id },
+        data: { googleRefreshToken: this.google.encrypt(r.refreshToken), googleEmail: r.email, googleConnectedAt: new Date(), googleError: null },
+      });
+      this.googleBusyCache.delete(p.id);
+      await this.audit.log({ actorId: session.id, action: 'consultant.google_connected', entityType: 'ConsultantProfile', entityId: p.id });
+      return page('connected');
+    } catch (err) {
+      this.logger.warn(`Google Calendar connect failed: ${(err as Error).name}`);
+      return page('failed');
+    }
+  }
+
+  async googleDisconnect(userId: string): Promise<GoogleCalendarStatusDto> {
+    const p = await this.ownProfile(userId);
+    this.requireLinkWhenListed(p.enabled, p.meetingUrl, { googleRefreshToken: null, googleError: null });
+    const token = p.googleRefreshToken ? this.google.decrypt(p.googleRefreshToken) : null;
+    if (token) await this.google.revoke(token);
+    const updated = await this.prisma.consultantProfile.update({ where: { id: p.id }, data: { googleRefreshToken: null, googleEmail: null, googleConnectedAt: null, googleError: null } });
+    this.googleBusyCache.delete(p.id);
+    await this.audit.log({ actorId: userId, action: 'consultant.google_disconnected', entityType: 'ConsultantProfile', entityId: p.id });
+    return this.googleStatus(updated);
+  }
+
+  /** A listed expert needs a way to meet: a fixed link, or a Google Calendar that makes Meet links. */
+  private requireLinkWhenListed(enabled: boolean, meetingUrl: string, google: Pick<ConsultantProfile, 'googleRefreshToken' | 'googleError'>): void {
+    if (enabled && !meetingUrl && !googleUsable(google)) {
+      throw new BadRequestException({ code: 'LINK_OR_GOOGLE_NEEDED', message: 'A listed expert needs a meeting link or a connected Google Calendar' });
+    }
+  }
+
+  /** Older confirmed calls without their own link use the expert's fixed link: it can change but not go empty. */
   private async keepLinkForConfirmed(consultantId: string, meetingUrl: string, now = new Date()): Promise<void> {
     if (meetingUrl) return;
-    const ahead = await this.prisma.consultationBooking.count({ where: { consultantId, status: 'CONFIRMED', endsAt: { gt: now } } });
+    const ahead = await this.prisma.consultationBooking.count({ where: { consultantId, status: 'CONFIRMED', endsAt: { gt: now }, meetingUrl: null } });
     if (ahead) {
       throw new BadRequestException({ code: 'LINK_NEEDED', message: `${ahead} confirmed call(s) are coming up: keep a meeting link (you can change it)` });
     }
@@ -339,6 +527,7 @@ export class ConsultationsService {
       name: i.name,
       hasAccount: Boolean(i.userId),
       settings: i.consultant ? settingsOf(i.consultant) : null,
+      google: i.consultant ? { connected: Boolean(i.consultant.googleRefreshToken), email: i.consultant.googleEmail, error: i.consultant.googleError } : null,
       upcoming: i.consultant ? (count.get(i.consultant.id) ?? 0) : 0,
     }));
   }
@@ -347,7 +536,8 @@ export class ConsultationsService {
     const instructor = await this.prisma.instructor.findUnique({ where: { id: instructorId }, select: { id: true, slug: true } });
     if (!instructor) throw new NotFoundException('Speaker not found');
     if (input.enabled && !instructor.slug) throw new BadRequestException({ code: 'NO_PUBLIC_PAGE', message: 'This speaker has no public page yet' });
-    const existing = await this.prisma.consultantProfile.findUnique({ where: { instructorId }, select: { id: true } });
+    const existing = await this.prisma.consultantProfile.findUnique({ where: { instructorId } });
+    this.requireLinkWhenListed(input.enabled, input.meetingUrl, existing ?? { googleRefreshToken: null, googleError: null });
     if (existing) await this.keepLinkForConfirmed(existing.id, input.meetingUrl);
     const data = { ...input, availability: input.availability as Prisma.InputJsonValue };
     const p = await this.prisma.consultantProfile.upsert({ where: { instructorId }, create: { instructorId, ...data }, update: data });
@@ -366,43 +556,72 @@ export class ConsultationsService {
             ? { status }
             : {};
     const rows = await this.prisma.consultationBooking.findMany({ where, include: bookingInclude, orderBy: { startsAt: 'desc' }, take: 500 });
-    return rows.map((b) => this.adminDto(b, now, 'admin'));
+    return rows.map((b) => this.adminDto(b, now));
   }
 
   async adminBooking(id: string, now = new Date()): Promise<ConsultationBookingAdminDto> {
     const b = await this.prisma.consultationBooking.findUnique({ where: { id }, include: bookingInclude });
     if (!b) throw new NotFoundException('Booking not found');
-    return this.adminDto(b, now, 'admin');
+    return this.adminDto(b, now);
+  }
+
+  /** The checks "Mark paid" makes, before Google is asked and again under the lock. */
+  private paidRefusal(b: Booking, admin: AuthUser, now: Date): void {
+    if (b.studentId === admin.id) throw new ForbiddenException({ code: 'OWN_BOOKING', message: 'Another admin has to confirm your own booking' });
+    if (b.status !== 'AWAITING_PAYMENT' && b.status !== 'EXPIRED') {
+      throw new ConflictException({ code: 'NOT_AWAITING_PAYMENT', message: `This booking is ${b.status.toLowerCase().replace('_', ' ')}` });
+    }
+    if (b.startsAt <= now) throw new ConflictException({ code: 'IN_THE_PAST', message: 'This call has already started' });
   }
 
   /**
-   * The payment was checked: the booking is confirmed and both sides get the link. A lapsed
-   * reservation can still be confirmed (the payment came late) when its slot is still free.
+   * The payment was checked: the booking is confirmed and both sides get the link. With Google
+   * connected, the call gets an event in the expert's calendar with its own Meet link (the student
+   * is invited); otherwise, or if Google fails, the expert's fixed link. A lapsed reservation can
+   * still be confirmed (the payment came late) when its slot is still free.
    */
   async markPaid(admin: AuthUser, id: string, now = new Date()): Promise<ConsultationBookingAdminDto> {
-    await this.prisma.$transaction(async (tx) => {
-      const head = await tx.consultationBooking.findUnique({ where: { id }, select: { consultantId: true } });
-      if (!head) throw new NotFoundException('Booking not found');
-      await this.lock(tx, head.consultantId);
-      const b = await tx.consultationBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
-      if (b.studentId === admin.id) throw new ForbiddenException({ code: 'OWN_BOOKING', message: 'Another admin has to confirm your own booking' });
-      if (!b.consultant.meetingUrl) {
-        throw new ConflictException({ code: 'NO_MEETING_LINK', message: 'This expert has no meeting link: add one in Admin → Consultations first' });
-      }
-      if (b.status !== 'AWAITING_PAYMENT' && b.status !== 'EXPIRED') {
-        throw new ConflictException({ code: 'NOT_AWAITING_PAYMENT', message: `This booking is ${b.status.toLowerCase().replace('_', ' ')}` });
-      }
-      if (b.startsAt <= now) throw new ConflictException({ code: 'IN_THE_PAST', message: 'This call has already started' });
-      const clash = (await this.busy(tx, b.consultantId, now, b.id)).some((x) => x.startsAt < b.endsAt && b.startsAt < x.endsAt);
-      if (clash) throw new ConflictException({ code: 'SLOT_TAKEN', message: 'Someone else has booked this time since. Arrange a new time with the student.' });
-      const done = await tx.consultationBooking.updateMany({
-        where: { id, status: b.status, updatedAt: b.updatedAt },
-        data: { status: 'CONFIRMED', paidAt: now, paidById: admin.id, holdUntil: null },
+    const before = await this.prisma.consultationBooking.findUnique({ where: { id }, include: bookingInclude });
+    if (!before) throw new NotFoundException('Booking not found');
+    this.paidRefusal(before, admin, now);
+    const event = await this.withGoogle(before.consultant, (token) =>
+      this.google.createEvent(token, {
+        requestId: before.id,
+        summary: this.calendarTitle(before, 'expert', before.consultant.instructor.user?.locale ?? 'en'),
+        description: `${before.reference}${before.note ? `\n\n${before.note}` : ''}`,
+        start: before.startsAt,
+        end: before.endsAt,
+        attendeeEmail: before.student.email,
+      }),
+    );
+    const link = event?.meetUrl || before.consultant.meetingUrl;
+    const dropEvent = async () => {
+      if (event) await this.withGoogle(before.consultant, (token) => this.google.deleteEvent(token, event.eventId));
+    };
+    if (!link) {
+      await dropEvent();
+      throw new ConflictException({ code: 'NO_MEETING_LINK', message: 'This expert has no meeting link (and no working Google Calendar): add one first' });
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.lock(tx, before.consultantId);
+        const b = await tx.consultationBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
+        this.paidRefusal(b, admin, now);
+        const clash = (await this.busy(tx, b.consultantId, now, b.id)).some((x) => x.startsAt < b.endsAt && b.startsAt < x.endsAt);
+        if (clash) throw new ConflictException({ code: 'SLOT_TAKEN', message: 'Someone else has booked this time since. Arrange a new time with the student.' });
+        const done = await tx.consultationBooking.updateMany({
+          where: { id, status: b.status, updatedAt: b.updatedAt },
+          data: { status: 'CONFIRMED', paidAt: now, paidById: admin.id, holdUntil: null, meetingUrl: link, googleEventId: event?.eventId ?? null },
+        });
+        if (done.count !== 1) throw new ConflictException({ code: 'CHANGED', message: 'This booking changed meanwhile. Reload and try again.' });
+        await this.audit.log({ actorId: admin.id, action: 'consultation.paid', entityType: 'ConsultationBooking', entityId: id, metadata: { google: Boolean(event) } }, tx);
+        await this.outbox.enqueue(this.confirmedEmails(b, link, false), tx);
       });
-      if (done.count !== 1) throw new ConflictException({ code: 'CHANGED', message: 'This booking changed meanwhile. Reload and try again.' });
-      await this.audit.log({ actorId: admin.id, action: 'consultation.paid', entityType: 'ConsultationBooking', entityId: id }, tx);
-      await this.outbox.enqueue(this.confirmedEmails(b), tx);
-    });
+    } catch (err) {
+      await dropEvent();
+      throw err;
+    }
     this.outbox.kick();
     return this.adminBooking(id, now);
   }
@@ -416,22 +635,31 @@ export class ConsultationsService {
 
   /**
    * An account was deleted. As a student: their upcoming calls are cancelled (a paid one shows
-   * as cancelled-after-payment in Admin → Consultations, for the refund) and the expert is told.
-   * As an expert: they're unlisted, and their upcoming calls are cancelled with the students told.
-   * Never throws: deletion must not fail on this.
+   * as refund due in Admin → Consultations) and the expert is told. As an expert: they're
+   * unlisted, their Google connection is dropped, and their upcoming calls are cancelled with the
+   * students told. Never throws: deletion must not fail on this.
    */
   async releaseForDeletedAccount(userId: string, now = new Date()): Promise<void> {
     const reason = 'The account was closed';
     const asStudent = await this.prisma.consultationBooking.findMany({ where: { studentId: userId, startsAt: { gt: now }, status: { in: ACTIVE } }, select: { id: true } });
-    const profile = await this.prisma.consultantProfile.findFirst({ where: { instructor: { userId } }, select: { id: true } });
+    const profile = await this.prisma.consultantProfile.findFirst({ where: { instructor: { userId } } });
     const asExpert = profile
       ? await this.prisma.consultationBooking.findMany({ where: { consultantId: profile.id, startsAt: { gt: now }, status: { in: ACTIVE } }, select: { id: true } })
       : [];
-    if (profile) await this.prisma.consultantProfile.update({ where: { id: profile.id }, data: { enabled: false } }).catch(() => undefined);
-    for (const [rows, by] of [[asStudent, 'student'], [asExpert, 'expert']] as const) {
+    for (const [rows, by] of [
+      [asStudent, 'student'],
+      [asExpert, 'expert'],
+    ] as const) {
       for (const { id } of rows) {
         await this.cancel(id, by, userId, reason, now, (_b, status) => (isActive(status) ? null : 'gone')).catch(() => undefined);
       }
+    }
+    if (profile) {
+      const token = profile.googleRefreshToken ? this.google.decrypt(profile.googleRefreshToken) : null;
+      if (token) await this.google.revoke(token);
+      await this.prisma.consultantProfile
+        .update({ where: { id: profile.id }, data: { enabled: false, googleRefreshToken: null, googleEmail: null, googleConnectedAt: null, googleError: null } })
+        .catch(() => undefined);
     }
   }
 
@@ -455,7 +683,7 @@ export class ConsultationsService {
     return n;
   }
 
-  /** "Tomorrow" (22–24 h ahead) and "in 1 hour" (10–75 min ahead) emails for confirmed calls. Each sends once. */
+  /** "Tomorrow" (22–24 h ahead) and "in 1 hour" (10–75 min ahead) emails for confirmed calls. Each sends once per time. */
   async queueReminders(now = new Date()): Promise<number> {
     // A call confirmed in the last 2 hours just got the confirmation: no "tomorrow" email on top of it.
     const windows: { hours: 24 | 1; from: number; to: number; paidBefore?: Date }[] = [
@@ -481,14 +709,15 @@ export class ConsultationsService {
             locale: to.locale,
             category: 'consultation',
             lane: 'transactional',
-            dedupeKey: `consultation-reminder${w.hours}:${b.id}:${role}`,
+            // The time is part of the key: a moved call is reminded again at its new time.
+            dedupeKey: `consultation-reminder${w.hours}:${b.id}:${role}:${b.startsAt.getTime()}`,
             template: {
               name: 'consultationReminder',
               role,
               otherName: this.otherName(b, role, to.locale),
               when: this.when(b, role, to.locale),
               hours: w.hours,
-              meetingUrl: b.consultant.meetingUrl,
+              meetingUrl: this.linkOf(b),
               url: this.bookingUrl(b, role, to.locale),
             },
           });
@@ -503,7 +732,8 @@ export class ConsultationsService {
 
   /**
    * Cancels under the expert's lock, judging the rule (`refusal`: a message, or null to allow)
-   * on the booking as it is now, so a cancel racing "Mark paid" sees the paid call.
+   * on the booking as it is now, so a cancel racing "Mark paid" sees the paid call. The call's
+   * Google Calendar event (if any) is removed afterwards.
    */
   private async cancel(
     id: string,
@@ -513,32 +743,39 @@ export class ConsultationsService {
     now: Date,
     refusal: (b: Booking, status: ConsultationStatus) => string | null,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    const b = await this.prisma.$transaction(async (tx) => {
       const head = await tx.consultationBooking.findUnique({ where: { id }, select: { consultantId: true } });
       if (!head) throw new NotFoundException('Booking not found');
       await this.lock(tx, head.consultantId);
-      const b = await tx.consultationBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
-      const refused = refusal(b, this.status(b, now));
+      const current = await tx.consultationBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
+      const refused = refusal(current, this.status(current, now));
       if (refused) throw new ConflictException({ code: 'CANNOT_CANCEL', message: refused });
-      const wasPaid = b.status === 'CONFIRMED';
+      const wasPaid = current.status === 'CONFIRMED';
       const r = await tx.consultationBooking.updateMany({
-        where: { id: b.id, status: b.status, updatedAt: b.updatedAt },
+        where: { id: current.id, status: current.status, updatedAt: current.updatedAt },
         data: { status: 'CANCELLED', cancelledAt: now, cancelledBy: by, cancelReason: reason || null, holdUntil: null },
       });
       if (r.count !== 1) throw new ConflictException({ code: 'CHANGED', message: 'This booking changed meanwhile. Reload and try again.' });
-      await this.audit.log({ actorId, action: 'consultation.cancelled', entityType: 'ConsultationBooking', entityId: b.id, metadata: { by, wasPaid } }, tx);
+      await this.audit.log({ actorId, action: 'consultation.cancelled', entityType: 'ConsultationBooking', entityId: current.id, metadata: { by, wasPaid } }, tx);
       // The student always hears; the expert is emailed only about confirmed calls (unpaid ones never reached their inbox).
-      const emails = [this.cancelledEmail(b, 'student', by, reason, wasPaid)];
-      if (wasPaid) emails.push(this.cancelledEmail(b, 'expert', by, reason, wasPaid));
+      const emails = [this.cancelledEmail(current, 'student', by, reason, wasPaid)];
+      if (wasPaid) emails.push(this.cancelledEmail(current, 'expert', by, reason, wasPaid));
       await this.outbox.enqueue(emails.filter((e): e is OutboxMessage => e !== null), tx);
+      return current;
     });
     this.outbox.kick();
+    if (b.googleEventId) await this.withGoogle(b.consultant, (token) => this.google.deleteEvent(token, b.googleEventId!));
   }
 
   /** As shown: an unpaid reservation past its hold is EXPIRED even before the job stores it. */
   private status(b: ConsultationBooking, now: Date): ConsultationStatus {
     if (b.status === 'AWAITING_PAYMENT' && b.holdUntil && b.holdUntil <= now) return 'EXPIRED';
     return b.status as ConsultationStatus;
+  }
+
+  /** The call's link: its own (set when confirmed), else the expert's fixed one (calls confirmed before links were per call). */
+  private linkOf(b: Booking): string {
+    return b.meetingUrl || b.consultant.meetingUrl;
   }
 
   private dto(b: Booking, now: Date, as: 'student' | 'expert' | 'admin'): ConsultationBookingDto {
@@ -556,15 +793,17 @@ export class ConsultationsService {
       createdAt: b.createdAt.toISOString(),
       cancelledAt: b.cancelledAt?.toISOString() ?? null,
       cancelReason: b.cancelReason,
-      meetingUrl: status === 'CONFIRMED' ? b.consultant.meetingUrl || null : null,
+      meetingUrl: status === 'CONFIRMED' ? this.linkOf(b) || null : null,
       consultant: { slug: b.consultant.instructor.slug ?? '', name: b.consultant.instructor.name, nameAr: b.consultant.instructor.nameAr, photoUrl: b.consultant.instructor.photoUrl },
-      canCancel: as === 'student' ? studentCanCancel({ status, startsAt: b.startsAt }, now) : isActive(status) && (as === 'admin' || b.startsAt > now),
+      canCancel: as === 'student' ? studentCanCancel({ status }) : isActive(status) && (as === 'admin' || b.startsAt > now),
+      rescheduleCount: b.rescheduleCount,
+      canReschedule: as === 'student' && studentCanReschedule({ status, startsAt: b.startsAt, rescheduleCount: b.rescheduleCount }, now),
     };
   }
 
-  private adminDto(b: Booking, now: Date, as: 'admin'): ConsultationBookingAdminDto {
+  private adminDto(b: Booking, now: Date): ConsultationBookingAdminDto {
     return {
-      ...this.dto(b, now, as),
+      ...this.dto(b, now, 'admin'),
       student: { id: b.student.id, name: studentName(b.student), email: b.student.email },
       paidAt: b.paidAt?.toISOString() ?? null,
     };
@@ -591,7 +830,7 @@ export class ConsultationsService {
   }
 
   private bookingUrl(b: Booking, role: 'student' | 'expert', locale: Locale): string {
-    return this.email.url(locale, role === 'student' ? `/consultations/bookings/${b.id}` : '/speaker/consultations');
+    return this.email.url(locale, role === 'student' ? `/consultations/bookings/${b.id}` : '/consultations/expert');
   }
 
   private calendarTitle(b: Booking, role: 'student' | 'expert', locale: Locale): string {
@@ -611,15 +850,15 @@ export class ConsultationsService {
       priceEgp: b.priceEgp,
       reference: b.reference,
       holdUntil: formatDueAt(b.holdUntil!, locale, b.student.profile?.timezone),
-      instapayHandle: realValue(s.instapayHandle),
-      instapayName: realValue(s.instapayName),
+      methods: consultationPaymentMethods(s).map((m) => `${CONSULTATION_WALLET_LABELS[m.kind][locale]}: ${m.handle}${m.name ? ` (${m.name})` : ''}`),
       whatsappUrl: wa ? `${whatsappUrl(wa)}?text=${encodeURIComponent(text)}` : '',
       url: this.bookingUrl(b, 'student', locale),
     };
     return [{ userId: b.studentId, locale, template, category: 'consultation', lane: 'transactional', dedupeKey: `consultation-reserved:${b.id}` }];
   }
 
-  private confirmedEmails(b: Booking): OutboxMessage[] {
+  /** "Confirmed" after payment, or "moved" after a reschedule (the new time is part of that key). */
+  private confirmedEmails(b: Booking, link: string, moved: boolean): OutboxMessage[] {
     const out: OutboxMessage[] = [];
     for (const role of ['student', 'expert'] as const) {
       const to = this.recipient(b, role);
@@ -630,14 +869,15 @@ export class ConsultationsService {
         locale: to.locale,
         category: 'consultation',
         lane: 'transactional',
-        dedupeKey: `consultation-confirmed:${b.id}:${role}`,
+        dedupeKey: moved ? `consultation-moved:${b.id}:${role}:${b.startsAt.getTime()}` : `consultation-confirmed:${b.id}:${role}`,
         template: {
           name: 'consultationConfirmed',
           role,
+          moved,
           otherName: this.otherName(b, role, to.locale),
           when: this.when(b, role, to.locale),
           durationMin: b.durationMin,
-          meetingUrl: b.consultant.meetingUrl,
+          meetingUrl: link,
           // The link stays out of calendar entries (they get shared and synced); the booking page has it.
           calendarUrl: googleCalendarLink({ title: this.calendarTitle(b, role, to.locale), start: b.startsAt, end: b.endsAt, details: url }),
           icsUrl: `${this.env.WEB_URL}/api/consultations/bookings/${b.id}/calendar.ics`,

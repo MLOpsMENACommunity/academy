@@ -1856,6 +1856,13 @@ model ConsultantProfile {
   horizonDays    Int        @default(30)
   /// Weekly hours: [{ weekday 0-6 (Sunday first), start "HH:MM", end "HH:MM" }] (availabilitySchema).
   availability   Json       @default("[]")
+  /// Google Calendar, when the expert connected it: busy times hide slots, and paid calls get an
+  /// event with a Meet link. The refresh token is encrypted (consultations/google-calendar.ts).
+  googleRefreshToken String?
+  googleEmail        String?
+  googleConnectedAt  DateTime?
+  /// Why the connection stopped working (e.g. "EXPIRED"); null while it works.
+  googleError        String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -1883,6 +1890,12 @@ model ConsultationBooking {
   status        String            @default("AWAITING_PAYMENT")
   /// An unpaid reservation lapses after this.
   holdUntil     DateTime?
+  /// Times the student moved this paid call (no refunds: they may move it once instead).
+  rescheduleCount Int             @default(0)
+  /// The call's link, set when it is confirmed: a Meet link made in the expert's Google Calendar, or their fixed link.
+  meetingUrl    String?
+  /// The event in the expert's Google Calendar, when one was made.
+  googleEventId String?
   paidAt        DateTime?
   paidById      String?
   paidBy        User?             @relation("ConsultationPaidBy", fields: [paidById], references: [id], onDelete: SetNull)

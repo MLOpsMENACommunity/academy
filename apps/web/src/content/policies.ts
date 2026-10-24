@@ -29,8 +29,11 @@ interface Policy {
 const UPDATED_EN = 'Last updated: 10 October 2026';
 const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
 /** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates). */
-const PRIVACY_UPDATED_EN = 'Last updated: 15 October 2026';
-const PRIVACY_UPDATED_AR = 'آخر تحديث: 15 أكتوبر 2026';
+const PRIVACY_UPDATED_EN = 'Last updated: 24 October 2026';
+const PRIVACY_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
+/** The refund policy changed later (consultations). */
+const REFUND_UPDATED_EN = 'Last updated: 24 October 2026';
+const REFUND_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
@@ -55,6 +58,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'Assessments and attendance: your quiz answers, the links and files you submit for labs and assignments, your scores and the course team\'s feedback, and your attendance in live sessions (minutes and share of each session, from the Google Meet attendance report the team uploads). Uploaded files are deleted after the retention period set by the academy (180 days by default); scores stay with your course record.',
             'Certificates: the name printed on your certificate, the course, the date and the grade. Each certificate has a public verification page at its serial number, showing that name, the course and the date, so employers can check it; it is kept out of search engines. After your account is deleted and anonymised, the page only says the certificate is no longer available.',
             'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
+            'Consultations: the expert, time, length, price and status of each call you book, and the note you write for the expert. The expert sees your name and note, never your email address. Payment screenshots for consultations are sent on WhatsApp, not uploaded here. If the expert has connected Google Calendar, the call is added to their calendar with your email address as a guest, so Google sends you the invitation and the Meet link; the academy reads only when the expert is busy, never what is in their calendar.',
             'Waiting lists: if you ask to be told when a course opens ("Notify me"), your account email address and language. Joining needs an academy account; an entry made without one before that is kept, and linked to your account when you confirm the same address.',
             'Course invitations: if the academy team adds you to a course by your email address, that address, the course, who added you and when, and whether you joined. If you have no account yet, we email you to invite you, a few times at most; you are enrolled only after you sign up and confirm that same address.',
             'Accounts the team creates: the academy team can create a student account for your email address (for example after accepting you outside the site). We email you a link to choose your own password; nobody else sets or knows it. You can delete the account from your profile at any time.',
@@ -161,6 +165,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'التقييمات والحضور: إجاباتك في الاختبارات، والروابط والملفات التي ترسلها للمعامل والواجبات، ودرجاتك وملاحظات فريق الدورة، وحضورك في الجلسات المباشرة (الدقائق ونسبة كل جلسة، من تقرير حضور Google Meet الذي يرفعه الفريق). تُحذف الملفات المرفوعة بعد مدة الاحتفاظ التي تحددها الأكاديمية (180 يومًا افتراضيًا)، وتبقى الدرجات ضمن سجل دورتك.',
             'الشهادات: الاسم المطبوع على شهادتك والدورة والتاريخ والتقدير. لكل شهادة صفحة تحقق عامة برقمها التسلسلي تعرض ذلك الاسم والدورة والتاريخ ليتمكن أصحاب العمل من التحقق منها، وهي مستبعدة من محركات البحث. بعد حذف حسابك وتجهيل بياناته، تكتفي الصفحة بالإشارة إلى أن الشهادة لم تعد متاحة.',
             'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
+            'الاستشارات: الخبير وموعد كل مكالمة تحجزها ومدتها وسعرها وحالتها، والملاحظة التي تكتبها للخبير. يرى الخبير اسمك وملاحظتك فقط، ولا يرى بريدك الإلكتروني. تُرسَل صور تحويل الاستشارات على واتساب ولا تُرفع هنا. إذا ربط الخبير تقويم Google، تُضاف المكالمة إلى تقويمه وبريدك ضيفًا فيها، فيرسل Google إليك الدعوة ورابط Meet؛ ولا تقرأ الأكاديمية من تقويمه إلا أوقات انشغاله، لا محتواه.',
             'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريد حسابك الإلكتروني ولغتك. الانضمام يحتاج إلى حساب في الأكاديمية؛ وما سُجّل قبل ذلك بدون حساب نحتفظ به، ونربطه بحسابك عندما تؤكد العنوان نفسه.',
             'دعوات الدورات: إذا أضافك فريق الأكاديمية إلى دورة بعنوان بريدك الإلكتروني، نحفظ هذا العنوان والدورة ومن أضافك ومتى، وهل انضممت. إن لم يكن لديك حساب بعد، نراسلك لدعوتك بضع مرات على الأكثر، ولا نسجّلك إلا بعد أن تنشئ حسابًا وتؤكد العنوان نفسه.',
             'الحسابات التي ينشئها الفريق: يمكن لفريق الأكاديمية إنشاء حساب طالب بعنوان بريدك (مثلًا بعد قبولك خارج الموقع). نرسل إليك رابطًا لتختار كلمة مرورك بنفسك، ولا أحد غيرك يضعها أو يعرفها. ويمكنك حذف الحساب من ملفك الشخصي في أي وقت.',
@@ -378,8 +383,8 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   'refund-policy': {
     en: {
       title: 'Refund Policy',
-      description: 'When and how payments for paid courses can be refunded.',
-      updated: UPDATED_EN,
+      description: 'When and how payments for paid courses and consultations can be refunded.',
+      updated: REFUND_UPDATED_EN,
       sections: [
         {
           heading: 'Free courses',
@@ -398,17 +403,25 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: ['If the academy cancels a course, you receive a full refund.'],
         },
         {
+          heading: 'Consultations',
+          body: [
+            'Before you pay, you can cancel a reservation at any time; nothing is charged. An unpaid reservation also lapses on its own when its hold time ends.',
+            'Paid consultations are not refunded if you cancel or miss the call. Instead, you can move a paid call to another open time of the same expert once, up to 24 hours before it starts.',
+            'If the expert or the academy cancels a paid call, you receive a full refund.',
+          ],
+        },
+        {
           heading: 'How refunds are paid',
           body: [
-            `Refunds are sent back by the same method used to pay (InstaPay or Vodafone Cash) within 14 days. Contact us through {contact} to request one.`,
+            `Refunds are sent back by the same method used to pay (InstaPay or a mobile wallet such as Vodafone Cash) within 14 days. Contact us through {contact} to request one.`,
           ],
         },
       ],
     },
     ar: {
       title: 'سياسة الاسترداد',
-      description: 'متى وكيف يمكن استرداد مدفوعات الدورات المدفوعة.',
-      updated: UPDATED_AR,
+      description: 'متى وكيف يمكن استرداد مدفوعات الدورات المدفوعة والاستشارات.',
+      updated: REFUND_UPDATED_AR,
       sections: [
         {
           heading: 'الدورات المجانية',
@@ -427,8 +440,16 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
           body: ['إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
         },
         {
+          heading: 'الاستشارات',
+          body: [
+            'قبل الدفع يمكنك إلغاء الحجز في أي وقت دون أي تكلفة. كما ينتهي الحجز غير المدفوع تلقائيًا عند انتهاء مدة الاحتفاظ به.',
+            'لا تُسترد قيمة الاستشارة المدفوعة إذا ألغيتها أو لم تحضر. بدلًا من ذلك يمكنك نقل المكالمة المدفوعة مرة واحدة إلى موعد متاح آخر مع نفس الخبير، حتى 24 ساعة قبل بدئها.',
+            'إذا ألغى الخبير أو الأكاديمية مكالمة مدفوعة، تحصل على استرداد كامل.',
+          ],
+        },
+        {
           heading: 'كيف يُرد المبلغ',
-          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay أو فودافون كاش) خلال 14 يومًا. تواصل معنا عبر {contact} لطلب الاسترداد.`],
+          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay أو محفظة إلكترونية مثل فودافون كاش) خلال 14 يومًا. تواصل معنا عبر {contact} لطلب الاسترداد.`],
         },
       ],
     },

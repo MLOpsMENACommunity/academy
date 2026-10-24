@@ -1,6 +1,6 @@
 'use client';
 
-import { CONSULTATION_STUDENT_CANCEL_HOURS, googleCalendarLink, whatsappUrl, type MyConsultationDto } from '@academy/shared';
+import { CONSULTATION_RESCHEDULE_HOURS, CONSULTATION_WALLET_LABELS, googleCalendarLink, whatsappUrl, type MyConsultationDto } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { TextField } from '@/components/forms/fields';
@@ -13,6 +13,7 @@ import { api, ApiError } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { viewerTimezone } from '@/lib/format';
 import { egp, ExpertAvatar, expertName, StatusBadge, whenLabel } from './shared';
+import { SlotPicker } from './SlotPicker';
 
 /** One of the student's bookings: how to pay while it waits, the link once paid, and cancelling. */
 export function BookingView({ id }: { id: string }) {
@@ -24,6 +25,9 @@ export function BookingView({ id }: { id: string }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [newTime, setNewTime] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setTz(viewerTimezone());
@@ -38,6 +42,22 @@ export function BookingView({ id }: { id: string }) {
   const name = expertName(b.consultant, locale);
   const pay = b.payment;
   const waText = locale === 'ar' ? `دفع حجز المكالمة ${b.reference}` : `Payment for consultation ${b.reference}`;
+
+  async function reschedule() {
+    if (!newTime) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setB(await api<MyConsultationDto>(`/consultations/bookings/${id}/reschedule`, { method: 'POST', json: { startsAt: newTime } }));
+      setMoving(false);
+      setNewTime(null);
+    } catch (err) {
+      setError(errorMessage(err, t));
+      if (err instanceof ApiError && err.code === 'SLOT_TAKEN') setReloadKey((n) => n + 1);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function cancel() {
     setBusy(true);
@@ -84,8 +104,18 @@ export function BookingView({ id }: { id: string }) {
           <h2 className="text-[1.25rem]">{t('consultations.booking.payTitle')}</h2>
           <ol className="flex list-decimal flex-col gap-2 ps-5 text-[0.9375rem] leading-relaxed text-body">
             <li>
-              {t('consultations.booking.payStep1', { price: egp(b.priceEgp, locale), handle: pay.instapayHandle })}
-              {pay.instapayName && <span className="block text-muted">{t('consultations.booking.payName', { name: pay.instapayName })}</span>}
+              {t('consultations.booking.payStep1', { price: egp(b.priceEgp, locale) })}
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {pay.methods.map((m) => (
+                  <li key={m.kind} className="rounded-lg bg-muted-bg px-3 py-2">
+                    <span className="font-medium text-fg">{CONSULTATION_WALLET_LABELS[m.kind][locale]}</span>{' '}
+                    <span dir="ltr" className="tabular-nums select-all">
+                      {m.handle}
+                    </span>
+                    {m.name && <span className="block text-[0.875rem] text-muted">{t('consultations.booking.payName', { name: m.name })}</span>}
+                  </li>
+                ))}
+              </ul>
             </li>
             <li>{t('consultations.booking.payStep2', { ref: b.reference })}</li>
           </ol>
@@ -143,11 +173,43 @@ export function BookingView({ id }: { id: string }) {
 
       {error && <Alert tone="danger">{error}</Alert>}
 
+      {b.status === 'CONFIRMED' && (
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-[1.25rem]">{t('consultations.booking.moveTitle')}</h2>
+          {b.canReschedule ? (
+            moving ? (
+              <>
+                <SlotPicker slug={b.consultant.slug} duration={b.durationMin} horizonDays={30} value={newTime} onChange={setNewTime} reloadKey={reloadKey} />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" onClick={() => void reschedule()} disabled={!newTime} loading={busy}>
+                    {t('consultations.booking.moveYes')}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => setMoving(false)} disabled={busy}>
+                    {t('consultations.booking.keep')}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[0.9375rem] text-body">{t('consultations.booking.moveRule', { hours: CONSULTATION_RESCHEDULE_HOURS })}</p>
+                <Button type="button" variant="secondary" className="self-start" onClick={() => setMoving(true)}>
+                  {t('consultations.booking.move')}
+                </Button>
+              </>
+            )
+          ) : (
+            <p className="text-[0.9375rem] text-muted">
+              {t(b.rescheduleCount > 0 ? 'consultations.booking.movedAlready' : 'consultations.booking.moveTooLate', { hours: CONSULTATION_RESCHEDULE_HOURS })}
+            </p>
+          )}
+          <p className="text-[0.875rem] text-muted">{t('consultations.booking.noRefund')}</p>
+        </Card>
+      )}
+
       {b.canCancel ? (
         confirming ? (
           <Card className="flex flex-col gap-3 p-5">
             <p className="font-medium text-fg">{t('consultations.booking.cancelConfirm')}</p>
-            {b.status === 'CONFIRMED' && <p className="text-[0.9375rem] text-body">{t('consultations.booking.refundNote')}</p>}
             <TextField label={t('consultations.booking.cancelReason')} value={reason} onChange={setReason} maxLength={500} />
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="danger" onClick={() => void cancel()} loading={busy}>
@@ -163,9 +225,7 @@ export function BookingView({ id }: { id: string }) {
             {t('consultations.booking.cancel')}
           </Button>
         )
-      ) : (
-        b.status === 'CONFIRMED' && <p className="text-[0.875rem] text-muted">{t('consultations.booking.lateCancel', { hours: CONSULTATION_STUDENT_CANCEL_HOURS })}</p>
-      )}
+      ) : null}
 
       <ButtonLink href={`/${locale}/consultations`} variant="ghost" className="self-start">
         {t('consultations.mine.findExpert')}

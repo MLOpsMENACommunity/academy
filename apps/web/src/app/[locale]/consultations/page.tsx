@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ExpertAvatar, expertName, priceLines } from '@/components/consultations/shared';
+import { ExpertPortalCard } from '@/components/consultations/ExpertPortal';
 import { MyBookingsLink } from '@/components/consultations/MyBookingsLink';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
@@ -56,6 +57,9 @@ export default async function ConsultationsPage({ params }: Props) {
         </Container>
       </section>
       <Container className="py-10 sm:py-14">
+        <div className="mb-8 empty:hidden">
+          <ExpertPortalCard />
+        </div>
         {experts.length === 0 ? (
           <p className="text-muted">{t('consultations.empty')}</p>
         ) : (

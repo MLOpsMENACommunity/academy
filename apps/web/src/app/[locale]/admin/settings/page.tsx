@@ -13,7 +13,7 @@ import { errorMessage } from '@/lib/errors';
 import { issuesToErrors } from '@/lib/zod-errors';
 
 const GROUPS: { title: string; keys: (keyof Settings)[] }[] = [
-  { title: 'payment', keys: ['instapayHandle', 'instapayName', 'vodafoneCashNumber', 'vodafoneCashName'] },
+  { title: 'payment', keys: ['instapayHandle', 'instapayName', 'vodafoneCashNumber', 'vodafoneCashName', 'orangeCashNumber', 'orangeCashName', 'etisalatCashNumber', 'etisalatCashName'] },
   { title: 'support', keys: ['supportEmail', 'supportWhatsapp'] },
   { title: 'windows', keys: ['liveLinkRevealMinutes', 'screenshotRetentionDays'] },
   { title: 'speakers', keys: ['speakerMaxOpenBookings', 'speakerCancelDays'] },
@@ -23,7 +23,7 @@ const NUMERIC = new Set<keyof Settings>(['liveLinkRevealMinutes', 'screenshotRet
 /** Points settings keep their strings with the rest of points (admin.points.settings.*). */
 const POINTS_KEYS = new Set<string>(['points', 'sessionCompletedPoints', 'certificatePoints', 'speakerPointsCap']);
 /** Fields that explain what an empty value does. */
-const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'supportEmail', 'supportWhatsapp', 'speakerCancelDays']);
+const HINTS = new Set<keyof Settings>(['instapayHandle', 'vodafoneCashNumber', 'orangeCashNumber', 'etisalatCashNumber', 'supportEmail', 'supportWhatsapp', 'speakerCancelDays']);
 
 export default function AdminSettings() {
   const { t } = useI18n();

@@ -150,8 +150,8 @@ export type EmailTemplate =
       priceEgp: number;
       reference: string;
       holdUntil: string;
-      instapayHandle: string;
-      instapayName: string;
+      /** One line per wallet that is set, e.g. "Vodafone Cash: 010… (MLOps MENA)". */
+      methods: string[];
       whatsappUrl: string;
       url: string;
     }
@@ -159,6 +159,8 @@ export type EmailTemplate =
   | {
       name: 'consultationConfirmed';
       role: 'student' | 'expert';
+      /** The student moved the call: the same email says "moved" and gives the new time. */
+      moved?: boolean;
       otherName: string;
       when: string;
       durationMin: number;
@@ -181,7 +183,9 @@ export type EmailTemplate =
       url: string;
     }
   /** Consultations: 24 hours and 1 hour before a confirmed call. */
-  | { name: 'consultationReminder'; role: 'student' | 'expert'; otherName: string; when: string; hours: 24 | 1; meetingUrl: string; url: string };
+  | { name: 'consultationReminder'; role: 'student' | 'expert'; otherName: string; when: string; hours: 24 | 1; meetingUrl: string; url: string }
+  /** Consultations: the expert's Google Calendar connection stopped working (expired or revoked). */
+  | { name: 'consultationGoogleExpired'; url: string };
 
 type Built = { subject: string; element: ReactElement };
 
@@ -974,7 +978,6 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
     }
     case 'consultationReserved': {
       const subject = ar ? `مكالمتك مع ${t.expertName}: أكمل الدفع` : `Your call with ${t.expertName}: complete the payment`;
-      const pay = [t.instapayHandle, t.instapayName && `(${t.instapayName})`].filter(Boolean).join(' ');
       return {
         subject,
         element: (
@@ -987,8 +990,9 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
                 ? `مكالمة ${t.durationMin} دقيقة مع ${t.expertName}، ${t.when}. رقم الحجز: ${t.reference}.`
                 : `A ${t.durationMin}-minute call with ${t.expertName}, ${t.when}. Booking reference: ${t.reference}.`,
               ar
-                ? `ادفع ${t.priceEgp} جنيه عبر InstaPay${pay ? ` إلى ${pay}` : ''}، ثم أرسل صورة التحويل على واتساب مع رقم الحجز.`
-                : `Pay EGP ${t.priceEgp} by InstaPay${pay ? ` to ${pay}` : ''}, then send the transfer screenshot on WhatsApp with your booking reference.`,
+                ? `ادفع ${t.priceEgp} جنيه بإحدى هذه الطرق، ثم أرسل صورة التحويل على واتساب مع رقم الحجز:`
+                : `Pay EGP ${t.priceEgp} with one of these, then send the transfer screenshot on WhatsApp with your booking reference:`,
+              ...t.methods.map((m) => `• ${m}`),
               ar
                 ? `نحتفظ بالموعد حتى ${t.holdUntil}. بعد تأكيد الدفع يصلك رابط المكالمة.`
                 : `We hold the slot until ${t.holdUntil}. Once the payment is checked, you get the meeting link.`,
@@ -1006,14 +1010,20 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
       };
     }
     case 'consultationConfirmed': {
-      const subject = ar ? `تأكدت المكالمة مع ${t.otherName}` : `Confirmed: your call with ${t.otherName}`;
+      const subject = t.moved
+        ? ar
+          ? `موعد جديد للمكالمة مع ${t.otherName}`
+          : `New time: your call with ${t.otherName}`
+        : ar
+          ? `تأكدت المكالمة مع ${t.otherName}`
+          : `Confirmed: your call with ${t.otherName}`;
       return {
         subject,
         element: (
           <Layout
             {...base}
             preview={subject}
-            heading={ar ? 'تأكد الموعد' : 'Your call is confirmed'}
+            heading={t.moved ? (ar ? 'تغيّر موعد المكالمة' : 'Your call has a new time') : ar ? 'تأكد الموعد' : 'Your call is confirmed'}
             paragraphs={[
               ar ? `مكالمة ${t.durationMin} دقيقة مع ${t.otherName}، ${t.when}.` : `A ${t.durationMin}-minute call with ${t.otherName}, ${t.when}.`,
               ar ? `رابط المكالمة: ${t.meetingUrl}` : `Meeting link: ${t.meetingUrl}`,
@@ -1058,6 +1068,25 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
               ...(t.role === 'student' && lapsed ? [ar ? 'يمكنك حجز موعد جديد في أي وقت.' : 'You can book a new slot any time.'] : []),
             ]}
             cta={{ label: ar ? 'افتح الحجز' : 'Open the booking', url: t.url }}
+          />
+        ),
+      };
+    }
+    case 'consultationGoogleExpired': {
+      const subject = ar ? 'أعد ربط تقويم Google' : 'Reconnect your Google Calendar';
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              ar
+                ? 'توقف ربط تقويم Google الخاص بك بالأكاديمية (تنتهي صلاحية الربط دوريًا). حتى تعيد ربطه لن نرى أوقات انشغالك، وستستخدم المكالمات الجديدة رابطك الثابت إن وُجد.'
+                : "Your Google Calendar stopped working with the academy (the connection expires from time to time). Until you reconnect it, we can't see when you're busy, and new calls use your fixed link if you have one.",
+            ]}
+            cta={{ label: ar ? 'أعد الربط' : 'Reconnect', url: t.url }}
           />
         ),
       };

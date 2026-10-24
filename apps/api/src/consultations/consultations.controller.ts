@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -7,11 +7,13 @@ import {
   consultantSettingsSchema,
   consultationBookingSchema,
   consultationCancelSchema,
+  consultationRescheduleSchema,
   consultationSlotsQuerySchema,
   type AdminConsultantInput,
   type ConsultantSettingsInput,
   type ConsultationBookingInput,
   type ConsultationCancelInput,
+  type ConsultationRescheduleInput,
 } from '@academy/shared';
 import type { Response } from 'express';
 import type { z } from 'zod';
@@ -68,6 +70,20 @@ export class ConsultationsController {
     return this.consultations.cancelMine(user, id, body.reason);
   }
 
+  /** Paid calls aren't refunded: the student may move one, once, up to 24 hours before. */
+  @Post('bookings/:id/reschedule')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  reschedule(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationRescheduleSchema)) body: ConsultationRescheduleInput) {
+    return this.consultations.reschedule(user, id, body.startsAt);
+  }
+
+  /** Google sends the expert back here after they allow calendar access (the URL is registered in Google Cloud). */
+  @Get('google/callback')
+  async googleCallback(@CurrentUser() user: AuthUser, @Query() q: Record<string, string | undefined>, @Res() res: Response) {
+    res.redirect(303, await this.consultations.googleCallback(user, q.code, q.state, q.error));
+  }
+
   /** For the student or the expert of a confirmed call. */
   @Get('bookings/:id/calendar.ics')
   async ics(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
@@ -79,11 +95,13 @@ export class ConsultationsController {
   }
 }
 
-/** The expert's side, in the speaker portal: their hours, link and prices, and who booked. */
-@ApiTags('speaker')
-@Roles('SPEAKER')
-@Controller('speaker/consultations')
-export class SpeakerConsultationsController {
+/**
+ * The expert's own page: their bookings, hours, link and prices, and Google Calendar. Any signed-in
+ * account whose speaker profile was set up for consultations (some experts are admins); others get 404.
+ */
+@ApiTags('consultations')
+@Controller('consultations/expert')
+export class ExpertConsultationsController {
   constructor(private readonly consultations: ConsultationsService) {}
 
   @Get()
@@ -102,6 +120,19 @@ export class SpeakerConsultationsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(consultationCancelSchema)) body: ConsultationCancelInput) {
     return this.consultations.expertCancel(user.id, id, body.reason);
+  }
+
+  @Post('google/connect')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  googleConnect(@CurrentUser() user: AuthUser) {
+    return this.consultations.googleConnectUrl(user.id);
+  }
+
+  @Delete('google')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  googleDisconnect(@CurrentUser() user: AuthUser) {
+    return this.consultations.googleDisconnect(user.id);
   }
 }
 
