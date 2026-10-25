@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest something new for the academy
+title: "[Feature]: "
+labels: ["feature", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Who needs it (students, instructors, admins) and why
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What should it do?
+      description: Describe the feature as clearly as you can
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: How will we know it works?
+      placeholder: "- A student can ...\n- The admin sees ..."
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Page or area
+      placeholder: Course page, sign-up, dashboard, admin panel...
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Critical
+        - High
+        - Normal
+    validations:
+      required: true
+  - type: textarea
+    id: refs
+    attributes:
+      label: Examples or designs
+      description: Links to other sites, Figma, or screenshots
