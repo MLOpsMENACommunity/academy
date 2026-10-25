@@ -1,0 +1,70 @@
+name: Bug report
+description: Something on the academy is broken
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page link
+      description: The exact page where it happens
+      placeholder: https://academy.mlopsmena.com/en/courses/...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See the error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happens instead
+      description: Paste any error message you see
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Signed in as
+      options:
+        - Not signed in
+        - Student
+        - Speaker / instructor
+        - Admin
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - Desktop
+        - Phone
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language of the page
+      options:
+        - English
+        - Arabic
+        - Both
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here. Hide any student's personal data first.
