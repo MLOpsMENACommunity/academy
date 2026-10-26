@@ -762,9 +762,10 @@ model Application {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
-  history    ApplicationStatusHistory[]
-  payments   Payment[]
-  enrollment Enrollment?
+  history       ApplicationStatusHistory[]
+  payments      Payment[]
+  cardCheckouts CardCheckout[]
+  enrollment    Enrollment?
   notes      AdminNote[]
 
   @@unique([userId, courseId])
@@ -814,11 +815,36 @@ model Payment {
   reviewedAt        DateTime?
   rejectionReason   String?
   createdAt         DateTime      @default(now())
+  cardCheckout      CardCheckout?
 
   @@index([status, createdAt])
   @@index([transactionRefKey])
   @@index([screenshotSha256])
   @@index([applicationId])
+}
+
+/// One attempt to pay for an application by card on Paymob's hosted checkout. Its id goes to Paymob
+/// as special_reference and comes back on the webhook; it completes once a verified transaction
+/// arrives (the Payment row is then created, already APPROVED). Abandoned attempts stay incomplete.
+model CardCheckout {
+  id              String      @id @default(cuid())
+  applicationId   String
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  /// Whole currency units, like Course.price (Paymob is sent cents).
+  amount          Int
+  currency        String
+  /// Paymob's intention and order ids, from creating the checkout.
+  intentionId     String?
+  providerOrderId String?
+  /// The Paymob transaction that paid it: unique, so a replayed webhook changes nothing.
+  transactionId   String?     @unique
+  paymentId       String?     @unique
+  payment         Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@index([applicationId])
+  @@index([providerOrderId])
 }
 
 model Enrollment {

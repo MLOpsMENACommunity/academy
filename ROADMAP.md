@@ -17,9 +17,10 @@ flag and audit log entries already exist and would be set by the job.
 
 ## Card payments (Paymob)
 
-`PaymentMethod.CARD` already exists in the schema. Add a Paymob checkout,
-webhook verification, and automatic `PAYMENT_SUBMITTED → ENROLLED` on a
-verified webhook. Manual InstaPay / Vodafone Cash stays as an option.
+Built (see FEATURES.md 4.5, DEPLOY.md "Card payments (Paymob)"), off until the
+Paymob account is opened and its keys are set. Left for later: refunds from the
+admin page (today in the Paymob dashboard), wallets and Fawry through Paymob, and
+showing approximate USD/EUR prices to students abroad.
 
 ## Certificates and project submissions
 

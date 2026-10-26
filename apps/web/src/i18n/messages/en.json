@@ -587,6 +587,14 @@
     "copied": "Copied",
     "driveNote": "Course recordings will be shared with your Google account: {email}. Make sure it's correct before paying.",
     "policyNote": "By paying you agree to the {terms} and the {refund}.",
+    "card": {
+      "title": "Pay by card",
+      "body": "Visa or Mastercard, issued in Egypt or abroad. You pay on Paymob's secure page and you're enrolled as soon as the payment goes through.",
+      "button": "Pay {amount} by card",
+      "orManual": "Or pay by InstaPay or Vodafone Cash",
+      "confirming": "We're confirming your card payment. This page updates on its own in a few seconds.",
+      "slow": "We're still waiting for Paymob to confirm. If your card was charged, you'll be enrolled automatically. Refresh this page in a few minutes."
+    },
     "formTitle": "Submit proof of payment",
     "method": "Payment method",
     "amount": "Amount paid (EGP)",
@@ -609,6 +617,8 @@
       "FILE_TYPE": "Upload a JPG, PNG or PDF file.",
       "FILE_TOO_LARGE": "The file must be 5 MB or smaller.",
       "FILE_REQUIRED": "Upload a screenshot of the payment.",
+      "CARD_NOT_CONFIGURED": "Card payment isn't available. Pay by transfer instead.",
+      "CARD_UNAVAILABLE": "Card payment is unavailable right now. Try again in a few minutes, or pay by transfer.",
       "PAYMENTS_NOT_CONFIGURED": "Payment details aren't available yet. Please try again later.",
       "METHOD_NOT_AVAILABLE": "This payment method isn't available. Choose another one."
     },
@@ -642,6 +652,7 @@
       "empty": "Nothing here.",
       "oldestFirst": "Oldest first",
       "verifyWarning": "Verify this reference and amount in the actual InstaPay / Vodafone Cash transaction history before approving. Do not approve based on the screenshot alone.",
+      "cardNote": "Paid by card on Paymob and confirmed by Paymob's signed notification: no screenshot to check. Refunds are made in the Paymob dashboard.",
       "flags": {
         "duplicateRef": "Reference used before",
         "duplicateScreenshot": "Same screenshot uploaded before",
