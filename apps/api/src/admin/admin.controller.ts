@@ -14,6 +14,8 @@ import {
   sessionInputSchema,
   announcementSchema,
   announcementAudienceSchema,
+  telegramRequestSchema,
+  type TelegramRequestInput,
   type AnnouncementInput,
   sessionsBulkSchema,
   duplicateCourseSchema,
@@ -276,6 +278,20 @@ export class AdminController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   sendAnnouncement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(announcementSchema)) body: AnnouncementInput & { idempotencyKey: string }) {
     return this.announcements.send(id, body, user);
+  }
+
+  /** How many enrolled students have no Telegram username (who "Ask for Telegram usernames" would reach). */
+  @Get('courses/:id/announcements/telegram-request')
+  @AdminCan('ACADEMIC')
+  telegramAudience(@Param('id') id: string) {
+    return this.announcements.telegramAudience(id);
+  }
+
+  @Post('courses/:id/announcements/telegram-request')
+  @AdminCan('ACADEMIC')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  requestTelegram(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(telegramRequestSchema)) body: TelegramRequestInput) {
+    return this.announcements.requestTelegram(id, body, user);
   }
 
   @Get('courses/:id/feedback')

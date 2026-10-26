@@ -888,7 +888,8 @@ on their first section. The sections:
 (ADMISSIONS), Sessions (ACADEMIC; add, bulk add, reorder), Assessments (ACADEMIC), Leaderboard
 (ACADEMIC), Enrolled students (ADMISSIONS, ACADEMIC; Drive access, learn page access), Enrol by email
 (ADMISSIONS), Certificates (ACADEMIC), Announcements (ACADEMIC: message students by application
-status, in-app and email, with delivery counts), Waiting list (ADMISSIONS), Feedback (ACADEMIC).
+status, in-app and email, with delivery counts; **Ask for Telegram usernames** sends a ready-made
+message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC).
 
 **Image uploads** (Staging): **Upload image** next to course cover, live session cover, speaker photo
 fields: JPG, PNG or WebP up to 5 MB, served publicly at `/api/media/<id>` and cached for a year. To take
@@ -984,6 +985,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Ask for Telegram usernames | Admin → Courses → course → **Announcements** has **Ask for Telegram usernames**: shows how many enrolled students have no Telegram username and, after a confirm, sends them a ready-made message (English/Arabic, in each student's language) by email and in-app, through the announcement queue (retried, sent once per click, audited as `course.telegram_requested`). The email button and the notification open Profile → Community; only the students it was sent to see it on the learn page; it shows in the announcement history as "Enrolled, no Telegram username". New `GET`/`POST /api/admin/courses/:id/announcements/telegram-request` (ACADEMIC). No migration (en/ar) | Pending |
 | Attendance only | Students no longer mark sessions done (the box is gone; the old endpoint answers 410; session points already earned stay). Progress on the learn page, the certificate's sessions rule, the admin roster's sessions count and **Finisher** follow attendance (Present or Partial); sessions students marked done before this change still count, so nobody loses progress or eligibility. The Attendance tab (admin and Teaching) gets **Mark by hand**: every enrolled student with a checkbox, Select all, then Present, Partial or Absent, with or without a Meet file; points follow the course rule (en/ar) | Pending |
 | Consultations | Paid 1:1 calls with listed speakers, pay first then book: open times shown first; the student uploads the InstaPay, Vodafone Cash, Orange Cash or e& money screenshot; FINANCE approves (the student is told to book) or rejects with a reason; the student books an open time. No refunds for paid calls but one move up to 24 h before (Refund Policy updated); optional Google Calendar per expert (busy times, a Meet link and calendar event per call). Top-menu **Consultations**, My consultations, the expert's page, Admin → Consultations: weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migrations: two new tables, then new columns (all additive) | Pending |
 | Admin course tabs wrap | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Pending |

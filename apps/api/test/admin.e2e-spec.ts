@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AnnouncementDelivery } from '../src/announcements/announcement-delivery.service';
+import { EmailService } from '../src/email/email.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createCourse, createTestApp, createUser } from './helpers';
 
@@ -307,6 +308,52 @@ describe('admin panel API (e2e)', () => {
     // The enrolled student also sees it on the course page.
     const learn = await http().get(`/api/learn/${course.slug}`).set('Cookie', enrolled.cookie).expect(200);
     expect(learn.body.announcements[0]).toMatchObject({ subjectEn: 'Telegram group', bodyAr: 'Join here: https://t.me/example' });
+  });
+
+  it('asks enrolled students without a Telegram username to add it, once, linking to their profile', async () => {
+    const course = await createCourse(prisma);
+    const missing = await createUser(app, prisma, { prefix: 'tg-missing' });
+    const has = await createUser(app, prisma, { prefix: 'tg-has' });
+    const applicant = await createUser(app, prisma, { prefix: 'tg-applicant' });
+    const gone = await createUser(app, prisma, { prefix: 'tg-gone' });
+    for (const u of [missing, has, gone]) await prisma.enrollment.create({ data: { userId: u.id, courseId: course.id } });
+    await prisma.application.create({ data: { userId: applicant.id, courseId: course.id, status: 'SUBMITTED', answers: {}, profileSnapshot: {} } });
+    await prisma.profile.updateMany({ where: { userId: { in: [missing.id, applicant.id, gone.id] } }, data: { telegramUsername: null } });
+    await prisma.user.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
+    const emails: { to: string; url: string; profile?: boolean }[] = [];
+    const spy = jest.spyOn(app.get(EmailService), 'send').mockImplementation(async (to, _locale, template) => {
+      if (template.name === 'announcement') emails.push({ to, url: template.url, profile: template.profile });
+      return true;
+    });
+
+    const url = `/api/admin/courses/${course.id}/announcements/telegram-request`;
+    expect((await as(admin.cookie).get(url).expect(200)).body.count).toBe(1);
+    const idempotencyKey = `tg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const sent = await as(admin.cookie).post(url).send({ idempotencyKey }).expect(201);
+    expect(sent.body.recipients).toBe(1);
+    // A retried request (same key) sends nothing new.
+    expect((await as(admin.cookie).post(url).send({ idempotencyKey }).expect(201)).body.id).toBe(sent.body.id);
+
+    expect(await prisma.notification.findMany({ where: { type: 'course.announcement', userId: { in: [missing.id, has.id, applicant.id] } } })).toEqual([
+      expect.objectContaining({ userId: missing.id, link: '/profile?tab=community' }),
+    ]);
+    await app.get(AnnouncementDelivery).process();
+    expect(emails).toEqual([{ to: missing.email, url: expect.stringContaining('/profile?tab=community'), profile: true }]);
+    expect(await prisma.auditLog.count({ where: { entityId: sent.body.id, action: 'course.telegram_requested' } })).toBe(1);
+    const history = (await as(admin.cookie).get(`/api/admin/courses/${course.id}/announcements`).expect(200)).body;
+    expect(history[0]).toMatchObject({ subject: 'Please add your Telegram username', statuses: ['TELEGRAM_MISSING'], recipients: 1 });
+
+    // On the learn page only the student it was sent to sees it.
+    const seen = async (cookie: string) => (await http().get(`/api/learn/${course.slug}`).set('Cookie', cookie).expect(200)).body.announcements.length;
+    expect(await seen(missing.cookie)).toBe(1);
+    expect(await seen(has.cookie)).toBe(0);
+
+    // Once everyone has one, there is nobody to ask; only ACADEMIC admins may ask.
+    await prisma.profile.update({ where: { userId: missing.id }, data: { telegramUsername: 'now_added' } });
+    expect((await as(admin.cookie).get(url).expect(200)).body.count).toBe(0);
+    await as(admin.cookie).post(url).send({ idempotencyKey: `${idempotencyKey}-2` }).expect(400);
+    await http().post(url).set('Cookie', has.cookie).send({ idempotencyKey: `${idempotencyKey}-3` }).expect(403);
+    spy.mockRestore();
   });
 
   it('resumes announcement emails left pending (e.g. by a restart)', async () => {
