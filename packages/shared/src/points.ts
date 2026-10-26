@@ -402,6 +402,9 @@ export interface AdminLeaderboardRowDto {
   userId: string;
   name: string | null;
   email: string;
+  /** Community chat usernames from the profile (Telegram without the @). */
+  telegramUsername: string | null;
+  discordUsername: string | null;
   points: number;
   optedIn: boolean;
   badges: string[];

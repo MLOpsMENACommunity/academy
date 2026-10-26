@@ -13,10 +13,15 @@ import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { formatDate } from '@/lib/format';
 
+/** Lower-cased, @ dropped, so "@Layla_ML" finds layla_ml. */
+const normalize = (s: string) => s.trim().toLowerCase().replace(/^@/, '');
+
 /** Admin → Course → Leaderboard: everyone enrolled, ranked, with who is on the public board. */
 export function CourseLeaderboard({ courseId }: { courseId: string }) {
   const { locale, t } = useI18n();
   const weekSelect = useId();
+  const searchBox = useId();
+  const [search, setSearch] = useState('');
   const [scope, setScope] = useState<LeaderboardScope>('course');
   const [week, setWeek] = useState<number | null>(null);
   const [data, setData] = useState<AdminLeaderboardDto | null>(null);
@@ -43,6 +48,11 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
   // Before anything loaded, the error is all there is; afterwards it shows above the controls.
   if (!data) return error ? <Alert tone="danger">{error}</Alert> : <p className="text-muted">{t('admin.common.loading')}</p>;
   const weekLabel = (n: number) => t('leaderboard.weekN', { n });
+  // Filters the loaded rows only: ranks stay the ranks among everyone enrolled.
+  const needle = normalize(search);
+  const rows = needle
+    ? data.rows.filter((r) => [r.name, r.email, r.telegramUsername, r.discordUsername].some((v) => v && normalize(v).includes(needle)))
+    : data.rows;
 
   return (
     <div className="flex flex-col gap-4">
@@ -102,23 +112,32 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
           {a('csv')}
         </Button>
       </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label htmlFor={searchBox} className="block w-full max-w-md">
+          <span className="mb-1 block text-xs font-semibold text-fg">{t('admin.common.search')}</span>
+          <input id={searchBox} type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={a('searchPlaceholder')} className={inputClass} />
+        </label>
+        {needle && <p className="text-sm text-muted" aria-live="polite">{a('searchCount', { count: rows.length, total: data.rows.length })}</p>}
+      </div>
       <p className="text-sm text-muted">{t('leaderboard.participants', { count: data.participants, total: data.total })}</p>
       {scope === 'week' && data.weeks.available === 0 ? (
         <p className="text-muted">{t('leaderboard.notStarted')}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line bg-card">
-          <table className="w-full min-w-[40rem] text-sm">
+          <table className="w-full min-w-[56rem] text-sm">
             <thead className="bg-muted-bg text-start text-muted">
               <tr>
                 <th scope="col" className="px-3 py-2 text-start font-medium">{t('leaderboard.rank')}</th>
                 <th scope="col" className="px-3 py-2 text-start font-medium">{a('student')}</th>
+                <th scope="col" className="px-3 py-2 text-start font-medium">Telegram</th>
+                <th scope="col" className="px-3 py-2 text-start font-medium">Discord</th>
                 <th scope="col" className="px-3 py-2 text-end font-medium">{a('points')}</th>
                 <th scope="col" className="px-3 py-2 text-start font-medium">{a('onBoard')}</th>
                 <th scope="col" className="px-3 py-2 text-start font-medium">{t('badges.title')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-soft">
-              {data.rows.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.userId}>
                   <td className="px-3 py-2 font-semibold tabular-nums">{r.rank ?? '–'}</td>
                   <td className="px-3 py-2">
@@ -127,14 +146,16 @@ export function CourseLeaderboard({ courseId }: { courseId: string }) {
                     </Link>
                     <span className="block text-xs text-muted ltr-embed">{r.email}</span>
                   </td>
+                  <td className="px-3 py-2">{r.telegramUsername ? <span className="ltr-embed">@{r.telegramUsername}</span> : '–'}</td>
+                  <td className="px-3 py-2">{r.discordUsername ? <span className="ltr-embed">{r.discordUsername}</span> : '–'}</td>
                   <td className="px-3 py-2 text-end font-semibold tabular-nums">{r.points}</td>
                   <td className="px-3 py-2">{r.optedIn ? <Badge tone="success">{a('shown')}</Badge> : <Badge>{a('hidden')}</Badge>}</td>
                   <td className="px-3 py-2 text-xs text-body">{r.badges.join(', ') || '–'}</td>
                 </tr>
               ))}
-              {data.rows.length === 0 && (
+              {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-muted">{t('admin.common.none')}</td>
+                  <td colSpan={7} className="px-3 py-4 text-muted">{needle ? a('searchNone') : t('admin.common.none')}</td>
                 </tr>
               )}
             </tbody>
