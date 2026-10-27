@@ -213,6 +213,10 @@ export class AccountService {
         createdAt: user.createdAt,
       },
       profile: toProfileDto(user.profile),
+      // The Telegram account connected through the academy's bot (Profile → Community).
+      telegram: user.profile?.telegramUserId
+        ? { connected: true, telegramUserId: user.profile.telegramUserId.toString(), connectedAt: user.profile.telegramLinkedAt }
+        : { connected: false },
       // The PDF isn't embedded, and a signed link would expire in minutes, so point to where it can be downloaded.
       cv: user.profile?.cvKey
         ? {
@@ -373,6 +377,13 @@ export class AccountService {
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
     // The private calendar link stops working at once (calendar apps poll without signing in).
     await this.prisma.calendarFeed.deleteMany({ where: { userId } });
+    // The Telegram account is disconnected at once: the bot stops letting it into course groups
+    // and forgets its waiting join requests (groups it already joined keep it: removal is manual).
+    const telegram = await this.prisma.profile.findUnique({ where: { userId }, select: { telegramUserId: true } });
+    if (telegram?.telegramUserId) {
+      await this.prisma.telegramJoinRequest.deleteMany({ where: { telegramUserId: telegram.telegramUserId } });
+      await this.prisma.profile.update({ where: { userId }, data: { telegramUserId: null, telegramLinkedAt: null } });
+    }
     // Off every leaderboard at once (boards also skip deleted accounts).
     await this.prisma.leaderboardOptIn.deleteMany({ where: { userId } });
     // Off every waiting list: nobody should email a deleted account about new courses.
@@ -444,6 +455,8 @@ export class AccountService {
       }),
       this.prisma.adminNote.deleteMany({ where: { subjectUserId: userId } }),
       this.prisma.enrollment.updateMany({ where: { userId }, data: { driveRevokeEmail: null } }),
+      // The profile goes with the connected Telegram account; any join request still waiting from it too.
+      ...(user.profile?.telegramUserId ? [this.prisma.telegramJoinRequest.deleteMany({ where: { telegramUserId: user.profile.telegramUserId } })] : []),
       this.prisma.profile.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
       // Automation log rows stay (they are the rules' "already done" markers) but no longer point at the person.

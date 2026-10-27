@@ -8,6 +8,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { PointsHistory } from '@/components/points/PointsHistory';
 import { AccountPanel } from '@/components/profile/AccountPanel';
 import { SectionForm } from '@/components/profile/SectionForm';
+import { TelegramConnect } from '@/components/profile/TelegramConnect';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
 import { Progress } from '@/components/ui/Progress';
@@ -134,27 +135,30 @@ function Tabs({ user }: { user: MeResponse }) {
         ) : tab === 'points' ? (
           <PointsHistory />
         ) : (
-          <div className="rounded-card border border-line bg-card p-5 sm:p-8">
-            <h2 className="text-xl">
-              {t(`profile.sections.${tab}`)}
-              {!isRequiredSection(tab) && (
-                <>
-                  {' '}
-                  <span className="text-base font-normal text-muted">({t('common.optional')})</span>
-                </>
-              )}
-            </h2>
-            <p className="mt-1 mb-6 text-sm text-muted">{t(`profile.sectionHints.${tab}`)}</p>
-            <SectionForm
-              key={tab}
-              section={tab}
-              profile={profile}
-              onSaved={(p) => {
-                setProfile(p);
-                if (p.coreComplete !== profile.coreComplete || missingCommunityHandles(p) !== missingCommunityHandles(profile)) void reload();
-              }}
-            />
-          </div>
+          <>
+            <div className="rounded-card border border-line bg-card p-5 sm:p-8">
+              <h2 className="text-xl">
+                {t(`profile.sections.${tab}`)}
+                {!isRequiredSection(tab) && (
+                  <>
+                    {' '}
+                    <span className="text-base font-normal text-muted">({t('common.optional')})</span>
+                  </>
+                )}
+              </h2>
+              <p className="mt-1 mb-6 text-sm text-muted">{t(`profile.sectionHints.${tab}`)}</p>
+              <SectionForm
+                key={tab}
+                section={tab}
+                profile={profile}
+                onSaved={(p) => {
+                  setProfile(p);
+                  if (p.coreComplete !== profile.coreComplete || missingCommunityHandles(p) !== missingCommunityHandles(profile)) void reload();
+                }}
+              />
+            </div>
+            {tab === 'community' && <TelegramConnect />}
+          </>
         )}
       </div>
     </Container>

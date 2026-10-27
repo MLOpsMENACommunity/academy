@@ -495,6 +495,10 @@ model Profile {
   /// Community chat usernames (required to apply; null for students who joined before they were asked).
   telegramUsername       String?
   discordUsername        String?
+  /// The Telegram account the student connected through the bot (Profile → Community); lets the bot
+  /// let them into their courses' groups. One academy account per Telegram account.
+  telegramUserId         BigInt?   @unique
+  telegramLinkedAt       DateTime?
 
   /// 0–100, recomputed on every save so it can be filtered and sorted.
   completeness       Int       @default(0)
@@ -654,6 +658,9 @@ model Course {
   attendanceAbsentPoints   Int         @default(0)
   /// Automation rules stop for this course while true (each rule keeps its own on/off).
   automationPaused         Boolean     @default(false)
+  /// The course's Telegram group (a TelegramChat id) and the join-request invite link the bot made for it.
+  telegramChatId           BigInt?
+  telegramInviteLink       String?
 
   /// Derived from CourseStaff (see there): kept for the old readers (catalog cards, certificates).
   instructors        CourseInstructor[]
@@ -1977,4 +1984,26 @@ model AutomationFiring {
   @@unique([ruleId, dedupeKey])
   @@index([courseId, createdAt])
   @@index([courseId, type, createdAt])
+}
+
+/// A Telegram group the academy's bot was added to, recorded from its my_chat_member updates so
+/// admins can pick it as a course's group. The id is Telegram's chat id.
+model TelegramChat {
+  id         BigInt   @id
+  title      String
+  /// The bot is an administrator there and may invite users (needed to make the join-request link).
+  botIsAdmin Boolean  @default(false)
+  canInvite  Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+}
+
+/// A request to join a course group from a Telegram account that isn't connected to an academy
+/// account yet (or not enrolled yet): approved once it is. Never declined automatically.
+model TelegramJoinRequest {
+  chatId         BigInt
+  telegramUserId BigInt
+  createdAt      DateTime @default(now())
+
+  @@id([chatId, telegramUserId])
+  @@index([telegramUserId])
 }

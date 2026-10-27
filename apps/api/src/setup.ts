@@ -15,7 +15,20 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 /** POST …/assessments/import, for admins and course staff (also under the old /speaker/courses prefix). */
 export const QUIZ_IMPORT_PATH = /^\/api\/(?:admin|teach|speaker)\/courses\/[^/]+\/assessments\/import$/;
 
+/**
+ * Telegram chat and user ids are BigInt columns (Course.telegramChatId, Profile.telegramUserId) and
+ * JSON has no BigInt: JSON.stringify throws on one. The Telegram routes send them as strings
+ * themselves; this keeps any other response that happens to include a whole row from failing.
+ */
+function serializeBigIntsAsStrings(): void {
+  const proto = BigInt.prototype as unknown as { toJSON?: () => string };
+  proto.toJSON ??= function (this: bigint) {
+    return this.toString();
+  };
+}
+
 export function configureApp(app: NestExpressApplication): void {
+  serializeBigIntsAsStrings();
   const env = app.get<Env>(ENV);
   // One proxy hop (Caddy in production, the Next /api proxy in dev) sets X-Forwarded-For.
   app.set('trust proxy', 1);

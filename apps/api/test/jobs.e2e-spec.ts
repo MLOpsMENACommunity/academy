@@ -45,6 +45,7 @@ describe('internal jobs endpoint (e2e)', () => {
       feedbackPromptsQueued: expect.any(Number),
       outboxPending: expect.any(Number),
       outboxPurged: expect.any(Number),
+      telegramJoinRequestsApproved: expect.any(Number),
     });
   });
 });

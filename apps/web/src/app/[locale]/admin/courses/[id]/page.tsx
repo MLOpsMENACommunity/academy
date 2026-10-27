@@ -19,6 +19,7 @@ import { enrolledTotal } from '@/components/admin/enrolled-total';
 import { CourseForm } from '@/components/admin/CourseForm';
 import { toForm, type AdminCourse } from '@/components/admin/admin-course';
 import { CourseStaffPanel } from '@/components/admin/CourseStaffPanel';
+import { CourseTelegram } from '@/components/admin/CourseTelegram';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor } from '@/components/admin/CourseTabs';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
@@ -160,7 +161,12 @@ function CourseEditor() {
       </div>
 
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-5">
-        {tab === 'details' && <CourseForm initial={toForm(course)} courseId={course.id} onSaved={refresh} />}
+        {tab === 'details' && (
+          <>
+            <CourseForm initial={toForm(course)} courseId={course.id} onSaved={refresh} />
+            {academic && <CourseTelegram courseId={course.id} />}
+          </>
+        )}
         {tab === 'staff' && <CourseStaffPanel courseId={course.id} />}
         {tab === 'questions' && <QuestionsEditor courseId={course.id} initial={course.questions} onChange={refresh} />}
         {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} paid={course.type === 'PAID'} onChange={refresh} />}

@@ -63,6 +63,9 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_SERVICE_ACCOUNT?: string;
+  /** Optional: Telegram course groups (both needed; see DEPLOY.md, "Telegram course groups"). */
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
   SENTRY_DSN?: string;
   SENTRY_ENVIRONMENT?: string;
   /** Optional: the revalidation secret (otherwise derived from JOBS_TOKEN, see revalidate.ts). */
@@ -150,6 +153,8 @@ export class ApiContainer extends Container<Env> {
         GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
         GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
         GOOGLE_DRIVE_SERVICE_ACCOUNT: env.GOOGLE_DRIVE_SERVICE_ACCOUNT,
+        TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
+        TELEGRAM_WEBHOOK_SECRET: env.TELEGRAM_WEBHOOK_SECRET,
         DIRECT_DATABASE_URL: env.DIRECT_DATABASE_URL,
         SENTRY_DSN: env.SENTRY_DSN,
         SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,

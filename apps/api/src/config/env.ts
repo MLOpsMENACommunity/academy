@@ -40,6 +40,13 @@ const envSchema = z.object({
   /** Service account key (JSON, or base64 of it) that shares paid courses' Drive folders. Unset: shared by hand. */
   GOOGLE_DRIVE_SERVICE_ACCOUNT: z.string().optional(),
 
+  /**
+   * Telegram course groups (telegram/): the bot's token from BotFather, and the secret Telegram
+   * sends with every webhook call (its `secret_token`). Both are needed; without them the feature is off.
+   */
+  TELEGRAM_BOT_TOKEN: z.string().regex(/^\d+:[\w-]{20,}$/, 'expected a BotFather token (123456:ABC…)').optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().regex(/^[\w-]{32,256}$/, '32–256 letters, digits, _ or -').optional(),
+
   EMAIL_PROVIDER: z.enum(['smtp', 'resend', 'log']).default('smtp'),
   EMAIL_FROM: z.string().default('MLOps MENA Academy <academy@mlopsmena.com>'),
   /** Minimum gap between provider calls; defaults to 550 ms for Resend (2 requests/s account limit), 0 otherwise. */

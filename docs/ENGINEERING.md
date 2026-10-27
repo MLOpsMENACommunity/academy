@@ -84,7 +84,7 @@ pnpm workspaces:
 API modules (`apps/api/src/*`), one folder each: `auth`, `users` (profile, account, admin accounts),
 `courses`, `applications` (workflow), `payments`, `learn`, `assessments`, `certificates`, `points`,
 `events` (live sessions), `calendar` (private feeds), `waitlist`, `invites` (enrol by email),
-`announcements` (durable delivery), `speaker-portal`, `speaker-announcements`, `teaching` (speakers'
+`announcements` (durable delivery), `telegram` (course groups through the bot), `speaker-portal`, `speaker-announcements`, `teaching` (speakers'
 course routes), `course-access` (who may teach a course), `admin`, `admin-team`, `media`, `archive`,
 `funnel`, `notifications`, `settings`, `audit`, `email`, `storage`, `jobs`, `health`, `prisma`,
 `config`, `common` (guard, decorators, public cache, throttler, load shedding).
@@ -254,6 +254,7 @@ hand. Each job is idempotent and isolated (one failing doesn't stop the others):
 | `feedbackPromptsQueued` | Registered. Feedback prompts for sessions that ended 30 min–72 h ago (outbox rows + notifications) |
 | `consultationRemindersQueued` / `consultationScreenshotsDeleted` | Registered. Queue the 24 h (22–24 h) and 1 h (10–75 min) reminders for booked consultations (outbox dedupe keys, with the call's time, make each send once), and delete consultation payment screenshots older than `screenshotRetentionDays` (never one waiting for review) |
 | `automationActions` | Registered. Course automation rules (`src/automation/`): each rule that is on in an active, unpaused course is evaluated (`engine.ts`), what it already did is dropped (`AutomationFiring`, unique per rule and occasion, is the log and the marker), then it enqueues student messages (outbox category `automation`, opt-out `reminders`; quiet hours; 3 a day), writes notifications, alerts the course team, syncs bonus points (source `AUTOMATION`) and issues certificates when set to. Never changes an application (a unit test checks the code) |
+| `telegramJoinRequestsApproved` | Registered. Telegram course groups (`src/telegram/`): approves join requests that waited for their Telegram account to be connected or its owner to enrol (only waiting rows are read), and forgets requests older than 30 days. Never declines a request or removes anyone from a group. Off without `TELEGRAM_BOT_TOKEN` |
 | `outboxPending` / `outboxPurged` | Registered. Start sending the email outbox (after the response); delete old finished rows |
 
 **Jobs registry.** New jobs don't touch `jobs.controller.ts`: a provider decorated with
@@ -403,7 +404,7 @@ never in the repo):
 - **API** (validated at boot by `apps/api/src/config/env.ts`): `NODE_ENV`, `PORT`, `DATABASE_URL`,
   `DATABASE_POOL_SIZE`, `DATABASE_POOL_TIMEOUT`, `DB_PGBOUNCER`, `WEB_URL`, `CORS_ORIGINS`,
   `JWT_ACCESS_SECRET`, `ACCESS_TOKEN_TTL_MIN`, `REFRESH_TOKEN_TTL_DAYS`, `COOKIE_DOMAIN`, `COOKIE_SECURE`,
-  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_MIN_INTERVAL_MS`,
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_MIN_INTERVAL_MS`,
   `SMTP_HOST`, `SMTP_PORT`, `RESEND_API_KEY`, `EMAIL_ALLOWLIST`, `EMAIL_REDIRECT_TO`, `S3_ENDPOINT`,
   `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`,
   `S3_CREATE_BUCKET`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SENTRY_DSN`, `API_DOCS`, `LOG_JSON`,

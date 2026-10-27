@@ -1,11 +1,13 @@
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { configureApp } from '../src/setup';
 
-/** Boots the real app against DATABASE_URL with emails logged and jobs off. */
-export async function createTestApp(): Promise<{ app: NestExpressApplication; prisma: PrismaService }> {
+/** Boots the real app against DATABASE_URL with emails logged and jobs off; `override` can replace providers (e.g. a fake HTTP client). */
+export async function createTestApp(
+  override: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
+): Promise<{ app: NestExpressApplication; prisma: PrismaService }> {
   process.env.EMAIL_PROVIDER = 'log';
   process.env.JOBS_ENABLED = 'false';
   // Tests edit the database directly and read it back at once: no in-process catalog cache,
@@ -14,7 +16,7 @@ export async function createTestApp(): Promise<{ app: NestExpressApplication; pr
   // Nor the signed-in cache (signed-in-cache.e2e-spec.ts turns it on).
   process.env.SIGNED_IN_CACHE_TTL_S ??= '0';
   // S3_CREATE_BUCKET comes from the environment (true locally and in CI, so the bucket exists).
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const moduleRef = await override(Test.createTestingModule({ imports: [AppModule] })).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: ['error'], bodyParser: false });
   configureApp(app);
   await app.init();
