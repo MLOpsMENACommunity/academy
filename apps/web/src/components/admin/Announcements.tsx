@@ -1,6 +1,6 @@
 'use client';
 
-import { announcementSchema, APPLICATION_STATUSES, applicationStatusLabels, type ApplicationStatus } from '@academy/shared';
+import { announcementSchema, APPLICATION_STATUSES, applicationStatusLabels, TELEGRAM_REQUEST_MARKER, type ApplicationStatus } from '@academy/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -31,6 +31,59 @@ interface HistoryRow {
 const newKey = () => crypto.randomUUID();
 
 const EMPTY = { subjectEn: '', subjectAr: '', bodyEn: '', bodyAr: '' };
+
+/** One click: the fixed "add your Telegram username" message to enrolled students who have none. */
+function TelegramRequest({ courseId, onSent }: { courseId: string; onSent: () => void }) {
+  const { t } = useI18n();
+  const a = (k: string, v?: Record<string, string | number>) => t(`admin.courses.ann.tg.${k}`, v);
+  const [count, setCount] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [key, setKey] = useState(newKey);
+
+  const loadCount = useCallback(() => {
+    api<{ count: number }>(`/admin/courses/${courseId}/announcements/telegram-request`)
+      .then((r) => setCount(r.count))
+      .catch(() => setCount(null));
+  }, [courseId]);
+  useEffect(loadCount, [loadCount]);
+
+  async function send() {
+    setError(null);
+    setDone(null);
+    if (!count || !window.confirm(a('confirm', { count }))) return;
+    setBusy(true);
+    try {
+      const r = await api<{ recipients: number }>(`/admin/courses/${courseId}/announcements/telegram-request`, { method: 'POST', json: { idempotencyKey: key } });
+      setDone(t('admin.courses.ann.sent', { count: r.recipients }));
+      setKey(newKey());
+      loadCount();
+      onSent();
+    } catch (err) {
+      setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h2 className="text-lg">{a('title')}</h2>
+      <p className="mt-1 text-sm text-muted">{a('help')}</p>
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
+      {done && <Alert tone="success" className="mt-3">{done}</Alert>}
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <p className="text-sm text-muted" aria-live="polite">
+          {count === null ? '' : count ? a('missing', { count }) : a('none')}
+        </p>
+        <Button type="button" variant="secondary" className="ms-auto" loading={busy} disabled={!count} onClick={send}>
+          {a('send')}
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 /** Email + in-app message to a course's students, chosen by application status. */
 export function Announcements({ courseId }: { courseId: string }) {
@@ -105,6 +158,8 @@ export function Announcements({ courseId }: { courseId: string }) {
 
   return (
     <div className="space-y-5">
+      <TelegramRequest courseId={courseId} onSent={loadHistory} />
+
       <Card>
         <h2 className="text-lg">{a('title')}</h2>
         <p className="mt-1 text-sm text-muted">{a('help')}</p>
@@ -145,7 +200,7 @@ export function Announcements({ courseId }: { courseId: string }) {
                 <p className="font-semibold text-fg">{h.subject}</p>
                 {h.fromSpeaker && <p className="text-xs font-medium text-primary">{a('fromSpeaker', { name: h.fromSpeaker })}</p>}
                 <p className="text-xs text-muted">
-                  {formatDateTime(h.at, locale)} · {h.by ?? '—'} · {h.statuses.map((s) => ((s as string) === 'WAITLIST' ? t('admin.courses.wl.title') : (applicationStatusLabels[s]?.[locale] ?? s))).join(', ')}
+                  {formatDateTime(h.at, locale)} · {h.by ?? '—'} · {h.statuses.map((s) => ((s as string) === 'WAITLIST' ? t('admin.courses.wl.title') : (s as string) === TELEGRAM_REQUEST_MARKER ? a('tg.audience') : (applicationStatusLabels[s]?.[locale] ?? s))).join(', ')}
                 </p>
                 <p className="text-xs">
                   {a('delivered', { sent: h.sent, count: h.recipients })}

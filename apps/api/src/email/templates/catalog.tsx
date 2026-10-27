@@ -78,7 +78,8 @@ export type EmailTemplate =
    * Sent by an admin to a course's students, or by a speaker to an assigned course's students
    * or to their live session's registrants (`session`). `from` is the speaker's name.
    */
-  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string; from?: string | null; session?: boolean }
+  /** `profile`: the link opens the student's profile (e.g. to add a Telegram username), not the course. */
+  | { name: 'announcement'; courseTitle: string; subject: string; body: string; url: string; from?: string | null; session?: boolean; profile?: boolean }
   /** Waiting list ("Notify me"): may go to people without an account, so every one has a leave link. */
   | { name: 'waitlistJoined'; courseTitle: string; courseUrl: string; leaveUrl: string }
   | { name: 'waitlistOpen'; courseTitle: string; subject: string; body: string; url: string; leaveUrl: string }
@@ -651,9 +652,11 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             banner={t.from ? { text: ar ? `من ${t.from}` : `From ${t.from}`, tone: 'neutral' } : undefined}
             paragraphs={t.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)}
             cta={
-              t.session
-                ? { label: ar ? 'افتح صفحة الجلسة' : 'Open session page', url: t.url }
-                : { label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }
+              t.profile
+                ? { label: ar ? 'افتح ملفك الشخصي' : 'Open your profile', url: t.url }
+                : t.session
+                  ? { label: ar ? 'افتح صفحة الجلسة' : 'Open session page', url: t.url }
+                  : { label: ar ? 'افتح صفحة الدورة' : 'Open course page', url: t.url }
             }
             note={
               t.session
