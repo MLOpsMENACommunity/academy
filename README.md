@@ -120,7 +120,6 @@ refuses to start with an invalid config):
 | `ACCESS_TOKEN_TTL_MIN`, `REFRESH_TOKEN_TTL_DAYS` | Token lifetimes (15 min / 30 days) |
 | `COOKIE_DOMAIN`, `COOKIE_SECURE` | Leave domain empty for host-only cookies; secure defaults to on in production |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Sign in with Google. Redirect URI: `${WEB_URL}/api/auth/google/callback` |
-| `PAYMOB_SECRET_KEY`, `PAYMOB_PUBLIC_KEY`, `PAYMOB_HMAC_SECRET`, `PAYMOB_CARD_INTEGRATION_ID`, `PAYMOB_API_URL` | Optional card payments. All four keys set shows **Pay by card**; webhook URL: `${WEB_URL}/api/payments/paymob/webhook` |
 | `EMAIL_PROVIDER` | `smtp` (Mailpit locally), `resend` (production) or `log` |
 | `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `RESEND_API_KEY` | Email delivery |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | Private bucket: MinIO locally, Cloudflare R2 in production |
