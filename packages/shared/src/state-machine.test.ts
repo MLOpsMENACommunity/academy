@@ -47,15 +47,6 @@ describe('transition', () => {
     expect(transition(S.PAYMENT_REJECTED, 'SUBMIT_PAYMENT', paid)).toEqual(ok(S.PAYMENT_SUBMITTED));
   });
 
-  it('enrols on a verified card payment, only while payment is due on a paid course', () => {
-    expect(transition(S.AWAITING_PAYMENT, 'CARD_PAID', paid)).toEqual(ok(S.ENROLLED));
-    expect(transition(S.PAYMENT_REJECTED, 'CARD_PAID', full(paid))).toEqual(ok(S.ENROLLED));
-    for (const s of [S.SUBMITTED, S.SHORTLISTED, S.WAITLISTED, S.PAYMENT_SUBMITTED, S.REJECTED, S.WITHDRAWN]) {
-      expect(transition(s, 'CARD_PAID', paid).ok).toBe(false);
-    }
-    expect(transition(S.AWAITING_PAYMENT, 'CARD_PAID', free).ok).toBe(false);
-  });
-
   it('waitlists on shortlist when capacity is full', () => {
     expect(transition(S.SUBMITTED, 'SHORTLIST', full(paid))).toEqual(ok(S.WAITLISTED));
   });
@@ -90,7 +81,7 @@ describe('transition', () => {
   });
 
   it('never lets an enrolled application change', () => {
-    for (const e of ['SHORTLIST', 'ACCEPT', 'REJECT', 'WAITLIST', 'SUBMIT_PAYMENT', 'APPROVE_PAYMENT', 'REJECT_PAYMENT', 'CARD_PAID', 'ADMIN_ENROL'] as const) {
+    for (const e of ['SHORTLIST', 'ACCEPT', 'REJECT', 'WAITLIST', 'SUBMIT_PAYMENT', 'APPROVE_PAYMENT', 'REJECT_PAYMENT', 'ADMIN_ENROL'] as const) {
       expect(transition(S.ENROLLED, e, paid).ok).toBe(false);
     }
   });

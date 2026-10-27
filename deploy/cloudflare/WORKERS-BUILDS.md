@@ -154,8 +154,8 @@ are all listed. Every GitHub deploy set them, so they should be:
 `RESEND_API_KEY`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
 `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, plus the optional `SEED_PLACEHOLDER_STATUS`,
 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SENTRY_DSN`, `REVALIDATE_TOKEN` (otherwise
-derived from `JOBS_TOKEN`), `EDGE_PURGE_API_TOKEN` (see DEPLOY.md, "How fast an admin
-edit shows") and the four `PAYMOB_*` keys (see DEPLOY.md, "Card payments (Paymob)"). The deploy stops if a required
+derived from `JOBS_TOKEN`) and `EDGE_PURGE_API_TOKEN` (see DEPLOY.md, "How fast an admin
+edit shows"). The deploy stops if a required
 one is missing. Set or rotate any of them with
 `deploy/cloudflare/set-worker-secret.sh staging NAME`.
 

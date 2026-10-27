@@ -29,7 +29,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { detectFileType, MAX_UPLOAD_BYTES } from '../storage/file-type';
 import { SIGNED_URL_TTL_SECONDS, StorageService } from '../storage/storage.service';
-import { PaymobClient } from './paymob';
 
 const PAYABLE = ['AWAITING_PAYMENT', 'PAYMENT_REJECTED'] as const;
 
@@ -48,7 +47,7 @@ function toMyPayment(p: Payment): MyPaymentDto {
 }
 
 /**
- * Manual InstaPay / Vodafone Cash payments (Risks 2 and 3; card payments: CardPaymentsService):
+ * Manual InstaPay / Vodafone Cash payments (Risks 2 and 3):
  * - proof needs reference, sender, amount, date and a screenshot (validated by magic bytes);
  * - screenshots go to the private bucket under random keys and are only ever
  *   shown to admins through 5-minute signed URLs, each view audited;
@@ -65,7 +64,6 @@ export class PaymentsService {
     private readonly storage: StorageService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
-    private readonly paymob: PaymobClient,
   ) {}
 
   private async ownApplication(userId: string, applicationId: string) {
@@ -91,7 +89,6 @@ export class PaymentsService {
       ...publicContact(s),
       methods: configuredPaymentMethods(s),
       configured: paymentsConfigured(s),
-      cardEnabled: this.paymob.enabled,
     };
   }
 

@@ -64,19 +64,6 @@ const envSchema = z.object({
   /** Create the bucket on boot (local MinIO only). */
   S3_CREATE_BUCKET: bool.default('false'),
 
-  /**
-   * Card payments through Paymob (Developers → API keys in the Paymob dashboard). All four set turns
-   * the "Pay by card" button on; any missing keeps card payments off and the manual methods only.
-   */
-  PAYMOB_SECRET_KEY: z.string().optional(),
-  PAYMOB_PUBLIC_KEY: z.string().optional(),
-  /** Signs the transaction webhook (HMAC-SHA512); never the same as the secret key. */
-  PAYMOB_HMAC_SECRET: z.string().optional(),
-  /** The card payment integration (its id in the dashboard: test or live). */
-  PAYMOB_CARD_INTEGRATION_ID: z.coerce.number().int().positive().optional(),
-  /** Paymob's API host for the account's country (Egypt by default). */
-  PAYMOB_API_URL: z.string().url().default('https://accept.paymob.com'),
-
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(10).optional(),
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LOCALES, MANUAL_PAYMENT_METHODS, type PaymentMethod, type PaymentStatus } from './enums';
+import { MANUAL_PAYMENT_METHODS, type PaymentMethod, type PaymentStatus } from './enums';
 import { realValue } from './settings';
 
 /** Proof-of-payment fields (the screenshot is a separate multipart file). */
@@ -92,20 +92,7 @@ export interface PaymentInstructionsDto {
   methods: ('INSTAPAY' | 'VODAFONE_CASH')[];
   /** False until an admin sets real payment details in Settings. */
   configured: boolean;
-  /** Card payments through Paymob are set up (its keys are in the API's environment). */
-  cardEnabled: boolean;
 }
-
-/** Starting a card payment; the locale is the language Paymob returns the student to. */
-export const cardCheckoutSchema = z.object({ locale: z.enum(LOCALES).default('en') });
-
-/** Where to send the student to pay by card (Paymob's hosted checkout). */
-export interface CardCheckoutDto {
-  url: string;
-}
-
-/** Stored on a card payment that arrived when the application could no longer be enrolled. */
-export const CARD_PAYMENT_NEEDS_REFUND = 'Paid by card after the application was no longer awaiting payment: refund it';
 
 /** The manual payment methods whose details are set in Settings (only those are offered). */
 export function configuredPaymentMethods(s: { instapayHandle: string; vodafoneCashNumber: string }): ('INSTAPAY' | 'VODAFONE_CASH')[] {

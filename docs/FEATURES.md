@@ -20,7 +20,7 @@ Every feature carries one status. As of 27 Oct 2026:
 |---|---|---|
 | **Live** | In production at academy.mlopsmena.com | Release `v2026.10.24-1`: everything up to and including PR #85 |
 | **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.26-1`: PRs #86–#88 |
-| **Merged** | On `main`, waiting for the next release | PRs #89–#94 |
+| **Merged** | On `main`, waiting for the next release | PRs #89–#93, #97 (#94 was reverted) |
 | **Pending** | An open pull request, not merged | None |
 
 Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#14-cicd-and-release)).
@@ -373,9 +373,9 @@ application. Deleting an account withdraws its open applications too (see 3.6).
 | Submitted | Waiting for review | Shortlist, accept, reject, waitlist |
 | Shortlisted | Holds a seat | Accept, reject, waitlist |
 | Waitlisted | No seat now (also automatic when the course is full) | Shortlist, accept, reject |
-| Awaiting payment | Accepted to a paid course | Student submits payment proof, or pays by card (enrolled at once) |
+| Awaiting payment | Accepted to a paid course | Student submits payment proof |
 | Payment submitted | Proof uploaded | Finance approves or rejects |
-| Payment rejected | Proof refused, with a reason | Student resubmits or pays by card, or reject |
+| Payment rejected | Proof refused, with a reason | Student resubmits, or reject |
 | Enrolled | In the course: learn page, calendar, reminders | — |
 | Rejected | Not admitted, with a reason | — |
 | Withdrawn | The student withdrew (or deleted their account) | Apply again; or Enrol by email |
@@ -421,16 +421,8 @@ the retention period (Settings, default 180 days); the student is told and can u
    student deleted their account") and FINANCE gets a notification (refund if the money arrived); a
    deleted account's payment can't be approved.
 
-6. **Pay by card** (Paymob; shown only once its keys are set, see DEPLOY.md): Visa or Mastercard from
-   Egypt or abroad, charged in the course currency. The student is sent to Paymob's page; Paymob's
-   signed notification (not the return to the academy) moves the application **Awaiting payment** or
-   **Payment rejected** → **Enrolled** at once, with an approved card payment on record (no review,
-   no screenshot; email: "your seat is confirmed"). Back on the application page, the student sees
-   "We're confirming your card payment" until it arrives. A payment that can't enrol (amount differs,
-   or the application was withdrawn or moved on meanwhile) is recorded as rejected with a refund note,
-   and FINANCE is notified to refund it in Paymob. 10 checkouts a minute.
-
-Screenshots are deleted after the retention period; payment records stay.
+Card payments (Paymob) are not built (see ROADMAP.md). Screenshots are deleted after the retention
+period; payment records stay.
 
 ### 4.6 Google Drive access (paid courses)
 
@@ -1022,7 +1014,8 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| #94 | **Pay by card** on the payment step of a paid course (Visa/Mastercard, Egypt or abroad) through Paymob's hosted checkout, off until the four `PAYMOB_*` keys are set. Paymob's signed webhook (`POST /api/payments/paymob/webhook`, HMAC-SHA512) enrols the student at once with an approved CARD payment (new `CARD_PAID` transition); retries are no-ops; a payment that can't enrol is recorded as rejected with a refund note and FINANCE is notified. Admin payment page: card payments show a Paymob note instead of the screenshot checks. Manual InstaPay / Vodafone Cash unchanged. Privacy, Terms and Refund Policy name Paymob and card refunds. Migration: one new table `CardCheckout` (additive) (en/ar) | Merged |
+| #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
+| #94 | Card payments through Paymob, reverted by #97 before any release | — |
 | #93 | Docs: feature statuses follow the deployments (new **Merged** status), one changelog row per PR with its number (missing PRs added), roadmap tidy-up | Merged |
 | #92 | New admin section **Talents** (SUPER only): analytics about the students for outsourcing, with the Students filters plus who to include (all, applied, enrolled, certified): headline counts (strong skills, available for projects, 5+ years, certified, rated skills), high-skill AI engineers we can staff by seniority, best skills (strong, expert, average, gaps), academy track record, distributions (experience, seniority, areas, countries, employment, industry, education, cloud, tools, goals, topics, hours) and the top 50 talents by a stated talent score. New `GET /api/admin/talents`. No migration (en/ar) | Merged |
 | #91 | Opening a student from Admin → Courses → course → **Leaderboard** and clicking the back link returns to that course's leaderboard (it went to Admin → Points & badges); opened from anywhere else, it still goes to Points & badges (en/ar) | Merged |

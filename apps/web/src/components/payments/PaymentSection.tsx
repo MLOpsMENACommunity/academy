@@ -5,7 +5,6 @@ import {
   paymentMethodLabels,
   paymentProofSchema,
   paymentStatusLabels,
-  type CardCheckoutDto,
   type MyApplicationDetailDto,
   type MyPaymentDto,
   type PaymentInstructionsDto,
@@ -32,9 +31,6 @@ function localToday(): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 const ACCEPT = ['image/jpeg', 'image/png', 'application/pdf'];
-/** Back from Paymob: re-check this often, this many times, for the webhook's enrolment. */
-const CARD_POLL_MS = 3_000;
-const CARD_POLLS = 10;
 
 function CopyValue({ value }: { value: string }) {
   const { t } = useI18n();
@@ -94,10 +90,6 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [cardBusy, setCardBusy] = useState(false);
-  const [cardError, setCardError] = useState<string | null>(null);
-  /** Back from Paymob's page (?card=return): 'waiting' while polling, 'slow' once it gave up. */
-  const [cardReturn, setCardReturn] = useState<'waiting' | 'slow' | null>(null);
 
   const load = useCallback(() => {
     setLoadError(false);
@@ -119,38 +111,6 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
       .catch(() => undefined);
   }, [app.id]);
   useEffect(load, [load]);
-
-  // The redirect from Paymob proves nothing; the webhook enrols. Poll briefly until it has.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('card') === 'return') setCardReturn('waiting');
-  }, []);
-  useEffect(() => {
-    if (cardReturn !== 'waiting' || !canSubmit) return;
-    let polls = 0;
-    const timer = setInterval(() => {
-      if (++polls > CARD_POLLS) {
-        clearInterval(timer);
-        setCardReturn('slow');
-        return;
-      }
-      onChanged();
-    }, CARD_POLL_MS);
-    return () => clearInterval(timer);
-  }, [cardReturn, canSubmit, onChanged]);
-
-  async function payByCard() {
-    setCardError(null);
-    setCardBusy(true);
-    try {
-      const { url } = await api<CardCheckoutDto>(`/me/applications/${app.id}/card-checkout`, { method: 'POST', json: { locale } });
-      window.location.assign(url);
-    } catch (err) {
-      const code = err instanceof ApiError ? err.code : undefined;
-      const known = code ? t(`payment.errors.${code}`) : '';
-      setCardError(known && known !== `payment.errors.${code}` ? known : errorMessage(err, t));
-      setCardBusy(false);
-    }
-  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -217,41 +177,16 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
         {t('payment.title')}
       </h2>
 
-      {canSubmit && cardReturn && (
-        <Alert tone={cardReturn === 'waiting' ? 'info' : 'warning'}>
-          {t(cardReturn === 'waiting' ? 'payment.card.confirming' : 'payment.card.slow')}
-        </Alert>
-      )}
-
       {canSubmit && (
         <div className="rounded-card border border-accent/40 bg-accent-soft/40 p-5">
           <p className="text-sm text-muted">{t('payment.amountDue')}</p>
           <p className="text-3xl font-semibold text-fg">{due}</p>
-          {info.cardEnabled && (
-            <div className="mt-4 rounded-lg border border-line bg-card p-4">
-              <h3 className="text-base">{t('payment.card.title')}</h3>
-              <p className="mt-1 text-sm text-muted">{t('payment.card.body')}</p>
-              {cardError && (
-                <Alert tone="danger" className="mt-3">
-                  {cardError}
-                </Alert>
-              )}
-              <Button type="button" size="lg" variant="accent" className="mt-4" loading={cardBusy} onClick={payByCard}>
-                {t('payment.card.button', { amount: due })}
-              </Button>
-            </div>
-          )}
-          {/* Card only (no transfer details in Settings yet): the transfer steps would point nowhere. */}
-          {(info.configured || !info.cardEnabled) && (
-            <>
-              <h3 className="mt-4 text-base">{info.cardEnabled ? t('payment.card.orManual') : t('payment.howTo')}</h3>
-              <ol className="mt-2 list-decimal space-y-1 ps-5 text-sm">
-                <li>{t('payment.step1', { amount: due })}</li>
-                <li>{t('payment.step2')}</li>
-                <li>{t('payment.step3')}</li>
-              </ol>
-            </>
-          )}
+          <h3 className="mt-4 text-base">{t('payment.howTo')}</h3>
+          <ol className="mt-2 list-decimal space-y-1 ps-5 text-sm">
+            <li>{t('payment.step1', { amount: due })}</li>
+            <li>{t('payment.step2')}</li>
+            <li>{t('payment.step3')}</li>
+          </ol>
           {info.methods.length > 0 && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {info.methods.includes('INSTAPAY') && (
@@ -306,7 +241,7 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
 
       {app.status === 'PAYMENT_SUBMITTED' && <Alert tone="success">{t('payment.submitted')}</Alert>}
 
-      {canSubmit && !info.configured && !info.cardEnabled && <Alert tone="warning">{t('payment.notConfigured')}</Alert>}
+      {canSubmit && !info.configured && <Alert tone="warning">{t('payment.notConfigured')}</Alert>}
 
       {canSubmit && info.configured && (
         <form id="payment-form" onSubmit={onSubmit} noValidate className="space-y-5 rounded-card border border-line bg-card p-5 sm:p-6">
