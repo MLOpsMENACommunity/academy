@@ -493,7 +493,7 @@ export const RULES: Record<AutomationRuleType, Rule> = {
       if (a.type === 'QUIZ') continue; // quizzes grade themselves
       for (const sub of a.submissions) {
         if (!sub.submittedAt || sub.gradedAt || sub.submittedAt.getTime() > d.t - days * DAY) continue;
-        hits.push({ key: sub.id, userId: null, label: a.titleEn, subject: sub.id, alert: true });
+        hits.push({ key: sub.id, userId: null, label: a.titleEn, subject: a.titleEn, alert: true });
       }
     }
     return { hits, alert: (c) => alertTexts.ungraded(d.names, c, days), link: { admin: 'assessments', teach: 'gradebook' } };
@@ -680,7 +680,7 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     const hours = n(p, 'hours');
     const hits = (await d.sessions())
       .filter((s) => s.start > d.t && s.start <= d.t + hours * HOUR && !s.liveUrl)
-      .map((s): Hit => ({ key: s.id, userId: null, label: `${s.order}. ${s.titleEn}`, subject: s.id, alert: true }));
+      .map((s): Hit => ({ key: s.id, userId: null, label: `${s.order}. ${s.titleEn}`, subject: `${s.order}. ${s.titleEn}`, alert: true }));
     return { hits, alert: (c) => alertTexts.noLiveLink(d.names, c), link: { admin: 'sessions', teach: 'sessions' } };
   },
 
@@ -688,7 +688,7 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     const hours = n(p, 'hours');
     const hits = (await d.sessions())
       .filter((s) => s.start > d.t && s.start <= d.t + hours * HOUR && !s.hasMaterials)
-      .map((s): Hit => ({ key: s.id, userId: null, label: `${s.order}. ${s.titleEn}`, subject: s.id, alert: true }));
+      .map((s): Hit => ({ key: s.id, userId: null, label: `${s.order}. ${s.titleEn}`, subject: `${s.order}. ${s.titleEn}`, alert: true }));
     return { hits, alert: (c) => alertTexts.noMaterials(d.names, c), link: { admin: 'sessions', teach: 'materials' } };
   },
 
@@ -696,7 +696,7 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     const hours = n(p, 'hours');
     const hits = (await d.sessions())
       .filter((s) => s.end <= d.t - hours * HOUR && s.end >= d.t - 14 * DAY && !s.recordingUrl)
-      .map((s): Hit => ({ key: s.id, userId: null, label: `${s.order}. ${s.titleEn}`, subject: s.id, alert: true }));
+      .map((s): Hit => ({ key: s.id, userId: null, label: `${s.order}. ${s.titleEn}`, subject: `${s.order}. ${s.titleEn}`, alert: true }));
     return { hits, alert: (c) => alertTexts.noRecording(d.names, c), link: { admin: 'sessions', teach: 'materials' } };
   },
 

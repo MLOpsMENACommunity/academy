@@ -446,6 +446,8 @@ export class AccountService {
       this.prisma.enrollment.updateMany({ where: { userId }, data: { driveRevokeEmail: null } }),
       this.prisma.profile.deleteMany({ where: { userId } }),
       this.prisma.notification.deleteMany({ where: { userId } }),
+      // Automation log rows stay (they are the rules' "already done" markers) but no longer point at the person.
+      this.prisma.automationFiring.updateMany({ where: { userId }, data: { userId: null } }),
       this.prisma.eventRegistration.deleteMany({ where: { userId } }),
       this.prisma.eventReminderLog.deleteMany({ where: { userId } }),
       this.prisma.eventConfirmation.deleteMany({ where: { userId } }),

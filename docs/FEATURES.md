@@ -42,6 +42,7 @@ When the staging release is promoted, change every "Staging" below to "Live".
    - [Consultations](#95-consultations-paid-11-calls)
 10. [Live sessions (admin side)](#10-live-sessions-admin-side)
 11. [The admin panel](#11-the-admin-panel)
+   - [Course automation rules](#111-course-automation-rules)
 12. [Emails and notifications](#12-emails-and-notifications)
 13. [Privacy and data](#13-privacy-and-data)
 14. [Staging vs production](#14-staging-vs-production)
@@ -759,12 +760,12 @@ reach only the courses they are on.
 | Course management | Review applications | This course's applications: review and move them (never one's own) |
 | Course management | Enrol students | Enrol by email, invites, the waiting list. On a paid course enrolling by email skips the payment, so there only staff who are also SUPER or ADMISSIONS admins can use it (others get `PAYMENT_WAIVER_ADMIN_ONLY`; the waiting list still works) |
 | Course management | Issue certificates | The rule, issue, revoke, re-issue |
-| Course management | Manage automation rules | Rules that act on their own in the course (no screen yet: a later PR) |
+| Course management | Manage automation rules | The Automation tab: switch the course's automation rules on and off, change their settings, preview, pause (section 11.1) |
 
 **The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
 courses whose staff you are on, with your role. Each course shows only the tabs your role opens:
 Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Details, Sessions,
-Applications, Enrolment, Certificates. They are the admin screens, limited to that course. The old
+Applications, Enrolment, Certificates, Automation. They are the admin screens, limited to that course. The old
 `/speaker/courses/…` pages redirect there.
 
 **Public course page:** the people in Shown roles, grouped by role (Main instructor first), with the
@@ -890,11 +891,74 @@ on their first section. The sections:
 (ACADEMIC), Enrolled students (ADMISSIONS, ACADEMIC; Drive access, learn page access), Enrol by email
 (ADMISSIONS), Certificates (ACADEMIC), Announcements (ACADEMIC: message students by application
 status, in-app and email, with delivery counts; **Ask for Telegram usernames** sends a ready-made
-message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC).
+message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC), Automation (ACADEMIC; section 11.1).
 
 **Image uploads** (Staging): **Upload image** next to course cover, live session cover, speaker photo
 fields: JPG, PNG or WebP up to 5 MB, served publicly at `/api/media/<id>` and cached for a year. To take
 one down, delete it from storage and purge the URL in Cloudflare.
+
+### 11.1 Course automation rules
+
+**Status:** Pending (PR "Course automation rules"). **Who:** ACADEMIC admins (Admin → Courses → course →
+**Automation**) and course staff with **Manage automation rules** (/teach → course → **Automation**).
+**Use:** the follow-ups the team used to do by hand, done on time for every student.
+
+A catalog of 30 rules, each **off** until someone switches it on for the course. A rule has a few
+settings (days, hours, sessions, a threshold, points) and, for student messages, an optional note from
+the team in English and Arabic. **Turn on the recommended set** switches on seven common ones.
+
+**What rules may do:** message a student (in-app, and an email with a "stop reminder emails for this
+course" link), alert the course team in-app, award bonus points, issue certificates (only if chosen),
+and flag a student under **Needs attention**. **What they never do:** reject, withdraw, remove or delete
+a student, change an application or release a seat. A unit test holds the code to this.
+
+| Group | Rule | What it does | Settings |
+|---|---|---|---|
+| Attendance | Missed sessions in a row ★ | Check-in message to the student, team alert, flag | Sessions (2) |
+| Attendance | At risk early | None of the first sessions attended: team alert, flag | First sessions (2) |
+| Attendance | Inactive | No attendance, submission, rating or sign-in for a while: next session and what's due | Days (7) |
+| Attendance | Full attendance halfway | Every session of the first half attended: bonus points and a message | Points (10) |
+| Attendance | Often late | Partial attendance several times: a friendly note | Times (3) |
+| Assessments | Due soon, not started | Reminder before the due date | Hours (48) |
+| Assessments | Deadline missed ★ | Message (late submission allowed or not), team alert | — |
+| Assessments | Quiz not passed | Materials to review and attempts left | — |
+| Assessments | High score | Bonus points and a message | Score %, points (90, 5) |
+| Assessments | Required assessments passed | Congratulations and what's left for the certificate | — |
+| Assessments | Waiting to be graded ★ | Labs and assignments ungraded for a while: alert to graders | Days (3) |
+| Certificates | Eligible at course end | Alert to review, or issue the certificates automatically | Review / issue |
+| Certificates | Almost there | Before the end, one requirement short: tells the student which | Days before end (7) |
+| Feedback | Low rating ★ | Alert for each low session rating | Stars or fewer (2) |
+| Feedback | Average dropped | Sessions' average below a threshold: weekly alert | Average, minimum ratings (3.5, 5) |
+| Feedback | Second rating reminder | One more reminder for an unrated session | Hours after (48) |
+| Admissions | Unpaid seat reminders ★ | Two reminders, then a team alert. **The seat is always kept** | First, second (3, 7 days) |
+| Admissions | Seats free, people waiting | Daily alert while seats are free and people wait | — |
+| Admissions | Application waiting for review | Alert to admissions | Days (5) |
+| Admissions | Course filling up | Alert at a share of capacity and when full | Percent (80) |
+| Admissions | Payment proof waiting | Alert to FINANCE admins (Admin → Payments) | Hours (48) |
+| Operations | Welcome before start ★ | First session in the student's time zone, preparation, Telegram and Google account checks | Days before (3) |
+| Operations | No live link ★ | Session soon without a Meet link: alert | Hours before (2) |
+| Operations | No materials | Session soon without materials: alert | Hours before (24) |
+| Operations | No recording | Past session without a recording link: alert | Hours after (24) |
+| Operations | Halfway check-in | Asks students to rate the sessions so far | — |
+| Operations | Wrap-up | After the course: thanks, rate the course | — |
+| Community | Community links | Telegram and/or Discord invite links | Links |
+| Community | Telegram username missing | Asks enrolled students to add it | Days after enrolment (1) |
+| Community | Weekly summary | Last week's points and leaderboard place (only to students who earned points) | — |
+
+★ in the recommended set.
+
+**How it runs:** an hourly job (the Worker's Cron Trigger in production; every 10 minutes locally),
+only for Open and Closed courses and Completed ones within 30 days of their end, never while the
+course is **paused**. Each rule acts once per occasion (a student and a session, an assessment, a
+week…), recorded in the activity log. Team alerts are one notification per rule and run, counting what
+it found, to the staff holding the rule's permission (for example Grade for "Waiting to be graded"),
+or to admins with the matching preset when the course has none.
+
+**Safety:** **Preview** shows who a rule would act for right now with the settings on screen;
+**Pause** stops every rule of the course; student emails respect the course's reminder (or feedback)
+opt-out, wait for 08:00 Cairo time between 22:00 and 08:00, and are capped at 3 a day per student
+(more still arrive in-app); every rule change is audited and every action is in **Recent activity**. Anonymising
+a deleted account unlinks it from the activity log.
 
 ---
 
@@ -930,6 +994,7 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | speakerBookingConfirmed | Speaker booked a slot | Transactional |
 | speakerBookingTeam | Booking or cancellation, to each session team address | Bulk |
 | speakerSessionPublished | The team published the speaker's session (Staging) | Transactional |
+| automationMessage | A course automation rule's message (section 11.1); per-course reminder or feedback opt-out, quiet hours, 3 a day | Bulk |
 | adminAlert | Drive access to remove, and similar team alerts | Transactional |
 | profileReview | Profile untouched for ~6 months | Transactional |
 
@@ -986,6 +1051,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Course automation rules | **Automation** tab (Admin → Courses → course, ACADEMIC; /teach for **Manage automation rules**): 30 per-course rules in 7 groups (attendance, assessments, certificates, feedback, admissions, operations, community), off until switched on, with settings, an optional team note, preview, pause, "recommended set", recent activity and a "Needs attention" list. An hourly job messages students (in-app and `automationMessage` email: per-course opt-out, quiet hours 22:00–08:00 Cairo, 3 a day), alerts the course team, awards bonus points (new reason "Automation bonus"), issues certificates when chosen and flags students at risk. No rule rejects, withdraws or removes a student, changes an application or releases a seat. Migration: two new tables, `Course.automationPaused`, `PointsReason` AUTOMATION (all additive) (en/ar) | Pending |
 | Back to the leaderboard | Opening a student from Admin → Courses → course → **Leaderboard** and clicking the back link returns to that course's leaderboard (it went to Admin → Points & badges); opened from anywhere else, it still goes to Points & badges (en/ar) | Pending |
 | Ask for Telegram usernames | Admin → Courses → course → **Announcements** has **Ask for Telegram usernames**: shows how many enrolled students have no Telegram username and, after a confirm, sends them a ready-made message (English/Arabic, in each student's language) by email and in-app, through the announcement queue (retried, sent once per click, audited as `course.telegram_requested`). The email button and the notification open Profile → Community; only the students it was sent to see it on the learn page; it shows in the announcement history as "Enrolled, no Telegram username". New `GET`/`POST /api/admin/courses/:id/announcements/telegram-request` (ACADEMIC). No migration (en/ar) | Pending |
 | Leaderboard usernames and search | Admin → Courses → course → **Leaderboard** shows each student's **Telegram** and **Discord** usernames (from the profile) and has a search box that finds students by name, email, Telegram or Discord (a leading @ is ignored; ranks stay the ranks among everyone enrolled); the CSV gets Telegram and Discord columns. The students' own leaderboard is unchanged (en/ar) | Pending |

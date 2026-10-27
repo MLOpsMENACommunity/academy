@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react';
 import { Announcements } from '@/components/admin/Announcements';
+import { AutomationPanel } from '@/components/admin/AutomationPanel';
 import { AttendancePanel } from '@/components/attendance/AttendancePanel';
 import { AssessmentsEditor } from '@/components/admin/AssessmentsEditor';
 import { CertificatesPanel } from '@/components/admin/CertificatesPanel';
@@ -25,7 +26,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'staff', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback'] as const;
+const TABS = ['details', 'staff', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback', 'automation'] as const;
 type Tab = (typeof TABS)[number];
 
 function CourseEditor() {
@@ -187,6 +188,7 @@ function CourseEditor() {
         {tab === 'announcements' && <Announcements courseId={course.id} />}
         {tab === 'waitlist' && <Waitlist courseId={course.id} status={course.status} titleEn={course.titleEn} titleAr={course.titleAr} />}
         {tab === 'feedback' && <FeedbackPanel courseId={course.id} />}
+        {tab === 'automation' && <AutomationPanel courseId={course.id} />}
       </div>
     </div>
   );

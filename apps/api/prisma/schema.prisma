@@ -1965,7 +1965,7 @@ model AutomationFiring {
   /// The student it was about; null for team alerts about a session, an assessment or the course.
   userId    String?
   user      User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  /// What a team alert was about (an id or a short label, never personal data).
+  /// What a team alert was about: a session or assessment title, or an id (never personal data).
   subject   String               @default("")
   /// What it did: "message", "email", "alert", "points", "certificate", "flag".
   actions   String[]

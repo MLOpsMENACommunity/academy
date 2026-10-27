@@ -253,6 +253,7 @@ hand. Each job is idempotent and isolated (one failing doesn't stop the others):
 | `announcementEmailsPending` | Resume announcement emails left pending by a restart |
 | `feedbackPromptsQueued` | Registered. Feedback prompts for sessions that ended 30 min–72 h ago (outbox rows + notifications) |
 | `consultationRemindersQueued` / `consultationScreenshotsDeleted` | Registered. Queue the 24 h (22–24 h) and 1 h (10–75 min) reminders for booked consultations (outbox dedupe keys, with the call's time, make each send once), and delete consultation payment screenshots older than `screenshotRetentionDays` (never one waiting for review) |
+| `automationActions` | Registered. Course automation rules (`src/automation/`): each rule that is on in an active, unpaused course is evaluated (`engine.ts`), what it already did is dropped (`AutomationFiring`, unique per rule and occasion, is the log and the marker), then it enqueues student messages (outbox category `automation`, opt-out `reminders`; quiet hours; 3 a day), writes notifications, alerts the course team, syncs bonus points (source `AUTOMATION`) and issues certificates when set to. Never changes an application (a unit test checks the code) |
 | `outboxPending` / `outboxPurged` | Registered. Start sending the email outbox (after the response); delete old finished rows |
 
 **Jobs registry.** New jobs don't touch `jobs.controller.ts`: a provider decorated with
