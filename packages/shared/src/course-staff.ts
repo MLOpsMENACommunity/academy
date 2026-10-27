@@ -164,10 +164,7 @@ export interface PublicStaffGroupDto {
 
 // ------------------------------------------------------------------ the Teaching area (/teach)
 
-/**
- * Tabs of /teach/courses/{id}, and the permissions that show each (any one is enough).
- * VIEW_FEEDBACK opens nothing yet (its screen comes in a later PR).
- */
+/** Tabs of /teach/courses/{id}, and the permissions that show each (any one is enough). */
 export const TEACH_TAB_PERMISSIONS = {
   assessments: ['MANAGE_ASSESSMENTS'],
   gradebook: ['GRADE'],
@@ -176,6 +173,7 @@ export const TEACH_TAB_PERMISSIONS = {
   points: ['MANAGE_POINTS'],
   roster: ['VIEW_ROSTER'],
   announcements: ['ANNOUNCE'],
+  feedback: ['VIEW_FEEDBACK'],
   details: ['EDIT_COURSE'],
   sessions: ['MANAGE_SESSIONS'],
   applications: ['MANAGE_APPLICATIONS'],

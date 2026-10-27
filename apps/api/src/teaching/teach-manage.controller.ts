@@ -187,6 +187,14 @@ export class TeachManageController {
 
   // ------------------------------------------------------------------ enrolment (ENROL): by email, invites, waiting list
 
+  /** Session feedback for staff with VIEW_FEEDBACK: averages and comments, without students' names. */
+  @Get(':courseId/feedback')
+  @CourseCan('VIEW_FEEDBACK')
+  @Header('Cache-Control', 'private, no-store')
+  feedback(@Param('courseId') courseId: string) {
+    return this.courses.feedback(courseId, { names: false });
+  }
+
   @Get(':courseId/invites')
   @CourseCan('ENROL')
   @Header('Cache-Control', 'private, no-store')

@@ -9,6 +9,7 @@ import { AutomationPanel } from '@/components/admin/AutomationPanel';
 import { speakerAssessmentEndpoints } from '@/components/admin/assessment-endpoints';
 import { CertificatesPanel } from '@/components/admin/CertificatesPanel';
 import { CourseApplications } from '@/components/admin/CourseApplications';
+import { FeedbackPanel } from '@/components/admin/CourseTabs';
 import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
 import { Waitlist } from '@/components/admin/Waitlist';
 import { AttendancePanel } from '@/components/attendance/AttendancePanel';
@@ -151,6 +152,7 @@ function Course({ courseId }: { courseId: string }) {
             {tab === 'points' && <TeachingPoints courseId={course.id} />}
             {tab === 'roster' && <TeachRoster courseId={course.id} />}
             {tab === 'announcements' && <TeachAnnouncements courseId={course.id} title={title} />}
+            {tab === 'feedback' && <FeedbackPanel courseId={course.id} apiBase={base} />}
             {tab === 'details' && <TeachDetails courseId={course.id} />}
             {tab === 'sessions' && <TeachSessions courseId={course.id} canAttendance={course.permissions.includes('UPLOAD_ATTENDANCE')} />}
             {tab === 'applications' && <CourseApplications courseId={course.id} slug={course.slug} paid={course.type === 'PAID'} apiBase={base} />}

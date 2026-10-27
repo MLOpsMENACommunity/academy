@@ -631,7 +631,8 @@ export class AdminCoursesService {
 
   // ------------------------------------------------------------------ feedback
 
-  async feedback(courseId: string) {
+  /** Ratings and comments per session and for the course. `names: false` (course staff) leaves out who wrote each comment. */
+  async feedback(courseId: string, opts: { names: boolean } = { names: true }) {
     await this.ensure(courseId);
     const [sessions, rows] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId }, orderBy: { order: 'asc' }, select: { id: true, order: true, titleEn: true, titleAr: true } }),
@@ -644,7 +645,7 @@ export class AdminCoursesService {
         average: list.length ? Math.round((list.reduce((a, r) => a + r.rating, 0) / list.length) * 10) / 10 : null,
         comments: list
           .filter((r) => r.comment)
-          .map((r) => ({ rating: r.rating, comment: r.comment!, by: r.user.profile?.fullNameEn ?? null, at: r.createdAt.toISOString() })),
+          .map((r) => ({ rating: r.rating, comment: r.comment!, by: opts.names ? (r.user.profile?.fullNameEn ?? null) : null, at: r.createdAt.toISOString() })),
       };
     };
     return {

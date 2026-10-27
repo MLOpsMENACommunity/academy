@@ -526,8 +526,9 @@ needs no sign-in.
 - **Dashboard:** a "Rate your last session" card lists, per course, the latest session that ended in
   the last 14 days and isn't rated (at most 3 courses), with a link to its form; at the last session
   it also says "rate the course too". It is computed when the page loads and disappears once rated.
-- Feedback is still the 1–5 stars and optional comment of section 5; staff views of it come in a later
-  PR.
+- Feedback is the 1–5 stars and optional comment of section 5. Admins (ACADEMIC) read it in the course's
+  Feedback tab with names; course staff with **See session feedback** read it in /teach → Feedback without
+  names, so students can be honest.
 
 ---
 
@@ -751,7 +752,7 @@ reach only the courses they are on.
 | Students and attendance | Upload attendance | Google Meet attendance files, marking by hand |
 | Students and attendance | Manage points | Add, edit and remove course points (within the speaker points cap) |
 | Communication | Send announcements | Messages to enrolled students, sent at once, "From" the sender |
-| Communication | See session feedback | Students' feedback on each session (no screen yet: a later PR) |
+| Communication | See session feedback | The Feedback tab: each session's and the course's average rating and comments, **without students' names** (admins see names) |
 | Course management | Edit the course | Course details (not status, address, type, price or who teaches) |
 | Course management | Manage sessions | Dates, Meet links, the session list |
 | Course management | Review applications | This course's applications: review and move them (never one's own) |
@@ -761,7 +762,7 @@ reach only the courses they are on.
 
 **The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
 courses whose staff you are on, with your role. Each course shows only the tabs your role opens:
-Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Details, Sessions,
+Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Feedback, Details, Sessions,
 Applications, Enrolment, Certificates, Automation. They are the admin screens, limited to that course. The old
 `/speaker/courses/…` pages redirect there.
 
@@ -1079,6 +1080,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Feedback for course staff | /teach → course → **Feedback** for staff with **See session feedback** (Main instructor, Co-instructor and Moderator by default): each session's and the course's average rating and comments, without students' names; admins still see names. New `GET /api/teach/courses/:courseId/feedback`; the low-rating automation alerts now open this tab. No migration (en/ar) | Pending |
 | #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
 | #95 | **Automation** tab (Admin → Courses → course, ACADEMIC; /teach for **Manage automation rules**): 30 per-course rules in 7 groups (attendance, assessments, certificates, feedback, admissions, operations, community), off until switched on, with settings, an optional team note, preview, pause, "recommended set", recent activity and a "Needs attention" list. An hourly job messages students (in-app and `automationMessage` email: per-course opt-out, quiet hours 22:00–08:00 Cairo, 3 a day), alerts the course team, awards bonus points (new reason "Automation bonus"), issues certificates when chosen and flags students at risk. No rule rejects, withdraws or removes a student, changes an application or releases a seat. Migration: two new tables, `Course.automationPaused`, `PointsReason` AUTOMATION (all additive) (en/ar) | Merged |
 | #94 | Card payments through Paymob, reverted by #97 before any release | — |
