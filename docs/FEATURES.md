@@ -20,7 +20,7 @@ Every feature carries one status. As of 27 Oct 2026:
 |---|---|---|
 | **Live** | In production at academy.mlopsmena.com | Release `v2026.10.24-1`: everything up to and including PR #85 |
 | **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.26-1`: PRs #86–#88 |
-| **Merged** | On `main`, waiting for the next release | PRs #89–#91 |
+| **Merged** | On `main`, waiting for the next release | PRs #89–#92 |
 | **Pending** | An open pull request, not merged | None |
 
 Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#14-cicd-and-release)).
@@ -873,6 +873,7 @@ on their first section. The sections:
 | Payments | FINANCE | Review proofs, approve or reject (4.5) |
 | Applications | ADMISSIONS | Review, bulk actions, notes, CSV, saved views (4.3) |
 | Students | ADMISSIONS | Search and filter students (and speakers who applied to or enrolled in a course, with a Speaker badge); profile, CV, applications, notes; **Edit profile** step by step; **Add student**; **Delete account**; switch to speaker. ACADEMIC also needed for the points box |
+| Talents | SUPER | What our students can do, for outsourcing (below) |
 | Points & badges | ACADEMIC | Badge catalog and points CSV import (8) |
 | Courses | ACADEMIC (edit), ADMISSIONS (read) | New course, duplicate, edit, archive/delete; tabs below |
 | Sessions | ACADEMIC | Free live sessions (10) |
@@ -888,6 +889,36 @@ on their first section. The sections:
 (ADMISSIONS), Certificates (ACADEMIC), Announcements (ACADEMIC: message students by application
 status, in-app and email, with delivery counts; **Ask for Telegram usernames** (Merged, PR #90) sends a ready-made
 message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC).
+
+**Talents** (Admin → Talents, SUPER): analytics about the students, to know what we can staff
+on outsourcing projects. It takes the same filters as Students (country, experience, seniority, areas,
+employment, education, skill minimums, cloud, weekly hours, topics, search) plus **Who to
+include** (everyone with a profile, applied, enrolled, certified); every figure follows the filters, and
+**Open these students** opens the same filter in Students for the CSV. Deleted accounts and admins are never
+counted. The page shows:
+
+- **Headline counts**: talents; strong in at least one skill (rated 4–5); available for projects (freelancer,
+  job seeking, or the "freelancing" goal); 5+ years of experience; certified; rated their skills. No consent
+  figures: the profile asks no hiring consent.
+- **Who we can staff**: one role for now, **AI engineer (high skill)**: 4+ in Python, LLMs/RAG and AI agents.
+  How many students meet all three, how many are available, and by seniority (junior, mid, senior+).
+  **Show them** applies the role's skill filter. Roles are a list in `packages/shared/src/talents.ts`;
+  add one there when we start selling it.
+- **Best skills**: the 16 profile skills ranked by how many students rate themselves 4–5, with experts (5),
+  the average and how many rated it, as a share of the students who rated their skills (an optional step); a
+  **Few strong** badge under 5% of them. A skill opens
+  the filter "this skill 4+".
+- **Academy track record**: enrolled, certified, average attendance (Present 1, Partial ½), average graded
+  score and points (voided points never count).
+- **Distributions**: seniority, total and ML/AI experience, primary and secondary areas, education,
+  countries (top 25), employment, industry, weekly hours, cloud platforms, production tools (top 25;
+  spellings merged, e.g. "docker" and "Docker"), goals and topics they want to learn.
+- **Top talents**: the best 50 matches by talent score (0–100): self-rated skills 45 (the five best
+  ratings), ML/AI experience 20, academy record 35 (certificate 15, attendance 10, graded work 10), with
+  their best skills, record and an Available badge; each opens the student's page.
+
+Skills, experience and seniority are self-reported; the page says so. It summarises up to 20,000 students
+at once and warns when more match. `GET /api/admin/talents` (SUPER, 30 requests a minute).
 
 **Image uploads**: **Upload image** next to course cover, live session cover, speaker photo
 fields: JPG, PNG or WebP up to 5 MB, served publicly at `/api/media/<id>` and cached for a year. To take
@@ -983,6 +1014,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #92 | New admin section **Talents** (SUPER only): analytics about the students for outsourcing, with the Students filters plus who to include (all, applied, enrolled, certified): headline counts (strong skills, available for projects, 5+ years, certified, rated skills), high-skill AI engineers we can staff by seniority, best skills (strong, expert, average, gaps), academy track record, distributions (experience, seniority, areas, countries, employment, industry, education, cloud, tools, goals, topics, hours) and the top 50 talents by a stated talent score. New `GET /api/admin/talents`. No migration (en/ar) | Merged |
 | #91 | Opening a student from Admin → Courses → course → **Leaderboard** and clicking the back link returns to that course's leaderboard (it went to Admin → Points & badges); opened from anywhere else, it still goes to Points & badges (en/ar) | Merged |
 | #90 | Admin → Courses → course → **Announcements** has **Ask for Telegram usernames**: shows how many enrolled students have no Telegram username and, after a confirm, sends them a ready-made message (English/Arabic, in each student's language) by email and in-app, through the announcement queue (retried, sent once per click, audited as `course.telegram_requested`). The email button and the notification open Profile → Community; only the students it was sent to see it on the learn page; it shows in the announcement history as "Enrolled, no Telegram username". New `GET`/`POST /api/admin/courses/:id/announcements/telegram-request` (ACADEMIC). No migration (en/ar) | Merged |
 | #89 | Admin → Courses → course → **Leaderboard** shows each student's **Telegram** and **Discord** usernames (from the profile) and has a search box that finds students by name, email, Telegram or Discord (a leading @ is ignored; ranks stay the ranks among everyone enrolled); the CSV gets Telegram and Discord columns. The students' own leaderboard is unchanged (en/ar) | Merged |
