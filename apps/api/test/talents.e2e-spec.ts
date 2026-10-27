@@ -67,6 +67,27 @@ describe('admin talents (e2e)', () => {
     expect((await insights('&population=certified')).totals.talents).toBe(0);
   });
 
+  it('is for super admins only: never students, speakers, signed-out visitors or other admin presets', async () => {
+    await http().get('/api/admin/talents').expect(401);
+    const student = await createUser(app, prisma, { prefix: 'talent-student' });
+    const speaker = await createUser(app, prisma, { role: 'SPEAKER', prefix: 'talent-speaker' });
+    for (const who of [student, speaker]) {
+      await http().get('/api/admin/talents').set('Cookie', who.cookie).expect(403);
+      // Filters or a population never open it up.
+      await http().get('/api/admin/talents?population=certified&skills=PYTHON:4').set('Cookie', who.cookie).expect(403);
+    }
+    for (const p of ['ACADEMIC', 'CONTENT', 'ADMISSIONS', 'SPEAKERS', 'FINANCE'] as const) {
+      const other = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: [p], prefix: `talent-${p.toLowerCase()}` });
+      const res = await http().get('/api/admin/talents').set('Cookie', other.cookie).expect(403);
+      expect(res.body.code).toBe('ADMIN_PERMISSION');
+    }
+    // Every preset but SUPER together still isn't enough.
+    const many = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC', 'CONTENT', 'ADMISSIONS', 'SPEAKERS', 'FINANCE'], prefix: 'talent-many' });
+    await http().get('/api/admin/talents').set('Cookie', many.cookie).expect(403);
+    // The super admin does.
+    await http().get('/api/admin/talents').set('Cookie', admin.cookie).expect(200);
+  });
+
   it('rejects an unknown population', async () => {
     await http().get('/api/admin/talents?population=everyone').set('Cookie', admin.cookie).expect(400);
   });
