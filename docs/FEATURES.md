@@ -661,7 +661,8 @@ for the two courses are in [POINTS.md](POINTS.md).
 - **Admin** (ACADEMIC): Admin → Points & badges (badge catalog, add manual badges, activate/deactivate,
   points CSV import with a dry-run preview); Admin → Students → student → **Award or adjust points** and
   award/revoke manual badges; Admin → Courses → course → **Leaderboard** (everyone ranked, hidden ones
-  marked, CSV).
+  marked, Telegram and Discord usernames, search by name, email, Telegram or Discord, CSV with
+  the usernames).
 - **Speakers** (Staging): My courses → course → **Points**: give or take away course points for an
   enrolled student with a reason and a note.
 
@@ -984,6 +985,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Leaderboard usernames and search | Admin → Courses → course → **Leaderboard** shows each student's **Telegram** and **Discord** usernames (from the profile) and has a search box that finds students by name, email, Telegram or Discord (a leading @ is ignored; ranks stay the ranks among everyone enrolled); the CSV gets Telegram and Discord columns. The students' own leaderboard is unchanged (en/ar) | Pending |
 | Attendance only | Students no longer mark sessions done (the box is gone; the old endpoint answers 410; session points already earned stay). Progress on the learn page, the certificate's sessions rule, the admin roster's sessions count and **Finisher** follow attendance (Present or Partial); sessions students marked done before this change still count, so nobody loses progress or eligibility. The Attendance tab (admin and Teaching) gets **Mark by hand**: every enrolled student with a checkbox, Select all, then Present, Partial or Absent, with or without a Meet file; points follow the course rule (en/ar) | Pending |
 | Consultations | Paid 1:1 calls with listed speakers, pay first then book: open times shown first; the student uploads the InstaPay, Vodafone Cash, Orange Cash or e& money screenshot; FINANCE approves (the student is told to book) or rejects with a reason; the student books an open time. No refunds for paid calls but one move up to 24 h before (Refund Policy updated); optional Google Calendar per expert (busy times, a Meet link and calendar event per call). Top-menu **Consultations**, My consultations, the expert's page, Admin → Consultations: weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migrations: two new tables, then new columns (all additive) | Pending |
 | Admin course tabs wrap | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Pending |
