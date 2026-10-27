@@ -415,8 +415,9 @@ export class ApplicationWorkflow {
       startsAt: formatStart(course.sessions[0]?.startsAt ?? course.startDate, user.locale, user.profile?.timezone),
       recordingsPublic: course.recordingsPlatform === 'YOUTUBE' && Boolean(course.youtubePlaylistUrl),
       hasPreparation: hasText(course.preparation),
-      // Enrolled because the payment was verified: the acceptance itself came earlier.
-      paymentVerified: app.status === 'ENROLLED' && from === 'PAYMENT_SUBMITTED',
+      // Enrolled because the payment was verified (reviewed, or paid by card): the acceptance itself came earlier.
+      paymentVerified:
+        app.status === 'ENROLLED' && (from === 'PAYMENT_SUBMITTED' || from === 'AWAITING_PAYMENT' || from === 'PAYMENT_REJECTED'),
     });
     try {
       await this.notifications.create(user.id, {

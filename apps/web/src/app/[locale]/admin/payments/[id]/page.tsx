@@ -76,8 +76,12 @@ export default function PaymentReview() {
         <Badge tone={p.status === 'APPROVED' ? 'success' : p.status === 'REJECTED' ? 'danger' : 'info'}>{paymentStatusLabels[p.status][locale]}</Badge>
       </div>
 
-      {/* Persistent, not dismissible (Risk 2). */}
-      <Alert tone="warning" title={t('admin.payments.verifyWarning')} />
+      {/* Persistent, not dismissible (Risk 2). Card payments were confirmed by Paymob's signed webhook. */}
+      {p.method === 'CARD' ? (
+        <Alert tone="info" title={t('admin.payments.cardNote')} />
+      ) : (
+        <Alert tone="warning" title={t('admin.payments.verifyWarning')} />
+      )}
 
       {(p.flags.duplicateRef || p.flags.duplicateScreenshot || p.flags.amountMismatch) && (
         <Alert tone="danger">
@@ -132,28 +136,30 @@ export default function PaymentReview() {
         </Card>
       </div>
 
-      <Card>
-        <h2 className="text-lg">{t('payment.screenshot')}</h2>
-        {p.screenshotDeleted || !p.hasScreenshot ? (
-          <p className="mt-2 text-sm text-muted">{t('admin.payments.screenshotDeleted')}</p>
-        ) : shot ? (
-          <div className="mt-3">
-            <p className="mb-2 text-xs text-muted">{t('admin.payments.linkExpires')}</p>
-            {shot.mime === 'application/pdf' ? (
-              <a href={shot.url} target="_blank" rel="noreferrer" className="text-primary underline">
-                PDF
-              </a>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, must not go through the image optimiser
-              <img src={shot.url} alt={t('payment.screenshot')} className="max-h-[70vh] w-auto rounded-lg border border-line" />
-            )}
-          </div>
-        ) : (
-          <Button type="button" variant="secondary" className="mt-3" loading={busy === 'shot'} onClick={viewScreenshot}>
-            {t('admin.payments.viewScreenshot')}
-          </Button>
-        )}
-      </Card>
+      {p.method !== 'CARD' && (
+        <Card>
+          <h2 className="text-lg">{t('payment.screenshot')}</h2>
+          {p.screenshotDeleted || !p.hasScreenshot ? (
+            <p className="mt-2 text-sm text-muted">{t('admin.payments.screenshotDeleted')}</p>
+          ) : shot ? (
+            <div className="mt-3">
+              <p className="mb-2 text-xs text-muted">{t('admin.payments.linkExpires')}</p>
+              {shot.mime === 'application/pdf' ? (
+                <a href={shot.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                  PDF
+                </a>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, must not go through the image optimiser
+                <img src={shot.url} alt={t('payment.screenshot')} className="max-h-[70vh] w-auto rounded-lg border border-line" />
+              )}
+            </div>
+          ) : (
+            <Button type="button" variant="secondary" className="mt-3" loading={busy === 'shot'} onClick={viewScreenshot}>
+              {t('admin.payments.viewScreenshot')}
+            </Button>
+          )}
+        </Card>
+      )}
 
       {p.duplicates.length > 0 && (
         <Card>
