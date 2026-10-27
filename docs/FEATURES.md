@@ -427,11 +427,28 @@ period; payment records stay.
 
 ### 4.6 Google Drive access (paid courses)
 
-**Status:** Live (manual). Paid-course recordings live in a private Drive folder. Admin → Courses →
-course → Enrolled students lists each student's Google email; the admin shares the folder with those
-addresses (never "anyone with the link") and ticks **Drive access granted**. If a student changes their
-Google email or deletes the account, admins (ADMISSIONS/ACADEMIC) get an alert with the address to
-remove, then click **Removed**. Automatic sharing is on the roadmap.
+**Status:** Live (manual); automatic sharing is **Pending**. Paid-course recordings live in a private
+Drive folder. Admin → Courses → course → Enrolled students lists each student's Google email; the admin
+shares the folder with those addresses (never "anyone with the link") and ticks **Drive access granted**.
+If a student changes their Google email or deletes the account, admins (ADMISSIONS/ACADEMIC) get an alert
+with the address to remove, then click **Removed**.
+
+**Automatic sharing** (Pending; on once the `GOOGLE_DRIVE_SERVICE_ACCOUNT` secret is set, DEPLOY.md):
+- Applies to paid courses with recordings on Google Drive and a folder link, once the folder is shared
+  with the academy's service account as **Editor**.
+- Every hour (the jobs tick, `driveShared`) the academy gives each enrolled student's Google email
+  **Viewer** access (no email from Google) and ticks **Drive access granted**. It first removes old
+  addresses: a changed Google email, or a deleted account. It only ever removes Viewers and Commenters,
+  never the team's Editors.
+- Enrolled students shows whether it works for the course: on, no folder link, folder not shared with
+  the service account (with its address), or shared without the right to share. It also has
+  **Share now**, which runs it at once and retries recent failures.
+- When sharing fails for a student, the row says why (not a Google account, folder not reachable, Google
+  error). ADMISSIONS/ACADEMIC admins get one alert per course and run. A failure is retried after a day.
+- With automatic sharing on, a changed Google email no longer alerts admins (the run handles it). The
+  checkbox still works by hand: unticking it makes the next run share again.
+- Audited as `enrollment.drive_access_granted` and `enrollment.drive_old_access_removed` with
+  `automatic: true`. Without the secret nothing changes.
 
 ### 4.7 Enrol by email
 
@@ -1080,7 +1097,8 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| Feedback for course staff | /teach → course → **Feedback** for staff with **See session feedback** (Main instructor, Co-instructor and Moderator by default): each session's and the course's average rating and comments, without students' names; admins still see names. New `GET /api/teach/courses/:courseId/feedback`; the low-rating automation alerts now open this tab. No migration (en/ar) | Pending |
+| Automatic Drive sharing | Paid Drive courses: an hourly run shares the folder (Viewer, no Google email) with each enrolled student's Google account and removes old addresses (changed Google email, deleted account), through a Google service account (`GOOGLE_DRIVE_SERVICE_ACCOUNT`, optional; off without it). Enrolled students shows whether it works for the course, **Share now**, and why sharing failed per student; admins get one alert per failed run. New `GET`/`POST /api/admin/courses/:id/drive-sharing[/run]` (ADMISSIONS, ACADEMIC). Migration `20261105090000_drive_auto_share` (two nullable columns) (en/ar) | Pending |
+| #98 | /teach → course → **Feedback** for staff with **See session feedback** (Main instructor, Co-instructor and Moderator by default): each session's and the course's average rating and comments, without students' names; admins still see names. New `GET /api/teach/courses/:courseId/feedback`; the low-rating automation alerts now open this tab. No migration (en/ar) | Merged |
 | #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
 | #95 | **Automation** tab (Admin → Courses → course, ACADEMIC; /teach for **Manage automation rules**): 30 per-course rules in 7 groups (attendance, assessments, certificates, feedback, admissions, operations, community), off until switched on, with settings, an optional team note, preview, pause, "recommended set", recent activity and a "Needs attention" list. An hourly job messages students (in-app and `automationMessage` email: per-course opt-out, quiet hours 22:00–08:00 Cairo, 3 a day), alerts the course team, awards bonus points (new reason "Automation bonus"), issues certificates when chosen and flags students at risk. No rule rejects, withdraws or removes a student, changes an application or releases a seat. Migration: two new tables, `Course.automationPaused`, `PointsReason` AUTOMATION (all additive) (en/ar) | Merged |
 | #94 | Card payments through Paymob, reverted by #97 before any release | — |

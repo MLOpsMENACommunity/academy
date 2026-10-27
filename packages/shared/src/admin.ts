@@ -121,6 +121,21 @@ export const savedFilterSchema = z.object({
 
 export const driveAccessSchema = z.object({ granted: z.boolean() });
 
+/**
+ * Automatic Drive sharing for a course: off (no service account), no_folder (no folder link),
+ * no_access (folder not shared with the service account), cannot_share (shared, but not as
+ * Editor), error (Google didn't answer) or ready.
+ */
+export const DRIVE_SHARING_STATES = ['off', 'no_folder', 'no_access', 'cannot_share', 'error', 'ready'] as const;
+export type DriveSharingState = (typeof DRIVE_SHARING_STATES)[number];
+
+export interface DriveSharingStatusDto {
+  state: DriveSharingState;
+  /** The service account's address: share the course folder with it as Editor. */
+  account: string | null;
+  folderName: string | null;
+}
+
 // ------------------------------------------------------------------ course editing
 
 const slug = z
