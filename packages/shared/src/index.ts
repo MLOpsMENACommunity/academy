@@ -34,6 +34,7 @@ export * from './invites';
 export * from './speaker-announcements';
 export * from './speaker-course';
 export * from './admin-permissions';
+export * from './talents';
 export * from './media';
 export * from './teaching';
 export * from './attendance';

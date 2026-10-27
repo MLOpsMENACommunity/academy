@@ -9,11 +9,12 @@ import { AdminCoursesService } from './admin-courses.service';
 import { AdminController } from './admin.controller';
 import { AdminMiscService } from './admin-misc.service';
 import { AdminStudentsService } from './admin-students.service';
+import { AdminTalentsService } from './admin-talents.service';
 
 @Module({
   imports: [ApplicationsModule, PaymentsModule, AnnouncementsModule, CoursesModule],
   controllers: [AdminController],
-  providers: [AdminApplicationsService, AdminStudentsService, AdminCoursesService, AdminMiscService, AdminAnnouncementsService],
+  providers: [AdminApplicationsService, AdminStudentsService, AdminCoursesService, AdminMiscService, AdminAnnouncementsService, AdminTalentsService],
   // Course staff reuse them, scoped to their course (teaching/teach-manage.controller.ts).
   exports: [AdminApplicationsService, AdminCoursesService],
 })

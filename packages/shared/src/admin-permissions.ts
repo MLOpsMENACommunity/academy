@@ -37,6 +37,8 @@ export const ADMIN_NAV_ITEMS = [
   { key: 'payments', permissions: ['FINANCE'] },
   { key: 'applications', permissions: ['ADMISSIONS'] },
   { key: 'students', permissions: ['ADMISSIONS'] },
+  // Student analytics for outsourcing: super admins only.
+  { key: 'talents', permissions: [] },
   { key: 'points', permissions: ['ACADEMIC'] },
   { key: 'courses', permissions: ['ACADEMIC', 'ADMISSIONS'] },
   { key: 'sessions', permissions: ['ACADEMIC'] },
