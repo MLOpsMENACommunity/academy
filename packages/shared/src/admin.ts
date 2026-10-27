@@ -280,6 +280,15 @@ export const announcementSchema = z.object({
 export type AnnouncementInput = z.infer<typeof announcementSchema>;
 export const announcementAudienceSchema = z.object({ statuses: list(APPLICATION_STATUSES).pipe(z.array(z.enum(APPLICATION_STATUSES)).min(1)) });
 
+/**
+ * "Add your Telegram username": an announcement to a course's enrolled students whose profile has none.
+ * Stored with this marker in place of statuses; its email and notification open the profile's community step.
+ */
+export const TELEGRAM_REQUEST_MARKER = 'TELEGRAM_MISSING';
+export const TELEGRAM_REQUEST_LINK = '/profile?tab=community';
+export const telegramRequestSchema = z.object({ idempotencyKey: z.string().regex(/^[\w-]{16,64}$/) });
+export type TelegramRequestInput = z.infer<typeof telegramRequestSchema>;
+
 export const sessionOrderSchema = z.object({ ids: z.array(z.string().min(1).max(40)).min(1).max(200) });
 
 /** An instructor or speaker (one person, public page at /speakers/{slug}). */

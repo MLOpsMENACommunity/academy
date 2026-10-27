@@ -1,4 +1,5 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { TELEGRAM_REQUEST_LINK, TELEGRAM_REQUEST_MARKER } from '@academy/shared';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WaitlistLinks } from './waitlist-links';
@@ -93,7 +94,9 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
         const ar = locale === 'ar';
         // A course's students, or a live session's registrants (exactly one is set).
         const target = (a.course ?? a.event)!;
-        const path = a.event ? `/sessions/${a.event.slug}` : r.enrolled ? `/learn/${target.slug}#announcements` : '/dashboard';
+        // "Add your Telegram username" opens the profile instead.
+        const profile = Array.isArray(a.statuses) && a.statuses.includes(TELEGRAM_REQUEST_MARKER);
+        const path = profile ? TELEGRAM_REQUEST_LINK : a.event ? `/sessions/${a.event.slug}` : r.enrolled ? `/learn/${target.slug}#announcements` : '/dashboard';
         const ok = await this.email.send(
           r.user.email,
           locale,
@@ -105,6 +108,7 @@ export class AnnouncementDelivery implements OnApplicationBootstrap {
             url: this.email.url(locale, path),
             from: ar ? a.fromNameAr || a.fromName : a.fromName,
             session: Boolean(a.event),
+            profile,
           },
           { bulk: true },
         );

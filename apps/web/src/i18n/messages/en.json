@@ -1051,7 +1051,16 @@
         "delivered": "Emailed {sent} of {count}",
         "failed": "{count} failed",
         "skipped": "{count} skipped (account deleted)",
-        "fromSpeaker": "From speaker {name}"
+        "fromSpeaker": "From speaker {name}",
+        "tg": {
+          "title": "Ask for Telegram usernames",
+          "help": "Emails a ready-made message (English or Arabic, in each student's language) and an in-app notification to enrolled students whose profile has no Telegram username, asking them to add it. The button opens their profile at Community. Students who already have one aren't contacted.",
+          "missing": "{count, plural, one {# enrolled student has} other {# enrolled students have}} no Telegram username.",
+          "none": "Every enrolled student has a Telegram username.",
+          "send": "Ask them to add it",
+          "confirm": "Ask {count, plural, one {# student} other {# students}} to add their Telegram username? It can’t be undone.",
+          "audience": "Enrolled, no Telegram username"
+        }
       },
       "delete": {
         "confirm": "Delete \"{title}\" permanently? Its sessions, questions and announcements are deleted too. This can’t be undone.",
@@ -1692,6 +1701,9 @@
       "onBoard": "Public board",
       "shown": "Shown",
       "hidden": "Hidden",
+      "searchPlaceholder": "Name, email, Telegram or Discord",
+      "searchCount": "{count} of {total} students match.",
+      "searchNone": "No students match your search.",
       "title": "Points & badges",
       "awarded": "Saved: {points} points.",
       "pickBadge": "Choose a badge.",
