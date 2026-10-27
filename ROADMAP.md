@@ -21,13 +21,6 @@ flag and audit log entries already exist and would be set by the job.
 webhook verification, and automatic `PAYMENT_SUBMITTED → ENROLLED` on a
 verified webhook. Manual InstaPay / Vodafone Cash stays as an option.
 
-## Certificates and project submissions
-
-`ProjectSubmission` and `Certificate` tables exist (linked to `Enrollment`) with
-no UI. Some courses issue a certificate only after a mandatory final project:
-students submit a repo or URL, an admin marks it passed, and a certificate with
-a public verification URL (`/certificates/<serial>`) and a PDF is issued.
-
 ## Discord / Telegram role sync
 
 Give enrolled students a course role or channel access automatically, and remove
