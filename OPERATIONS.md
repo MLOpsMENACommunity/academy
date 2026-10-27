@@ -166,6 +166,7 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 | `JOBS_TOKEN` | None. Unless `REVALIDATE_TOKEN` is set, the revalidation token derived from it changes too, and the containers restart with the new one | GitHub env → redeploy (the Worker and the API read the same value) |
 | `REVALIDATE_TOKEN` (optional) | None: the Worker hands the new value to both containers, which restart | GitHub env → redeploy |
 | `EDGE_PURGE_API_TOKEN` (optional) | None, if the new token is set before the old one is revoked. Without a working token, admin edits take up to 30 s at the edge instead of seconds | New Cloudflare API token (Zone → Cache Purge on the academy's zone) → GitHub env → redeploy → delete the old token |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (optional) | None: the API registers its webhook again with the new values when it starts. Updates Telegram sends in between are retried by Telegram. A revoked bot token's join links keep working. Unconfirmed Telegram connect links (15 minutes) made before a `JWT_ACCESS_SECRET` rotation stop working | BotFather `/revoke` for the token, `openssl rand -hex 32` for the secret → GitHub env → redeploy (see DEPLOY.md, "Telegram course groups") |
 | `BACKUP_PASSPHRASE` | Only new dumps use it | **Keep the old passphrase** until every dump encrypted with it has aged out |
 | Admin password | — | Sign in → Profile → Account → change password |
 

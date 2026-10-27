@@ -21,7 +21,7 @@ Every feature carries one status. As of 27 Oct 2026:
 | **Live** | In production at academy.mlopsmena.com | Release `v2026.10.24-1`: everything up to and including PR #85 |
 | **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.26-1`: PRs #86–#88 |
 | **Merged** | On `main`, waiting for the next release | PRs #89–#93, #95, #97 (#94 was reverted) |
-| **Pending** | An open pull request, not merged | None |
+| **Pending** | An open pull request, not merged | Feedback for course staff; Telegram course groups |
 
 Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#14-cicd-and-release)).
 When a release reaches staging, change its "Merged" entries to "Staging"; when it is promoted, change every "Staging" to "Live".
@@ -43,7 +43,7 @@ When a release reaches staging, change its "Merged" entries to "Staging"; when i
    - [Consultations](#95-consultations-paid-11-calls)
 10. [Live sessions (admin side)](#10-live-sessions-admin-side)
 11. [The admin panel](#11-the-admin-panel)
-   - [Course automation rules](#111-course-automation-rules)
+   - [Course automation rules](#111-course-automation-rules) · [Telegram course groups](#112-telegram-course-groups)
 12. [Emails and notifications](#12-emails-and-notifications)
 13. [Privacy and data](#13-privacy-and-data)
 14. [Staging vs production](#14-staging-vs-production)
@@ -77,6 +77,8 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Edit session materials (what we cover, recording, links) | | staff³ | staff³ | ✓ | ✓ | ✓ (media fields only, S) | | | |
 | Courses: create, edit, sessions, questions, status | | | | ✓ | ✓ | | read | | |
 | Course staff and roles (Staff tab) | | | | ✓ | ✓ | | | | |
+| Course Telegram group (pick the group) | | | | ✓ | ✓ | | | | |
+| Connect Telegram, join the course's group | | own | own | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
 | Course details, sessions, applications, enrolment, certificates, roster of one course | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Live sessions: create, edit, publish, registrations | | | | ✓ | ✓ | covers only (S) | | | |
 | Certificates: rule, issue, revoke, re-issue | | | | ✓ | ✓ | | | | |
@@ -304,6 +306,8 @@ community (with consent).
   them, and they need them before their next application. Admins see both in Admin → Students (list,
   detail, CSV) and on each application's profile snapshot, and can correct or clear them (Edit →
   Community & consent).
+- **Connect Telegram** (Community tab, Pending): links the student's Telegram account to the
+  academy's bot so it lets them into their courses' groups (see [11.2](#112-telegram-course-groups)).
 - Marketing emails are opt-in and unticked by default. The hiring questions ("open to opportunities",
   "share with hiring partners") were removed from the forms (PR #53); earlier answers stay on record.
 - **Profile review:** a student whose profile hasn't changed for about 6 months gets one email asking
@@ -494,6 +498,8 @@ admins can preview any course; course staff can preview assessments.
   that browser). The in-app notification and the email open it directly (`/learn/<slug>#announcements`).
   Students see the announcements sent to enrolled students and any sent to them directly, never
   those for other statuses.
+- **Join the course Telegram group** (Pending, see [11.2](#112-telegram-course-groups)): when the course has a
+  group, connect Telegram first, then the course's join link; the bot lets enrolled students in.
 - **Assessments** list with how many are due, **Leaderboard**, **How to earn the certificate** card or
   the certificate banner.
 - Dashboard (`/dashboard`): my courses (all, in progress, completed), next live sessions, my
@@ -989,6 +995,49 @@ opt-out, wait for 08:00 Cairo time between 22:00 and 08:00, and are capped at 3 
 (more still arrive in-app); every rule change is audited and every action is in **Recent activity**. Anonymising
 a deleted account unlinks it from the activity log.
 
+### 11.2 Telegram course groups
+
+**Status:** Pending. **Who:** enrolled students (Profile → Community, the learn page) and ACADEMIC
+admins (Admin → Courses → course → **Details** → **Telegram group**). **Use:** enrolled students get
+into their course's Telegram group without the team adding them by hand, and people who aren't
+enrolled don't. Off and invisible until the academy's bot is configured (DEPLOY.md, "Telegram
+course groups").
+
+Telegram bots can't add people by username, so the academy uses join-request links and a one-time
+account connection:
+
+1. **Admin:** add the academy's bot to the course's group as an admin with the "Invite users" right
+   (the bot notices and lists the group), then pick the group under **Telegram group** and save. The
+   academy creates a join-request link for the course (named after its slug). Changing or removing the
+   group revokes the old link; nobody is removed from any group.
+2. **Student, once:** Profile → Community → **Connect Telegram** opens the bot in Telegram
+   (`t.me/<bot>?start=…`, a signed link that works for 15 minutes, once); pressing **Start** connects
+   the Telegram account to the academy account. The bot answers in the student's language. If their
+   profile has no Telegram username yet, the one from Telegram is filled in. **Disconnect** undoes it.
+3. **Student, per course:** the learn page shows **Join the course Telegram group** (connect first if
+   needed, then the link). Telegram sends the request to the bot, which **approves it at once** when
+   the Telegram account is connected to an account enrolled in a course using that group.
+
+**Rules:**
+- A request from a Telegram account that isn't connected gets a private message from the bot (English
+  and Arabic) with a link to Profile → Community, and waits; it is approved as soon as that person
+  connects. A connected account that isn't enrolled is told the group is for enrolled students and
+  waits; the hourly job approves it once they are enrolled. Waiting requests are forgotten after 30
+  days (Telegram keeps the request; the group's admins can still decide).
+- **Requests are never declined, and nobody is ever removed from a group automatically**, including
+  after a withdrawal, an account deletion or a disconnect. Removing people stays a manual decision in
+  Telegram, by the group's admins.
+- **One academy account per Telegram account.** Connecting a Telegram account that is already connected
+  to another academy account is refused, with a polite message saying to disconnect it there first
+  (it is never moved silently).
+- Join requests to groups that belong to no course are left alone. Links the group's own admins made
+  keep working as before.
+- Admin changes are audited (`course.telegram_group_set`, `course.telegram_group_cleared`), as are a
+  student's connect and disconnect (`telegram.linked`, `telegram.unlinked`). Duplicating a course
+  doesn't copy its group.
+- **Privacy:** the Telegram account id and the connection date are in the data export; deleting the
+  account disconnects it at once and forgets its waiting join requests.
+
 ---
 
 ## 12. Emails and notifications
@@ -1043,6 +1092,9 @@ same email is never sent twice.
 
 - **Telegram and Discord usernames** are shown to the academy team only (never on public pages or
   leaderboards); they are in the data export and removed with the profile on anonymisation.
+- **Connected Telegram account** (Pending): the Telegram account id and when it was connected are
+  stored on the profile, shown in the data export, and cleared at once when the account is deleted
+  (with its waiting join requests); the privacy policy says so.
 - **Data minimisation:** leaderboards show first name + last initial and only for students who opt in;
   speakers see counts, never recipients; certificates show the name the student gave.
 - **Private files** (CVs, payment screenshots, assessment PDFs, certificate PDFs) are in a private
@@ -1080,6 +1132,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Telegram course groups | Enrolled students get into their course's Telegram group through the academy's bot: **Connect Telegram** in Profile → Community (a signed 15-minute link to the bot; one academy account per Telegram account, a second one is refused), **Join the course Telegram group** on the learn page, and Admin → Courses → course → Details → **Telegram group** (ACADEMIC) to pick a group the bot administers, which creates a join-request link (named after the slug; the old one revoked on change). The bot approves requests from connected, enrolled students, messages others how to connect, keeps them waiting (hourly job; never declined) and never removes anyone. New `POST /api/telegram/webhook` (secret header), `GET`/`DELETE /api/me/telegram`, `POST /api/me/telegram/link`, `GET /api/learn/:slug/telegram`, `GET`/`PUT /api/admin/courses/:id/telegram`; optional `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`. Data export and account deletion include the connection; privacy policy updated. Migration: nullable columns on Profile and Course, two new tables (all additive) (en/ar) | Pending |
 | Feedback for course staff | /teach → course → **Feedback** for staff with **See session feedback** (Main instructor, Co-instructor and Moderator by default): each session's and the course's average rating and comments, without students' names; admins still see names. New `GET /api/teach/courses/:courseId/feedback`; the low-rating automation alerts now open this tab. No migration (en/ar) | Pending |
 | #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
 | #95 | **Automation** tab (Admin → Courses → course, ACADEMIC; /teach for **Manage automation rules**): 30 per-course rules in 7 groups (attendance, assessments, certificates, feedback, admissions, operations, community), off until switched on, with settings, an optional team note, preview, pause, "recommended set", recent activity and a "Needs attention" list. An hourly job messages students (in-app and `automationMessage` email: per-course opt-out, quiet hours 22:00–08:00 Cairo, 3 a day), alerts the course team, awards bonus points (new reason "Automation bonus"), issues certificates when chosen and flags students at risk. No rule rejects, withdraws or removes a student, changes an application or releases a seat. Migration: two new tables, `Course.automationPaused`, `PointsReason` AUTOMATION (all additive) (en/ar) | Merged |

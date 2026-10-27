@@ -89,7 +89,8 @@ export class AdminCoursesService {
       },
     });
     if (!c) throw new NotFoundException('Course not found');
-    const { instructors, screeningQuestions, sessions, ...course } = c;
+    // The Telegram group has its own endpoint (telegram/): its chat id is a BigInt, which JSON can't carry.
+    const { instructors, screeningQuestions, sessions, telegramChatId: _chat, telegramInviteLink: _link, ...course } = c;
     const seats = (await this.catalog.seatCounts([id])).get(id) ?? NO_SEATS;
     return {
       ...course,
@@ -359,6 +360,9 @@ export class AdminCoursesService {
             applicationDeadline: null,
             driveFolderUrl: null,
             youtubePlaylistUrl: null,
+            // Each cohort picks its own Telegram group (the link is named after the course's slug).
+            telegramChatId: null,
+            telegramInviteLink: null,
             // The next cohort of a completed course is a new run, entered by an admin.
             endDate: null,
             cohortNumber: fields.cohortNumber ? fields.cohortNumber + 1 : null,

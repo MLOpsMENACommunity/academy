@@ -43,6 +43,7 @@ import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-anno
 import { SpeakerPortalModule } from './speaker-portal/speaker-portal.module';
 import { StorageModule } from './storage/storage.module';
 import { TeachingModule } from './teaching/teaching.module';
+import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 
@@ -86,6 +87,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     AdminTeamModule,
     MediaModule,
     ConsultationsModule,
+    TelegramModule,
     JobsModule,
   ],
   controllers: [HealthController],

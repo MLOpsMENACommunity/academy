@@ -462,6 +462,41 @@ sitemap and `<meta name="robots">` say the same. Canonical and `og:url` links on
 point at staging on purpose: staging content differs from production, and noindex already
 keeps it out of search results.
 
+### Telegram course groups
+
+Optional. Enrolled students get into their course's Telegram group without anyone adding them by
+hand (docs/FEATURES.md, "Telegram course groups"). Off, and invisible, until both secrets are set.
+
+1. **Create the bot.** In Telegram, talk to [@BotFather](https://t.me/BotFather): `/newbot`, a name
+   ("MLOps MENA Academy") and a username ending in `bot`. Use **one bot per environment** (for
+   example `mlopsmena_academy_bot` and `mlopsmena_academy_staging_bot`): a bot has one webhook, so
+   staging and production can't share one. Keep BotFather's default privacy mode (the bot only
+   sees commands in groups, so group chatter never wakes the API container).
+2. **Secrets** in the GitHub environments `staging` and `production` (with Workers Builds, on each
+   Worker: `deploy/cloudflare/set-worker-secret.sh <env> TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET`):
+   - `TELEGRAM_BOT_TOKEN`: the token BotFather gave (`123456789:AA…`).
+   - `TELEGRAM_WEBHOOK_SECRET`: a random string Telegram sends back with every webhook call
+     (`openssl rand -hex 32`; 32–256 letters, digits, `_` or `-`).
+   The next release applies them. On every start the API registers its webhook
+   (`https://<host>/api/telegram/webhook`, updates `message`, `my_chat_member` and
+   `chat_join_request`); a failure is logged and the API starts anyway. Check with
+   `curl -s https://api.telegram.org/bot<token>/getWebhookInfo` (never paste the token in chat).
+3. **Each course's group.** In Telegram, add the bot to the group as an **admin with the "Invite
+   users" right** (the bot records the group when it is promoted). Then, in Admin → Courses → course
+   → Details → **Telegram group** (ACADEMIC), pick the group and save. The academy creates a
+   **join-request link** for the course (named after its slug), so nobody joins through it without
+   the bot's approval: "Approve new members" doesn't need to be turned on in the group, the link
+   itself asks. Students find the link on the course's learn page. Links the group's own admins made
+   keep working as before: a plain invite link lets anyone in, so share only the course's link.
+4. **Rotating.** A new `TELEGRAM_WEBHOOK_SECRET` takes effect on the next start (the webhook is
+   registered again with it). A new bot token (BotFather → `/revoke`) works the same way; join links
+   made by the old bot keep working.
+
+The bot never removes anyone from a group, never declines a request, and nothing in the academy
+does (withdrawals, deletions and disconnecting included): removing people stays a manual decision
+in Telegram. Each webhook call wakes the API container like any request; with privacy mode on,
+only private messages to the bot, join requests and the bot's own membership changes reach it.
+
 ## What a deploy does
 
 Both release workflows call `.github/workflows/deploy-cloudflare.yml` with the

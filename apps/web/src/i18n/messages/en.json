@@ -3573,5 +3573,38 @@
         "failed": "Google Calendar couldn't be connected. Try again."
       }
     }
+  },
+  "telegram": {
+    "title": "Telegram",
+    "connectHint": "Connect your Telegram account to the academy's bot: it then lets you into the Telegram groups of the courses you're enrolled in, without waiting for the team.",
+    "connect": "Connect Telegram",
+    "openTelegram": "Open Telegram",
+    "pressStart": "In Telegram, press Start. Then come back here: this page updates by itself. The link works for 15 minutes.",
+    "connected": "Your Telegram account is connected.",
+    "connectedOn": "Your Telegram account is connected (since {date}).",
+    "connectedHint": "Join each course's group from its course page. Disconnecting doesn't remove you from groups you already joined.",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect your Telegram account? The bot will no longer let you into course groups until you connect again.",
+    "groupTitle": "Course Telegram group",
+    "groupHint": "Ask to join: the bot lets enrolled students in straight away.",
+    "groupConnectFirst": "Connect your Telegram account first, so the bot knows you're enrolled and lets you in.",
+    "joinGroup": "Join the course Telegram group",
+    "admin": {
+      "title": "Telegram group",
+      "step1": "In Telegram, add {bot} to the course's group as an admin with the \"Invite users\" right.",
+      "step2": "Pick the group below and save: the academy makes a join link for this course, and the bot lets in enrolled students who connected their Telegram account. Others wait; nobody is declined.",
+      "step3": "Students find the link on the course's learn page.",
+      "theBot": "the academy's bot",
+      "noRemoval": "The bot never removes anyone from a group: removing people stays a manual decision in Telegram.",
+      "group": "Group",
+      "none": "No group",
+      "noGroups": "No group yet: add the bot to a group as an admin with \"Invite users\", then reload this page.",
+      "link": "Join link:",
+      "save": "Save group",
+      "clear": "Remove group",
+      "saved": "Saved. The join link is ready.",
+      "cleared": "Removed. The old join link no longer works; nobody was removed from the group.",
+      "notReady": "The bot can't make an invite link in that group. Make it an admin with \"Invite users\", then try again."
+    }
   }
 }

@@ -14,6 +14,7 @@ import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements, markAnnouncementsSeen, useNewAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
+import { TelegramGroup } from '@/components/learn/TelegramGroup';
 import { Leaderboard } from '@/components/points/Leaderboard';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
@@ -349,6 +350,7 @@ function Inner({ user }: { user: MeResponse }) {
               )}
             </div>
             {course.driveFolderUrl && <DriveNote course={course} />}
+            <TelegramGroup slug={course.slug} />
             <div id="reminders" className="scroll-mt-6">
               <CheckboxField
                 label={t('learn.reminders')}
