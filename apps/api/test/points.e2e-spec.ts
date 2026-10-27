@@ -316,8 +316,20 @@ describe('points, badges and leaderboards (e2e)', () => {
       [c!.email, 3, 20, false],
       [d!.email, null, 0, false],
     ]);
+    // Community usernames come from the profile, for searching and contacting students.
+    await prisma.profile.update({ where: { userId: d!.id }, data: { telegramUsername: null, discordUsername: null } });
+    const handles = (await http().get(`/api/admin/courses/${course.id}/leaderboard?scope=course`).set('Cookie', admin.cookie).expect(200)).body.rows;
+    expect(handles.map((r: { telegramUsername: string | null; discordUsername: string | null }) => [r.telegramUsername, r.discordUsername])).toEqual([
+      ['test_person', 'test.person'],
+      ['test_person', 'test.person'],
+      ['test_person', 'test.person'],
+      [null, null],
+    ]);
     const csvRes = await http().get(`/api/admin/courses/${course.id}/leaderboard.csv?scope=week&week=1`).set('Cookie', admin.cookie).expect(200);
     expect(csvRes.text).toContain(b!.email);
+    expect(csvRes.text).toContain('"Rank","Name","Email","Telegram","Discord","Points"');
+    // Without the @: the CSV guard would prefix a leading @ with a quote.
+    expect(csvRes.text).toContain('"test_person","test.person"');
     await http().get(`/api/admin/courses/${course.id}/leaderboard`).set('Cookie', a!.cookie).expect(403);
   });
 

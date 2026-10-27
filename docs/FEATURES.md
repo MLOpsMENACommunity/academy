@@ -14,16 +14,17 @@ points scheme is in [POINTS.md](POINTS.md).
 
 ## Status legend
 
-Every feature carries one status. As of 12 Oct 2026:
+Every feature carries one status. As of 27 Oct 2026:
 
 | Status | Meaning | What it contains |
 |---|---|---|
-| **Live** | In production at academy.mlopsmena.com | Release `v2026.10.11-2`: everything up to and including PR #55 |
-| **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.12-2` (`main`): PRs #56–#61 |
-| **Pending** | An open pull request, not merged | PR #62 (the waiting list needs an account) |
+| **Live** | In production at academy.mlopsmena.com | Release `v2026.10.24-1`: everything up to and including PR #85 |
+| **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.26-1`: PRs #86–#88 |
+| **Merged** | On `main`, waiting for the next release | PRs #89–#94 |
+| **Pending** | An open pull request, not merged | None |
 
 Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#14-cicd-and-release)).
-When the staging release is promoted, change every "Staging" below to "Live".
+When a release reaches staging, change its "Merged" entries to "Staging"; when it is promoted, change every "Staging" to "Live".
 
 ## Contents
 
@@ -52,8 +53,7 @@ When the staging release is promoted, change every "Staging" below to "Live".
 ## 1. Who can do what
 
 Roles: a **visitor** has no account; a **student** and a **speaker** are the two self-service account
-types (one role per account; speakers can also study like students); an **admin** has one or more permission presets. The presets are
-**Staging** (PR #59): in production today every admin can do everything, like `SUPER`.
+types (one role per account; speakers can also study like students); an **admin** has one or more permission presets.
 
 ✓ = can do it. "own" = only for themselves. "assigned" = only for courses they are assigned to.
 "staff³" = course staff (any account: student, speaker or admin) in the courses whose staff they are
@@ -93,9 +93,8 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 
 ¹ An admin can try the student flow on their own account. ² Award through the points CSV import; the
 per-student "Award or adjust points" box sits on the student page, which needs ADMISSIONS too (see
-[ADMIN-ROLES.md](ADMIN-ROLES.md#known-gaps)). ³ Pending (this PR): course staff with per-course roles
-replace "assigned speakers"; an assigned speaker becomes their course's Main instructor or a
-Co-instructor.
+[ADMIN-ROLES.md](ADMIN-ROLES.md#known-gaps)). ³ Course staff with per-course roles (PR #70) replaced
+"assigned speakers"; an assigned speaker became their course's Main instructor or a Co-instructor.
 
 ---
 
@@ -464,12 +463,11 @@ The list shows status, who invited, last emailed; **Resend** (once a minute, at 
 
 ### 4.8 Waiting list ("Notify me")
 
-**Status:** Live; the account requirement is **Pending** (PR #62).
+**Status:** Live.
 
-- **Today (production):** on a Coming soon (or not yet open) course, **Notify me** adds a signed-in
-  student, or a visitor by email, to the waiting list. One confirmation email; every email has a
-  one-click leave link.
-- **With PR #62:** joining needs an account with a confirmed email. Signed-out visitors are sent to
+- On a Coming soon (or not yet open) course, **Notify me** adds a signed-in student to the waiting
+  list. One confirmation email; every email has a one-click leave link.
+- Joining needs an account with a confirmed email (PR #62). Signed-out visitors are sent to
   register and come back to `/courses/<slug>/notify`, which adds them. Existing guest entries are kept,
   linked to an account when one proves the address, and get a "create your academy account to apply"
   email when the course opens. Leaving still works without signing in.
@@ -482,8 +480,8 @@ The list shows status, who invited, last emailed; **Resend** (once a minute, at 
 
 ## 5. The learn page
 
-**Status:** Live (assessment preview rules on Staging). **Who:** enrolled students; SUPER/ACADEMIC
-admins can preview any course; assigned speakers can preview assessments (Staging).
+**Status:** Live; progress from attendance only and marking attendance by hand are **Staging** (PR #87). **Who:** enrolled students; SUPER/ACADEMIC
+admins can preview any course; course staff can preview assessments.
 
 `/learn/<course-slug>`, reached from the dashboard ("Continue course") or the course page:
 
@@ -513,7 +511,7 @@ didn't turn reminders off.
 
 ### Feedback emails after every session
 
-**Status:** Pending (PR "Feedback emails"). **Who:** enrolled students; the per-course opt-out link
+**Status:** Live (PR #73). **Who:** enrolled students; the per-course opt-out link
 needs no sign-in.
 
 - **When:** from 30 minutes to 72 hours after each course session ends, at the next hourly jobs tick
@@ -542,8 +540,7 @@ needs no sign-in.
 
 ## 6. Assessments (quizzes, labs, assignments)
 
-**Status:** Live; English-only editor, ↑/↓ ordering, quiz upload and publish notices are **Staging**
-(PR #60); speakers creating and grading are **Staging** (PR #61).
+**Status:** Live.
 
 **Who:** ACADEMIC admins and assigned speakers create and grade; enrolled students take them.
 
@@ -564,11 +561,11 @@ Assessments):
   weight, the correct answer(s) and an explanation. Settings: attempts (0 = unlimited), best or last
   attempt counts, reveal answers (never / after the last attempt / after the due date), time limit,
   shuffle. Up to 200 questions.
-- **Upload a quiz from Excel or CSV** (Staging): download the template (.xlsx or .csv) with columns
+- **Upload a quiz from Excel or CSV**: download the template (.xlsx or .csv) with columns
   `type, question, option1…option6, correct, weight, explanation`; `correct` accepts `2`, `1,3`, `B`,
   `A,C` or `true/false`; `type` can be guessed. The preview lists each row's problem; **Add after the
   current questions** or **Replace** only when there are no errors. Nothing is saved until **Save**.
-- **Import quizzes from a file** (Pending, PR "Quiz import"): one .xlsx or .csv creates several
+- **Import quizzes from a file** (PR #81): one .xlsx or .csv creates several
   quizzes, each on a session, with all their questions. Columns: the upload's question columns plus
   `quiz` (the title: rows with the same title are one quiz), `session` (the session's number in the
   course, or `course`/empty) and optional settings from each quiz's first row: `pass_percent`, `due`
@@ -582,7 +579,7 @@ Assessments):
   with the same title** (refused once students submitted it). Published ones send the usual publish
   notices. Admins (ACADEMIC/SUPER) and course staff with Manage assessments; staff's new quizzes count
   toward the 30-a-day cap. Every import is audited. Step by step: [guides/QUIZZES.md](guides/QUIZZES.md).
-- **Order** with ↑/↓ buttons (Staging).
+- **Order** with ↑/↓ buttons.
 - Guards: once anyone has submitted, max points, questions, weights and the key are locked (wording
   stays editable); "answers after the due date" needs late work off; a practice quiz (unlimited attempts
   with answers after each) can't be mandatory for the certificate.
@@ -605,16 +602,16 @@ Assessments):
 
 - **Gradebook** per assessment: filters All, To grade, Graded, Late, Missing; GitHub check result; PDF
   through a 5-minute link (audited); grade with score, feedback and rubric notes. Quizzes grade
-  themselves. Rows show "by {name}" (Staging).
+  themselves. Rows show "by {name}".
 - **Gradebook CSV** per course: students × published assessments, total, percent and "certificate
   assessments passed".
 
 ### Emails and notices
 
-- **Publish notice** (Staging): the first time an assessment is published, every enrolled student gets
+- **Publish notice**: the first time an assessment is published, every enrolled student gets
   an in-app notification and, unless they turned the course's reminders off, the `assessmentPublished`
-  email. Only for Open or Closed courses; unpublish/republish sends nothing. From PR "Feedback emails"
-  (Pending) the notices are written with the publish and sent by the durable email outbox, so a restart
+  email. Only for Open or Closed courses; unpublish/republish sends nothing. The notices are written
+  with the publish and sent by the durable email outbox (PR #73), so a restart
   or a sleeping container can't drop them; the emails carry one-click unsubscribe headers that turn the
   course's reminders off.
 - **Due reminder:** 24 hours before the due date, to students who haven't submitted (once each,
@@ -650,7 +647,8 @@ points and the **Certified** badge; revoking takes both back.
 
 ## 8. Points, badges and leaderboards
 
-**Status:** Live; speakers awarding points is **Staging** (PR #61). Full rules and the proposed scheme
+**Status:** Live; Telegram and Discord usernames and search on the course leaderboard are **Merged**
+(PR #89). Full rules and the proposed scheme
 for the two courses are in [POINTS.md](POINTS.md).
 
 - **Students earn points** automatically for assessments (the counted score, rounded), for marking a
@@ -669,16 +667,16 @@ for the two courses are in [POINTS.md](POINTS.md).
 - **Admin** (ACADEMIC): Admin → Points & badges (badge catalog, add manual badges, activate/deactivate,
   points CSV import with a dry-run preview); Admin → Students → student → **Award or adjust points** and
   award/revoke manual badges; Admin → Courses → course → **Leaderboard** (everyone ranked, hidden ones
-  marked, CSV).
-- **Speakers** (Staging): My courses → course → **Points**: give or take away course points for an
+  marked, Telegram and Discord usernames, search by name, email, Telegram or Discord, CSV with
+  the usernames).
+- **Speakers**: My courses → course → **Points**: give or take away course points for an
   enrolled student with a reason and a note.
 
 ---
 
 ## 9. The speaker portal
 
-**Status:** Live; one-click publish and course drafts (PR #57) and teaching assigned courses (PR #61)
-are **Staging**.
+**Status:** Live.
 
 **Who:** speakers (their own account), SPEAKERS admins. **Business use:** a pipeline of community
 speakers who apply, book a slot and teach, with little back-and-forth for the team.
@@ -705,13 +703,13 @@ speakers who apply, book a slot and teach, with little back-and-forth for the te
    abstract, kind and details. Limits: at most 2 upcoming bookings (Settings), only slots more than 3
    days ahead (Settings), no double booking.
 3. A **Session** or **Podcast** booking creates a **draft live session**; a **Course** booking creates a
-   **draft course** (Staging; Live: a draft session labelled Course). The session team addresses
+   **draft course**. The session team addresses
    (Settings → Session team emails) each get the `speakerBookingTeam` email; admins with the SPEAKERS
    preset get an in-app notification; the speaker gets `speakerBookingConfirmed` with calendar links.
 4. The speaker can edit details until the session is published, and **cancel** until 3 days before
    (the slot reopens; a draft is deleted, a published session is cancelled and its registrants
    emailed; the team is emailed). Admins can **Release** any booking.
-5. When the team publishes the session, the speaker gets `speakerSessionPublished` (Staging).
+5. When the team publishes the session, the speaker gets `speakerSessionPublished`.
 
 ### 9.3 Announcements
 
@@ -725,7 +723,7 @@ see counts only, never who. Delivered in-app, by email (bulk lane) and on the le
 
 ### 9.4 Course staff and the Teaching area
 
-**Status:** Pending (the course staff PR). Replaces "assigned speakers" (PR #54, #61).
+**Status:** Live (PR #70). Replaced "assigned speakers" (PR #54, #61).
 
 **Who:** every course has a **staff**: a Main instructor (expected, one person), optional
 Co-instructors, optional Moderators (course admins), and any other role the team creates for that
@@ -787,7 +785,7 @@ actions a minute, 30 new assessments per 24 hours, 5 announcements per course an
 
 ### 9.5 Consultations (paid 1:1 calls)
 
-**Status:** Pending (PR "Consultations").
+**Status:** Staging (PR #86).
 
 **Who:** speakers the team lists as experts (Aya, Sameh and Hossam to start), signed-in students with a
 confirmed email, SPEAKERS admins (who is listed) and FINANCE admins (payments and bookings).
@@ -851,16 +849,16 @@ Not in v1: Paymob checkout, commission and payouts, reviews, expert applications
 
 ## 10. Live sessions (admin side)
 
-**Status:** Live; the publish banner, filters and speaker notice are **Staging** (PR #57).
+**Status:** Live.
 **Who:** ACADEMIC.
 
 1. Admin → Sessions → **New session** (or open a speaker's draft). Fields: slug, English and Arabic
    title and description (Markdown), speaker (a profile) and optional hosts/guests, text overrides,
    topics, category (hands-on, industry, talk, course recording), start time, duration, language,
    platform (Google Meet or YouTube Live), the **live link**, capacity (empty = unlimited), cover
-   (upload, Staging), recording link, kind and details.
+   (upload), recording link, kind and details.
 2. **Publish:** the draft banner lists what's missing (Arabic title, live link) and **Publish** saves
-   and publishes in one step (Staging). The public list updates within about 2 minutes.
+   and publishes in one step. The public list updates within about 2 minutes.
 3. **Registrations:** Admin → Sessions → session → Registrations: list and CSV.
 4. Changing the time emails registrants (`eventRescheduled`); cancelling emails them
    (`eventCancelled`).
@@ -868,13 +866,13 @@ Not in v1: Paymob checkout, commission and payouts, reviews, expert applications
    library.
 
 Sessions list filters: All / Drafts / Published / Cancelled, with badges for speaker bookings and
-podcasts (Staging).
+podcasts.
 
 ---
 
 ## 11. The admin panel
 
-`/admin`. Each admin sees only the sections their presets allow (Staging; Live: everything) and opens
+`/admin`. Each admin sees only the sections their presets allow and opens
 on their first section. The sections:
 
 | Section | Presets | What it does |
@@ -883,12 +881,13 @@ on their first section. The sections:
 | Payments | FINANCE | Review proofs, approve or reject (4.5) |
 | Applications | ADMISSIONS | Review, bulk actions, notes, CSV, saved views (4.3) |
 | Students | ADMISSIONS | Search and filter students (and speakers who applied to or enrolled in a course, with a Speaker badge); profile, CV, applications, notes; **Edit profile** step by step; **Add student**; **Delete account**; switch to speaker. ACADEMIC also needed for the points box |
+| Talents | SUPER | What our students can do, for outsourcing (below) |
 | Points & badges | ACADEMIC | Badge catalog and points CSV import (8) |
 | Courses | ACADEMIC (edit), ADMISSIONS (read) | New course, duplicate, edit, archive/delete; tabs below |
 | Sessions | ACADEMIC | Free live sessions (10) |
 | Speakers | SPEAKERS | Profiles (photo, bio, LinkedIn, assigned courses), Applications, Availability and bookings (9) |
-| Media | CONTENT | Staging. Upload images and set course and session covers, speaker photos, recording and playlist links; no student data |
-| Team | SUPER | Staging. Admins and their presets ([ADMIN-ROLES.md](ADMIN-ROLES.md)) |
+| Media | CONTENT | Upload images and set course and session covers, speaker photos, recording and playlist links; no student data |
+| Team | SUPER | Admins and their presets ([ADMIN-ROLES.md](ADMIN-ROLES.md)) |
 | Settings | SUPER | Payment details, support email and WhatsApp, live link window (60 min), retention days (180), session points (5), certificate points (50), session team emails, speaker booking limit (2) and cancel window (3 days) |
 | Audit | SUPER | Every admin action with who, when and ids (filterable) |
 
@@ -896,9 +895,40 @@ on their first section. The sections:
 (ADMISSIONS), Sessions (ACADEMIC; add, bulk add, reorder), Assessments (ACADEMIC), Leaderboard
 (ACADEMIC), Enrolled students (ADMISSIONS, ACADEMIC; Drive access, learn page access), Enrol by email
 (ADMISSIONS), Certificates (ACADEMIC), Announcements (ACADEMIC: message students by application
-status, in-app and email, with delivery counts), Waiting list (ADMISSIONS), Feedback (ACADEMIC).
+status, in-app and email, with delivery counts; **Ask for Telegram usernames** (Merged, PR #90) sends a ready-made
+message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC).
 
-**Image uploads** (Staging): **Upload image** next to course cover, live session cover, speaker photo
+**Talents** (Admin → Talents, SUPER): analytics about the students, to know what we can staff
+on outsourcing projects. It takes the same filters as Students (country, experience, seniority, areas,
+employment, education, skill minimums, cloud, weekly hours, topics, search) plus **Who to
+include** (everyone with a profile, applied, enrolled, certified); every figure follows the filters, and
+**Open these students** opens the same filter in Students for the CSV. Deleted accounts and admins are never
+counted. The page shows:
+
+- **Headline counts**: talents; strong in at least one skill (rated 4–5); available for projects (freelancer,
+  job seeking, or the "freelancing" goal); 5+ years of experience; certified; rated their skills. No consent
+  figures: the profile asks no hiring consent.
+- **Who we can staff**: one role for now, **AI engineer (high skill)**: 4+ in Python, LLMs/RAG and AI agents.
+  How many students meet all three, how many are available, and by seniority (junior, mid, senior+).
+  **Show them** applies the role's skill filter. Roles are a list in `packages/shared/src/talents.ts`;
+  add one there when we start selling it.
+- **Best skills**: the 16 profile skills ranked by how many students rate themselves 4–5, with experts (5),
+  the average and how many rated it, as a share of the students who rated their skills (an optional step); a
+  **Few strong** badge under 5% of them. A skill opens
+  the filter "this skill 4+".
+- **Academy track record**: enrolled, certified, average attendance (Present 1, Partial ½), average graded
+  score and points (voided points never count).
+- **Distributions**: seniority, total and ML/AI experience, primary and secondary areas, education,
+  countries (top 25), employment, industry, weekly hours, cloud platforms, production tools (top 25;
+  spellings merged, e.g. "docker" and "Docker"), goals and topics they want to learn.
+- **Top talents**: the best 50 matches by talent score (0–100): self-rated skills 45 (the five best
+  ratings), ML/AI experience 20, academy record 35 (certificate 15, attendance 10, graded work 10), with
+  their best skills, record and an Available badge; each opens the student's page.
+
+Skills, experience and seniority are self-reported; the page says so. It summarises up to 20,000 students
+at once and warns when more match. `GET /api/admin/talents` (SUPER, 30 requests a minute).
+
+**Image uploads**: **Upload image** next to course cover, live session cover, speaker photo
 fields: JPG, PNG or WebP up to 5 MB, served publicly at `/api/media/<id>` and cached for a year. To take
 one down, delete it from storage and purge the URL in Cloudflare.
 
@@ -924,18 +954,18 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | eventReminder | 24 h and 1 h before a live session | Bulk |
 | eventRescheduled / eventCancelled | Live session time changed / cancelled | Bulk |
 | announcement | Team or speaker announcement | Bulk |
-| assessmentPublished | First publish of an assessment (Staging; through the outbox from "Feedback emails") | Bulk |
-| feedbackPrompt | 30 min–72 h after each course session, once per student; combined with the course rating at the last session (Pending) | Bulk |
+| assessmentPublished | First publish of an assessment (through the outbox) | Bulk |
+| feedbackPrompt | 30 min–72 h after each course session, once per student; combined with the course rating at the last session | Bulk |
 | assessmentDue | 24 h before due, not yet submitted | Bulk |
 | assessmentGraded | Work graded | Bulk |
 | badgeAwarded | Badge awarded | Bulk |
 | certificateIssued | Certificate issued | Bulk |
 | waitlistJoined / waitlistOpen | Joined the waiting list / the course opened | Bulk |
-| waitlistOpenGuest | Course opened, guest entry without an account (Pending, #62) | Bulk |
+| waitlistOpenGuest | Course opened, guest entry without an account (#62) | Bulk |
 | speakerReviewed | Speaker application approved or rejected | Transactional |
 | speakerBookingConfirmed | Speaker booked a slot | Transactional |
 | speakerBookingTeam | Booking or cancellation, to each session team address | Bulk |
-| speakerSessionPublished | The team published the speaker's session (Staging) | Transactional |
+| speakerSessionPublished | The team published the speaker's session | Transactional |
 | adminAlert | Drive access to remove, and similar team alerts | Transactional |
 | profileReview | Profile untouched for ~6 months | Transactional |
 
@@ -943,7 +973,7 @@ In-app notifications accompany most of these (see 3.7). Students turn off course
 on the learn page; marketing emails are opt-in. Feedback emails have their own per-course "stop" link
 that works without signing in (section 5).
 
-Feedback prompts and assessment publish notices go through the **durable outbox** (Pending): each
+Feedback prompts and assessment publish notices go through the **durable outbox**: each
 email is a database row, sent in the background with retries, so a restart doesn't lose it and the
 same email is never sent twice.
 
@@ -980,7 +1010,7 @@ same email is never sent twice.
 | Email | Real recipients | Everyone not on the allowlist is redirected to one team inbox, with the original recipient in the subject |
 | Search engines | Indexed | `noindex`, `robots.txt` disallows everything |
 | Scheduled jobs | Hourly (reminders, retention, points, anonymisation) | None by default; run by hand when testing |
-| Version now | `v2026.10.11-2` (PRs up to #55) | `v2026.10.12-2` (PRs up to #61) |
+| Version now | `v2026.10.24-1` (PRs up to #85) | `v2026.10.26-1` (PRs up to #88) |
 
 New features always reach staging first. Test on staging, then promote the same tag to production.
 
@@ -992,30 +1022,44 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| Card payments (Paymob) | **Pay by card** on the payment step of a paid course (Visa/Mastercard, Egypt or abroad) through Paymob's hosted checkout, off until the four `PAYMOB_*` keys are set. Paymob's signed webhook (`POST /api/payments/paymob/webhook`, HMAC-SHA512) enrols the student at once with an approved CARD payment (new `CARD_PAID` transition); retries are no-ops; a payment that can't enrol is recorded as rejected with a refund note and FINANCE is notified. Admin payment page: card payments show a Paymob note instead of the screenshot checks. Manual InstaPay / Vodafone Cash unchanged. Privacy, Terms and Refund Policy name Paymob and card refunds. Migration: one new table `CardCheckout` (additive) (en/ar) | Pending |
-| Attendance only | Students no longer mark sessions done (the box is gone; the old endpoint answers 410; session points already earned stay). Progress on the learn page, the certificate's sessions rule, the admin roster's sessions count and **Finisher** follow attendance (Present or Partial); sessions students marked done before this change still count, so nobody loses progress or eligibility. The Attendance tab (admin and Teaching) gets **Mark by hand**: every enrolled student with a checkbox, Select all, then Present, Partial or Absent, with or without a Meet file; points follow the course rule (en/ar) | Pending |
-| Consultations | Paid 1:1 calls with listed speakers, pay first then book: open times shown first; the student uploads the InstaPay, Vodafone Cash, Orange Cash or e& money screenshot; FINANCE approves (the student is told to book) or rejects with a reason; the student books an open time. No refunds for paid calls but one move up to 24 h before (Refund Policy updated); optional Google Calendar per expert (busy times, a Meet link and calendar event per call). Top-menu **Consultations**, My consultations, the expert's page, Admin → Consultations: weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migrations: two new tables, then new columns (all additive) | Pending |
-| Admin course tabs wrap | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Pending |
-| Announcements tab | The learn page has **Sessions** and **Announcements** tabs. The Announcements tab lists every announcement of the course (it showed the latest 20 at the bottom of the page before), with a "N new" badge; announcement notifications and emails open it (`#announcements`); new `GET /api/learn/:slug/announcements` (same visibility rules) (en/ar) | Pending |
-| No pgbouncer mode | The API talks to Neon's pooler without Prisma's `pgbouncer=true`, which had wrapped every query in `BEGIN; DEALLOCATE ALL; …; COMMIT` (about 6 round trips per query instead of 1–2). Neon's PgBouncer 1.22+ supports the prepared statements Prisma uses. Checked locally: the whole API e2e suite through PgBouncer 1.26 in transaction mode. No visible change besides speed (DEPLOY.md, "No pgbouncer mode") | Pending |
-| Faster signed-in clicks | Containers pinned to Western Europe, next to the database (a query took ~0.5 s from wherever Cloudflare had placed them); signed-in reads reuse the account check and the course for 15 s, emptied by every write, so revoking access still applies on the next request; the learn page no longer looks up the course and enrolment again for each of its three calls, and assessments check the enrolment before the staff list. No visible change besides speed (DEPLOY.md, "Region" and "Signed-in reads") | Pending |
-| Quiz import | **Import quizzes from a file** in a course's Assessments tab (admin and Teaching): one .xlsx/.csv creates many quizzes, each on its session (by number) or course-level, with questions, weights and settings (pass %, due in Cairo time, attempts, time limit, reveal, mandatory, status, max points, instructions); per-quiz preview with row errors; all-or-nothing save (30 quizzes, 1,000 questions), drafts by default, skip or replace same-title quizzes, audited; template with two quizzes. Single-quiz upload hint explains weights. New guides: guides/QUIZZES.md, guides/ATTENDANCE.md, guides/COURSE-STAFF.md; README documentation index (en/ar) | Pending |
-| Login loop fix | Signed-in users never see the login form: after clicking Apply (or any private link) while signed out and then logging in, people landed back on the login page with the header showing them signed in (the browser reused a cached redirect to /login). Login, register and logout now end with a full page load; /login and /register show a spinner, never the form, to a signed-in user, with a "You are signed in → Continue" fallback if forwarding keeps bouncing; `returnTo` never points at a sign-in page (en/ar) | Pending |
-| Mandatory/optional assessments | Assessments say plainly whether they're **mandatory or optional for the certificate**: a two-option choice in the editor (admin and Teaching) instead of the "Counts toward the certificate" checkbox, with a note and link when the course's rule doesn't require assessments; Mandatory/Optional badges in the admin list; "Required for certificate" / "Optional" badges for students when the course's certificate requires assessments; the Certificates rule reads "Students must pass every mandatory assessment". Same data and eligibility as before (en/ar) | Pending |
-| Speakers can learn | Speaker accounts can also apply to courses and study like students (profile, apply, withdraw, pay, enrol by email, learn page, assessments, attendance, feedback, points, leaderboards, certificates, waiting list, calendar, reminders); their home stays `/speaker`, with **My learning** in the header menu and on the portal once they have a course; sign-in keeps an Apply or lesson link for speakers; enrolled speakers count as students for certificates, feedback emails and the profile review email; Admin → Students lists speakers who applied or enrolled (Speaker badge, "Speaker" CSV column); Enrol by email enrols speaker accounts; a student with courses can be switched to a speaker | Pending |
-| Admin enrolled totals | Admins always see each course's enrolled total (the public count, even when hidden publicly): an Enrolled students column with the capacity ("12 / 30") in Admin → Courses, "12 enrolled · 18 seats left" and a tab count in the course, and an Enrolled students figure on the dashboard course cards (en/ar); admin API `enrolledCount` (and `seatsLeft` on a course) | Pending |
-| Accounts audit | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Pending |
-| Enrolled count | Course pages and cards show "N students enrolled" and "X seats left" / "Course full" (en/ar); per-course "Show enrolled count publicly" switch (on by default); enrolments and withdrawals refresh the public pages within seconds; public API `enrolledCount` and `seatsLeft` | Pending |
-| Course staff | Course staff: per-course roles (Main instructor, Co-instructor, Moderator, custom) with permissions, Shown or Anonymous; Admin → Courses → Staff tab; Teaching area at /teach for any account; public course page shows staff by role | Pending |
-| Feedback emails | "How was the session?" email and notification after every course session (course rating at the last one), per-course opt-out link without sign-in, "Rate your last session" dashboard card, links straight to the rating form; durable email outbox (publish notices moved onto it) | Pending |
-| Admissions audit | Students can withdraw an application (Withdrawn status); deleting an account frees its seats and closes a pending payment; full courses say so before applying; Apply closes at the deadline; payments queue pages; Arabic digits in payment proofs; "seat confirmed" email; waiting list only notified while applications are open; admin accounts out of Admin → Students | Pending |
-| #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Pending |
-| #61 | Speakers teach their assigned courses: assessments, grading, gradebook, points, materials; assessment preview limited to SUPER/ACADEMIC and assigned speakers; "Last edited by" | Staging |
-| #60 | Assessments: English-only editor, ↑/↓ ordering, quiz upload from Excel/CSV, publish notices; "Learn page access" column | Staging |
-| #59 | Admin permission presets (SUPER, ACADEMIC, CONTENT, ADMISSIONS, SPEAKERS, FINANCE), Admin → Team, Admin → Media and image uploads | Staging |
-| #58 | Session editor hint for course bookings; missing "not found" message | Staging |
-| #57 | One-click publish for draft sessions, session filters, speaker notified on publish; course bookings become draft courses | Staging |
-| #56 | Test-only: speaker announcement e2e fix | Staging |
+| #94 | **Pay by card** on the payment step of a paid course (Visa/Mastercard, Egypt or abroad) through Paymob's hosted checkout, off until the four `PAYMOB_*` keys are set. Paymob's signed webhook (`POST /api/payments/paymob/webhook`, HMAC-SHA512) enrols the student at once with an approved CARD payment (new `CARD_PAID` transition); retries are no-ops; a payment that can't enrol is recorded as rejected with a refund note and FINANCE is notified. Admin payment page: card payments show a Paymob note instead of the screenshot checks. Manual InstaPay / Vodafone Cash unchanged. Privacy, Terms and Refund Policy name Paymob and card refunds. Migration: one new table `CardCheckout` (additive) (en/ar) | Merged |
+| #92 | New admin section **Talents** (SUPER only): analytics about the students for outsourcing, with the Students filters plus who to include (all, applied, enrolled, certified): headline counts (strong skills, available for projects, 5+ years, certified, rated skills), high-skill AI engineers we can staff by seniority, best skills (strong, expert, average, gaps), academy track record, distributions (experience, seniority, areas, countries, employment, industry, education, cloud, tools, goals, topics, hours) and the top 50 talents by a stated talent score. New `GET /api/admin/talents`. No migration (en/ar) | Merged |
+| #91 | Opening a student from Admin → Courses → course → **Leaderboard** and clicking the back link returns to that course's leaderboard (it went to Admin → Points & badges); opened from anywhere else, it still goes to Points & badges (en/ar) | Merged |
+| #90 | Admin → Courses → course → **Announcements** has **Ask for Telegram usernames**: shows how many enrolled students have no Telegram username and, after a confirm, sends them a ready-made message (English/Arabic, in each student's language) by email and in-app, through the announcement queue (retried, sent once per click, audited as `course.telegram_requested`). The email button and the notification open Profile → Community; only the students it was sent to see it on the learn page; it shows in the announcement history as "Enrolled, no Telegram username". New `GET`/`POST /api/admin/courses/:id/announcements/telegram-request` (ACADEMIC). No migration (en/ar) | Merged |
+| #89 | Admin → Courses → course → **Leaderboard** shows each student's **Telegram** and **Discord** usernames (from the profile) and has a search box that finds students by name, email, Telegram or Discord (a leading @ is ignored; ranks stay the ranks among everyone enrolled); the CSV gets Telegram and Discord columns. The students' own leaderboard is unchanged (en/ar) | Merged |
+| #88 | Contributor setup: bug and feature issue forms, an `@claude` GitHub workflow and CLAUDE.md. No user-visible change | Staging |
+| #87 | Students no longer mark sessions done (the box is gone; the old endpoint answers 410; session points already earned stay). Progress on the learn page, the certificate's sessions rule, the admin roster's sessions count and **Finisher** follow attendance (Present or Partial); sessions students marked done before this change still count, so nobody loses progress or eligibility. The Attendance tab (admin and Teaching) gets **Mark by hand**: every enrolled student with a checkbox, Select all, then Present, Partial or Absent, with or without a Meet file; points follow the course rule (en/ar) | Staging |
+| #86 | Paid 1:1 calls with listed speakers, pay first then book: open times shown first; the student uploads the InstaPay, Vodafone Cash, Orange Cash or e& money screenshot; FINANCE approves (the student is told to book) or rejects with a reason; the student books an open time. No refunds for paid calls but one move up to 24 h before (Refund Policy updated); optional Google Calendar per expert (busy times, a Meet link and calendar event per call). Top-menu **Consultations**, My consultations, the expert's page, Admin → Consultations: weekly hours in the expert's time zone, instant reservations held while the student pays by InstaPay, FINANCE marks paid to confirm and send the meeting link, cancellations, lapsing holds and 24 h/1 h reminders (hourly job), data export and anonymisation. Migrations: two new tables, then new columns (all additive) | Staging |
+| #85 | On the admin course page the tabs wrap onto a second row on wider screens instead of scrolling sideways with a hidden scrollbar, so Announcements, Waiting list and Feedback are visible; phones still scroll | Live |
+| #84 | The learn page has **Sessions** and **Announcements** tabs. The Announcements tab lists every announcement of the course (it showed the latest 20 at the bottom of the page before), with a "N new" badge; announcement notifications and emails open it (`#announcements`); new `GET /api/learn/:slug/announcements` (same visibility rules) (en/ar) | Live |
+| #83 | The API talks to Neon's pooler without Prisma's `pgbouncer=true`, which had wrapped every query in `BEGIN; DEALLOCATE ALL; …; COMMIT` (about 6 round trips per query instead of 1–2). Neon's PgBouncer 1.22+ supports the prepared statements Prisma uses. Checked locally: the whole API e2e suite through PgBouncer 1.26 in transaction mode. No visible change besides speed (DEPLOY.md, "No pgbouncer mode") | Live |
+| #82 | Containers pinned to Western Europe, next to the database (a query took ~0.5 s from wherever Cloudflare had placed them); signed-in reads reuse the account check and the course for 15 s, emptied by every write, so revoking access still applies on the next request; the learn page no longer looks up the course and enrolment again for each of its three calls, and assessments check the enrolment before the staff list. No visible change besides speed (DEPLOY.md, "Region" and "Signed-in reads") | Live |
+| #81 | **Import quizzes from a file** in a course's Assessments tab (admin and Teaching): one .xlsx/.csv creates many quizzes, each on its session (by number) or course-level, with questions, weights and settings (pass %, due in Cairo time, attempts, time limit, reveal, mandatory, status, max points, instructions); per-quiz preview with row errors; all-or-nothing save (30 quizzes, 1,000 questions), drafts by default, skip or replace same-title quizzes, audited; template with two quizzes. Single-quiz upload hint explains weights. New guides: guides/QUIZZES.md, guides/ATTENDANCE.md, guides/COURSE-STAFF.md; README documentation index (en/ar) | Live |
+| #80 | Performance report: why the academy felt slow and what to change (docs only) | Live |
+| #79 | Signed-in users never see the login form: after clicking Apply (or any private link) while signed out and then logging in, people landed back on the login page with the header showing them signed in (the browser reused a cached redirect to /login). Login, register and logout now end with a full page load; /login and /register show a spinner, never the form, to a signed-in user, with a "You are signed in → Continue" fallback if forwarding keeps bouncing; `returnTo` never points at a sign-in page (en/ar) | Live |
+| #78 | Assessments say plainly whether they're **mandatory or optional for the certificate**: a two-option choice in the editor (admin and Teaching) instead of the "Counts toward the certificate" checkbox, with a note and link when the course's rule doesn't require assessments; Mandatory/Optional badges in the admin list; "Required for certificate" / "Optional" badges for students when the course's certificate requires assessments; the Certificates rule reads "Students must pass every mandatory assessment". Same data and eligibility as before (en/ar) | Live |
+| #77 | Speaker accounts can also apply to courses and study like students (profile, apply, withdraw, pay, enrol by email, learn page, assessments, attendance, feedback, points, leaderboards, certificates, waiting list, calendar, reminders); their home stays `/speaker`, with **My learning** in the header menu and on the portal once they have a course; sign-in keeps an Apply or lesson link for speakers; enrolled speakers count as students for certificates, feedback emails and the profile review email; Admin → Students lists speakers who applied or enrolled (Speaker badge, "Speaker" CSV column); Enrol by email enrols speaker accounts; a student with courses can be switched to a speaker | Live |
+| #76 | Admins always see each course's enrolled total (the public count, even when hidden publicly): an Enrolled students column with the capacity ("12 / 30") in Admin → Courses, "12 enrolled · 18 seats left" and a tab count in the course, and an Enrolled students figure on the dashboard course cards (en/ar); admin API `enrolledCount` (and `seatsLeft` on a course) | Live |
+| #75 | The 1-hour session reminder carries the live (Meet) link | Live |
+| #74 | The 1-hour session reminder carries the live (Meet) link (first attempt, completed by #75) | Live |
+| #71 | Telegram and Discord usernames (required to apply; banner for existing students; shown to admins). Audit fixes: reset-email limits, translated validation errors, social cards and 404 titles, re-opened verify links, sessions replaced at sign-in, deleted-address message, deleted-account confirmation, notification panel errors, Worker internal-route check; privacy policy updated (usernames, assessments, attendance, certificates) | Live |
+| #72 | Course pages and cards show "N students enrolled" and "X seats left" / "Course full" (en/ar); per-course "Show enrolled count publicly" switch (on by default); enrolments and withdrawals refresh the public pages within seconds; public API `enrolledCount` and `seatsLeft` | Live |
+| #70 | Course staff: per-course roles (Main instructor, Co-instructor, Moderator, custom) with permissions, Shown or Anonymous; Admin → Courses → Staff tab; Teaching area at /teach for any account; public course page shows staff by role | Live |
+| #73 | "How was the session?" email and notification after every course session (course rating at the last one), per-course opt-out link without sign-in, "Rate your last session" dashboard card, links straight to the rating form; durable email outbox (publish notices moved onto it) | Live |
+| #69 | Students can withdraw an application (Withdrawn status); deleting an account frees its seats and closes a pending payment; full courses say so before applying; Apply closes at the deadline; payments queue pages; Arabic digits in payment proofs; "seat confirmed" email; waiting list only notified while applications are open; admin accounts out of Admin → Students | Live |
+| #68 | Admin edits show on the public site within a minute (cache revalidation) | Live |
+| #67 | Audit fixes: speaker portal, live sessions, admin team, media, settings | Live |
+| #66 | Audit fixes: learn page, assessments, attendance, points, certificates | Live |
+| #65 | Attendance from Google Meet (CSV/Excel) with attendance points; edit and remove points | Live |
+| #64 | Build, test and deploy on Cloudflare Workers Builds (setup guide and scripts) | Live |
+| #63 | Docs: this feature guide, the engineering guide, admin roles, points scheme | Live |
+| #62 | The waiting list needs an academy account with a confirmed email; guest entries kept and linked; `waitlistOpenGuest` email; audit of public routes; funnel browser id tightened | Live |
+| #61 | Speakers teach their assigned courses: assessments, grading, gradebook, points, materials; assessment preview limited to SUPER/ACADEMIC and assigned speakers; "Last edited by" | Live |
+| #60 | Assessments: English-only editor, ↑/↓ ordering, quiz upload from Excel/CSV, publish notices; "Learn page access" column | Live |
+| #59 | Admin permission presets (SUPER, ACADEMIC, CONTENT, ADMISSIONS, SPEAKERS, FINANCE), Admin → Team, Admin → Media and image uploads | Live |
+| #58 | Session editor hint for course bookings; missing "not found" message | Live |
+| #57 | One-click publish for draft sessions, session filters, speaker notified on publish; course bookings become draft courses | Live |
+| #56 | Test-only: speaker announcement e2e fix | Live |
 | #55 | Test-only: "how did you hear about us" in the speaker announcement test | Live |
 | #54 | Assign speakers to courses; speaker announcements to students and session registrants | Live |
 | #53 | Speaker form: GitHub, how did you hear, Course/Podcast kinds and details; hiring questions removed; admins edit student profiles, add and delete students; booking error handling | Live |

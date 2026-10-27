@@ -635,6 +635,7 @@
       "payments": "Payments",
       "applications": "Applications",
       "students": "Students",
+      "talents": "Talents",
       "courses": "Courses",
       "settings": "Settings",
       "audit": "Audit log",
@@ -806,6 +807,99 @@
       "readOnly": "Profiles are read-only for admins. Use internal notes.",
       "community": "Telegram / Discord",
       "speakerBadge": "Speaker"
+    },
+    "talents": {
+      "title": "Talents",
+      "subtitle": "What our students can do, to staff outsourcing projects. Filter to a segment and every figure below follows.",
+      "population": "Who to include",
+      "populations": {
+        "all": "Everyone with a profile",
+        "applicants": "Applied to a course",
+        "enrolled": "Enrolled in a course",
+        "certified": "Hold a certificate"
+      },
+      "openInStudents": "Open these students (and export CSV)",
+      "truncated": "More than {limit} students match: the figures cover the first {limit}. Narrow the filters for exact numbers.",
+      "selfRated": "Skills, experience and seniority are what students told us in their profile; certificates, attendance, graded work and points are what they did in our courses.",
+      "kpi": {
+        "talents": "Talents",
+        "withStrongSkill": "Strong in at least one skill (4–5)",
+        "available": "Available for projects",
+        "availableHint": "Freelancers, job seekers, or aiming to freelance",
+        "experienced": "5+ years of experience",
+        "certified": "Hold a certificate",
+        "withSkills": "Rated their skills",
+        "withSkillsHint": "Rating skills is optional in the profile"
+      },
+      "skills": {
+        "title": "Best skills",
+        "note": "Ranked by how many students rate themselves 4 or 5. Rating skills is optional: the bar and the share are of the {rated} matching students who rated their skills.",
+        "skill": "Skill",
+        "strong": "Strong (4–5)",
+        "expert": "Expert (5)",
+        "average": "Average",
+        "rated": "Rated by",
+        "gap": "Few strong",
+        "filter": "Filter by this skill"
+      },
+      "roles": {
+        "title": "Who we can staff",
+        "note": "Students who meet every minimum skill rating of the role, by seniority.",
+        "fit": "Fit the role",
+        "available": "available",
+        "requires": "Needs",
+        "show": "Show them",
+        "bands": {
+          "junior": "Junior",
+          "mid": "Mid",
+          "senior": "Senior+",
+          "unknown": "Not given"
+        }
+      },
+      "dist": {
+        "primaryArea": "Primary area",
+        "secondaryAreas": "Secondary areas",
+        "seniority": "Seniority",
+        "experience": "Total experience",
+        "mlExperience": "ML/AI experience",
+        "country": "Countries",
+        "employment": "Employment",
+        "education": "Education",
+        "industry": "Industry experience",
+        "cloud": "Cloud platforms",
+        "tools": "Production tools",
+        "goals": "Goals",
+        "topics": "Want to learn",
+        "weeklyHours": "Weekly hours they can give",
+        "empty": "No answers yet."
+      },
+      "sections": {
+        "profile": "Experience and seniority",
+        "where": "Where they are and what they do",
+        "stack": "Their stack",
+        "intent": "What they want"
+      },
+      "record": {
+        "title": "Academy track record",
+        "enrolled": "Enrolled",
+        "certified": "Certified",
+        "attendance": "Average attendance",
+        "graded": "Average graded score",
+        "points": "Points earned"
+      },
+      "bench": {
+        "title": "Top talents",
+        "note": "The best {count} matches, by talent score: self-rated skills 45 (five best ratings), ML/AI experience 20, and the academy record 35 (certificate 15, attendance 10, graded work 10).",
+        "student": "Student",
+        "topSkills": "Best skills",
+        "record": "Record",
+        "score": "Score",
+        "available": "Available",
+        "certificates": "Certificates",
+        "attendance": "Attendance",
+        "graded": "Graded",
+        "points": "Points"
+      }
     },
     "courses": {
       "title": "Courses",
@@ -1062,7 +1156,16 @@
         "delivered": "Emailed {sent} of {count}",
         "failed": "{count} failed",
         "skipped": "{count} skipped (account deleted)",
-        "fromSpeaker": "From speaker {name}"
+        "fromSpeaker": "From speaker {name}",
+        "tg": {
+          "title": "Ask for Telegram usernames",
+          "help": "Emails a ready-made message (English or Arabic, in each student's language) and an in-app notification to enrolled students whose profile has no Telegram username, asking them to add it. The button opens their profile at Community. Students who already have one aren't contacted.",
+          "missing": "{count, plural, one {# enrolled student has} other {# enrolled students have}} no Telegram username.",
+          "none": "Every enrolled student has a Telegram username.",
+          "send": "Ask them to add it",
+          "confirm": "Ask {count, plural, one {# student} other {# students}} to add their Telegram username? It can’t be undone.",
+          "audience": "Enrolled, no Telegram username"
+        }
       },
       "delete": {
         "confirm": "Delete \"{title}\" permanently? Its sessions, questions and announcements are deleted too. This can’t be undone.",
@@ -1664,6 +1767,7 @@
     "points": {
       "nav": "Points & badges",
       "pageTitle": "Points & badges",
+      "backToBoard": "Course leaderboard",
       "pageIntro": "Award community points in bulk from a CSV, and manage the badges. Award or adjust points for one student from their page (Students).",
       "importTitle": "Import community points (CSV)",
       "importHint": "Columns: email, points, note, course (a course slug, or empty for community points that only count toward the student's total). Points can be negative. Preview first: nothing is saved until you apply.",
@@ -1702,6 +1806,9 @@
       "onBoard": "Public board",
       "shown": "Shown",
       "hidden": "Hidden",
+      "searchPlaceholder": "Name, email, Telegram or Discord",
+      "searchCount": "{count} of {total} students match.",
+      "searchNone": "No students match your search.",
       "title": "Points & badges",
       "awarded": "Saved: {points} points.",
       "pickBadge": "Choose a badge.",

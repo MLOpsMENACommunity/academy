@@ -17,7 +17,7 @@ use both sets of pages. `SUPER` can do everything.
 
 | Preset | In the app | Can use | Can't use |
 |---|---|---|---|
-| `SUPER` | Super admin | Everything, including **Team**, **Settings** and the **Audit log** | — |
+| `SUPER` | Super admin | Everything, including **Team**, **Settings**, the **Audit log** and **Talents** | — |
 | `ACADEMIC` | Sessions and academics | Courses (create, edit, sessions, screening questions, status, duplicate, archive, delete), live sessions and their registrations, assessments and grading, gradebooks, certificates, points and badges, leaderboards, course announcements, feedback, enrolled students and Drive access, learn-page preview of any course, image upload | Applications, the student directory, payments, speakers' applications and availability, Team, Settings, Audit |
 | `CONTENT` | Social media and content | **Admin → Media only**: course and session covers, live session covers, speaker photos, recording and playlist links, image upload | Any student or applicant data, payments, the full course/session/speaker editors, learn previews |
 | `ADMISSIONS` | Admissions | Applications (review, shortlist, accept, reject, waitlist, notes, CSV), students (directory, profile, CV, notes, edit, add, delete, switch to speaker), saved views, enrol by email, waiting lists, enrolled students and Drive access, read-only course list and details | Editing courses, assessments, certificates, payments, speakers |
@@ -32,6 +32,7 @@ use both sets of pages. `SUPER` can do everything.
 | Payments | ✓ | | | | | ✓ |
 | Applications | ✓ | | | ✓ | | |
 | Students | ✓ | | | ✓ | | |
+| Talents | ✓ | | | | | |
 | Points & badges | ✓ | ✓ | | | | |
 | Courses | ✓ | ✓ | | ✓ (read) | | |
 | Sessions (live) | ✓ | ✓ | | | | |
@@ -220,6 +221,7 @@ is listed.
 | Students and accounts | GET | `/api/admin/students` | ADMISSIONS |
 | Students and accounts | GET | `/api/admin/students.csv` | ADMISSIONS |
 | Students and accounts | GET | `/api/admin/students/:id` | ADMISSIONS |
+| Students and accounts | GET | `/api/admin/talents` | SUPER |
 | Students and accounts | GET | `/api/admin/students/:id/cv` | ADMISSIONS |
 | Students and accounts | POST | `/api/admin/students/:id/notes` | ADMISSIONS |
 | Students and accounts | GET | `/api/admin/saved-filters` | ADMISSIONS |
@@ -249,6 +251,8 @@ is listed.
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements/audience` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | POST | `/api/admin/courses/:id/announcements` | ACADEMIC |
+| Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements/telegram-request` | ACADEMIC |
+| Courses, sessions, questions, enrolments, announcements, feedback | POST | `/api/admin/courses/:id/announcements/telegram-request` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/feedback` | ACADEMIC |
 | Assessments and grading | GET | `/api/admin/courses/:id/assessments` | ACADEMIC |
 | Assessments and grading | POST | `/api/admin/courses/:id/assessments` | ACADEMIC |

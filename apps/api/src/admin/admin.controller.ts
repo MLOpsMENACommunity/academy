@@ -14,17 +14,21 @@ import {
   sessionInputSchema,
   announcementSchema,
   announcementAudienceSchema,
+  telegramRequestSchema,
+  type TelegramRequestInput,
   type AnnouncementInput,
   sessionsBulkSchema,
   duplicateCourseSchema,
   sessionOrderSchema,
   studentFilterSchema,
+  talentFilterSchema,
   typedConfirmSchema,
   type ApplicationFilter,
   type CourseInput,
   type InstructorInput,
   type SessionInput,
   type StudentFilter,
+  type TalentFilter,
 } from '@academy/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -35,6 +39,7 @@ import { AdminApplicationsService } from './admin-applications.service';
 import { AdminCoursesService } from './admin-courses.service';
 import { AdminMiscService } from './admin-misc.service';
 import { AdminStudentsService } from './admin-students.service';
+import { AdminTalentsService } from './admin-talents.service';
 
 const auditQuerySchema = z.object({
   action: z.string().max(80).optional(),
@@ -66,6 +71,7 @@ export class AdminController {
     private readonly courses: AdminCoursesService,
     private readonly misc: AdminMiscService,
     private readonly announcements: AdminAnnouncementsService,
+    private readonly talents: AdminTalentsService,
   ) {}
 
   @Get('dashboard')
@@ -142,6 +148,17 @@ export class AdminController {
   @AdminCan('ADMISSIONS')
   studentNote(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(adminNoteSchema)) body: { body: string }) {
     return this.students.addNote(id, user, body.body);
+  }
+
+  // ------------------------------------------------------------------ talents
+
+  /** Skills, experience and academy record of the matching students, for outsourcing. Loads every match, so it is throttled. */
+  @Get('talents')
+  @AdminCan('SUPER')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Header('Cache-Control', 'private, no-store')
+  talentInsights(@Query(new ZodPipe(talentFilterSchema)) f: TalentFilter) {
+    return this.talents.insights(f);
   }
 
   // ------------------------------------------------------------------ courses
@@ -276,6 +293,20 @@ export class AdminController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   sendAnnouncement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(announcementSchema)) body: AnnouncementInput & { idempotencyKey: string }) {
     return this.announcements.send(id, body, user);
+  }
+
+  /** How many enrolled students have no Telegram username (who "Ask for Telegram usernames" would reach). */
+  @Get('courses/:id/announcements/telegram-request')
+  @AdminCan('ACADEMIC')
+  telegramAudience(@Param('id') id: string) {
+    return this.announcements.telegramAudience(id);
+  }
+
+  @Post('courses/:id/announcements/telegram-request')
+  @AdminCan('ACADEMIC')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  requestTelegram(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(telegramRequestSchema)) body: TelegramRequestInput) {
+    return this.announcements.requestTelegram(id, body, user);
   }
 
   @Get('courses/:id/feedback')

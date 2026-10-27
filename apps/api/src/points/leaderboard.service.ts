@@ -197,7 +197,7 @@ export class LeaderboardService {
     const ranked = rankStandings(standings);
     const enrolled = await this.prisma.enrollment.findMany({
       where: { courseId, user: { deletedAt: null } },
-      select: { user: { select: { id: true, email: true, profile: { select: { fullNameEn: true, fullNameAr: true } } } } },
+      select: { user: { select: { id: true, email: true, profile: { select: { fullNameEn: true, fullNameAr: true, telegramUsername: true, discordUsername: true } } } } },
       take: 5000,
     });
     const byId = new Map(enrolled.map((e) => [e.user.id, e.user]));
@@ -217,6 +217,8 @@ export class LeaderboardService {
           userId: r.userId,
           name: u.profile?.fullNameEn || u.profile?.fullNameAr || null,
           email: u.email,
+          telegramUsername: u.profile?.telegramUsername ?? null,
+          discordUsername: u.profile?.discordUsername ?? null,
           points: points.get(r.userId) ?? 0,
           optedIn: optedIn.has(r.userId),
           badges: (badges.get(r.userId) ?? []).map((b) => (b.period ? `${b.icon} ${b.nameEn} (week ${b.period})` : `${b.icon} ${b.nameEn}`)),
@@ -229,8 +231,8 @@ export class LeaderboardService {
     const board = await this.adminBoard(courseId, q);
     await this.audit.log({ actorId: admin.id, action: 'leaderboard.exported', entityType: 'Course', entityId: courseId, metadata: { scope: q.scope, week: board.week, count: board.rows.length } });
     return toCsv(
-      ['Rank', 'Name', 'Email', 'Points', 'On the public board', 'Badges'],
-      capRows(board.rows, (r) => [r.rank ?? '', r.name ?? '', r.email, r.points, r.optedIn ? 'yes' : 'no', r.badges.join('; ')]),
+      ['Rank', 'Name', 'Email', 'Telegram', 'Discord', 'Points', 'On the public board', 'Badges'],
+      capRows(board.rows, (r) => [r.rank ?? '', r.name ?? '', r.email, r.telegramUsername ?? '', r.discordUsername ?? '', r.points, r.optedIn ? 'yes' : 'no', r.badges.join('; ')]),
     );
   }
 }

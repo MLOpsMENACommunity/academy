@@ -22,13 +22,6 @@ Paymob account is opened and its keys are set. Left for later: refunds from the
 admin page (today in the Paymob dashboard), wallets and Fawry through Paymob, and
 showing approximate USD/EUR prices to students abroad.
 
-## Certificates and project submissions
-
-`ProjectSubmission` and `Certificate` tables exist (linked to `Enrollment`) with
-no UI. Some courses issue a certificate only after a mandatory final project:
-students submit a repo or URL, an admin marks it passed, and a certificate with
-a public verification URL (`/certificates/<serial>`) and a PDF is issued.
-
 ## Discord / Telegram role sync
 
 Give enrolled students a course role or channel access automatically, and remove

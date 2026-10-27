@@ -48,6 +48,7 @@ describe('admin permissions (e2e)', () => {
     const matrix: [string, AdminPermission[]][] = [
       ['/api/admin/dashboard', ['ACADEMIC', 'ADMISSIONS', 'FINANCE']],
       ['/api/admin/students', ['ADMISSIONS']],
+      ['/api/admin/talents', []],
       ['/api/admin/applications', ['ADMISSIONS']],
       ['/api/admin/payments', ['FINANCE']],
       ['/api/admin/courses', ['ACADEMIC', 'ADMISSIONS']],
