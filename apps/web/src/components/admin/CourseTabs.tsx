@@ -650,15 +650,16 @@ interface FeedbackSummary {
   comments: { rating: number; comment: string; by: string | null; at: string }[];
 }
 
-export function FeedbackPanel({ courseId }: { courseId: string }) {
+/** `apiBase` is the /teach course path for staff, whose feedback comes without names. */
+export function FeedbackPanel({ courseId, apiBase }: { courseId: string; apiBase?: string }) {
   const { locale, t } = useI18n();
   const [data, setData] = useState<{ sessions: (FeedbackSummary & { id: string; order: number; titleEn: string; titleAr: string })[]; course: FeedbackSummary } | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
-    api<typeof data>(`/admin/courses/${courseId}/feedback`)
+    api<typeof data>(`${apiBase ?? `/admin/courses/${courseId}`}/feedback`)
       .then(setData)
       .catch(() => setError(true));
-  }, [courseId]);
+  }, [courseId, apiBase]);
   if (error) return <Alert tone="danger">{t('errors.generic')}</Alert>;
   if (!data) return <p className="text-muted">{t('admin.common.loading')}</p>;
 
@@ -678,7 +679,8 @@ export function FeedbackPanel({ courseId }: { courseId: string }) {
                 {x.comment}
               </p>
               <p className="mt-1 text-xs text-muted">
-                {'★'.repeat(x.rating)} · {x.by ?? '—'} · {formatDate(x.at, locale)}
+                {'★'.repeat(x.rating)} · {apiBase ? '' : `${x.by ?? '—'} · `}
+                {formatDate(x.at, locale)}
               </p>
             </li>
           ))}
@@ -689,6 +691,7 @@ export function FeedbackPanel({ courseId }: { courseId: string }) {
 
   return (
     <div className="space-y-3">
+      {apiBase && <p className="text-sm text-muted">{t('teach.feedbackAnonymous')}</p>}
       {block(t('admin.courses.courseLevel'), data.course, 'course')}
       {data.sessions.map((s) => block(`${s.order}. ${locale === 'ar' ? s.titleAr : s.titleEn}`, s, s.id))}
     </div>

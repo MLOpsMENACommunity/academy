@@ -541,7 +541,7 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     });
     // The key holds the rating: a student who lowers it again is counted again.
     const hits = rows.map((f): Hit => ({ key: `${f.id}:${f.rating}`, userId: null, label: `${f.rating}★`, subject: f.id, alert: true }));
-    return { hits, alert: (c) => alertTexts.lowRating(d.names, c, max), link: { admin: 'feedback', teach: 'automation' } };
+    return { hits, alert: (c) => alertTexts.lowRating(d.names, c, max), link: { admin: 'feedback', teach: 'feedback' } };
   },
 
   async AVERAGE_DROP(d, p) {
@@ -552,7 +552,7 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     return {
       hits: [{ key: `w${weekIndex(d.t)}`, userId: null, label: avg.toFixed(1), subject: 'average', alert: true }],
       alert: () => alertTexts.averageDrop(d.names, avg, threshold),
-      link: { admin: 'feedback', teach: 'automation' },
+      link: { admin: 'feedback', teach: 'feedback' },
     };
   },
 

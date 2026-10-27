@@ -3340,6 +3340,7 @@
     "introRole": "You’re on this course’s staff as {role}.",
     "introAdmin": "As an academy admin you can do everything here.",
     "introAudit": "Enrolled students see what you publish, and every change is recorded with your name.",
+    "feedbackAnonymous": "Students’ ratings and comments for each session. Comments are shown without names so students can be honest.",
     "noPermissions": "Your role in this course doesn’t include anything yet. Ask the academy team.",
     "tabs": {
       "assessments": "Assessments",
@@ -3349,6 +3350,7 @@
       "points": "Points",
       "roster": "Roster",
       "announcements": "Announcements",
+      "feedback": "Feedback",
       "details": "Details",
       "sessions": "Sessions",
       "applications": "Applications",
