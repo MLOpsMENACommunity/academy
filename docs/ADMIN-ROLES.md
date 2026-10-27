@@ -249,6 +249,8 @@ is listed.
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements/audience` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | POST | `/api/admin/courses/:id/announcements` | ACADEMIC |
+| Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements/telegram-request` | ACADEMIC |
+| Courses, sessions, questions, enrolments, announcements, feedback | POST | `/api/admin/courses/:id/announcements/telegram-request` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/feedback` | ACADEMIC |
 | Assessments and grading | GET | `/api/admin/courses/:id/assessments` | ACADEMIC |
 | Assessments and grading | POST | `/api/admin/courses/:id/assessments` | ACADEMIC |
