@@ -117,6 +117,19 @@ export type EmailTemplate =
       courseUrl?: string | null;
       unsubscribeUrl: string;
     }
+  /** A course automation rule's message to a student (apps/api/src/automation/texts.ts), already in their language. */
+  | {
+      name: 'automationMessage';
+      courseTitle: string;
+      heading: string;
+      paragraphs: string[];
+      /** The course team's optional note. */
+      note?: string | null;
+      cta: { label: string; url: string };
+      unsubscribeUrl: string;
+      /** Which per-course switch the footer link turns off. */
+      optOut: 'reminders' | 'feedback';
+    }
   /** Points and badges: a badge was awarded (automatically or by the team). */
   | { name: 'badgeAwarded'; icon: string; badgeName: string; description: string; courseTitle: string | null; url: string }
   /** Enrol by email: an admin enrolled this account directly (no application, no payment). */
@@ -1177,6 +1190,33 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             cta={{ label: ar ? 'قيّم الجلسة' : 'Rate the session', url: t.url }}
             secondaryCta={t.courseUrl ? { label: ar ? 'قيّم الدورة' : 'Rate the course', url: t.courseUrl } : undefined}
             noteLink={{ label: ar ? 'أوقف رسائل التقييم لهذه الدورة' : 'Stop feedback emails for this course', url: t.unsubscribeUrl }}
+          />
+        ),
+      };
+    }
+    case 'automationMessage': {
+      const subject = `${t.heading} · ${t.courseTitle}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={t.paragraphs[0] ?? t.heading}
+            heading={t.heading}
+            paragraphs={t.paragraphs}
+            callout={t.note ? { title: ar ? 'من فريق الدورة' : 'From the course team', body: t.note } : undefined}
+            cta={t.cta}
+            noteLink={{
+              label:
+                t.optOut === 'feedback'
+                  ? ar
+                    ? 'أوقف رسائل التقييم لهذه الدورة'
+                    : 'Stop feedback emails for this course'
+                  : ar
+                    ? 'أوقف رسائل التذكير لهذه الدورة'
+                    : 'Stop reminder emails for this course',
+              url: t.unsubscribeUrl,
+            }}
           />
         ),
       };

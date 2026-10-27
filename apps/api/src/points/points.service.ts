@@ -141,6 +141,15 @@ export class PointsService {
     return delta.points;
   }
 
+  /**
+   * Bonus points from a course automation rule (packages/shared/src/automation.ts). `source`
+   * names the rule and occasion, so running it again never adds them twice.
+   */
+  async syncAutomation(userId: string, courseId: string, source: string, points: number, now = new Date()): Promise<number> {
+    if (!(await this.active(userId))) return 0;
+    return this.syncSource({ userId, courseId, sourceType: POINTS_SOURCES.AUTOMATION, sourceId: source, reason: 'AUTOMATION' }, points, now);
+  }
+
   /** Deleted (or anonymised) accounts never gain points or badges again. */
   private async active(userId: string): Promise<boolean> {
     const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } });

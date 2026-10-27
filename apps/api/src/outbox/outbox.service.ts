@@ -7,8 +7,8 @@ import { OutboxProcessor } from './outbox.processor';
 
 export type OutboxLane = 'transactional' | 'bulk';
 
-/** What kind of email. feedback and assessment-published have a per-course opt-out the processor checks again at send time; consultation emails have none. */
-export type OutboxCategory = 'feedback' | 'assessment-published' | 'consultation';
+/** What kind of email. feedback, assessment-published and automation have a per-course opt-out the processor checks again at send time; consultation emails have none. */
+export type OutboxCategory = 'feedback' | 'assessment-published' | 'consultation' | 'automation';
 
 export interface OutboxMessage {
   userId: string;

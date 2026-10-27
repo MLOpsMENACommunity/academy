@@ -166,7 +166,7 @@ export interface PublicStaffGroupDto {
 
 /**
  * Tabs of /teach/courses/{id}, and the permissions that show each (any one is enough).
- * VIEW_FEEDBACK and MANAGE_RULES open nothing yet (their screens come in later PRs).
+ * VIEW_FEEDBACK opens nothing yet (its screen comes in a later PR).
  */
 export const TEACH_TAB_PERMISSIONS = {
   assessments: ['MANAGE_ASSESSMENTS'],
@@ -181,6 +181,7 @@ export const TEACH_TAB_PERMISSIONS = {
   applications: ['MANAGE_APPLICATIONS'],
   enrolment: ['ENROL'],
   certificates: ['ISSUE_CERTIFICATES'],
+  automation: ['MANAGE_RULES'],
 } as const satisfies Record<string, readonly CoursePermission[]>;
 export type TeachTab = keyof typeof TEACH_TAB_PERMISSIONS;
 export const TEACH_TABS = Object.keys(TEACH_TAB_PERMISSIONS) as TeachTab[];
