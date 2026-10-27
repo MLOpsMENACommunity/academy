@@ -27,7 +27,7 @@ describe('hasAdminPermission', () => {
 
 describe('admin nav', () => {
   it('follows the presets', () => {
-    expect(adminNavFor(admin('SUPER'))).toEqual(['dashboard', 'payments', 'applications', 'students', 'points', 'courses', 'sessions', 'speakers', 'consultations', 'media', 'team', 'settings', 'audit']);
+    expect(adminNavFor(admin('SUPER'))).toEqual(['dashboard', 'payments', 'applications', 'students', 'talents', 'points', 'courses', 'sessions', 'speakers', 'consultations', 'media', 'team', 'settings', 'audit']);
     expect(adminNavFor(admin('CONTENT'))).toEqual(['media']);
     expect(adminNavFor(admin('FINANCE'))).toEqual(['dashboard', 'payments', 'consultations']);
     expect(adminNavFor(admin('ADMISSIONS'))).toEqual(['dashboard', 'applications', 'students', 'courses']);
