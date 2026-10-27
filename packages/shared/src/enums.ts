@@ -372,7 +372,7 @@ export type RepoCheck = (typeof REPO_CHECKS)[number];
 
 // ---------------------------------------------------------------- Points and badges
 
-export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT', 'ATTENDANCE'] as const;
+export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT', 'ATTENDANCE', 'AUTOMATION'] as const;
 export const PointsReason = defineEnum(POINTS_REASONS);
 export type PointsReason = (typeof POINTS_REASONS)[number];
 

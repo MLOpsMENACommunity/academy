@@ -14,7 +14,7 @@ describe('course staff', () => {
     expect(BUILTIN_ROLE_DEFAULTS.MODERATOR.permissions).toContain('VIEW_FEEDBACK');
     for (const b of ['CO', 'MODERATOR'] as const) expect(BUILTIN_ROLE_DEFAULTS[b].permissions).not.toContain('MANAGE_RULES');
     const opened: string[] = Object.values(TEACH_TAB_PERMISSIONS).flat();
-    for (const p of COURSE_PERMISSIONS.filter((x) => x !== 'VIEW_FEEDBACK' && x !== 'MANAGE_RULES')) expect(opened).toContain(p);
+    for (const p of COURSE_PERMISSIONS.filter((x) => x !== 'VIEW_FEEDBACK')) expect(opened).toContain(p);
   });
 
   it('shows the tabs a role’s permissions open, in order', () => {

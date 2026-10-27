@@ -29,6 +29,9 @@ describe('payments (e2e)', () => {
   });
   afterAll(async () => {
     for (const s of savedSettings) await prisma.setting.update({ where: { key: s.key }, data: { value: s.value as string } });
+    // Settings this suite created must go too: left behind, they leak into later suites (consultations).
+    const kept = savedSettings.map((s) => s.key);
+    await prisma.setting.deleteMany({ where: { key: { in: ['instapayHandle', 'vodafoneCashNumber'].filter((k) => !kept.includes(k)) } } });
     await app.close();
   });
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { AssessmentsEditor } from '@/components/admin/AssessmentsEditor';
+import { AutomationPanel } from '@/components/admin/AutomationPanel';
 import { speakerAssessmentEndpoints } from '@/components/admin/assessment-endpoints';
 import { CertificatesPanel } from '@/components/admin/CertificatesPanel';
 import { CourseApplications } from '@/components/admin/CourseApplications';
@@ -167,6 +168,7 @@ function Course({ courseId }: { courseId: string }) {
             {tab === 'certificates' && (
               <CertificatesPanel courseId={course.id} apiBase={base} onRuleSaved={(requireAssessments) => setCourse((c) => (c ? { ...c, certRequireAssessments: requireAssessments } : c))} />
             )}
+            {tab === 'automation' && <AutomationPanel courseId={course.id} apiBase={base} />}
           </div>
         </>
       )}

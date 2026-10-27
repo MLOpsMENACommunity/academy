@@ -35,6 +35,7 @@ import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PaymentsModule } from './payments/payments.module';
+import { AutomationModule } from './automation/automation.module';
 import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
@@ -71,6 +72,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     ApplicationsModule,
     InvitesModule,
     PaymentsModule,
+    AutomationModule,
     LearnModule,
     AssessmentsModule,
     PointsModule,

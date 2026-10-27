@@ -30,7 +30,7 @@ export const BADGE_CODES = {
 } as const;
 
 /** Ledger source types of automatic entries (unique per student with sourceId + sourceSeq). */
-export const POINTS_SOURCES = { ASSESSMENT: 'ASSESSMENT', SESSION: 'SESSION', CERTIFICATE: 'CERTIFICATE', ATTENDANCE: 'ATTENDANCE' } as const;
+export const POINTS_SOURCES = { ASSESSMENT: 'ASSESSMENT', SESSION: 'SESSION', CERTIFICATE: 'CERTIFICATE', ATTENDANCE: 'ATTENDANCE', AUTOMATION: 'AUTOMATION' } as const;
 
 /** The largest single entry (either sign) an admin can add or set. */
 export const ADMIN_POINTS_CAP = 10_000;

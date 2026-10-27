@@ -343,6 +343,8 @@ model User {
   pointsEntries           PointsEntry[]            @relation("PointsStudent")
   pointsAwarded           PointsEntry[]            @relation("PointsAwarder")
   pointsVoided            PointsEntry[]            @relation("PointsVoider")
+  automationRulesEdited   CourseAutomationRule[]   @relation("AutomationRuleEditor")
+  automationFirings       AutomationFiring[]
   attendance              SessionAttendance[]      @relation("AttendanceStudent")
   attendanceUploaded      SessionAttendance[]      @relation("AttendanceUploader")
   badges                  UserBadge[]              @relation("BadgeHolder")
@@ -650,6 +652,8 @@ model Course {
   attendancePresentPoints  Int         @default(10)
   attendancePartialPoints  Int         @default(5)
   attendanceAbsentPoints   Int         @default(0)
+  /// Automation rules stop for this course while true (each rule keeps its own on/off).
+  automationPaused         Boolean     @default(false)
 
   /// Derived from CourseStaff (see there): kept for the old readers (catalog cards, certificates).
   instructors        CourseInstructor[]
@@ -673,6 +677,7 @@ model Course {
   invites             CourseInvite[]
   /// The speaker booking this course was drafted from, if any.
   speakingSlot        SpeakingSlot?
+  automationRules     CourseAutomationRule[]
 }
 
 /// Not edited directly any more: rewritten from CourseStaff on every staff change
@@ -1629,6 +1634,7 @@ enum PointsReason {
   MANUAL_OTHER
   ADJUSTMENT
   ATTENDANCE
+  AUTOMATION
 }
 
 enum BadgeKind {
@@ -1923,4 +1929,49 @@ model ConsultationBooking {
   @@index([status, createdAt])
   @@index([status, startsAt])
   @@index([screenshotSha256])
+}
+
+/// A course's automation rule (packages/shared/src/automation.ts has the catalog of types). One row
+/// per course and type, written the first time someone saves it; no row means off with defaults.
+model CourseAutomationRule {
+  id          String             @id @default(cuid())
+  courseId    String
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  type        String
+  enabled     Boolean            @default(false)
+  /// The rule's settings; read through automationParams(), which falls back to the defaults.
+  params      Json               @default("{}")
+  /// Optional note from the course team, added to the student message.
+  noteEn      String             @default("")
+  noteAr      String             @default("")
+  updatedById String?
+  updatedBy   User?              @relation("AutomationRuleEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  firings     AutomationFiring[]
+
+  @@unique([courseId, type])
+}
+
+/// Each time a rule acted: the log, and the "already done" marker (one row per rule and
+/// occasion, e.g. MISSED_IN_A_ROW for a student after a given session).
+model AutomationFiring {
+  id        String               @id @default(cuid())
+  ruleId    String
+  rule      CourseAutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  courseId  String
+  type      String
+  dedupeKey String
+  /// The student it was about; null for team alerts about a session, an assessment or the course.
+  userId    String?
+  user      User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// What a team alert was about: a session or assessment title, or an id (never personal data).
+  subject   String               @default("")
+  /// What it did: "message", "email", "alert", "points", "certificate", "flag".
+  actions   String[]
+  createdAt DateTime             @default(now())
+
+  @@unique([ruleId, dedupeKey])
+  @@index([courseId, createdAt])
+  @@index([courseId, type, createdAt])
 }

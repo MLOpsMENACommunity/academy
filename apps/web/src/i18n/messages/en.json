@@ -977,6 +977,7 @@
         "resendCount": "Resent {count} of {max}"
       },
       "feedback": "Feedback",
+      "automation": "Automation",
       "basics": "Basics",
       "content": "Course page content",
       "delivery": "Delivery",
@@ -2140,6 +2141,225 @@
       "deleteRole": "Delete role",
       "deleteRoleBusy": "Move or remove the people in this role first.",
       "instructorsFieldHint": "The first is the Main instructor, the rest Co-instructors. Moderators, other roles and who is shown: the Staff tab."
+    },
+    "automation": {
+      "title": "Automation rules",
+      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked every hour.",
+      "safe": "Rules only send messages, alert the team, award points or flag students. They never remove a student or change an application.",
+      "recommended": "Turn on the recommended set",
+      "pause": "Pause all rules",
+      "resume": "Resume rules",
+      "pauseConfirm": "Pause every rule in this course? Nothing is sent until you resume.",
+      "statusPaused": "Paused: no rule runs in this course until you resume.",
+      "statusInactive": "Rules run only while the course is Open, Closed or recently Completed, so nothing runs now.",
+      "statusRunning": "{count, plural, =0 {Running, but no rule is on yet.} one {Running: # rule is on.} other {Running: # rules are on.}}",
+      "attention": "Needs attention",
+      "attentionHelp": "Students the rules flagged in the last 14 days. Reach out to them; nothing else happens to them.",
+      "recommendedBadge": "Recommended",
+      "fired": "{count, plural, =0 {Hasn’t acted yet} one {Acted # time} other {Acted # times}}",
+      "firedWeek": "{count} this week",
+      "on": "On",
+      "settings": "Settings",
+      "hideSettings": "Hide settings",
+      "noSettings": "This rule has no settings.",
+      "noteEn": "Note for the message (English)",
+      "noteAr": "Note for the message (Arabic)",
+      "noteHint": "Optional. Added to the email in the student’s language.",
+      "preview": "Preview",
+      "previewCount": "{count, plural, =0 {Right now it would act for no one.} one {Right now it would act for # case:} other {Right now it would act for # cases:}}",
+      "previewMore": "…and {count} more",
+      "save": "Save",
+      "saved": "Saved.",
+      "range": "From {min} to {max} {unit}",
+      "rangeRating": "From {min} to {max}, tenths allowed (e.g. 3.5)",
+      "urlHint": "A full https:// link. Leave it empty to skip it.",
+      "activity": "Recent activity",
+      "activityHelp": "The last 100 things the rules did in this course.",
+      "showActivity": "Show recent activity",
+      "refresh": "Refresh",
+      "activityEmpty": "No rule has acted yet.",
+      "when": "When",
+      "rule": "Rule",
+      "subject": "About",
+      "done": "Actions",
+      "groups": {
+        "attendance": "Attendance and engagement",
+        "assessments": "Assessments",
+        "certificates": "Certificates",
+        "feedback": "Session feedback",
+        "admissions": "Admissions, seats and payments",
+        "operations": "Course operations",
+        "community": "Community"
+      },
+      "audience": {
+        "student": "Student message",
+        "staff": "Team alert",
+        "both": "Student and team"
+      },
+      "units": {
+        "sessions": "sessions",
+        "days": "days",
+        "hours": "hours",
+        "points": "points",
+        "percent": "percent",
+        "times": "times",
+        "ratings": "ratings",
+        "stars": "stars"
+      },
+      "actions": {
+        "message": "Message",
+        "email": "Email",
+        "alert": "Team alert",
+        "points": "Points",
+        "certificate": "Certificate",
+        "flag": "Flagged"
+      },
+      "errors": {
+        "secondAfterFirst": "The second reminder must come after the first.",
+        "range": "Enter a number from {min} to {max}."
+      },
+      "params": {
+        "sessions": "Number of sessions",
+        "days": "Days",
+        "hours": "Hours",
+        "points": "Bonus points",
+        "times": "Number of times",
+        "percent": "Percentage",
+        "mode": "When a student qualifies",
+        "rating": "Rating at or below",
+        "average": "Average below",
+        "minRatings": "Minimum number of ratings",
+        "firstDays": "First reminder after",
+        "secondDays": "Second reminder and team alert after",
+        "telegramUrl": "Telegram group link",
+        "discordUrl": "Discord server link"
+      },
+      "options": {
+        "review": "Alert the team to review and issue",
+        "issue": "Issue the certificate automatically"
+      },
+      "rules": {
+        "MISSED_IN_A_ROW": {
+          "title": "Missed sessions in a row",
+          "desc": "When a student misses the last few recorded sessions in a row (you choose how many), sends them a friendly check-in, alerts the team and flags them."
+        },
+        "AT_RISK_EARLY": {
+          "title": "At risk early",
+          "desc": "Once attendance for the first sessions is recorded (you choose how many), flags students who attended none of them and alerts the team."
+        },
+        "INACTIVE": {
+          "title": "Inactive students",
+          "desc": "While the course runs, nudges students with no activity (attendance, submissions, sign-ins or ratings) for the set number of days, with their next step."
+        },
+        "FULL_ATTENDANCE_MIDWAY": {
+          "title": "Perfect attendance at halfway",
+          "desc": "When attendance for the first half of the sessions is recorded, gives bonus points and a message to students who attended all of them."
+        },
+        "OFTEN_LATE": {
+          "title": "Often joins late",
+          "desc": "Reminds students marked as partly attending the set number of times to join on time."
+        },
+        "DUE_SOON": {
+          "title": "Deadline coming up",
+          "desc": "Reminds students who haven't started an assessment when it is due within the set number of hours."
+        },
+        "DEADLINE_MISSED": {
+          "title": "Deadline missed",
+          "desc": "After a recent deadline passes, tells students who didn't submit (and whether late work is accepted) and alerts the graders."
+        },
+        "QUIZ_FAILED": {
+          "title": "Quiz not passed",
+          "desc": "When a student's counted quiz attempt is below the pass mark, points them to the session materials and says how many attempts are left."
+        },
+        "HIGH_SCORE": {
+          "title": "High score bonus",
+          "desc": "Gives bonus points and a message when a student scores at or above the set percentage on an assessment."
+        },
+        "MANDATORY_PASSED": {
+          "title": "All required assessments passed",
+          "desc": "Congratulates students who pass every required assessment and says whether attendance is still needed for the certificate."
+        },
+        "UNGRADED": {
+          "title": "Waiting to be graded",
+          "desc": "Alerts the graders about submissions still ungraded after the set number of days. Quizzes grade themselves."
+        },
+        "CERT_ELIGIBLE": {
+          "title": "Certificate earned",
+          "desc": "After the course ends, alerts the team about students who qualify for a certificate, or issues it for them if you choose."
+        },
+        "CERT_ALMOST": {
+          "title": "One step from the certificate",
+          "desc": "In the set number of days before the course ends, tells students who are one requirement short what's missing."
+        },
+        "LOW_RATING": {
+          "title": "Low session rating",
+          "desc": "Alerts the team when a student rates a session at or below the set number of stars."
+        },
+        "AVERAGE_DROP": {
+          "title": "Average rating drops",
+          "desc": "Once enough ratings are in, alerts the team (at most once a week) when the course's average session rating falls below the set value."
+        },
+        "FEEDBACK_NUDGE": {
+          "title": "Rating reminder",
+          "desc": "The set number of hours after a session ends, asks students who haven't rated it for a quick rating."
+        },
+        "PAYMENT_REMINDER": {
+          "title": "Unpaid seat reminders (seat is always kept)",
+          "desc": "Reminds accepted students who haven't paid, twice, and alerts the team at the second reminder. Their seat is never released."
+        },
+        "SEAT_OPEN_WAITLIST": {
+          "title": "Free seats and people waiting",
+          "desc": "While the course is open, alerts the team at most once a day when seats are free and people are on the waiting list."
+        },
+        "APPLICATION_IDLE": {
+          "title": "Applications waiting for review",
+          "desc": "Alerts the team about applications submitted more than the set number of days ago and not reviewed yet."
+        },
+        "CAPACITY": {
+          "title": "Course filling up",
+          "desc": "Alerts the team when the set share of seats is taken, and again when the course is full."
+        },
+        "PROOF_WAITING": {
+          "title": "Payment proof waiting",
+          "desc": "Alerts the finance admins about payment proofs waiting longer than the set number of hours."
+        },
+        "WELCOME": {
+          "title": "Welcome before the start",
+          "desc": "The set number of days before the course starts, welcomes students with the start date and how to get ready."
+        },
+        "NO_LIVE_LINK": {
+          "title": "Session without a live link",
+          "desc": "Alerts the team when a session starts within the set number of hours and has no live link."
+        },
+        "NO_MATERIALS": {
+          "title": "Session without materials",
+          "desc": "Alerts the team when a session starts within the set number of hours and has no materials."
+        },
+        "NO_RECORDING": {
+          "title": "Recording missing",
+          "desc": "Alerts the team when a session ended more than the set number of hours ago (within the last two weeks) and has no recording."
+        },
+        "MIDCOURSE_CHECKIN": {
+          "title": "Halfway check-in",
+          "desc": "Once half the sessions are done, sends students a short check-in."
+        },
+        "WRAP_UP": {
+          "title": "Thank-you after the course",
+          "desc": "A day after the last session, thanks students and asks them to rate the course."
+        },
+        "COMMUNITY_LINKS": {
+          "title": "Community links",
+          "desc": "Sends each enrolled student the course's Telegram and Discord links once. Add at least one link."
+        },
+        "TELEGRAM_MISSING": {
+          "title": "Telegram username missing",
+          "desc": "Asks students enrolled for the set number of days without a Telegram username in their profile to add one."
+        },
+        "WEEKLY_SUMMARY": {
+          "title": "Weekly points summary",
+          "desc": "Each week while the course runs, tells students who earned points the week before how many and their rank."
+        }
+      }
     }
   },
   "learn": {
@@ -2865,7 +3085,8 @@
       "MANUAL_COMMUNITY": "Community help",
       "MANUAL_OTHER": "Other",
       "ADJUSTMENT": "Correction",
-      "ATTENDANCE": "Attendance"
+      "ATTENDANCE": "Attendance",
+      "AUTOMATION": "Automation bonus"
     }
   },
   "badges": {
@@ -3132,7 +3353,8 @@
       "sessions": "Sessions",
       "applications": "Applications",
       "enrolment": "Enrolment",
-      "certificates": "Certificates"
+      "certificates": "Certificates",
+      "automation": "Automation"
     },
     "details": {
       "adminOnly": "The status, address, price and who teaches the course stay with the academy team."
