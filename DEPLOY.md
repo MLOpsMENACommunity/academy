@@ -507,25 +507,6 @@ Then release a tag. Cloudflare creates the DNS record and certificate for each h
 `academy-staging.mlopsmena.com`, and staging can't take a production host.
 
 If Google sign-in is enabled, add the new callback URL to the OAuth client first.
-If card payments are on, change the Paymob webhook URL too (see below).
-
-## Card payments (Paymob)
-
-Off until the keys are set: students then see only InstaPay / Vodafone Cash. To turn it on for an
-environment (test keys on staging, live keys on production):
-
-1. Paymob dashboard → **Developers → API keys**: copy the **secret key**, the **public key** and the
-   **HMAC secret**. **Developers → Payment integrations**: the id of the **card** integration (test
-   or live, matching the keys).
-2. On that card integration, set the **transaction processed callback** to
-   `https://<host>/api/payments/paymob/webhook`. The academy also sends this URL with every checkout.
-3. Store `PAYMOB_SECRET_KEY`, `PAYMOB_PUBLIC_KEY`, `PAYMOB_HMAC_SECRET` and
-   `PAYMOB_CARD_INTEGRATION_ID` as secrets of the GitHub environment (`staging` or `production`);
-   the next release applies them. `PAYMOB_API_URL` defaults to Egypt (`https://accept.paymob.com`).
-4. Test on staging with Paymob's test cards: the student pays on Paymob's page, comes back to the
-   application page, and is enrolled within seconds; Admin → Payments → Approved shows the card
-   payment. A payment that can't enrol (wrong amount, or the application closed meanwhile) appears
-   under Rejected with a refund note, and FINANCE is notified: refund it in the Paymob dashboard.
 
 ## Operating
 
