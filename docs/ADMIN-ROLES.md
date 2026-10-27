@@ -246,6 +246,8 @@ is listed.
 | Courses, sessions, questions, enrolments, announcements, feedback | DELETE | `/api/admin/courses/:id/sessions/:sessionId` | ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/enrollments` | ADMISSIONS, ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/enrollments.csv` | ADMISSIONS, ACADEMIC |
+| Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/drive-sharing` | ADMISSIONS, ACADEMIC |
+| Courses, sessions, questions, enrolments, announcements, feedback | POST | `/api/admin/courses/:id/drive-sharing/run` | ADMISSIONS, ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | PUT | `/api/admin/enrollments/:id/drive-access` | ADMISSIONS, ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | POST | `/api/admin/enrollments/:id/drive-removed` | ADMISSIONS, ACADEMIC |
 | Courses, sessions, questions, enrolments, announcements, feedback | GET | `/api/admin/courses/:id/announcements` | ACADEMIC |

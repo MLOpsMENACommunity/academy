@@ -14,6 +14,8 @@ import {
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { sha256 } from '../common/crypto';
+import { driveFolderId } from '../drive/drive-api';
+import { DriveSharingService } from '../drive/drive-sharing.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -90,6 +92,7 @@ export class ProfileService {
     private readonly notifications: NotificationsService,
     private readonly email: EmailService,
     private readonly audit: AuditService,
+    private readonly driveSharing: DriveSharingService,
   ) {}
 
   /** The student's profile, created empty on first use. One read in the common case. */
@@ -242,14 +245,16 @@ export class ProfileService {
   }
 
   /**
-   * Paid Drive courses are shared with the student's Google account by hand.
-   * When that account changes (or the student deletes their account) on an
-   * active enrolment, flag it so an admin updates the folder sharing (Risk 1).
+   * Paid Drive courses are shared with the student's Google account, automatically when a
+   * service account is set up (drive/drive-sharing.service.ts), otherwise by hand. When that
+   * account changes (or the student deletes their account) on an active enrolment, flag it so
+   * the folder sharing is updated (Risk 1). Admins are alerted only when they do it by hand;
+   * automatic sharing alerts them itself if it fails.
    */
   async alertDriveAccess(userId: string, reason: 'changed' | 'deleted', oldGoogleEmail: string | null, actorId: string = userId): Promise<void> {
     const enrollments = await this.prisma.enrollment.findMany({
       where: { userId, course: { type: 'PAID', recordingsPlatform: 'GOOGLE_DRIVE', status: { not: 'ARCHIVED' } } },
-      include: { course: { select: { id: true, slug: true, titleEn: true, titleAr: true } } },
+      include: { course: { select: { id: true, slug: true, titleEn: true, titleAr: true, driveFolderUrl: true } } },
     });
     if (!enrollments.length) return;
 
@@ -257,8 +262,9 @@ export class ProfileService {
     // page and cleared on anonymisation), never in notifications or emails, which persist.
     await this.prisma.enrollment.updateMany({
       where: { id: { in: enrollments.map((e) => e.id) } },
-      data: { driveAccessGranted: false, driveAccessGrantedAt: null, driveRevokeEmail: oldGoogleEmail },
+      data: { driveAccessGranted: false, driveAccessGrantedAt: null, driveRevokeEmail: oldGoogleEmail, driveShareError: null, driveShareTriedAt: null },
     });
+    const automatic = this.driveSharing.isEnabled();
     for (const e of enrollments) {
       await this.audit.log({
         actorId,
@@ -267,6 +273,7 @@ export class ProfileService {
         entityId: e.id,
         metadata: { courseId: e.course.id },
       });
+      if (automatic && driveFolderId(e.course.driveFolderUrl)) continue;
       const link = `/admin/courses/${e.course.id}?tab=enrolled&driveAccess=pending`;
       const copy =
         reason === 'changed'

@@ -153,7 +153,7 @@ are all listed. Every GitHub deploy set them, so they should be:
 `DATABASE_URL`, `DIRECT_DATABASE_URL`, `JWT_ACCESS_SECRET`, `JOBS_TOKEN`,
 `RESEND_API_KEY`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
 `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, plus the optional `SEED_PLACEHOLDER_STATUS`,
-`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SENTRY_DSN`, `REVALIDATE_TOKEN` (otherwise
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_DRIVE_SERVICE_ACCOUNT`, `SENTRY_DSN`, `REVALIDATE_TOKEN` (otherwise
 derived from `JOBS_TOKEN`), `EDGE_PURGE_API_TOKEN` (see DEPLOY.md, "How fast an admin
 edit shows") and `TELEGRAM_BOT_TOKEN` with `TELEGRAM_WEBHOOK_SECRET` (DEPLOY.md, "Telegram
 course groups"). The deploy stops if a required

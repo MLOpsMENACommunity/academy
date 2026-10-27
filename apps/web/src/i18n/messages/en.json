@@ -1102,6 +1102,20 @@
       "deleteSession": "Delete \"{title}\"? Students’ progress and feedback for this session are deleted too. This can’t be undone.",
       "accountDeleted": "Account deleted",
       "markRemoved": "Done, I removed it",
+      "driveSharing": {
+        "ready": "Automatic sharing is on for \"{folder}\": within an hour of enrolling, each student's Google account gets Viewer access, and old addresses are removed. You can still tick or untick by hand.",
+        "no_folder": "Automatic sharing is set up, but this course has no Drive folder link. Add it in Settings.",
+        "no_access": "Automatic sharing can't open this folder. In Google Drive, share the folder with {account} as Editor.",
+        "cannot_share": "{account} can open the folder but can't share it. Make it an Editor of the folder, and allow editors to share.",
+        "error": "Couldn't check the Drive folder right now. Sharing stays manual until it works; try again later.",
+        "shareNow": "Share now",
+        "result": "Done: {changed} updated, {failed} failed.",
+        "failure": {
+          "not_google_account": "Not shared: this Google email isn't a Google account. Ask the student to correct it.",
+          "no_folder_access": "Not shared: the academy can't open the folder.",
+          "failed": "Not shared: Google returned an error. It's tried again tomorrow, or use Share now."
+        }
+      },
       "instructorNameAr": "Instructor name (Arabic)",
       "instructorTitleAr": "Instructor job title (Arabic)",
       "instructorBioAr": "Instructor bio (Arabic)",

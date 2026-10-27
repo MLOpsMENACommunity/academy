@@ -405,6 +405,15 @@ The route exists only outside production and answers 403 without the right token
      environments `staging` and `production`; the next release applies them. This also turns on
      **Sign in with Google** for everyone.
    Without Google configured, experts simply use a fixed meeting link.
+   **Optional: automatic Drive sharing** (paid courses' recordings folders, FEATURES 4.6):
+   - In the same Google Cloud project, enable the **Google Drive API**.
+   - IAM → Service accounts → create one (no roles needed), then Keys → Add key → JSON.
+   - Store the whole JSON file (or its base64) as the `GOOGLE_DRIVE_SERVICE_ACCOUNT` secret of the
+     GitHub environments `staging` and `production`; the next release applies it. Delete the
+     downloaded file afterwards.
+   - For each paid course, share its Drive folder with the service account's address
+     (`…@….iam.gserviceaccount.com`) as **Editor**. The enrolled students page shows when it works.
+   Use one service account per environment if staging should never reach production's folders.
 7. **Local secrets files** (never commit them, never paste them into chat):
 
    ```bash

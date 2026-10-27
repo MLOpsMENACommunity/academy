@@ -25,6 +25,7 @@ describe('internal jobs endpoint (e2e)', () => {
     expect(res.body).toEqual({
       announcementEmailsPending: expect.any(Number),
       automationActions: expect.any(Number),
+      driveShared: expect.any(Number),
       consultationRemindersQueued: expect.any(Number),
       consultationScreenshotsDeleted: expect.any(Number),
       eventRemindersSent: expect.any(Number),

@@ -36,6 +36,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AutomationModule } from './automation/automation.module';
+import { DriveModule } from './drive/drive.module';
 import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
@@ -74,6 +75,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     InvitesModule,
     PaymentsModule,
     AutomationModule,
+    DriveModule,
     LearnModule,
     AssessmentsModule,
     PointsModule,

@@ -120,6 +120,7 @@ refuses to start with an invalid config):
 | `ACCESS_TOKEN_TTL_MIN`, `REFRESH_TOKEN_TTL_DAYS` | Token lifetimes (15 min / 30 days) |
 | `COOKIE_DOMAIN`, `COOKIE_SECURE` | Leave domain empty for host-only cookies; secure defaults to on in production |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Sign in with Google. Redirect URI: `${WEB_URL}/api/auth/google/callback` |
+| `GOOGLE_DRIVE_SERVICE_ACCOUNT` | Optional. Service account key (JSON or base64) that shares paid courses' Drive folders automatically (DEPLOY.md) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | Optional: Telegram course groups (the bot's token from @BotFather; a 32+ character secret for the webhook). Both unset hides the feature. Webhook: `${WEB_URL}/api/telegram/webhook`, registered on start (DEPLOY.md, "Telegram course groups") |
 | `EMAIL_PROVIDER` | `smtp` (Mailpit locally), `resend` (production) or `log` |
 | `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `RESEND_API_KEY` | Email delivery |

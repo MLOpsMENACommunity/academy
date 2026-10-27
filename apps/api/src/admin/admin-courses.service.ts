@@ -592,6 +592,8 @@ export class AdminCoursesService {
       driveAccessGrantedAt: e.driveAccessGrantedAt?.toISOString() ?? null,
       /** An address to remove from the folder (changed Google account or deleted student). */
       driveRevokeEmail: e.driveRevokeEmail,
+      /** Why automatic sharing failed for this student, if it did. */
+      driveShareError: e.driveShareError,
       progress: { completed: done.get(e.userId) ?? 0, total },
       };
     });
@@ -599,7 +601,7 @@ export class AdminCoursesService {
 
   /** The admin removed the old address from the Drive folder. */
   async markDriveRemoved(enrollmentId: string, admin: Actor) {
-    const r = await this.prisma.enrollment.updateMany({ where: { id: enrollmentId, driveRevokeEmail: { not: null } }, data: { driveRevokeEmail: null } });
+    const r = await this.prisma.enrollment.updateMany({ where: { id: enrollmentId, driveRevokeEmail: { not: null } }, data: { driveRevokeEmail: null, driveShareError: null } });
     if (!r.count) throw new NotFoundException('Nothing to remove');
     await this.audit.log({ actorId: admin.id, action: 'enrollment.drive_old_access_removed', entityType: 'Enrollment', entityId: enrollmentId });
   }
@@ -611,7 +613,7 @@ export class AdminCoursesService {
       where: { id: enrollmentId },
       // Marking access as granted also confirms the old address (if any) was removed.
       data: granted
-        ? { driveAccessGranted: true, driveAccessGrantedAt: new Date(), driveRevokeEmail: null }
+        ? { driveAccessGranted: true, driveAccessGrantedAt: new Date(), driveRevokeEmail: null, driveShareError: null }
         : { driveAccessGranted: false, driveAccessGrantedAt: null },
     });
     await this.audit.log({

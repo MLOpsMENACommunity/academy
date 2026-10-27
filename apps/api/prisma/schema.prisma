@@ -847,6 +847,9 @@ model Enrollment {
   /// Google address an admin must remove from the Drive folder (old address or deleted account).
   /// Cleared when access is updated or the account is anonymised; kept out of notifications.
   driveRevokeEmail     String?
+  /// Why automatic Drive sharing last failed (not_google_account, no_folder_access, failed); null when it worked.
+  driveShareError      String?
+  driveShareTriedAt    DateTime?
 
   projectSubmissions ProjectSubmission[]
   certificate        Certificate?

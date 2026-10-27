@@ -37,6 +37,8 @@ const envSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /** Service account key (JSON, or base64 of it) that shares paid courses' Drive folders. Unset: shared by hand. */
+  GOOGLE_DRIVE_SERVICE_ACCOUNT: z.string().optional(),
 
   /**
    * Telegram course groups (telegram/): the bot's token from BotFather, and the secret Telegram

@@ -6,6 +6,7 @@ import {
   questionInputSchema,
   questionTypeLabels,
   sessionInputSchema,
+  type DriveSharingStatusDto,
   type Material,
   type QuestionOption,
   type QuestionType,
@@ -504,6 +505,7 @@ interface EnrolledRow {
   driveAccessGranted: boolean;
   driveAccessGrantedAt: string | null;
   driveRevokeEmail: string | null;
+  driveShareError: string | null;
   progress: { completed: number; total: number };
 }
 
@@ -513,7 +515,11 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
   const [pendingOnly, setPendingOnly] = useState(initialPendingOnly);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<DriveSharingStatusDto | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState<{ changed: number; failed: number } | null>(null);
   const c = (k: string, v?: Record<string, string>) => t(`admin.courses.${k}`, v);
+  const automatic = sharing?.state === 'ready';
 
   const load = useCallback(() => {
     api<EnrolledRow[]>(`/admin/courses/${courseId}/enrollments${pendingOnly ? '?driveAccess=pending' : ''}`)
@@ -521,6 +527,28 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
       .catch((err) => setError(errorMessage(err, t)));
   }, [courseId, pendingOnly, t]);
   useEffect(load, [load]);
+  useEffect(() => {
+    if (!usesDrive) return;
+    api<DriveSharingStatusDto>(`/admin/courses/${courseId}/drive-sharing`)
+      .then(setSharing)
+      .catch(() => setSharing(null));
+  }, [courseId, usesDrive]);
+
+  async function shareNow() {
+    setError(null);
+    setSynced(null);
+    setSyncing(true);
+    try {
+      const r = await api<{ changed: number; failed: number; status: DriveSharingStatusDto }>(`/admin/courses/${courseId}/drive-sharing/run`, { method: 'POST' });
+      setSharing(r.status);
+      setSynced({ changed: r.changed, failed: r.failed });
+      load();
+    } catch (err) {
+      setError(errorMessage(err, t));
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function copy(key: string, list: EnrolledRow[]) {
     const emails = list.map((r) => r.googleEmail).filter(Boolean).join(', ');
@@ -555,6 +583,19 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
   return (
     <div className="space-y-4">
       {usesDrive && <Alert tone="danger">{c('driveWarning')}</Alert>}
+      {usesDrive && sharing && sharing.state !== 'off' && (
+        <Alert tone={automatic ? 'success' : 'warning'}>
+          <p>{c(`driveSharing.${sharing.state}`, { account: sharing.account ?? '', folder: sharing.folderName ?? '' })}</p>
+          {automatic && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={shareNow} disabled={syncing}>
+                {syncing ? t('admin.common.loading') : c('driveSharing.shareNow')}
+              </Button>
+              {synced && <span className="text-sm">{c('driveSharing.result', { changed: String(synced.changed), failed: String(synced.failed) })}</span>}
+            </div>
+          )}
+        </Alert>
+      )}
       {error && <Alert tone="danger">{error}</Alert>}
       {revoke.length > 0 && (
         <Alert tone="warning">
@@ -627,6 +668,7 @@ export function EnrolledStudents({ courseId, usesDrive, initialPendingOnly = fal
                     <input type="checkbox" className="size-5" checked={r.driveAccessGranted} onChange={(e) => toggle(r, e.target.checked)} aria-label={`${c('driveGranted')}: ${r.name ?? r.email}`} />
                     {r.driveAccessGrantedAt && <span className="text-xs text-muted">{formatDate(r.driveAccessGrantedAt, locale)}</span>}
                   </label>
+                  {r.driveShareError && <p className="mt-1 text-xs text-danger">{c(`driveSharing.failure.${r.driveShareError}`)}</p>}
                 </td>
                 {/* Every row here is an enrolment, which is exactly what the learn page checks. */}
                 <td className="p-3 font-semibold whitespace-nowrap text-success">
