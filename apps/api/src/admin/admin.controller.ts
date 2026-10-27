@@ -34,6 +34,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
+import { DriveSharingService } from '../drive/drive-sharing.service';
 import { AdminAnnouncementsService } from './admin-announcements.service';
 import { AdminApplicationsService } from './admin-applications.service';
 import { AdminCoursesService } from './admin-courses.service';
@@ -72,6 +73,7 @@ export class AdminController {
     private readonly misc: AdminMiscService,
     private readonly announcements: AdminAnnouncementsService,
     private readonly talents: AdminTalentsService,
+    private readonly drive: DriveSharingService,
   ) {}
 
   @Get('dashboard')
@@ -265,6 +267,22 @@ export class AdminController {
   @AdminCan('ADMISSIONS', 'ACADEMIC')
   driveAccess(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(driveAccessSchema)) body: { granted: boolean }) {
     return this.courses.setDriveAccess(id, body.granted, user);
+  }
+
+  @Get('courses/:id/drive-sharing')
+  @AdminCan('ADMISSIONS', 'ACADEMIC')
+  driveSharing(@Param('id') id: string) {
+    return this.drive.status(id);
+  }
+
+  /** "Share now": runs the automatic sharing for this course, including ones that failed recently. */
+  @Post('courses/:id/drive-sharing/run')
+  @AdminCan('ADMISSIONS', 'ACADEMIC')
+  @HttpCode(200)
+  async runDriveSharing(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const status = await this.drive.status(id);
+    if (status.state !== 'ready') return { changed: 0, failed: 0, status };
+    return { ...(await this.drive.syncCourse(id, { retry: true, actorId: user.id })), status };
   }
 
   @Post('enrollments/:id/drive-removed')

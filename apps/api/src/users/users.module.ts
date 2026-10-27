@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConsultationsModule } from '../consultations/consultations.module';
 import { ApplicationsModule } from '../applications/applications.module';
 import { AuthModule } from '../auth/auth.module';
+import { DriveModule } from '../drive/drive.module';
 import { InvitesModule } from '../invites/invites.module';
 import { SpeakerPortalModule } from '../speaker-portal/speaker-portal.module';
 import { AccountService } from './account.service';
@@ -10,7 +11,7 @@ import { MeController } from './me.controller';
 import { ProfileService } from './profile.service';
 
 @Module({
-  imports: [AuthModule, SpeakerPortalModule, InvitesModule, ApplicationsModule, ConsultationsModule],
+  imports: [AuthModule, SpeakerPortalModule, InvitesModule, ApplicationsModule, ConsultationsModule, DriveModule],
   controllers: [MeController, AdminAccountsController],
   providers: [ProfileService, AccountService],
   exports: [ProfileService, AccountService],
