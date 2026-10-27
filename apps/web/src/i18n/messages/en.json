@@ -1756,6 +1756,7 @@
     "points": {
       "nav": "Points & badges",
       "pageTitle": "Points & badges",
+      "backToBoard": "Course leaderboard",
       "pageIntro": "Award community points in bulk from a CSV, and manage the badges. Award or adjust points for one student from their page (Students).",
       "importTitle": "Import community points (CSV)",
       "importHint": "Columns: email, points, note, course (a course slug, or empty for community points that only count toward the student's total). Points can be negative. Preview first: nothing is saved until you apply.",
