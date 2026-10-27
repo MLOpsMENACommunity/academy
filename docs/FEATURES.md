@@ -20,7 +20,7 @@ Every feature carries one status. As of 27 Oct 2026:
 |---|---|---|
 | **Live** | In production at academy.mlopsmena.com | Release `v2026.10.24-1`: everything up to and including PR #85 |
 | **Staging** | Released to academy-staging.mlopsmena.com, waiting for promotion to production | Release `v2026.10.26-1`: PRs #86–#88 |
-| **Merged** | On `main`, waiting for the next release | PRs #89–#93, #96 (#94 was reverted) |
+| **Merged** | On `main`, waiting for the next release | PRs #89–#93, #97 (#94 was reverted) |
 | **Pending** | An open pull request, not merged | None |
 
 Releases go tag → staging → test → the same tag to production (see [ENGINEERING.md](ENGINEERING.md#14-cicd-and-release)).
@@ -1014,8 +1014,8 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| #96 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
-| #94 | Card payments through Paymob, reverted by #96 before any release | — |
+| #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
+| #94 | Card payments through Paymob, reverted by #97 before any release | — |
 | #93 | Docs: feature statuses follow the deployments (new **Merged** status), one changelog row per PR with its number (missing PRs added), roadmap tidy-up | Merged |
 | #92 | New admin section **Talents** (SUPER only): analytics about the students for outsourcing, with the Students filters plus who to include (all, applied, enrolled, certified): headline counts (strong skills, available for projects, 5+ years, certified, rated skills), high-skill AI engineers we can staff by seniority, best skills (strong, expert, average, gaps), academy track record, distributions (experience, seniority, areas, countries, employment, industry, education, cloud, tools, goals, topics, hours) and the top 50 talents by a stated talent score. New `GET /api/admin/talents`. No migration (en/ar) | Merged |
 | #91 | Opening a student from Admin → Courses → course → **Leaderboard** and clicking the back link returns to that course's leaderboard (it went to Admin → Points & badges); opened from anywhere else, it still goes to Points & badges (en/ar) | Merged |
