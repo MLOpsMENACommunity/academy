@@ -336,7 +336,8 @@ community (with consent).
 ### 3.7 In-app notifications
 
 **Status:** Live. The bell in the header shows unread notifications (checked every 2 minutes while
-the tab is visible): application updates, announcements, grades, new assessments, badges, points,
+the tab is visible and in use; a tab left untouched for 10 minutes stops checking until someone
+moves the mouse, types or scrolls, then refreshes at once): application updates, announcements, grades, new assessments, badges, points,
 certificates, speaker reviews and bookings, admin alerts. **Mark all as read**. Each links to the
 relevant page. Times show in the viewer's own time zone; if the list can't load, the panel says so.
 
@@ -1097,6 +1098,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Bell pauses in unattended tabs | The notifications bell stops checking the unread count after 10 minutes without mouse, keyboard or scroll input, and refreshes as soon as someone comes back, so a forgotten tab no longer keeps the API and database awake (hosting cost). No API change, no migration | Pending |
 | Automatic Drive sharing | Paid Drive courses: an hourly run shares the folder (Viewer, no Google email) with each enrolled student's Google account and removes old addresses (changed Google email, deleted account), through a Google service account (`GOOGLE_DRIVE_SERVICE_ACCOUNT`, optional; off without it). Enrolled students shows whether it works for the course, **Share now**, and why sharing failed per student; admins get one alert per failed run. New `GET`/`POST /api/admin/courses/:id/drive-sharing[/run]` (ADMISSIONS, ACADEMIC). Migration `20261105090000_drive_auto_share` (two nullable columns) (en/ar) | Pending |
 | #98 | /teach → course → **Feedback** for staff with **See session feedback** (Main instructor, Co-instructor and Moderator by default): each session's and the course's average rating and comments, without students' names; admins still see names. New `GET /api/teach/courses/:courseId/feedback`; the low-rating automation alerts now open this tab. No migration (en/ar) | Merged |
 | #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
