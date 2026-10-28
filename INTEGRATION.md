@@ -13,6 +13,12 @@ https://academy.mlopsmena.com/courses/<course-slug>?ref=main-site
 |---|---|
 | AI Architecture Design | `https://academy.mlopsmena.com/courses/ai-architecture-design?ref=main-site` |
 | Kubernetes for ML Engineers | `https://academy.mlopsmena.com/courses/kubernetes?ref=main-site` |
+| The MLOps Practitioner — Complete Edition (recorded, coming soon) | `https://academy.mlopsmena.com/courses/mlops-practitioner-recorded?ref=main-site` |
+| FinOps for AI (coming soon) | `https://academy.mlopsmena.com/courses/finops-for-ai?ref=main-site` |
+| LLM Evaluation, Drift Detection & Monitoring (coming soon) | `https://academy.mlopsmena.com/courses/llm-evaluation-monitoring?ref=main-site` |
+| TensorRT & TensorRT-LLM Optimization (coming soon) | `https://academy.mlopsmena.com/courses/tensorrt-optimization?ref=main-site` |
+| DeepStream Real-Time Video Analytics (coming soon) | `https://academy.mlopsmena.com/courses/deepstream-video-analytics?ref=main-site` |
+| Forward Deployed Engineer (coming soon) | `https://academy.mlopsmena.com/courses/forward-deployed-engineer?ref=main-site` |
 
 For a new course, use its slug, which is the last part of the course URL shown
 in **Admin → Courses**.

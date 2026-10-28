@@ -1,5 +1,9 @@
 import { courseInputSchema, courseLevelsText, instructorInputSchema } from '@academy/shared';
-import { seedCourses } from '../prisma/seed-data';
+import { seedCourses as launchCourses } from '../prisma/seed-data';
+import { plannedCourses } from '../prisma/seed-planned';
+
+/** Everything prisma/seed.ts seeds, in order. */
+const seedCourses = [...launchCourses, ...plannedCourses];
 
 /** The seed's course content: valid for the admin form, complete in both languages, nothing left to fill in. */
 describe('seed course content', () => {
@@ -81,6 +85,67 @@ describe('seed course content', () => {
     });
     expect(k8s.placeholder).toBeFalsy();
     expect(k8s.supersedes?.length).toBeGreaterThan(0);
+  });
+
+  describe('planned courses (owner planning doc, Oct 2026)', () => {
+    const planned = [
+      'mlops-practitioner-recorded',
+      'finops-for-ai',
+      'llm-evaluation-monitoring',
+      'tensorrt-optimization',
+      'deepstream-video-analytics',
+      'forward-deployed-engineer',
+    ];
+    const courses = planned.map((slug) => seedCourses.find((s) => s.course.slug === slug)!);
+    const arabic = /[؀-ۿ]/;
+
+    it('are all seeded once, without touching the courses admins created in production', () => {
+      expect(courses.every(Boolean)).toBe(true);
+      const slugs = seedCourses.map((s) => s.course.slug);
+      expect(new Set(slugs).size).toBe(slugs.length);
+      for (const taken of ['llmops', 'mlops-practitioner']) expect(slugs).not.toContain(taken);
+    });
+
+    it('go public as Coming soon with the waiting list: no price, dates, sessions, questions or instructor', () => {
+      for (const s of courses) {
+        expect(s.placeholder).toBeFalsy();
+        expect(s.course.status).toBe('COMING_SOON');
+        expect(s.course.price).toBe(0);
+        expect([s.course.startDate, s.course.applicationsOpenAt, s.course.applicationDeadline]).toEqual([null, null, null]);
+        expect(s.sessions).toEqual([]);
+        expect(s.questions).toEqual([]);
+        // The owner's existing speaker profile is linked in the admin: no duplicate instructor.
+        expect(s.instructor).toBeUndefined();
+      }
+      // Only the free live edition is marked free; the others show "Price to be announced".
+      expect(courses.filter((s) => s.course.type === 'FREE').map((s) => s.course.slug)).toEqual(['llm-evaluation-monitoring']);
+      expect(courses.find((s) => s.course.slug === 'tensorrt-optimization')!.course.capacity).toBe(15);
+    });
+
+    it('have the full page content in English and Arabic', () => {
+      for (const { course: c } of courses) {
+        for (const ar of [c.titleAr, c.shortDescriptionAr, c.longDescriptionAr, c.targetAudience.ar]) expect(ar).toMatch(arabic);
+        expect(c.longDescriptionEn.split('\n').filter((l) => l.startsWith('## ')).length).toBe(
+          c.longDescriptionAr.split('\n').filter((l) => l.startsWith('## ')).length,
+        );
+        expect(c.learningOutcomes.en.length).toBeGreaterThan(0);
+        expect(c.learningOutcomes.ar).toHaveLength(c.learningOutcomes.en.length);
+        expect(c.prerequisites.ar).toHaveLength(c.prerequisites.en.length);
+        expect(c.targetAudience.ar.split('\n')).toHaveLength(c.targetAudience.en.split('\n').length);
+        expect(c.outline.length).toBeGreaterThan(0);
+        for (const m of c.outline) {
+          expect(m.titleAr).toMatch(arabic);
+          expect(m.descriptionEn?.trim()).toBeTruthy();
+          expect(m.descriptionAr).toMatch(arabic);
+        }
+        expect(c.faq.length).toBeGreaterThan(0);
+        for (const f of c.faq) {
+          expect(f.questionAr).toMatch(arabic);
+          expect(f.answerAr).toMatch(arabic);
+        }
+        expect(c.included.notesAr).toMatch(arabic);
+      }
+    });
   });
 
   it('has no placeholders, blanks or third-party platform links', () => {
