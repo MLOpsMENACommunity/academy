@@ -59,7 +59,7 @@ browser ──► Cloudflare edge (Worker, colo near the visitor)
 ```
 
 Verified in code:
-- `deploy/cloudflare/wrangler.jsonc`: `basic` instances, `WEB_INSTANCES=1`, `SLEEP_AFTER` 15m
+- `deploy/cloudflare/wrangler.jsonc`: `basic` instances, `WEB_INSTANCES=1`, `SLEEP_AFTER` 5m (15m when this was measured)
   (staging 10m), API `max_instances: 1`, an hourly cron in production only, and no placement
   `constraints`.
 - `deploy/cloudflare/src/edge-cache.ts`: `PAGE_TTL = 30` and `API_TTL = 30`. The task brief and
