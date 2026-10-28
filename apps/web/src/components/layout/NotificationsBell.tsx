@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { formatDateTime, viewerTimezone } from '@/lib/format';
+import { isIdle, shouldPoll } from './bell-poll';
 
 interface Item {
   id: string;
@@ -17,7 +18,7 @@ interface Item {
   createdAt: string;
 }
 
-/** Unread count refresh: every 2 minutes while the tab is visible. */
+/** Unread count refresh: every 2 minutes while the tab is visible and in use (bell-poll.ts). */
 const POLL_MS = 120_000;
 /** After a failure (busy API, offline) the next try waits twice as long, up to this. */
 const MAX_BACKOFF_MS = 10 * 60_000;
@@ -33,11 +34,12 @@ export function NotificationsBell() {
   const [loadFailed, setLoadFailed] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const lastOk = useRef(0);
+  const lastActivity = useRef(Date.now());
 
-  // One request at a time, never while the tab is hidden; resolves to whether it succeeded.
+  // One request at a time, never while the tab is hidden or unattended; resolves to whether it succeeded.
   const inFlight = useRef<Promise<boolean> | null>(null);
   const poll = useCallback((): Promise<boolean> => {
-    if (document.visibilityState !== 'visible') return Promise.resolve(true);
+    if (!shouldPoll(document.visibilityState === 'visible', lastActivity.current, Date.now())) return Promise.resolve(true);
     inFlight.current ??= api<{ unread: number }>('/notifications/unread-count')
       .then((r) => {
         setUnread(r.unread);
@@ -69,13 +71,23 @@ export function NotificationsBell() {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && Date.now() - lastOk.current > FRESH_MS) void poll();
     };
+    // Back at an unattended tab: refresh at once rather than at the next tick.
+    const onActivity = () => {
+      const now = Date.now();
+      const wasIdle = isIdle(lastActivity.current, now);
+      lastActivity.current = now;
+      if (wasIdle && now - lastOk.current > FRESH_MS) void poll();
+    };
+    const activity = ['pointerdown', 'pointermove', 'keydown', 'scroll'] as const;
     void poll();
     schedule();
     document.addEventListener('visibilitychange', onVisible);
+    for (const e of activity) window.addEventListener(e, onActivity, { passive: true });
     return () => {
       stopped = true;
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      for (const e of activity) window.removeEventListener(e, onActivity);
     };
   }, [poll]);
 
