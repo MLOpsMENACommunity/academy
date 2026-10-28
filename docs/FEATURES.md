@@ -1119,7 +1119,7 @@ same email is never sent twice.
 | Who uses it | Students, speakers, the team | The team and testers, before each release |
 | Data | Real | Separate database and storage; test data only |
 | Email | Real recipients | Everyone not on the allowlist is redirected to one team inbox, with the original recipient in the subject |
-| Search engines | Indexed | `noindex`, `robots.txt` disallows everything |
+| Search engines | Indexed; SEO-tool crawlers (Semrush, Ahrefs, ibou and similar) are disallowed in `robots.txt` | `noindex`, `robots.txt` disallows everything |
 | Scheduled jobs | Hourly (reminders, retention, points, anonymisation) | None by default; run by hand when testing |
 | Version now | `v2026.10.24-1` (PRs up to #85) | `v2026.10.26-1` (PRs up to #88) |
 
@@ -1133,6 +1133,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| SEO-tool crawlers blocked | Production `robots.txt` disallows SEO-tool crawlers (SemrushBot, AhrefsBot, MJ12bot, DotBot, DataForSeoBot, BLEXBot, ibou): they bring no visitors but wake the containers (hosting cost). Search engines (Google, Bing) and AI assistants are unaffected. No API change, no migration | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |
 | #108 | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |
