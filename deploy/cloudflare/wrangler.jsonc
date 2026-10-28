@@ -29,9 +29,11 @@
     // Web containers the Worker spreads requests over; at most WebContainer.max_instances.
     "WEB_INSTANCES": "1",
     // Smallest setup, to keep the bill close to the $5 Workers plan: one basic web and API
-    // container that sleep after 15 idle minutes. Raise WEB_INSTANCES / instance_type only
-    // for an expected spike (see DEPLOY.md, "Capacity and caching").
-    "SLEEP_AFTER": "15m"
+    // container that sleep after 5 idle minutes. Every awake minute is billed (container memory
+    // and disk, and its Durable Object), and every wake-up costs at least SLEEP_AFTER, so this
+    // is the main cost lever. Raise WEB_INSTANCES / instance_type only for an expected spike
+    // (see DEPLOY.md, "Capacity and caching" and "Costs").
+    "SLEEP_AFTER": "5m"
   },
 
   "routes": [{ "pattern": "academy.mlopsmena.com", "custom_domain": true }],
@@ -76,7 +78,8 @@
 
   // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
   // Hourly (staging has none, see env.staging): reminder windows are wide enough (jobs/reminders.jobs.ts), and a
-  // 15-minute tick would keep the API container from ever sleeping.
+  // 15-minute tick would keep the API container from ever sleeping. Each tick wakes the API (and the
+  // database) for about SLEEP_AFTER.
   "triggers": { "crons": ["0 * * * *"] },
 
   "env": {
@@ -96,7 +99,7 @@
         "EMAIL_ALLOWLIST": "",
         // Staging stays small and cheap: one basic container each, asleep unless someone uses it.
         "WEB_INSTANCES": "1",
-        "SLEEP_AFTER": "10m"
+        "SLEEP_AFTER": "5m"
       },
       "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
       "containers": [

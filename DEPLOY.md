@@ -16,7 +16,7 @@ academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
 
 Production runs one API container and up to three web containers (`standard-1`), and
 staging one `basic` container of each; see [Capacity and caching](#capacity-and-caching).
-Containers sleep after 15 idle minutes in production (10 on staging; `SLEEP_AFTER` in `wrangler.jsonc`). The first
+Containers sleep after 5 idle minutes in production and staging (`SLEEP_AFTER` in `wrangler.jsonc`). The first
 request after a sleep takes a few seconds while the container starts. Database migrations run when the API container starts. The seed is
 idempotent and also runs on start: it creates the admin, the settings and the
 placeholder courses.
@@ -181,6 +181,26 @@ busy. A `standard-1` (½ vCPU, 4 GiB, 8 GB) awake all month costs about $27 in m
 disk plus up to $26 in CPU at full load; a `basic` (¼ vCPU, 1 GiB) about $7 plus up to $13.
 Production at launch size (four `standard-1`) is roughly $110–140/month if nothing sleeps;
 staging stays at two `basic`, under $20 and usually much less because it sleeps.
+
+Each awake container also keeps its Durable Object running, billed as **Durable Objects
+Compute Duration** (128 MB per object, 400,000 GB-s a month included). The first full month
+(invoice of 28 October 2026, $32.44 before VAT) was: container memory $12.15, Durable Objects
+duration $12.50, Workers Paid $5, container CPU $1.46, container disk $1.33; everything else
+(R2, KV, D1, logs, requests) stayed in the free allowances. The memory line (1,375 GiB-hours)
+means the two production containers were awake about 95% of the time: something reached them
+more often than every `SLEEP_AFTER`. What keeps them awake, from most to least:
+
+- signed-in tabs left open (the notifications bell polled every 2 minutes; it now stops after
+  10 minutes without input),
+- calendar apps polling students' private feeds (`/api/calendar/<token>.ics`), which reach the
+  API and the database on every poll,
+- anonymous visitors and crawlers on pages missing the edge cache (30 s copies), and
+- the hourly jobs tick, which wakes the API for about `SLEEP_AFTER` each hour.
+
+The same wake-ups keep the Neon compute from suspending, which is what uses up its free
+compute hours. `SLEEP_AFTER` is the main lever: every wake-up costs at least that long. At
+5 minutes, the hourly tick alone costs the API about 2 hours a day instead of 6, at the price
+of more cold starts (see "Cold starts" below).
 
 ## Capacity and caching
 
@@ -559,7 +579,7 @@ Add `--env staging` to any of these to act on staging instead of production.
 - **Single API instance.** Rate limits and the login lockout are in memory, so
   keep the API at `max_instances: 1` until they move to a shared store. The web app
   has no such state and runs several instances.
-- **Cold starts.** After 15 idle minutes (staging: 10) the next request waits a
+- **Cold starts.** After 5 idle minutes the next request waits a
   few seconds for a container to start. The edge cache helps only with the purge configured
   (copies kept an hour); its 30 s entries without it are long gone by then.
 - **Deploys and mixed builds.** Containers roll out after the Worker, so for a while old
