@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { API_TTL, browserCacheControl, cacheKind, localeCookie, PAGE_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
+import { API_TTL, browserCacheControl, cacheKind, localeCookie, PAGE_TTL, PURGED_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
 
 const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
   new Request(`https://academy.mlopsmena.com${path}`, init);
@@ -183,6 +183,23 @@ test('only what the API marked public is stored, capped at API_TTL', () => {
   // Errors, busy answers, non-JSON.
   for (const status of [404, 429, 500, 503]) assert.equal(storableCacheControl('api', json(apiPublic, status)), null, String(status));
   assert.equal(storableCacheControl('api', new Response('x', { headers: { ...apiPublic, 'content-type': 'text/calendar' } })), null);
+});
+
+test('with the purge configured, pages and API reads are kept PURGED_TTL; nothing else changes', () => {
+  assert.equal(storableCacheControl('page', html(isr), true), `public, max-age=0, s-maxage=${PURGED_TTL}`);
+  assert.equal(storableCacheControl('page', html({ 'cache-control': 's-maxage=30' }), true), `public, max-age=0, s-maxage=${PURGED_TTL}`);
+  assert.equal(storableCacheControl('api', json(apiPublic), true), `public, max-age=0, s-maxage=${PURGED_TTL}`);
+  // Still never stored: private, cookies, errors, stale ISR copies, non-public API answers.
+  assert.equal(storableCacheControl('page', html({ 'cache-control': 'private, no-cache, no-store, max-age=0, must-revalidate' }), true), null);
+  assert.equal(storableCacheControl('page', html({ ...isr, 'set-cookie': 'session=abc; Path=/' }), true), null);
+  assert.equal(storableCacheControl('page', html(isr, 500), true), null);
+  assert.equal(storableCacheControl('page', html({ ...isr, 'x-nextjs-cache': 'STALE' }), true), null);
+  assert.equal(storableCacheControl('page', html({}), true), null);
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'private, no-store' }), true), null);
+  assert.equal(storableCacheControl('api', json({ 'cache-control': 'public, max-age=60' }), true), null);
+  // Assets keep their own header either way.
+  const asset = new Response('x', { headers: { 'cache-control': 'public, max-age=31536000, immutable' } });
+  assert.equal(storableCacheControl('asset', asset, true), 'public, max-age=31536000, immutable');
 });
 
 test('browsers always revalidate cached pages and API answers; assets keep their header', () => {

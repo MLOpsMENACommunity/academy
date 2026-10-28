@@ -8,8 +8,8 @@
  *     2. the edge cache: every stored page and public API answer carries Cache-Tag EDGE_TAG
  *        (edge-cache.ts),
  *        purged in every data centre through the Cloudflare API when EDGE_PURGE_ZONE_ID and
- *        EDGE_PURGE_API_TOKEN are set. Without them, edge copies expire on their own
- *        (PAGE_TTL / API_TTL in edge-cache.ts, 30 s).
+ *        EDGE_PURGE_API_TOKEN are set, and then copies are kept an hour (PURGED_TTL). Without
+ *        them, edge copies expire on their own (PAGE_TTL / API_TTL in edge-cache.ts, 30 s).
  *
  * The token is REVALIDATE_TOKEN when that secret is set, otherwise derived from JOBS_TOKEN
  * (HMAC), so no new secret is needed; the Worker hands it to both containers.

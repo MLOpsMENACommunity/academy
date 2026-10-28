@@ -340,7 +340,7 @@ stale copy. What that means for how long an edit takes to show:
 | | Before | Now |
 |---|---|---|
 | Web app (measured locally, production build) | course page and catalog 62 s, home 86–117 s; up to 2 × 300 s for the home page on a quiet site | **0.6–0.8 s** on every page, also with two web instances |
-| Edge, with the purge configured | up to 60 s more for the page, plus 60 s for the API copy the page was rendered from | **a few seconds** in every data centre |
+| Edge, with the purge configured | up to 60 s more for the page, plus 60 s for the API copy the page was rendered from | **a few seconds** in every data centre (copies otherwise kept an hour) |
 | Edge, without the purge | as above | **at most 30 s** (`PAGE_TTL`), then fresh |
 | If the revalidation call fails (logged as `revalidate_failed` by the API, `revalidate:` by the Worker) | | the 60 s windows (measured 50–89 s locally, against up to ~10 minutes before for the home page), plus the 30 s edge copy: under ~2½ minutes for a page people are visiting |
 
@@ -350,7 +350,17 @@ production (API edge copy 60 s → Next data cache 60–300 s → page 60–300 
 re-rendered.
 
 **The guarantee:** an admin edit is on every public page within 30 s, and within a few
-seconds where the edge purge is configured. Nothing to set for the first part: the
+seconds where the edge purge is configured.
+
+**Configure the purge: it is also the biggest cost saving.** Without it the edge keeps pages
+and public API reads 30 s, so on a quiet site almost every visit (and every crawler request)
+reaches the web container, which calls the API, which wakes the database. With it, the edge
+keeps them an hour (`PURGED_TTL` in `edge-cache.ts`) and an edit purges them at once. What an
+hour means for what changes *without* an edit: seat counts and "upcoming / past" on public
+pages can lag up to an hour for anonymous visitors (signed-in visitors never get edge copies,
+and registration itself always checks the real seat count). If a purge call fails (logged as
+`revalidate:` by the Worker), that edit can take up to an hour to show; any later edit purges
+again. Nothing to set for the first part: the
 revalidation token defaults to an HMAC of `JOBS_TOKEN`, which the Worker hands to both
 containers (set the Worker secret `REVALIDATE_TOKEN` to use your own). For the purge, set
 the variable `EDGE_PURGE_ZONE_ID` (the zone id of `mlopsmena.com`, from the dashboard's
@@ -570,8 +580,8 @@ Add `--env staging` to any of these to act on staging instead of production.
   keep the API at `max_instances: 1` until they move to a shared store. The web app
   has no such state and runs several instances.
 - **Cold starts.** After 5 idle minutes the next request waits a
-  few seconds for a container to start. The edge cache doesn't help here: its entries
-  (30 s) are long gone by then.
+  few seconds for a container to start. The edge cache helps only with the purge configured
+  (copies kept an hour); its 30 s entries without it are long gone by then.
 - **Deploys and mixed builds.** Containers roll out after the Worker, so for a while old
   and new web builds serve side by side (`rollout_step_percentage: 100` keeps that short),
   and a data centre can serve the previous HTML for up to 30 s. Build assets

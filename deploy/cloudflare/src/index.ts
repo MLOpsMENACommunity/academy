@@ -269,6 +269,7 @@ async function webFetch(request: Request, env: Env, kind: CacheKind | null): Pro
 /** One request through the edge cache, where edge-cache.ts allows it; `origin` fetches from a container. */
 async function throughEdgeCache(
   request: Request,
+  env: Env,
   ctx: ExecutionContext,
   origin: (kind: CacheKind | null) => Promise<Response>,
 ): Promise<Response> {
@@ -291,7 +292,8 @@ async function throughEdgeCache(
   }
 
   const response = await origin(kind);
-  const cacheControl = storableCacheControl(kind, response);
+  // With the purge configured an edit clears every copy, so copies can live much longer (edge-cache.ts).
+  const cacheControl = storableCacheControl(kind, response, purgeRequest(env, EDGE_TAG) !== null);
   if (!cacheControl) return withHeaders(response, { 'x-edge-cache': 'MISS' });
   // Stored without Set-Cookie; the visitor still gets the response as the container sent it.
   const stored = storedCopy(response.clone(), cacheControl, kind);
@@ -301,12 +303,12 @@ async function throughEdgeCache(
 
 /** Web requests, through the edge cache where edge-cache.ts allows it. */
 function web(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  return throughEdgeCache(request, ctx, (kind) => webFetch(request, env, kind));
+  return throughEdgeCache(request, env, ctx, (kind) => webFetch(request, env, kind));
 }
 
 /** API requests: anonymous public catalog reads through the edge cache, everything else straight through. */
 function api(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  return throughEdgeCache(request, ctx, () => fromContainer(env.API.getByName(INSTANCE), request, 'api'));
+  return throughEdgeCache(request, env, ctx, () => fromContainer(env.API.getByName(INSTANCE), request, 'api'));
 }
 
 /** POSTs /api/internal/jobs/tick to the API container (the cron, or a manual run on staging). */

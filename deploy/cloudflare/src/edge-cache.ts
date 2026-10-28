@@ -20,8 +20,8 @@
  *
  * How fast an admin edit shows: the API asks the Worker to revalidate (revalidate.ts), which
  * re-renders the pages in every running web container and purges every copy stored here
- * (they carry Cache-Tag EDGE_TAG) when the purge is configured; otherwise a copy lives at most
- * PAGE_TTL / API_TTL. The web app's own server-side reads skip this cache (x-skip-edge-cache),
+ * (they carry Cache-Tag EDGE_TAG) when the purge is configured, and then copies are kept
+ * PURGED_TTL; otherwise a copy lives at most PAGE_TTL / API_TTL. The web app's own server-side reads skip this cache (x-skip-edge-cache),
  * so a page re-rendered after an edit never picks up an older copy of the API's answer.
  *
  * Never cached, always sent to the container:
@@ -46,6 +46,14 @@
 export const PAGE_TTL = 30;
 /** Edge lifetime of a cached public API read (the API asks for s-maxage=60; the edge keeps less). */
 export const API_TTL = 30;
+/**
+ * Edge lifetime of pages and public API reads when the purge is configured (revalidate.ts): an
+ * admin edit purges every copy at once, so the short TTLs above only bound what changes without
+ * an edit (seat counts, a session moving from upcoming to past). Every copy answered here is a
+ * request that doesn't wake a container (or the database behind it), and on a quiet site most
+ * visits would otherwise find a 30 s copy expired: this is what lets the containers sleep.
+ */
+export const PURGED_TTL = 3600;
 /** Cache-Tag on every stored page and API answer: one purge clears them all (revalidate.ts). */
 export const EDGE_TAG = 'academy-public';
 /** Sent by the web app's server-side reads (apps/web/src/lib/server-api.ts): never from the edge cache. */
@@ -140,10 +148,11 @@ export function parseCacheControl(value: string | null): CacheControl {
 
 /**
  * The Cache-Control to store a response under, or null when it must not be cached.
- * Pages are capped at PAGE_TTL so an edit shows within that even without the purge; assets
- * keep their own (immutable, a year).
+ * Pages are capped at PAGE_TTL (API reads at API_TTL) so an edit shows within that even without
+ * the purge; with the purge configured (`purge`), both are kept PURGED_TTL instead, whatever
+ * shorter lifetime the container asked for. Assets keep their own (immutable, a year).
  */
-export function storableCacheControl(kind: CacheKind, response: Response): string | null {
+export function storableCacheControl(kind: CacheKind, response: Response, purge = false): string | null {
   if (response.status !== 200) return null;
   // First-time visitors get the middleware's NEXT_LOCALE cookie on every page: that one alone
   // doesn't stop caching (storedCopy drops it), or a launch spike of new visitors would never hit.
@@ -158,14 +167,14 @@ export function storableCacheControl(kind: CacheKind, response: Response): strin
     if (response.headers.has('set-cookie')) return null;
     if (!(response.headers.get('content-type') ?? '').startsWith('application/json')) return null;
     if (!cc.directives.has('public') || !cc.sMaxAge || cc.sMaxAge <= 0) return null;
-    return `public, max-age=0, s-maxage=${Math.min(cc.sMaxAge, API_TTL)}`;
+    return `public, max-age=0, s-maxage=${purge ? PURGED_TTL : Math.min(cc.sMaxAge, API_TTL)}`;
   }
   if (!(response.headers.get('content-type') ?? '').startsWith('text/html')) return null;
   // A stale ISR copy is being regenerated right now: don't pin it at the edge for another TTL.
   if ((response.headers.get('x-nextjs-cache') ?? '').toUpperCase() === 'STALE') return null;
   const ttl = cc.sMaxAge ?? (cc.directives.has('public') ? cc.maxAge : null);
   if (!ttl || ttl <= 0) return null;
-  return `public, max-age=0, s-maxage=${Math.min(ttl, PAGE_TTL)}`;
+  return `public, max-age=0, s-maxage=${purge ? PURGED_TTL : Math.min(ttl, PAGE_TTL)}`;
 }
 
 /**
