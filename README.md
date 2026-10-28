@@ -149,7 +149,10 @@ Web (`apps/web/.env.local`):
 - default settings (payment details, support contacts, live-link window, retention);
 - two placeholder courses: **AI Architecture Design** (`ai-architecture-design`, free)
   and **Kubernetes for ML Engineers** (`kubernetes`, paid), with screening
-  questions, an instructor and sessions.
+  questions, an instructor and sessions;
+- six planned courses as **Coming soon** (waiting list, no price or dates yet):
+  `mlops-practitioner-recorded`, `finops-for-ai`, `llm-evaluation-monitoring`,
+  `tensorrt-optimization`, `deepstream-video-analytics` and `forward-deployed-engineer`.
 
 Courses are upserted by slug, and questions and sessions are only created for a
 course that has none, so re-running the seed never overwrites admin edits.

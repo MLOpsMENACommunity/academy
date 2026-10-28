@@ -5,6 +5,7 @@ import { hash } from '@node-rs/argon2';
 import { DEFAULT_SETTINGS } from '@academy/shared';
 import { seedCatalog } from './seed-catalog';
 import { seedCourses } from './seed-data';
+import { plannedCourses } from './seed-planned';
 
 /** Idempotent: safe to run on every start (admin, default settings, catalog; see seed-catalog.ts). */
 const prisma = new PrismaClient();
@@ -52,7 +53,7 @@ async function seedSettings(): Promise<void> {
 async function main(): Promise<void> {
   await seedAdmin();
   await seedSettings();
-  await seedCatalog(prisma, seedCourses);
+  await seedCatalog(prisma, [...seedCourses, ...plannedCourses]);
 }
 
 main()
