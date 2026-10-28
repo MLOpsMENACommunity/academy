@@ -146,7 +146,13 @@ each course card here (`/courses/<slug>?ref=main-site`, see [INTEGRATION.md](../
 
 - **Tracking:** `ref` and UTM parameters are kept through sign-up and stored on the application.
 - **Current courses:** *AI Architecture Design* (free, Open, 6 live sessions on Sundays from 18 Oct
-  2026) and *Kubernetes Mastery* (paid, Coming soon).
+  2026) and *Kubernetes Mastery* (paid, Coming soon). Coming soon from the seed, with the waiting
+  list and no price, dates or sessions yet: *The MLOps Practitioner — Complete Edition (recorded
+  cohort)* (`mlops-practitioner-recorded`), *FinOps for AI* (`finops-for-ai`), *LLM Evaluation,
+  Drift Detection & Monitoring* (`llm-evaluation-monitoring`, free live edition), *TensorRT &
+  TensorRT-LLM Optimization* (`tensorrt-optimization`), *DeepStream Real-Time Video Analytics*
+  (`deepstream-video-analytics`) and *Forward Deployed Engineer* (`forward-deployed-engineer`).
+  Courses created in the admin (*LLMOps*, *The MLOps Practitioner*) aren't in the seed.
 
 ### 2.2 Learning paths
 
@@ -1097,6 +1103,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Coming-soon courses | Six planned courses added to the seed as **Coming soon** with full English/Arabic pages (description, outcomes, outline, audience, prerequisites, FAQ, what's included) and **Notify me**: `mlops-practitioner-recorded`, `finops-for-ai`, `llm-evaluation-monitoring` (free), `tensorrt-optimization`, `deepstream-video-analytics`, `forward-deployed-engineer`. No price, dates, sessions, questions or instructor (linked in the admin). Created once on the next start; existing slugs and admin edits are left alone. No migration (en/ar) | Pending |
 | Automatic Drive sharing | Paid Drive courses: an hourly run shares the folder (Viewer, no Google email) with each enrolled student's Google account and removes old addresses (changed Google email, deleted account), through a Google service account (`GOOGLE_DRIVE_SERVICE_ACCOUNT`, optional; off without it). Enrolled students shows whether it works for the course, **Share now**, and why sharing failed per student; admins get one alert per failed run. New `GET`/`POST /api/admin/courses/:id/drive-sharing[/run]` (ADMISSIONS, ACADEMIC). Migration `20261105090000_drive_auto_share` (two nullable columns) (en/ar) | Pending |
 | #98 | /teach → course → **Feedback** for staff with **See session feedback** (Main instructor, Co-instructor and Moderator by default): each session's and the course's average rating and comments, without students' names; admins still see names. New `GET /api/teach/courses/:courseId/feedback`; the low-rating automation alerts now open this tab. No migration (en/ar) | Merged |
 | #97 | Reverts #94: card payments stay on their branch (`feat/paymob-card-payments`) until the academy decides to offer them | Merged |
