@@ -15,6 +15,7 @@ import {
   LOCALES,
   QUESTION_TYPES,
   RECORDINGS_PLATFORMS,
+  type Role,
   SAVED_FILTER_SCOPES,
   SENIORITIES,
   SKILLS,
@@ -340,6 +341,33 @@ export const addStudentSchema = z.object({
   fullNameEn: z.string().trim().max(120).nullish().transform((v) => (v ? v : null)),
 });
 export type AddStudentInput = z.infer<typeof addStudentSchema>;
+
+/**
+ * Admin → Speakers → {speaker} → Account: who signs in as this speaker. A new address gets a
+ * speaker account and a "choose your password" email; an existing account (email confirmed) is
+ * linked, and a student account becomes a speaker. Either way it teaches the profile's courses.
+ */
+export const speakerAccountSchema = z.object({
+  email: emailSchema,
+  /** Language of the invitation email (and a new account's default). */
+  locale: z.enum(LOCALES).default('en'),
+});
+export type SpeakerAccountInput = z.infer<typeof speakerAccountSchema>;
+
+/** The account behind a speaker profile. */
+export interface SpeakerAccountDto {
+  id: string;
+  email: string;
+  role: Role;
+  /** Never signed in yet (an invitation still waiting). */
+  pending: boolean;
+}
+
+export interface SpeakerAccountResultDto {
+  /** 'invited': a new account was created and emailed; 'linked': an existing account was linked. */
+  outcome: 'invited' | 'linked';
+  account: SpeakerAccountDto;
+}
 
 /** Typed confirmation for destructive admin actions: the account's email address, or the speaker's name. */
 export const typedConfirmSchema = z.object({ confirm: z.string().trim().min(1, 'Type it to confirm').max(320) });

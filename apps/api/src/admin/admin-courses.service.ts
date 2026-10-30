@@ -18,6 +18,7 @@ import { NO_SEATS, toInstructorDto, type SeatCount } from '../courses/course.map
 import { CoursesService } from '../courses/courses.service';
 import { completedSessionsBy } from '../attendance/completed-sessions';
 import { PrismaService } from '../prisma/prisma.service';
+import { SPEAKER_ACCOUNT_SELECT, toSpeakerAccount } from '../speaker-accounts/speaker-account';
 
 type Json = Prisma.InputJsonValue;
 
@@ -453,7 +454,7 @@ export class AdminCoursesService {
       include: {
         _count: { select: { courses: true, events: true } },
         // The speaker account behind the profile, and its application (editable by the team).
-        user: { select: { id: true, deletedAt: true, speakerApplication: { select: { id: true } } } },
+        user: { select: { ...SPEAKER_ACCOUNT_SELECT, deletedAt: true, speakerApplication: { select: { id: true } } } },
       },
     });
     if (!i) throw new NotFoundException('Instructor not found');
@@ -465,6 +466,7 @@ export class AdminCoursesService {
       events: i._count.events,
       previousSlugs: i.previousSlugs,
       userId: account?.id ?? null,
+      account: account ? toSpeakerAccount(account) : null,
       applicationId: account?.speakerApplication?.id ?? null,
     };
   }

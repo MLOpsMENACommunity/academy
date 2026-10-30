@@ -41,6 +41,7 @@ import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
 import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-announcements.module';
+import { SpeakerAccountsModule } from './speaker-accounts/speaker-accounts.module';
 import { SpeakerPortalModule } from './speaker-portal/speaker-portal.module';
 import { StorageModule } from './storage/storage.module';
 import { TeachingModule } from './teaching/teaching.module';
@@ -82,6 +83,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     CertificatesModule,
     EventsModule,
     SpeakerPortalModule,
+    SpeakerAccountsModule,
     SpeakerAnnouncementsModule,
     TeachingModule,
     AdminModule,

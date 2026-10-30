@@ -321,8 +321,11 @@ export class AccountService {
   async createByAdmin(
     input: AddStudentInput,
     adminId: string,
-    /** Admin → Team → Add admin: the new account is an admin with these presets. */
-    asAdmin?: { adminPermissions: AdminPermission[] },
+    /**
+     * Admin → Team → Add admin: an admin with these presets. Admin → Speakers → invite: a speaker,
+     * who gets the speaker invitation instead of the student welcome.
+     */
+    as?: { role: 'ADMIN'; adminPermissions: AdminPermission[] } | { role: 'SPEAKER' },
   ): Promise<{ id: string; email: string }> {
     const existing = await this.prisma.user.findFirst({ where: { email: { equals: input.email, mode: 'insensitive' } }, select: { id: true, deletedAt: true } });
     if (existing) {
@@ -337,21 +340,22 @@ export class AccountService {
       data: {
         email: input.email,
         locale: input.locale,
-        role: asAdmin ? 'ADMIN' : 'STUDENT',
-        adminPermissions: asAdmin?.adminPermissions ?? [],
+        role: as?.role ?? 'STUDENT',
+        adminPermissions: as?.role === 'ADMIN' ? as.adminPermissions : [],
         profile: { create: { preferredLanguage: input.locale, fullNameEn: input.fullNameEn } },
         passwordResetTokens: { create: { tokenHash: sha256(token), expiresAt: new Date(Date.now() + WELCOME_LINK_DAYS * 86_400_000) } },
       },
     });
     await this.audit.log({
       actorId: adminId,
-      action: asAdmin ? 'admin.invited' : 'user.created_by_admin',
+      action: as?.role === 'ADMIN' ? 'admin.invited' : as?.role === 'SPEAKER' ? 'speaker.invited' : 'user.created_by_admin',
       entityType: 'User',
       entityId: user.id,
-      ...(asAdmin ? { metadata: { permissions: asAdmin.adminPermissions } } : {}),
+      ...(as?.role === 'ADMIN' ? { metadata: { permissions: as.adminPermissions } } : {}),
     });
+    const url = this.email.url(user.locale, `/reset-password?token=${token}&welcome=1`);
     void this.email
-      .send(user.email, user.locale, { name: 'accountCreated', url: this.email.url(user.locale, `/reset-password?token=${token}&welcome=1`), days: WELCOME_LINK_DAYS })
+      .send(user.email, user.locale, { name: as?.role === 'SPEAKER' ? 'speakerInvited' : 'accountCreated', url, days: WELCOME_LINK_DAYS })
       .catch(() => undefined);
     return { id: user.id, email: user.email };
   }

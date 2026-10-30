@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { InstructorForm, toSpeakerInput } from '@/components/admin/InstructorEditor';
+import { SpeakerAccountCard } from '@/components/admin/SpeakerAccountCard';
 import { SpeakerAssignedCourses } from '@/components/admin/SpeakerAssignedCourses';
 import { SpeakerProfileExtras, type SpeakerAccountInfo } from '@/components/admin/SpeakerProfileExtras';
 import { Alert } from '@/components/ui/Alert';
@@ -12,6 +13,7 @@ import { buttonClass } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
+import { useSearchParam } from '@/lib/use-search-param';
 import type { AdminSpeaker } from '../types';
 
 export default function EditSpeaker() {
@@ -22,6 +24,8 @@ export default function EditSpeaker() {
   const [error, setError] = useState<'notFound' | 'generic' | null>(null);
   const [version, setVersion] = useState(0);
   const [saved, setSaved] = useState(false);
+  // From "Invite speaker": the profile was just created, the account form opens next.
+  const inviting = useSearchParam('invite') === '1';
 
   useEffect(() => {
     api<AdminSpeaker & SpeakerAccountInfo>(`/admin/instructors/${id}`)
@@ -65,6 +69,7 @@ export default function EditSpeaker() {
           {saved ? `✓ ${t('admin.common.saved')}` : ''}
         </p>
       </Card>
+      <SpeakerAccountCard instructorId={speaker.id} account={speaker.account ?? null} autoOpen={inviting} onChanged={() => setVersion((v) => v + 1)} />
       <SpeakerAssignedCourses instructorId={speaker.id} />
       <SpeakerProfileExtras speaker={speaker} onDeleted={() => router.push(`/${locale}/admin/speakers?deleted=1`)} />
     </div>

@@ -21,7 +21,7 @@ use both sets of pages. `SUPER` can do everything.
 | `ACADEMIC` | Sessions and academics | Courses (create, edit, sessions, screening questions, status, duplicate, archive, delete), live sessions and their registrations, assessments and grading, gradebooks, certificates, points and badges, leaderboards, course announcements, feedback, course automation rules, enrolled students and Drive access, learn-page preview of any course, image upload | Applications, the student directory, payments, speakers' applications and availability, Team, Settings, Audit |
 | `CONTENT` | Social media and content | **Admin → Media only**: course and session covers, live session covers, speaker photos, recording and playlist links, image upload | Any student or applicant data, payments, the full course/session/speaker editors, learn previews |
 | `ADMISSIONS` | Admissions | Applications (review, shortlist, accept, reject, waitlist, notes, CSV), students (directory, profile, CV, notes, edit, add, delete, switch to speaker), saved views, enrol by email, waiting lists, enrolled students and Drive access, read-only course list and details | Editing courses, assessments, certificates, payments, speakers |
-| `SPEAKERS` | Speakers | Speaker profiles (create, edit, delete), who is listed for consultations (prices, link, hours), speaker applications (review, approve, reject), availability slots and bookings (generate, edit, release, cancel, create a course draft), assigning speakers to courses, switching accounts between student and speaker, image upload | Students, applications, payments, courses' content |
+| `SPEAKERS` | Speakers | Speaker profiles (create, edit, delete), who is listed for consultations (prices, link, hours), speaker applications (review, approve, reject), availability slots and bookings (generate, edit, release, cancel, create a course draft), assigning speakers to courses, switching accounts between student and speaker, inviting or linking a speaker profile's sign-in account, image upload | Students, applications, payments, courses' content |
 | `FINANCE` | Finance | Payments (review proofs, open screenshots, approve, reject), consultation payments (view screenshots, approve, reject) and bookings (cancel), the admin dashboard | Everything else |
 
 ### Pages by preset
@@ -319,6 +319,8 @@ is listed.
 | Speakers | POST | `/api/admin/instructors` | SPEAKERS |
 | Speakers | PUT | `/api/admin/instructors/:id` | SPEAKERS |
 | Speakers | POST | `/api/admin/instructors/:id/delete` | SPEAKERS |
+| Speakers | POST | `/api/admin/instructors/:id/account` | SPEAKERS |
+| Speakers | DELETE | `/api/admin/instructors/:id/account` | SPEAKERS |
 | Speakers | GET | `/api/admin/instructors/:id/courses` | SPEAKERS |
 | Speakers | PUT | `/api/admin/instructors/:id/courses/:courseId` | SPEAKERS |
 | Speakers | DELETE | `/api/admin/instructors/:id/courses/:courseId` | SPEAKERS |

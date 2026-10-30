@@ -224,7 +224,10 @@
       "TOO_MANY_UNBOOKED": "Book a time for the calls you already paid for before paying for another.",
       "NOT_PAID": "This call isn't ready to book yet: its payment is still being checked.",
       "METHOD_NOT_AVAILABLE": "This payment method isn't available. Choose another one.",
-      "ALREADY_REVIEWED": "This payment has already been reviewed."
+      "ALREADY_REVIEWED": "This payment has already been reviewed.",
+      "PROFILE_HAS_ACCOUNT": "This speaker profile already has an account. Unlink it first.",
+      "ACCOUNT_HAS_PROFILE": "This account is already linked to another speaker profile.",
+      "PROFILE_CHANGED": "This speaker profile or account just changed. Reload and try again."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -1400,7 +1403,9 @@
         "github": "GitHub URL",
         "photoHint": "An https:// link, or an image on this site such as /speakers/name.webp (400px or smaller).",
         "bioHint": "Optional for a one-off speaker: the page then shows their name, title and sessions."
-      }
+      },
+      "invite": "Invite speaker",
+      "inviteIntro": "Fill in their public speaker profile first. Next you'll enter the email address they'll sign in with: we email them a link to choose a password, and they can then teach this profile's courses."
     },
     "speakerApps": {
       "tabs": {
@@ -1976,6 +1981,28 @@
       "deleteType": "Type {name} to confirm",
       "deleteConfirm": "Delete the profile",
       "deleted": "The speaker profile was deleted."
+    },
+    "speakerAccount": {
+      "title": "Sign-in account",
+      "none": "Nobody signs in as this speaker yet. Invite them by email to give them access to this profile's courses (assessments, submissions, grading and what else their course role opens).",
+      "invite": "Invite or link by email",
+      "intro": "A new address gets a speaker account and an email to choose a password. An existing account is linked once it has confirmed its email; a student account becomes a speaker account and keeps its courses. To book speaking slots they still send the speaker application.",
+      "email": "Email address",
+      "language": "Language of the email",
+      "submit": "Send invitation",
+      "invited": "Account created for {email} and linked to this profile. They've been emailed a link to choose their password.",
+      "linked": "{email} is now linked to this profile.",
+      "pending": "Never signed in",
+      "linkedHint": "This account teaches the courses where this profile is on the staff (Admin → Courses → course → Staff), under Teaching. Add this profile to a course to give them access.",
+      "unlink": "Unlink this account…",
+      "unlinkConfirm": "Unlink {email}? The account stays, but stops teaching this profile's courses; the profile stays on those course pages.",
+      "unlinkButton": "Unlink",
+      "unlinked": "{email} is no longer linked to this profile.",
+      "role": {
+        "STUDENT": "Student",
+        "SPEAKER": "Speaker",
+        "ADMIN": "Admin"
+      }
     },
     "acceptedEmails": {
       "button": "Add accepted emails",

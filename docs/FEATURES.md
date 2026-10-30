@@ -88,6 +88,7 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Payments: review, approve, reject | | | | ✓ | | | | | ✓ |
 | Speaker profiles, applications, availability, bookings, assign courses | | | | ✓ | | | | ✓ | |
 | Switch an account between student and speaker | | | | ✓ | | | ✓ | ✓ | |
+| Invite or link a speaker's sign-in account | | | | ✓ | | | | ✓ | |
 | Admin → Media (image uploads, covers, photos, recording links) | | | | ✓ | upload | ✓ (S) | | upload | |
 | Admin dashboard (funnel and counts) | | | | ✓ | ✓ | | ✓ | | ✓ |
 | Team, Settings, Audit log | | | | ✓ | | | | | |
@@ -857,6 +858,33 @@ money fields.
 Not in v1: Paymob checkout, commission and payouts, reviews, expert applications, packages, days off
 (a busy Google Calendar covers them for connected experts).
 
+### 9.6 Speaker accounts: invite and link
+
+**Status:** Live (PR #105).
+
+**Who:** SPEAKERS admins. **Business use:** give a speaker who already has a public profile (e.g. from
+the archive) a login to teach their course, without making them fill in the speaker application.
+
+- **Admin → Speakers → {speaker} → Sign-in account → Invite or link by email** (email, language of the
+  email):
+  - **New address:** creates a **speaker** account named after the profile, links it, and sends the
+    `speakerInvited` email (choose a password, 7 days; Google sign-in with the same address works too).
+  - **Existing account:** linked only once its email is confirmed (anyone can register any address).
+    A student becomes a speaker and keeps its applications and enrolments; an admin stays an admin. The
+    account gets an in-app notification linking to **/teach**.
+  - Refused: a profile that already has an account (unlink first), an account that already has
+    another speaker profile, a deleted account.
+- Once linked, the account **teaches every course where the profile is on the staff**, in that role
+  (section 9.4), under **/teach**: assessments, submissions, grading and whatever else the role opens.
+  Add the profile (or the account) to more courses in Admin → Courses → course → Staff.
+- The card shows the account's email, its type and **Never signed in** while the invitation is unused.
+  **Unlink** (with confirmation): the account stays but stops teaching the profile's courses (the profile
+  stays on the course pages); an approved speaker application goes back to "Under review".
+- **Admin → Speakers → Invite speaker:** for someone with no profile yet. Fill in the public profile
+  (New speaker form), then the profile page opens with the invitation form.
+- It does not approve the speaker for **booking speaking slots**: that still goes through the
+  application (section 9.1). Every link, unlink, role change and invitation is audited.
+
 ---
 
 ## 10. Live sessions (admin side)
@@ -1019,6 +1047,7 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | verifyEmail | Registration, resend | Transactional |
 | resetPassword | Forgot password | Transactional |
 | accountCreated | Team created your account (student or admin); set-password link, 7 days | Transactional |
+| speakerInvited | Team created a speaker account linked to your speaker profile; set-password link, 7 days | Transactional |
 | securityNotice | Password changed | Transactional |
 | accountDeleted | Account deleted (by you or the team) | Transactional |
 | applicationStatus | Application received and every status change | Transactional |
@@ -1098,6 +1127,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |
 | #104 | When the edge purge is configured (`EDGE_PURGE_ZONE_ID` and `EDGE_PURGE_API_TOKEN`), Cloudflare keeps anonymous public pages and catalog API reads for an hour instead of 30 s; admin edits still purge them within seconds. Seat counts and upcoming/past labels on public pages can lag up to an hour for anonymous visitors. Without the purge nothing changes. Cuts container and database wake-ups (hosting cost). No API change, no migration | Pending |
 | #103 | Production and staging containers sleep after 5 idle minutes instead of 15 (production) and 10 (staging), to cut hosting cost; the first visit after a quiet spell waits for a cold start more often. DEPLOY.md "Costs" explains the October bill and what keeps the containers awake. No code change, no migration | Pending |
 | #102 | The notifications bell stops checking the unread count after 10 minutes without mouse, keyboard or scroll input, and refreshes as soon as someone comes back, so a forgotten tab no longer keeps the API and database awake (hosting cost). No API change, no migration | Pending |
