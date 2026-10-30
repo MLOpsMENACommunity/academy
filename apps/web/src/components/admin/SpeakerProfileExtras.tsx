@@ -1,5 +1,6 @@
 'use client';
 
+import type { SpeakerAccountDto } from '@academy/shared';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/fields';
@@ -18,6 +19,8 @@ export interface SpeakerAccountInfo {
   events: number;
   previousSlugs?: string[];
   applicationId?: string | null;
+  /** The account that signs in as this speaker, if any. */
+  account?: SpeakerAccountDto | null;
 }
 
 /**

@@ -44,6 +44,8 @@ export type EmailTemplate =
   | { name: 'accountDeleted'; byTeam?: boolean }
   /** "Add student": the team created an account for this address; the link chooses a password. */
   | { name: 'accountCreated'; url: string; days: number }
+  /** Admin → Speakers: the team created a speaker account linked to this person's speaker profile. */
+  | { name: 'speakerInvited'; url: string; days: number }
   /** Sent to the account's (old) address after a sensitive change. */
   | { name: 'securityNotice'; kind: 'emailChanged' | 'passwordChanged'; url: string }
   | { name: 'adminAlert'; message: string; url: string }
@@ -818,6 +820,34 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
               ar
                 ? `ينتهي هذا الرابط خلال ${t.days} أيام؛ بعدها استخدم "نسيت كلمة المرور". إذا لم تكن تتوقع هذه الرسالة، تجاهلها أو احذف الحساب من ملفك الشخصي.`
                 : `This link expires in ${t.days} days; after that, use "Forgot password". If you didn't expect this, ignore it, or delete the account from your profile.`
+            }
+          />
+        ),
+      };
+    }
+    case 'speakerInvited': {
+      const subject = ar ? 'دعوة للتدريس في أكاديمية MLOps MENA' : "You're invited to teach on MLOps MENA Academy";
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={subject}
+            paragraphs={[
+              ar
+                ? 'أنشأ فريق أكاديمية MLOps MENA حساب متحدث لك بعنوان بريدك هذا، وربطه بصفحتك كمتحدث. اختر كلمة المرور الخاصة بك للدخول. لا أحد غيرك يعرف كلمة المرور أو يضعها.'
+                : 'The MLOps MENA Academy team created a speaker account for you with this email address and linked it to your speaker page. Choose your own password to sign in. Nobody else sets or knows your password.',
+              ar
+                ? 'بعد الدخول، تجد دوراتك في قسم "التدريس": الاختبارات والتكليفات وتسليمات الطلاب وكل ما يتيحه لك دورك في الدورة.'
+                : 'Once signed in, your courses are under Teaching: assessments, assignments, student submissions and whatever else your role in the course opens.',
+              ar ? 'يمكنك أيضًا الدخول بحساب Google بالعنوان نفسه.' : 'You can also sign in with Google using this same address.',
+            ]}
+            cta={{ label: ar ? 'اختر كلمة المرور' : 'Choose your password', url: t.url }}
+            note={
+              ar
+                ? `ينتهي هذا الرابط خلال ${t.days} أيام؛ بعدها استخدم "نسيت كلمة المرور". إذا لم تكن تتوقع هذه الرسالة، تجاهلها.`
+                : `This link expires in ${t.days} days; after that, use "Forgot password". If you didn't expect this, ignore it.`
             }
           />
         ),

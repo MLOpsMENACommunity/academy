@@ -29,9 +29,14 @@ export default function AdminSpeakers() {
       <SpeakersTabs />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-3xl">{t('admin.speakers.title')}</h1>
-        <Link href={`/${locale}/admin/speakers/new`} className={buttonClass('primary', 'md')}>
-          + {t('admin.speakers.new')}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/${locale}/admin/speakers/new?invite=1`} className={buttonClass('secondary', 'md')}>
+            {t('admin.speakers.invite')}
+          </Link>
+          <Link href={`/${locale}/admin/speakers/new`} className={buttonClass('primary', 'md')}>
+            + {t('admin.speakers.new')}
+          </Link>
+        </div>
       </div>
       <p className="mt-2 max-w-2xl text-sm text-muted">{t('admin.speakers.intro')}</p>
       {deleted && (

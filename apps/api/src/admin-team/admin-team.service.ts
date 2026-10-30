@@ -64,6 +64,7 @@ export class AdminTeamService {
     if (!existing) {
       try {
         const created = await this.accounts.createByAdmin({ email: input.email, locale: input.locale, fullNameEn: input.fullNameEn }, actorId, {
+          role: 'ADMIN',
           adminPermissions: input.permissions,
         });
         return { outcome: 'invited', member: await this.member(created.id) };
