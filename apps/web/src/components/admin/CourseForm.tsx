@@ -63,6 +63,7 @@ export const EMPTY_COURSE: CourseFormValue = {
   type: 'FREE',
   price: 0,
   currency: 'EGP',
+  paymentUrl: null,
   requiresApproval: true,
   capacity: null,
   status: 'DRAFT',
@@ -197,6 +198,11 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
                 <TextField label={f('price')} required type="number" inputMode="numeric" min={0} value={String(v.price)} onChange={(x) => set('price')(Number(x || 0))} error={errors.price} />
                 <TextField label={f('currency')} required value={v.currency} onChange={set('currency')} maxLength={3} dir="ltr" />
               </div>
+              {v.type === 'PAID' && (
+                <div className="sm:col-span-2">
+                  <TextField label={f('paymentUrl')} hint={f('paymentUrlHint')} type="url" dir="ltr" placeholder="https://" value={v.paymentUrl ?? ''} onChange={(x) => set('paymentUrl')(x || null)} error={errors.paymentUrl} />
+                </div>
+              )}
             </>
           )}
           <SelectField label={f('language')} required value={v.language} onChange={(x) => set('language')((x ?? 'BILINGUAL') as CourseFormValue['language'])} options={opts(COURSE_LANGUAGES, courseLanguageLabels)} />

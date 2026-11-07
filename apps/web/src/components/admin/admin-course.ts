@@ -41,6 +41,7 @@ export function toForm(c: AdminCourse): CourseFormValue {
     type: c.type,
     price: c.price,
     currency: c.currency,
+    paymentUrl: c.paymentUrl ?? null,
     requiresApproval: c.requiresApproval,
     capacity: c.capacity,
     status: c.status,

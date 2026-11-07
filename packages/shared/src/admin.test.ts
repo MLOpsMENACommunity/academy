@@ -36,6 +36,28 @@ describe('csv', () => {
   });
 });
 
+describe('course payment link', () => {
+  const paid = {
+    slug: 'my-course', titleEn: 'Course', titleAr: 'دورة', shortDescriptionEn: 'A short description', shortDescriptionAr: 'وصف قصير للدورة',
+    longDescriptionEn: '', longDescriptionAr: '', type: 'PAID', price: 1500, requiresApproval: true, status: 'DRAFT', level: 'ALL_LEVELS', language: 'AR',
+    targetAudience: { en: '', ar: '' }, notFor: { en: '', ar: '' }, learningOutcomes: { en: [], ar: [] }, prerequisites: { en: [], ar: [] },
+    outline: [], faq: [], included: { liveSessions: true, recordings: true, assignments: false, finalProject: false, certificate: false },
+    deliveryPlatform: 'GOOGLE_MEET', recordingsPlatform: 'YOUTUBE',
+  };
+  it('accepts an https link on a paid course, and an empty one as none', () => {
+    expect(courseInputSchema.safeParse({ ...paid, paymentUrl: 'https://pay.example.com/pl/abc' }).success).toBe(true);
+    const empty = courseInputSchema.safeParse({ ...paid, paymentUrl: '' });
+    expect(empty.success && empty.data.paymentUrl).toBeNull();
+  });
+  it('refuses http, other schemes, and a link on a free course', () => {
+    for (const bad of ['http://pay.example.com/x', 'javascript:alert(1)', 'ftp://x.example.com/y']) {
+      expect(courseInputSchema.safeParse({ ...paid, paymentUrl: bad }).success).toBe(false);
+    }
+    const free = courseInputSchema.safeParse({ ...paid, type: 'FREE', price: 0, paymentUrl: 'https://pay.example.com/x' });
+    expect(free.success).toBe(false);
+  });
+});
+
 describe('course and question inputs', () => {
   const base = {
     slug: 'my-course', titleEn: 'Course', titleAr: 'دورة', shortDescriptionEn: 'A short description', shortDescriptionAr: 'وصف قصير للدورة',

@@ -35,6 +35,15 @@ describe('public contact', () => {
     expect(configuredPaymentMethods({ instapayHandle: '[PLACEHOLDER]@instapay', vodafoneCashNumber: '01000000000' })).toEqual(['VODAFONE_CASH']);
     expect(configuredPaymentMethods({ instapayHandle: 'academy@instapay', vodafoneCashNumber: '' })).toEqual(['INSTAPAY']);
   });
+
+  it("adds the course's payment link as CARD (first), and makes payments available on its own", () => {
+    const none = { instapayHandle: '', vodafoneCashNumber: '' };
+    expect(configuredPaymentMethods(none, 'https://pay.example.com/x')).toEqual(['CARD']);
+    expect(configuredPaymentMethods({ ...none, instapayHandle: 'a@instapay' }, 'https://pay.example.com/x')).toEqual(['CARD', 'INSTAPAY']);
+    expect(configuredPaymentMethods(none, null)).toEqual([]);
+    expect(paymentsConfigured(none)).toBe(false);
+    expect(paymentsConfigured(none, 'https://pay.example.com/x')).toBe(true);
+  });
 });
 
 describe('waiting list inputs', () => {

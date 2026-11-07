@@ -303,7 +303,7 @@ export const applicationStatusLabels: LabelMap<ApplicationStatus> = {
 export const paymentMethodLabels: LabelMap<PaymentMethod> = {
   INSTAPAY: { en: 'InstaPay', ar: 'إنستاباي (InstaPay)' },
   VODAFONE_CASH: { en: 'Vodafone Cash', ar: 'فودافون كاش' },
-  CARD: { en: 'Card', ar: 'بطاقة' },
+  CARD: { en: 'Online payment link', ar: 'رابط الدفع الإلكتروني' },
 };
 
 export const paymentStatusLabels: LabelMap<PaymentStatus> = {

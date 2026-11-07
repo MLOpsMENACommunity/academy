@@ -165,7 +165,7 @@ export class AdminCoursesService {
   }
 
   async update(id: string, input: CourseInput, admin: Actor) {
-    const before = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, archivedAt: true } });
+    const before = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, archivedAt: true, paymentUrl: true } });
     if (!before) throw new NotFoundException('Course not found');
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -183,19 +183,23 @@ export class AdminCoursesService {
       action: 'course.updated',
       entityType: 'Course',
       entityId: id,
-      metadata: before.status !== input.status ? { from: before.status, to: input.status } : {},
+      metadata: {
+        ...(before.status !== input.status ? { from: before.status, to: input.status } : {}),
+        // Money goes wherever this link points, so a change is on the record (the link itself isn't logged).
+        ...((before.paymentUrl ?? null) !== (input.paymentUrl ?? null) ? { paymentLinkChanged: true } : {}),
+      },
     });
     return this.get(id);
   }
 
   /**
    * Course staff with EDIT_COURSE (Teaching → {course} → Details): the same editor, except what
-   * stays with the admins: the status (publishing, archiving), the address (slug), the price and
-   * type, and who teaches it (the Staff tab). Those keep their stored values whatever is sent; the
+   * stays with the admins: the status (publishing, archiving), the address (slug), the price,
+   * payment link and type, and who teaches it (the Staff tab). Those keep their stored values whatever is sent; the
    * result is validated again as a whole (e.g. Arabic texts on a published course).
    */
   async updateAsStaff(id: string, input: CourseInput, actor: Actor) {
-    const cur = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, type: true, price: true, currency: true } });
+    const cur = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, type: true, price: true, currency: true, paymentUrl: true } });
     if (!cur) throw new NotFoundException('Course not found');
     const merged = courseInputSchema.safeParse({ ...input, ...cur, instructorIds: await this.instructorIds(id) });
     if (!merged.success) {
@@ -359,6 +363,7 @@ export class AdminCoursesService {
             applicationsOpenAt: null,
             applicationDeadline: null,
             driveFolderUrl: null,
+            paymentUrl: null,
             youtubePlaylistUrl: null,
             // The next cohort of a completed course is a new run, entered by an admin.
             endDate: null,

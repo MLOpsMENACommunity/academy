@@ -60,7 +60,7 @@ describe('publishing speaker bookings (e2e)', () => {
       'requiresApproval', 'capacity', 'status', 'levels', 'levelProgression', 'language', 'startDate', 'applicationsOpenAt', 'applicationDeadline',
       'durationWeeks', 'hoursPerWeek', 'coverImageUrl', 'targetAudience', 'notFor', 'preparation', 'learningOutcomes', 'prerequisites', 'outline', 'faq',
       'included', 'deliveryPlatform', 'recordingsPlatform', 'driveFolderUrl', 'youtubePlaylistUrl', 'instructorIds', 'topics', 'cohortNumber', 'endDate',
-      'externalPlatform', 'externalUrl', 'publicRecordings',
+      'externalPlatform', 'externalUrl', 'publicRecordings', 'paymentUrl',
     ];
     return { ...Object.fromEntries(keys.map((k) => [k, c[k]])), ...over };
   }

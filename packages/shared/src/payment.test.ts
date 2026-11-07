@@ -8,8 +8,9 @@ describe('paymentProofSchema', () => {
     expect(r.amount).toBe(2500);
     expect(r.paidAt).toBeInstanceOf(Date);
   });
-  it('rejects card payments, future dates and junk references', () => {
-    expect(paymentProofSchema.safeParse({ ...ok, method: 'CARD' }).success).toBe(false);
+  it('takes proof for the payment link (CARD) but not unknown methods; rejects future dates and junk references', () => {
+    expect(paymentProofSchema.safeParse({ ...ok, method: 'CARD' }).success).toBe(true);
+    expect(paymentProofSchema.safeParse({ ...ok, method: 'PAYPAL' }).success).toBe(false);
     expect(paymentProofSchema.safeParse({ ...ok, paidAt: new Date(Date.now() + 3 * 86_400_000).toISOString() }).success).toBe(false);
     expect(paymentProofSchema.safeParse({ ...ok, transactionRef: '<script>' }).success).toBe(false);
     expect(paymentProofSchema.safeParse({ ...ok, amount: '0' }).success).toBe(false);
