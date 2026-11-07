@@ -410,7 +410,15 @@ the retention period (Settings, default 180 days); the student is told and can u
 
 1. When accepted, the student sees **Complete payment** with the amount and the academy's InstaPay
    handle and/or Vodafone Cash number (from Settings; a method is offered only once its details are
-   set).
+   set). If the course has a **payment link** (Admin → Courses → course → Details, paid courses
+   only, `https://` only; a payment provider's hosted page such as Paymob, Tap or PayPal), the
+   student also sees **Pay online**, which opens it in a new tab. Nothing is connected to the
+   provider: the student pays there, then comes back and submits proof as below (method **Online
+   payment link**) and FINANCE checks the provider's dashboard as for any other payment. A course
+   with a link can take payments even when no InstaPay/Vodafone details are set. Only admins can
+   set or change the link (course staff can't, like the price); a change is in the audit log
+   (`paymentLinkChanged`, the link itself is not logged). The link is shown only to the student
+   whose application is awaiting payment, never on public pages.
 2. The student pays outside the academy, then submits proof: method, amount, transaction reference,
    sender name and phone/handle, date paid, and a screenshot (JPG, PNG or PDF, 5 MB). 10 a minute.
 3. Admin → Payments (FINANCE): pending proofs with flags for **duplicate reference**, **duplicate
@@ -424,7 +432,7 @@ the retention period (Settings, default 180 days); the student is told and can u
    student deleted their account") and FINANCE gets a notification (refund if the money arrived); a
    deleted account's payment can't be approved.
 
-Card payments (Paymob) are not built (see ROADMAP.md). Screenshots are deleted after the retention
+Card payments with automatic confirmation (Paymob checkout and webhook) are not built (see ROADMAP.md); the payment link above is the online option. Screenshots are deleted after the retention
 period; payment records stay.
 
 ### 4.6 Google Drive access (paid courses)
@@ -1127,6 +1135,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Payment link per course | Paid courses can have an optional **payment link** (https only; Admin → Courses → Details, admins only). Accepted students see a **Pay online** button next to the InstaPay / Vodafone Cash details, pay on the provider's page, and submit proof as before (new method label **Online payment link**, stored as `CARD`); FINANCE still approves by hand. No gateway, checkout or webhook. Changing the link is audited. Migration `20261107090000_course_payment_url` (one nullable column) (en/ar) | Pending |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |
 | #104 | When the edge purge is configured (`EDGE_PURGE_ZONE_ID` and `EDGE_PURGE_API_TOKEN`), Cloudflare keeps anonymous public pages and catalog API reads for an hour instead of 30 s; admin edits still purge them within seconds. Seat counts and upcoming/past labels on public pages can lag up to an hour for anonymous visitors. Without the purge nothing changes. Cuts container and database wake-ups (hosting cost). No API change, no migration | Pending |
 | #103 | Production and staging containers sleep after 5 idle minutes instead of 15 (production) and 10 (staging), to cut hosting cost; the first visit after a quiet spell waits for a cold start more often. DEPLOY.md "Costs" explains the October bill and what keeps the containers awake. No code change, no migration | Pending |

@@ -617,6 +617,9 @@
     },
     "retry": "Try again",
     "notConfigured": "Payment details aren't available yet. Please check back soon.",
+    "payOnlineTitle": "Pay online with a payment link",
+    "payOnlineHint": "Opens the payment page in a new tab. Pay exactly {amount}, then come back here and upload the receipt.",
+    "payOnline": "Pay online",
     "copyManual": "Selected: copy it",
     "helpPrefix": "Questions about payment? Contact",
     "helpNoContact": "Questions about payment? See"
@@ -1029,6 +1032,8 @@
         "includedNotesAr": "Included notes (Arabic)",
         "deliveryPlatform": "Live sessions on",
         "recordingsPlatform": "Recordings on",
+        "paymentUrl": "Payment link (optional)",
+        "paymentUrlHint": "An https:// link where students pay for this course (Paymob, Tap, PayPal…). Accepted students see a Pay online button, then upload the receipt and Finance approves it in Payments. Changing it is recorded in the audit log.",
         "driveFolder": "Google Drive folder URL",
         "playlist": "YouTube playlist URL",
         "moduleTitleEn": "Module title (EN)",

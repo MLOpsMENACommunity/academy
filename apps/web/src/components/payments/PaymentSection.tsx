@@ -187,7 +187,21 @@ export function PaymentSection({ app, onChanged }: { app: MyApplicationDetailDto
             <li>{t('payment.step2')}</li>
             <li>{t('payment.step3')}</li>
           </ol>
-          {info.methods.length > 0 && (
+          {info.paymentUrl && (
+            <div className="mt-4 rounded-lg border border-line bg-card p-4">
+              <p className="font-semibold text-fg">{t('payment.payOnlineTitle')}</p>
+              <p className="mt-1 text-sm text-muted">{t('payment.payOnlineHint', { amount: due })}</p>
+              <a
+                href={info.paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex min-h-11 items-center rounded-full bg-accent px-6 font-semibold text-white hover:opacity-90"
+              >
+                {t('payment.payOnline')}
+              </a>
+            </div>
+          )}
+          {info.methods.some((m) => m !== 'CARD') && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {info.methods.includes('INSTAPAY') && (
                 <div className="rounded-lg border border-line bg-card p-4">

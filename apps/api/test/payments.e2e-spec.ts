@@ -190,6 +190,33 @@ describe('payments (e2e)', () => {
     }
   });
 
+  it("offers the course's payment link as a method and takes proof for it, even with no manual details set", async () => {
+    const { course, student, applicationId } = await awaitingPayment();
+    const link = 'https://pay.example.com/pl/abc123';
+    await prisma.course.update({ where: { id: course.id }, data: { paymentUrl: link } });
+    await setPaymentDetails('', '');
+    try {
+      const ins = await http().get(`/api/me/applications/${applicationId}/payment-instructions`).set('Cookie', student.cookie).expect(200);
+      expect(ins.body).toMatchObject({ configured: true, methods: ['CARD'], paymentUrl: link });
+      const ref = `LK-${Date.now()}`;
+      await submit(student.cookie, applicationId, { ...proof(ref), method: 'CARD' }, png(ref)).expect(201);
+      const mine = await http().get(`/api/me/applications/${applicationId}`).set('Cookie', student.cookie).expect(200);
+      expect(mine.body.status).toBe('PAYMENT_SUBMITTED');
+    } finally {
+      await setPaymentDetails('academy@instapay', '01000000000');
+    }
+  });
+
+  it('refuses the link method on a course without a payment link, and never shows a link it does not have', async () => {
+    const { student, applicationId } = await awaitingPayment();
+    const ins = await http().get(`/api/me/applications/${applicationId}/payment-instructions`).set('Cookie', student.cookie).expect(200);
+    expect(ins.body.paymentUrl).toBeNull();
+    expect(ins.body.methods).not.toContain('CARD');
+    const ref = `NL-${Date.now()}`;
+    const res = await submit(student.cookie, applicationId, { ...proof(ref), method: 'CARD' }, png(ref)).expect(400);
+    expect(res.body.code).toBe('METHOD_NOT_AVAILABLE');
+  });
+
   it('stops admins from reviewing their own payment', async () => {
     const course = await createCourse(prisma, { type: 'PAID', price: 100 });
     const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'admin' });

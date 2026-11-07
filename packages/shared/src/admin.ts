@@ -154,6 +154,15 @@ const optionalUrl = z
   .regex(/^https?:\/\//i, 'Must be an http(s) URL')
   .nullish()
   .or(z.literal('').transform(() => null));
+/** A payment link students are sent to: https only (money), at most 500 characters. */
+const optionalPaymentUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(500)
+  .regex(/^https:\/\//i, 'Must be an https:// link')
+  .nullish()
+  .or(z.literal('').transform(() => null));
 const optionalDate = z.coerce.date().nullish().or(z.literal('').transform(() => null));
 /** A photo: an http(s) URL, or a file the site serves itself (e.g. /speakers/name.webp, or an upload at /api/media/…). */
 const optionalImage = z
@@ -176,6 +185,7 @@ export const courseInputSchema = z
     longDescriptionAr: z.string().trim().max(20_000),
     type: z.enum(COURSE_TYPES),
     price: z.coerce.number().int().min(0).max(1_000_000),
+    paymentUrl: optionalPaymentUrl,
     currency: z.string().trim().length(3).toUpperCase().default('EGP'),
     requiresApproval: z.boolean(),
     capacity: z.coerce.number().int().min(1).max(100_000).nullish().or(z.literal('').transform(() => null)),
@@ -228,6 +238,7 @@ export const courseInputSchema = z
     }
     // Paid courses need a price while applications are open; other statuses can wait or no longer need it.
     if (c.type === 'PAID' && c.price <= 0 && c.status === 'OPEN') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
+    if (c.paymentUrl && c.type !== 'PAID') ctx.addIssue({ code: 'custom', path: ['paymentUrl'], message: 'Only paid courses have a payment link' });
     if (c.type === 'FREE' && c.price !== 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Free courses have price 0' });
     // Recordings are enrolled-only; only a free course with YouTube recordings may show them to everyone.
     if (c.publicRecordings && (c.type !== 'FREE' || c.recordingsPlatform !== 'YOUTUBE')) {

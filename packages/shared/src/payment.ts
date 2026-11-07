@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MANUAL_PAYMENT_METHODS, type PaymentMethod, type PaymentStatus } from './enums';
+import { PROOF_PAYMENT_METHODS, type PaymentMethod, type PaymentStatus } from './enums';
 import { realValue } from './settings';
 
 /** Proof-of-payment fields (the screenshot is a separate multipart file). */
@@ -18,7 +18,7 @@ export function asciiDigits(v: string): string {
 const withAsciiDigits = (v: unknown) => (typeof v === 'string' ? asciiDigits(v) : v);
 
 export const paymentProofSchema = z.object({
-  method: z.enum(MANUAL_PAYMENT_METHODS),
+  method: z.enum(PROOF_PAYMENT_METHODS),
   amount: z.preprocess(
     withAsciiDigits,
     z.coerce
@@ -88,23 +88,32 @@ export interface PaymentInstructionsDto {
   /** Empty when not set: the page then points to the contact page instead. */
   supportEmail: string;
   supportWhatsapp: string;
-  /** Methods with real details; empty until an admin sets them in Settings. */
-  methods: ('INSTAPAY' | 'VODAFONE_CASH')[];
-  /** False until an admin sets real payment details in Settings. */
+  /** The course's online payment link (https), or null. Offered as method CARD. */
+  paymentUrl: string | null;
+  /** Methods with real details (Settings) plus CARD when the course has a payment link. */
+  methods: ('INSTAPAY' | 'VODAFONE_CASH' | 'CARD')[];
+  /** False until a payment method is available: details in Settings, or a payment link on the course. */
   configured: boolean;
 }
 
-/** The manual payment methods whose details are set in Settings (only those are offered). */
-export function configuredPaymentMethods(s: { instapayHandle: string; vodafoneCashNumber: string }): ('INSTAPAY' | 'VODAFONE_CASH')[] {
-  const out: ('INSTAPAY' | 'VODAFONE_CASH')[] = [];
+/**
+ * The payment methods on offer: the manual ones whose details are set in Settings, plus CARD
+ * (the course's payment link) when the course has one. The link comes first: it is the quickest.
+ */
+export function configuredPaymentMethods(
+  s: { instapayHandle: string; vodafoneCashNumber: string },
+  paymentUrl?: string | null,
+): ('INSTAPAY' | 'VODAFONE_CASH' | 'CARD')[] {
+  const out: ('INSTAPAY' | 'VODAFONE_CASH' | 'CARD')[] = [];
+  if (paymentUrl) out.push('CARD');
   if (realValue(s.instapayHandle)) out.push('INSTAPAY');
   if (realValue(s.vodafoneCashNumber)) out.push('VODAFONE_CASH');
   return out;
 }
 
-/** Payments are refused until at least one method has real details in Settings. */
-export function paymentsConfigured(s: { instapayHandle: string; vodafoneCashNumber: string }): boolean {
-  return configuredPaymentMethods(s).length > 0;
+/** Payments are refused until at least one method is available (Settings details or a payment link). */
+export function paymentsConfigured(s: { instapayHandle: string; vodafoneCashNumber: string }, paymentUrl?: string | null): boolean {
+  return configuredPaymentMethods(s, paymentUrl).length > 0;
 }
 
 export interface MyPaymentDto {

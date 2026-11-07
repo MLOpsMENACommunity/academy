@@ -69,7 +69,7 @@ export class PaymentsService {
   private async ownApplication(userId: string, applicationId: string) {
     const app = await this.prisma.application.findFirst({
       where: { id: applicationId, userId },
-      include: { course: { select: { type: true, price: true, currency: true, recordingsPlatform: true } } },
+      include: { course: { select: { type: true, price: true, currency: true, recordingsPlatform: true, paymentUrl: true } } },
     });
     if (!app) throw new NotFoundException('Application not found');
     if (app.course.type !== 'PAID') throw new BadRequestException({ code: 'NOT_PAID', message: 'This course is free' });
@@ -87,8 +87,9 @@ export class PaymentsService {
       vodafoneCashNumber: realValue(s.vodafoneCashNumber),
       vodafoneCashName: realValue(s.vodafoneCashName),
       ...publicContact(s),
-      methods: configuredPaymentMethods(s),
-      configured: paymentsConfigured(s),
+      paymentUrl: app.course.paymentUrl,
+      methods: configuredPaymentMethods(s, app.course.paymentUrl),
+      configured: paymentsConfigured(s, app.course.paymentUrl),
     };
   }
 
@@ -117,7 +118,7 @@ export class PaymentsService {
       }
     }
     const s = await this.settings.get();
-    if (!paymentsConfigured(s)) {
+    if (!paymentsConfigured(s, app.course.paymentUrl)) {
       throw new ServiceUnavailableException({ code: 'PAYMENTS_NOT_CONFIGURED', message: 'Payment details are not configured yet' });
     }
     const parsed = paymentProofSchema.safeParse(fields);
@@ -128,7 +129,7 @@ export class PaymentsService {
         errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
     }
-    if (!(configuredPaymentMethods(s) as string[]).includes(parsed.data.method)) {
+    if (!(configuredPaymentMethods(s, app.course.paymentUrl) as string[]).includes(parsed.data.method)) {
       throw new BadRequestException({ code: 'METHOD_NOT_AVAILABLE', message: 'This payment method is not available. Choose another one.' });
     }
     if (!file) throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'Upload a screenshot of the payment' });

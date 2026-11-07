@@ -585,6 +585,8 @@ model Course {
   /// Whole currency units (EGP has no fractional pricing in practice).
   price               Int                @default(0)
   currency            String             @default("EGP")
+  /// Paid courses: an https payment link (Paymob, Tap, PayPal…) shown to the accepted student next to the InstaPay / Vodafone Cash details. Proof is still reviewed by hand.
+  paymentUrl          String?
   requiresApproval    Boolean            @default(true)
   capacity            Int?
   status              CourseStatus       @default(DRAFT)

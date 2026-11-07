@@ -275,8 +275,12 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export const PAYMENT_METHODS = ['INSTAPAY', 'VODAFONE_CASH', 'CARD'] as const;
 export const PaymentMethod = defineEnum(PAYMENT_METHODS);
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-/** Card is modelled for later (Paymob) but not offered in v1. */
 export const MANUAL_PAYMENT_METHODS = ['INSTAPAY', 'VODAFONE_CASH'] as const;
+/**
+ * Methods a student can submit proof for: the two manual ones, plus CARD for "paid through the
+ * course's payment link" (offered only when the course has one). All are reviewed by hand.
+ */
+export const PROOF_PAYMENT_METHODS = [...MANUAL_PAYMENT_METHODS, 'CARD'] as const;
 
 export const PAYMENT_STATUSES = ['PENDING_REVIEW', 'APPROVED', 'REJECTED'] as const;
 export const PaymentStatus = defineEnum(PAYMENT_STATUSES);
