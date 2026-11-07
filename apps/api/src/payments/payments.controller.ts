@@ -4,6 +4,8 @@ import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
   approvePaymentSchema,
+  cardCheckoutSchema,
+  type CardCheckoutDto,
   PAYMENT_STATUSES,
   rejectPaymentSchema,
   type AdminPaymentDto,
@@ -15,6 +17,7 @@ import { z } from 'zod';
 import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { MAX_UPLOAD_BYTES } from '../storage/file-type';
+import { CardPaymentsService } from './card-payments.service';
 import { PaymentsService } from './payments.service';
 
 const queueQuerySchema = z.object({
@@ -25,7 +28,10 @@ const queueQuerySchema = z.object({
 @ApiTags('payments')
 @Controller()
 export class PaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly cards: CardPaymentsService,
+  ) {}
 
   // ------------------------------------------------------------------ student
 
@@ -50,6 +56,18 @@ export class PaymentsController {
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<MyPaymentDto> {
     return this.payments.submit(user, id, body, file);
+  }
+
+  /** Starts a Paymob card checkout and returns its page; the webhook enrols the student. */
+  @Post('me/applications/:id/card-checkout')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  cardCheckout(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodPipe(cardCheckoutSchema)) body: z.infer<typeof cardCheckoutSchema>,
+  ): Promise<CardCheckoutDto> {
+    return this.cards.startCheckout(user, id, body.locale);
   }
 
   // ------------------------------------------------------------------ admin

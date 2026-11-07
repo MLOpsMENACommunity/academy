@@ -15,6 +15,9 @@ import { ApplicationStatus, CourseType } from './enums';
  *
  *   ADMIN_ENROL ("Enrol by email"): any status except ENROLLED ─▶ ENROLLED, with no payment and
  *   regardless of capacity. Only the invites service sends it, never the applications table.
+ *
+ *   CARD_PAID: a verified card payment (Paymob webhook), AWAITING_PAYMENT or PAYMENT_REJECTED
+ *   ─▶ ENROLLED. The gateway confirmed the money, so there is no review step.
  */
 
 export const APPLICATION_EVENTS = [
@@ -25,6 +28,7 @@ export const APPLICATION_EVENTS = [
   'SUBMIT_PAYMENT',
   'APPROVE_PAYMENT',
   'REJECT_PAYMENT',
+  'CARD_PAID',
   'ADMIN_ENROL',
   'WITHDRAW',
 ] as const;
@@ -145,6 +149,11 @@ function nextStatus(
 
     case 'REJECT_PAYMENT':
       if (current === S.PAYMENT_SUBMITTED) return to(S.PAYMENT_REJECTED);
+      break;
+
+    case 'CARD_PAID':
+      if (ctx.courseType !== CourseType.PAID) return fail('Course is free; no payment expected');
+      if (current === S.AWAITING_PAYMENT || current === S.PAYMENT_REJECTED) return to(S.ENROLLED);
       break;
 
     case 'WITHDRAW':

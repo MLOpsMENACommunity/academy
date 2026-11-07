@@ -376,9 +376,9 @@ application. Deleting an account withdraws its open applications too (see 3.6).
 | Submitted | Waiting for review | Shortlist, accept, reject, waitlist |
 | Shortlisted | Holds a seat | Accept, reject, waitlist |
 | Waitlisted | No seat now (also automatic when the course is full) | Shortlist, accept, reject |
-| Awaiting payment | Accepted to a paid course | Student submits payment proof |
+| Awaiting payment | Accepted to a paid course | Student submits payment proof, or pays by card (enrolled at once) |
 | Payment submitted | Proof uploaded | Finance approves or rejects |
-| Payment rejected | Proof refused, with a reason | Student resubmits, or reject |
+| Payment rejected | Proof refused, with a reason | Student resubmits or pays by card, or reject |
 | Enrolled | In the course: learn page, calendar, reminders | — |
 | Rejected | Not admitted, with a reason | — |
 | Withdrawn | The student withdrew (or deleted their account) | Apply again; or Enrol by email |
@@ -424,8 +424,16 @@ the retention period (Settings, default 180 days); the student is told and can u
    student deleted their account") and FINANCE gets a notification (refund if the money arrived); a
    deleted account's payment can't be approved.
 
-Card payments (Paymob) are not built (see ROADMAP.md). Screenshots are deleted after the retention
-period; payment records stay.
+6. **Pay by card** (Paymob; shown only once its keys are set, see DEPLOY.md): Visa or Mastercard from
+   Egypt or abroad, charged in the course currency. The student is sent to Paymob's page; Paymob's
+   signed notification (not the return to the academy) moves the application **Awaiting payment** or
+   **Payment rejected** → **Enrolled** at once, with an approved card payment on record (no review,
+   no screenshot; email: "your seat is confirmed"). Back on the application page, the student sees
+   "We're confirming your card payment" until it arrives. A payment that can't enrol (amount differs,
+   or the application was withdrawn or moved on meanwhile) is recorded as rejected with a refund note,
+   and FINANCE is notified to refund it in Paymob. 10 checkouts a minute.
+
+Screenshots are deleted after the retention period; payment records stay.
 
 ### 4.6 Google Drive access (paid courses)
 

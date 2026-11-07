@@ -28,12 +28,15 @@ interface Policy {
 
 const UPDATED_EN = 'Last updated: 10 October 2026';
 const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
-/** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates). */
-const PRIVACY_UPDATED_EN = 'Last updated: 24 October 2026';
-const PRIVACY_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
-/** The refund policy changed later (consultations). */
-const REFUND_UPDATED_EN = 'Last updated: 24 October 2026';
-const REFUND_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
+/** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates; card payments through Paymob). */
+const PRIVACY_UPDATED_EN = 'Last updated: 26 October 2026';
+const PRIVACY_UPDATED_AR = 'آخر تحديث: 26 أكتوبر 2026';
+/** The terms changed later (card payments). */
+const TERMS_UPDATED_EN = 'Last updated: 26 October 2026';
+const TERMS_UPDATED_AR = 'آخر تحديث: 26 أكتوبر 2026';
+/** The refund policy changed later (consultations; card refunds). */
+const REFUND_UPDATED_EN = 'Last updated: 26 October 2026';
+const REFUND_UPDATED_AR = 'آخر تحديث: 26 أكتوبر 2026';
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   privacy: {
@@ -57,7 +60,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'Course data: your applications and answers to screening questions (with a copy of your profile as it was when you applied, for the team reviewing it), your enrolment, session progress and the feedback you submit through the academy.',
             'Assessments and attendance: your quiz answers, the links and files you submit for labs and assignments, your scores and the course team\'s feedback, and your attendance in live sessions (minutes and share of each session, from the Google Meet attendance report the team uploads). Uploaded files are deleted after the retention period set by the academy (180 days by default); scores stay with your course record.',
             'Certificates: the name printed on your certificate, the course, the date and the grade. Each certificate has a public verification page at its serial number, showing that name, the course and the date, so employers can check it; it is kept out of search engines. After your account is deleted and anonymised, the page only says the certificate is no longer available.',
-            'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot.',
+            'Payment proof for paid courses: method, amount, transaction reference, sender name and phone, payment date and a screenshot. If you pay by card, Paymob processes the payment: we never see or store your card number, only the payment reference, amount, date and the last four digits of the card.',
             'Consultations: the expert, time, length, price and status of each call you book, and the note you write for the expert. The payment method, transfer reference and screenshot you upload (seen only by the academy\'s finance team, and deleted after the retention period). The expert sees your name and note, never your email address or payment details. If the expert has connected Google Calendar, the call is added to their calendar with your email address as a guest, so Google sends you the invitation and the Meet link; the academy reads only when the expert is busy, never what is in their calendar.',
             'Waiting lists: if you ask to be told when a course opens ("Notify me"), your account email address and language. Joining needs an academy account; an entry made without one before that is kept, and linked to your account when you confirm the same address.',
             'Course invitations: if the academy team adds you to a course by your email address, that address, the course, who added you and when, and whether you joined. If you have no account yet, we email you to invite you, a few times at most; you are enrolled only after you sign up and confirm that same address.',
@@ -107,7 +110,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Who we share it with',
           body: [
-            'We do not sell your data. We use service providers to operate the academy: hosting and private file storage (Cloudflare), the database (Neon), email delivery (Resend), error tracking without personal details (Sentry, when enabled), and Google (Meet, YouTube and Drive) to deliver sessions and recordings. Some of these providers process data outside Egypt; we only use providers that protect it with appropriate security and contractual safeguards.',
+            'We do not sell your data. We use service providers to operate the academy: hosting and private file storage (Cloudflare), the database (Neon), email delivery (Resend), card payments (Paymob, when you pay by card), error tracking without personal details (Sentry, when enabled), and Google (Meet, YouTube and Drive) to deliver sessions and recordings. Some of these providers process data outside Egypt; we only use providers that protect it with appropriate security and contractual safeguards.',
             "The academy team who screen applications (administrators, who may include course instructors) can see your application and profile. For paid courses, your Google account email is shared with the course's Drive folder so you can access recordings.",
           ],
         },
@@ -164,7 +167,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'بيانات الدورات: طلباتك وإجاباتك على أسئلة القبول (مع نسخة من ملفك الشخصي كما كان وقت التقديم، للفريق الذي يراجع طلبك)، وتسجيلك، وتقدمك في الجلسات، والتقييمات التي ترسلها عبر الأكاديمية.',
             'التقييمات والحضور: إجاباتك في الاختبارات، والروابط والملفات التي ترسلها للمعامل والواجبات، ودرجاتك وملاحظات فريق الدورة، وحضورك في الجلسات المباشرة (الدقائق ونسبة كل جلسة، من تقرير حضور Google Meet الذي يرفعه الفريق). تُحذف الملفات المرفوعة بعد مدة الاحتفاظ التي تحددها الأكاديمية (180 يومًا افتراضيًا)، وتبقى الدرجات ضمن سجل دورتك.',
             'الشهادات: الاسم المطبوع على شهادتك والدورة والتاريخ والتقدير. لكل شهادة صفحة تحقق عامة برقمها التسلسلي تعرض ذلك الاسم والدورة والتاريخ ليتمكن أصحاب العمل من التحقق منها، وهي مستبعدة من محركات البحث. بعد حذف حسابك وتجهيل بياناته، تكتفي الصفحة بالإشارة إلى أن الشهادة لم تعد متاحة.',
-            'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة.',
+            'إثبات الدفع للدورات المدفوعة: طريقة الدفع والمبلغ والرقم المرجعي للعملية واسم المرسل ورقمه وتاريخ الدفع ولقطة شاشة. وإذا دفعت بالبطاقة فإن Paymob يعالج الدفع: لا نرى رقم بطاقتك ولا نخزنه، بل فقط مرجع الدفع والمبلغ والتاريخ وآخر أربعة أرقام من البطاقة.',
             'الاستشارات: الخبير وموعد كل مكالمة تحجزها ومدتها وسعرها وحالتها، والملاحظة التي تكتبها للخبير. وطريقة الدفع والرقم المرجعي للتحويل وصورة التحويل التي ترفعها (لا يراها إلا فريق المالية بالأكاديمية، وتُحذف بعد مدة الاحتفاظ). يرى الخبير اسمك وملاحظتك فقط، ولا يرى بريدك الإلكتروني ولا بيانات الدفع. إذا ربط الخبير تقويم Google، تُضاف المكالمة إلى تقويمه وبريدك ضيفًا فيها، فيرسل Google إليك الدعوة ورابط Meet؛ ولا تقرأ الأكاديمية من تقويمه إلا أوقات انشغاله، لا محتواه.',
             'قوائم الانتظار: إذا طلبت إبلاغك عند فتح التسجيل في دورة («أبلغني»)، بريد حسابك الإلكتروني ولغتك. الانضمام يحتاج إلى حساب في الأكاديمية؛ وما سُجّل قبل ذلك بدون حساب نحتفظ به، ونربطه بحسابك عندما تؤكد العنوان نفسه.',
             'دعوات الدورات: إذا أضافك فريق الأكاديمية إلى دورة بعنوان بريدك الإلكتروني، نحفظ هذا العنوان والدورة ومن أضافك ومتى، وهل انضممت. إن لم يكن لديك حساب بعد، نراسلك لدعوتك بضع مرات على الأكثر، ولا نسجّلك إلا بعد أن تنشئ حسابًا وتؤكد العنوان نفسه.',
@@ -214,7 +217,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'مع من نشاركها',
           body: [
-            'لا نبيع بياناتك. نستعين بمزودي خدمات لتشغيل الأكاديمية: الاستضافة والتخزين الخاص للملفات (Cloudflare)، وقاعدة البيانات (Neon)، وإرسال البريد (Resend)، وتتبع الأخطاء دون بيانات شخصية (Sentry، عند تفعيله)، وGoogle ‏(Meet وYouTube وDrive) لتقديم الجلسات والتسجيلات. يعالج بعض هؤلاء المزودين البيانات خارج مصر، ولا نستعين إلا بمزودين يحمونها بضمانات أمنية وتعاقدية مناسبة.',
+            'لا نبيع بياناتك. نستعين بمزودي خدمات لتشغيل الأكاديمية: الاستضافة والتخزين الخاص للملفات (Cloudflare)، وقاعدة البيانات (Neon)، وإرسال البريد (Resend)، ومدفوعات البطاقات (Paymob، عند الدفع بالبطاقة)، وتتبع الأخطاء دون بيانات شخصية (Sentry، عند تفعيله)، وGoogle ‏(Meet وYouTube وDrive) لتقديم الجلسات والتسجيلات. يعالج بعض هؤلاء المزودين البيانات خارج مصر، ولا نستعين إلا بمزودين يحمونها بضمانات أمنية وتعاقدية مناسبة.',
             'يمكن لفريق الأكاديمية الذي يراجع الطلبات (المسؤولون، وقد يكون من بينهم محاضرو الدورة) الاطلاع على طلبك وملفك الشخصي. وفي الدورات المدفوعة، يُشارك بريد حساب Google الخاص بك مع مجلد Drive الخاص بالدورة لتتمكن من الوصول إلى التسجيلات.',
           ],
         },
@@ -257,7 +260,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     en: {
       title: 'Terms of Use',
       description: 'The rules for using MLOps MENA Academy.',
-      updated: UPDATED_EN,
+      updated: TERMS_UPDATED_EN,
       sections: [
         {
           heading: 'About these terms',
@@ -293,7 +296,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Payments',
           body: [
-            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application. Your seat is confirmed only after an administrator verifies the payment. Refunds follow the Refund Policy.',
+            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application, or by card where offered. A transfer confirms your seat once an administrator verifies it; a card payment confirms it as soon as our payment provider (Paymob) confirms the payment. Refunds follow the Refund Policy.',
           ],
         },
         {
@@ -319,7 +322,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
     ar: {
       title: 'شروط الاستخدام',
       description: 'قواعد استخدام أكاديمية MLOps MENA.',
-      updated: UPDATED_AR,
+      updated: TERMS_UPDATED_AR,
       sections: [
         {
           heading: 'عن هذه الشروط',
@@ -355,7 +358,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'المدفوعات',
           body: [
-            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. ويخضع الاسترداد لسياسة الاسترداد.',
+            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك، أو بالبطاقة حيث تتوفر. يُؤكَّد مقعدك عند الدفع بالتحويل بعد تحقق أحد المسؤولين منه، وعند الدفع بالبطاقة فور تأكيد مزود الدفع لدينا (Paymob) للعملية. ويخضع الاسترداد لسياسة الاسترداد.',
           ],
         },
         {
@@ -413,7 +416,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'How refunds are paid',
           body: [
-            `Refunds are sent back by the same method used to pay (InstaPay or a mobile wallet such as Vodafone Cash) within 14 days. Contact us through {contact} to request one.`,
+            `Refunds are sent back by the same method used to pay (InstaPay, a mobile wallet such as Vodafone Cash, or the same card for card payments) within 14 days; a card refund can take a few more days to appear on your statement. Contact us through {contact} to request one.`,
           ],
         },
       ],
@@ -449,7 +452,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         },
         {
           heading: 'كيف يُرد المبلغ',
-          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay أو محفظة إلكترونية مثل فودافون كاش) خلال 14 يومًا. تواصل معنا عبر {contact} لطلب الاسترداد.`],
+          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay، أو محفظة إلكترونية مثل فودافون كاش، أو البطاقة نفسها عند الدفع بالبطاقة) خلال 14 يومًا، وقد يستغرق ظهور الاسترداد على كشف حساب البطاقة بضعة أيام إضافية. تواصل معنا عبر {contact} لطلب الاسترداد.`],
         },
       ],
     },

@@ -63,6 +63,11 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_DRIVE_SERVICE_ACCOUNT?: string;
+  /** Optional: card payments through Paymob (all four turn the "Pay by card" button on). */
+  PAYMOB_SECRET_KEY?: string;
+  PAYMOB_PUBLIC_KEY?: string;
+  PAYMOB_HMAC_SECRET?: string;
+  PAYMOB_CARD_INTEGRATION_ID?: string;
   SENTRY_DSN?: string;
   SENTRY_ENVIRONMENT?: string;
   /** Optional: the revalidation secret (otherwise derived from JOBS_TOKEN, see revalidate.ts). */
@@ -150,6 +155,10 @@ export class ApiContainer extends Container<Env> {
         GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
         GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
         GOOGLE_DRIVE_SERVICE_ACCOUNT: env.GOOGLE_DRIVE_SERVICE_ACCOUNT,
+        PAYMOB_SECRET_KEY: env.PAYMOB_SECRET_KEY,
+        PAYMOB_PUBLIC_KEY: env.PAYMOB_PUBLIC_KEY,
+        PAYMOB_HMAC_SECRET: env.PAYMOB_HMAC_SECRET,
+        PAYMOB_CARD_INTEGRATION_ID: env.PAYMOB_CARD_INTEGRATION_ID,
         DIRECT_DATABASE_URL: env.DIRECT_DATABASE_URL,
         SENTRY_DSN: env.SENTRY_DSN,
         SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,
