@@ -687,6 +687,8 @@ for the two courses are in [POINTS.md](POINTS.md).
 
 ---
 
+**Community bot feed** (Merged): the Telegram community bot reads quiz submissions, practical tasks and attendance from the academy and sends the team a daily, weekly or monthly leaderboard of Telegram usernames and scores. It reads only the account id, Telegram username, course and timestamps, for enrolled students whose accounts still exist. The Telegram username stays with the team: it is shown in the group only for members who linked their account and did not opt out. Scores and rules live in the bot (`MLOpsMENACommunity/community-bot`), and academy points are unchanged. Off until `BOT_API_TOKEN` is set.
+
 ## 9. The speaker portal
 
 **Status:** Live.
@@ -1127,6 +1129,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #TBD | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |
 | #104 | When the edge purge is configured (`EDGE_PURGE_ZONE_ID` and `EDGE_PURGE_API_TOKEN`), Cloudflare keeps anonymous public pages and catalog API reads for an hour instead of 30 s; admin edits still purge them within seconds. Seat counts and upcoming/past labels on public pages can lag up to an hour for anonymous visitors. Without the purge nothing changes. Cuts container and database wake-ups (hosting cost). No API change, no migration | Pending |
 | #103 | Production and staging containers sleep after 5 idle minutes instead of 15 (production) and 10 (staging), to cut hosting cost; the first visit after a quiet spell waits for a cold start more often. DEPLOY.md "Costs" explains the October bill and what keeps the containers awake. No code change, no migration | Pending |
