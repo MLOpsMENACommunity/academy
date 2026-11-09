@@ -11,6 +11,7 @@ import { ApplicationsModule } from './applications/applications.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BotModule } from './bot/bot.module';
 import { AuthGuard } from './common/auth.guard';
 import { ApiExceptionFilter } from './common/exception.filter';
 import { PublicCacheInterceptor } from './common/public-cache';
@@ -79,6 +80,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     LearnModule,
     AssessmentsModule,
     PointsModule,
+    BotModule,
     AttendanceModule,
     CertificatesModule,
     EventsModule,

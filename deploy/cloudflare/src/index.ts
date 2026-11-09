@@ -53,6 +53,8 @@ export interface Env {
   DIRECT_DATABASE_URL?: string;
   JWT_ACCESS_SECRET: string;
   JOBS_TOKEN: string;
+  /** Optional: lets the community bot read /api/bot/v1/activity. */
+  BOT_API_TOKEN?: string;
   RESEND_API_KEY: string;
   S3_ENDPOINT: string;
   S3_ACCESS_KEY_ID: string;
@@ -127,6 +129,7 @@ export class ApiContainer extends Container<Env> {
       DATABASE_URL: env.DATABASE_URL,
       JWT_ACCESS_SECRET: env.JWT_ACCESS_SECRET,
       JOBS_TOKEN: env.JOBS_TOKEN,
+      ...(env.BOT_API_TOKEN ? { BOT_API_TOKEN: env.BOT_API_TOKEN } : {}),
       // In-process cron is off: the Worker's Cron Trigger drives jobs.
       JOBS_ENABLED: 'false',
       EMAIL_PROVIDER: 'resend',

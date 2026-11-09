@@ -164,6 +164,7 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 | `RESEND_API_KEY` | None, if the new key is set before the old one is revoked | Create a new key in Resend → GitHub env → redeploy → revoke the old one |
 | R2 keys (`S3_*`) | None, as above | New R2 API token → GitHub env → redeploy → delete the old token |
 | `JOBS_TOKEN` | None. Unless `REVALIDATE_TOKEN` is set, the revalidation token derived from it changes too, and the containers restart with the new one | GitHub env → redeploy (the Worker and the API read the same value) |
+| `BOT_API_TOKEN` (optional) | The community bot's sync fails until it has the new value; its reports keep the last synced data | New value (32+ characters) on the Worker, then the same value as `ACADEMY_BOT_TOKEN` on the bot, then restart the bot |
 | `REVALIDATE_TOKEN` (optional) | None: the Worker hands the new value to both containers, which restart | GitHub env → redeploy |
 | `EDGE_PURGE_API_TOKEN` (optional) | None, if the new token is set before the old one is revoked. Without a working token, admin edits take up to 30 s at the edge instead of seconds | New Cloudflare API token (Zone → Cache Purge on the academy's zone) → GitHub env → redeploy → delete the old token |
 | `BACKUP_PASSPHRASE` | Only new dumps use it | **Keep the old passphrase** until every dump encrypted with it has aged out |
