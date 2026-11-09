@@ -216,6 +216,8 @@ export const courseInputSchema = z
     externalPlatform: z.string().trim().max(80).nullish().or(z.literal('').transform(() => null)),
     externalUrl: optionalUrl,
     publicRecordings: z.boolean().default(false),
+    /** Video lessons at the student's own pace, with an automatic attendance certificate. */
+    selfPaced: z.boolean().default(false),
     /** Course page and cards show "N students enrolled" (the number only). */
     showEnrolledCount: z.boolean().default(true),
   })
@@ -230,6 +232,9 @@ export const courseInputSchema = z
     if (c.type === 'PAID' && c.price <= 0 && c.status === 'OPEN') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
     if (c.type === 'FREE' && c.price !== 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Free courses have price 0' });
     // Recordings are enrolled-only; only a free course with YouTube recordings may show them to everyone.
+    if (c.selfPaced && (c.type !== 'FREE' || c.requiresApproval)) {
+      ctx.addIssue({ code: 'custom', path: ['selfPaced'], message: 'Self-paced courses must be free with no approval step' });
+    }
     if (c.publicRecordings && (c.type !== 'FREE' || c.recordingsPlatform !== 'YOUTUBE')) {
       ctx.addIssue({ code: 'custom', path: ['publicRecordings'], message: 'Only free courses with YouTube recordings can make them public' });
     }
@@ -276,6 +281,8 @@ export const sessionInputSchema = z.object({
   liveUrl: optionalUrl,
   recordingUrl: optionalUrl,
   assignmentUrl: optionalUrl,
+  /** Self-paced courses: this video doesn't count toward the certificate. */
+  optional: z.boolean().default(false),
   materials: z.array(materialSchema).max(20).default([]),
   topics: topicsSchema.default([]),
 });

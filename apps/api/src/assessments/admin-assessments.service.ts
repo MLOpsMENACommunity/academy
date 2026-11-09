@@ -649,6 +649,7 @@ export class AdminAssessmentsService {
     });
     // Points follow the counted score: a regrade appends the difference.
     await this.points.syncAssessmentSafe(s.assessmentId, s.userId);
+    await this.assessments.resultChanged(s.assessment.courseId, s.userId);
     if (!s.user.deletedAt) this.tellStudent(s, input.score);
     return this.submission(id, staffEmails);
   }

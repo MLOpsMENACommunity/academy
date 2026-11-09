@@ -17,6 +17,7 @@ export * from './messages';
 export * from './payment';
 export * from './calendar';
 export * from './learn';
+export * from './testimonials';
 export * from './admin';
 export * from './events';
 export * from './archive';

@@ -159,6 +159,7 @@ export interface SessionRow {
   liveUrl: string | null;
   recordingUrl: string | null;
   assignmentUrl: string | null;
+  optional: boolean;
   materials: Material[];
   topics: string[];
 }
@@ -175,6 +176,7 @@ const EMPTY_SESSION: SessionDraft = {
   liveUrl: null,
   recordingUrl: null,
   assignmentUrl: null,
+  optional: false,
   materials: [],
   topics: [],
 };
@@ -222,6 +224,7 @@ function SessionForm({ initial, onSubmit, onCancel }: { initial: SessionDraft; o
         <TextField label={c('assignmentUrl')} type="url" dir="ltr" value={s.assignmentUrl ?? ''} onChange={(x) => set('assignmentUrl')(x || null)} error={errors.assignmentUrl} />
         <TopicsField label={c('fields.sessionTags')} hint={t('admin.sessions.fields.topicsHint')} value={s.topics ?? []} onChange={set('topics')} error={errors.topics} />
       </div>
+      <CheckboxField label={c('sessionOptional')} checked={s.optional} onChange={set('optional')} />
       <ListEditor<Material>
         title={c('materials')}
         items={s.materials}
@@ -423,6 +426,7 @@ export function SessionsEditor({
                     <div className="mt-1 flex flex-wrap gap-1">
                       {s.liveUrl && <Badge tone="info">{t('admin.courses.badgeLive')}</Badge>}
                       {s.recordingUrl && <Badge tone="success">{t('admin.courses.badgeRecording')}</Badge>}
+                      {s.optional && <Badge>{t('admin.courses.badgeOptional')}</Badge>}
                       {s.assignmentUrl && <Badge tone="accent">{t('admin.courses.badgeAssignment')}</Badge>}
                       {s.materials.length > 0 && <Badge>{t('admin.courses.badgeMaterials', { count: s.materials.length })}</Badge>}
                     </div>

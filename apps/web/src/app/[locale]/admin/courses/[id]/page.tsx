@@ -22,11 +22,12 @@ import { CourseStaffPanel } from '@/components/admin/CourseStaffPanel';
 import { EnrolledStudents, FeedbackPanel, QuestionsEditor, SessionsEditor } from '@/components/admin/CourseTabs';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Alert } from '@/components/ui/Alert';
+import { TestimonialsPanel } from '@/components/admin/TestimonialsPanel';
 import { Badge } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/client';
 import { api, ApiError } from '@/lib/api';
 
-const TABS = ['details', 'staff', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback', 'automation'] as const;
+const TABS = ['details', 'staff', 'questions', 'applications', 'sessions', 'attendance', 'assessments', 'leaderboard', 'enrolled', 'invites', 'certificates', 'announcements', 'waitlist', 'feedback', 'testimonials', 'automation'] as const;
 type Tab = (typeof TABS)[number];
 
 function CourseEditor() {
@@ -188,6 +189,7 @@ function CourseEditor() {
         {tab === 'announcements' && <Announcements courseId={course.id} />}
         {tab === 'waitlist' && <Waitlist courseId={course.id} status={course.status} titleEn={course.titleEn} titleAr={course.titleAr} />}
         {tab === 'feedback' && <FeedbackPanel courseId={course.id} />}
+        {tab === 'testimonials' && <TestimonialsPanel courseId={course.id} />}
         {tab === 'automation' && <AutomationPanel courseId={course.id} />}
       </div>
     </div>

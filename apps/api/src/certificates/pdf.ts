@@ -12,6 +12,7 @@ import { CERTIFICATE_ORGANIZATION, type InstructorName } from '@academy/shared';
  */
 
 export interface CertificatePdfData {
+  kind?: 'COMPLETION' | 'ATTENDANCE';
   serial: string;
   name: string;
   nameAr: string | null;
@@ -127,6 +128,7 @@ const dateAr = (d: Date) => d.toLocaleDateString('ar-EG-u-nu-latn', { day: 'nume
 
 /** Renders the certificate to a PDF buffer. */
 export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
+  const attendance = c.kind === 'ATTENDANCE';
   const doc = new PDFDocument({
     size: 'A4',
     layout: 'landscape',
@@ -134,7 +136,7 @@ export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
     info: {
       Title: `${c.courseTitleEn}: certificate ${c.serial}`,
       Author: CERTIFICATE_ORGANIZATION,
-      Subject: `Certificate of completion for ${c.name}`,
+      Subject: `Certificate of ${attendance ? 'attendance' : 'completion'} for ${c.name}`,
       Creator: 'MLOps MENA Academy',
     },
   });
@@ -160,8 +162,8 @@ export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
   doc.image(asset('logo-mark.png'), 60, 54, { width: 52 });
   line(doc, 'MLOps MENA Academy', 62, { font: 'bold', size: 15, color: TEAL, x: 122, width: 300, align: 'left' });
   line(doc, 'أكاديمية MLOps MENA', 82, { font: 'regular', size: 12, color: MUTED, x: 122, width: 300, align: 'left' });
-  line(doc, 'Certificate of Completion', 60, { font: 'semibold', size: 13, color: MUTED, x: W - 360, width: 300, align: 'right' });
-  line(doc, 'شهادة إتمام', 80, { font: 'semibold', size: 13, color: MUTED, x: W - 360, width: 300, align: 'right' });
+  line(doc, attendance ? 'Certificate of Attendance' : 'Certificate of Completion', 60, { font: 'semibold', size: 13, color: MUTED, x: W - 360, width: 300, align: 'right' });
+  line(doc, attendance ? 'شهادة حضور' : 'شهادة إتمام', 80, { font: 'semibold', size: 13, color: MUTED, x: W - 360, width: 300, align: 'right' });
 
   // Body.
   let y = 138;
@@ -174,7 +176,7 @@ export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
   y += 14;
   doc.moveTo(W / 2 - 120, y).lineTo(W / 2 + 120, y).lineWidth(1).strokeColor(ORANGE).stroke();
   y += 16;
-  line(doc, 'has successfully completed the course  ·  أتمّ بنجاح دورة', y, { rtl: false, font: 'regular', size: 13, color: MUTED });
+  line(doc, attendance ? 'has attended the course  ·  حضر دورة' : 'has successfully completed the course  ·  أتمّ بنجاح دورة', y, { rtl: false, font: 'regular', size: 13, color: MUTED });
   y += 28;
   y += line(doc, c.courseTitleEn, y, { font: 'bold', size: 24, minSize: 14, ...nameBox });
   if (c.courseTitleAr && c.courseTitleAr !== c.courseTitleEn) y += line(doc, c.courseTitleAr, y + 2, { font: 'semibold', size: 18, minSize: 12, ...nameBox });

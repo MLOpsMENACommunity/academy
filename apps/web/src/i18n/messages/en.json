@@ -514,6 +514,7 @@
     "externalNote": "This cohort ran on {platform}.",
     "recordings": "Recordings",
     "recordingsNote": "Every lesson of this cohort, free to watch.",
+    "testimonials": "What students say",
     "noRecording": "No public recording for this lesson.",
     "lesson": "Lesson {n}",
     "team": "Course team"
@@ -980,6 +981,12 @@
         "resendCount": "Resent {count} of {max}"
       },
       "feedback": "Feedback",
+      "testimonials": "Testimonials",
+      "testimonialsHint": "Only approved testimonials appear on the public course page, with the student's name. If a student edits one, it comes back here for review.",
+      "testimonialsEmpty": "No testimonials yet.",
+      "testimonialApprove": "Approve and publish",
+      "testimonialReject": "Don't publish",
+      "testimonialStatus": { "PENDING": "To review", "APPROVED": "Published", "REJECTED": "Not published" },
       "automation": "Automation",
       "basics": "Basics",
       "content": "Course page content",
@@ -1051,6 +1058,8 @@
         "externalPlatformHint": "The platform it ran on, if not the academy. Leave empty if it ran here.",
         "externalUrl": "Link to it on that platform",
         "publicRecordings": "Recordings are public: shown on the course page and in the Recordings library once each lesson has ended",
+        "selfPaced": "Self-paced course",
+        "selfPacedHint": "Students enrol instantly, watch the YouTube videos at their own pace, and get an attendance certificate automatically after every required video, every required quiz and their course feedback. The videos are shown to enrolled students only. Needs a free course with no approval step and status Open. The certificate rule below is not used.",
         "showEnrolledCount": "Show enrolled count publicly",
         "showEnrolledCountHint": "The course page and its cards say how many students are enrolled (the number only, never names).",
         "sessionTags": "Tags (Recordings filter)"
@@ -1099,6 +1108,8 @@
       "instructorBio": "Instructor bio (English)",
       "badgeLive": "Live link",
       "badgeRecording": "Recording",
+      "badgeOptional": "Optional",
+      "sessionOptional": "Optional video: students can skip it and still earn the certificate (self-paced courses)",
       "badgeAssignment": "Assignment",
       "badgeMaterials": "{count, plural, one {# material} other {# materials}}",
       "minutes": "{count} min",
@@ -2404,6 +2415,29 @@
     }
   },
   "learn": {
+    "testimonial": {
+      "title": "Would you recommend this course?",
+      "intro": "A few words from you help other engineers decide. This is optional and doesn't affect your certificate.",
+      "label": "Your testimonial",
+      "hint": "Between {min} and {max} characters.",
+      "consent": "I agree that MLOps MENA can publish this on the course page with my name. I can remove it at any time.",
+      "send": "Send testimonial",
+      "update": "Save changes",
+      "remove": "Remove my testimonial",
+      "status": {
+        "PENDING": "Thank you! The team will review it before it appears.",
+        "APPROVED": "Published on the course page. If you change it, it is reviewed again.",
+        "REJECTED": "The team didn't publish this one. You can edit it and send it again."
+      }
+    },
+    "selfPacedProgress": "{completed} of {total, plural, one {# required video} other {# required videos}} finished",
+    "lessonOf": "Video {n} of {total}",
+    "optionalLesson": "Optional",
+    "markComplete": "Mark as complete",
+    "undoComplete": "Undo",
+    "lessonHint": "This video is ticked automatically when it reaches the end, or you can mark it yourself.",
+    "lessonWatched": "Completed: you watched this video to the end",
+    "lessonMarked": "Completed: you marked this video as complete",
     "progress": "{completed} of {total, plural, one {# session} other {# sessions}} attended",
     "sessions": "Sessions",
     "session": "Session {n}",
@@ -3190,12 +3224,18 @@
       },
       "average": "Your average score so far: {percent}%",
       "eligible": "You meet the requirements. The course team issues certificates after the course ends.",
+      "lessons": "{completed} of {total, plural, one {# required video} other {# required videos}} finished",
+      "selfPacedRule": "Finish every required video, pass every required quiz and share your course feedback. Your Certificate of Attendance is then issued automatically.",
+      "feedback": "Share your course feedback (rating and comment)",
+      "selfPacedEligible": "You meet the requirements and your certificate is on its way. If it doesn't appear, check that your full name is on your profile.",
       "keepGoing": "Keep going: your status updates as you complete sessions and assessments are graded."
     },
     "verify": {
       "metaTitle": "Certificate verification",
       "metaNamed": "{name}: certificate for {course}",
       "metaDescription": "{name} completed {course} at MLOps MENA Academy. Verify this certificate.",
+      "metaDescriptionAttendance": "{name} attended {course} at MLOps MENA Academy. Verify this certificate.",
+      "headingAttendance": "Certificate of attendance",
       "academy": "MLOps MENA Academy",
       "heading": "Certificate of completion",
       "valid": "Valid certificate",

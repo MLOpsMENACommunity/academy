@@ -22,7 +22,7 @@ export default async function OgImage({ params }: { params: Promise<{ serial: st
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#13233f', color: 'white', padding: 72 }}>
-        <div style={{ display: 'flex', fontSize: 30, color: '#9fdde6', fontWeight: 600 }}>MLOps MENA Academy · Certificate of completion</div>
+        <div style={{ display: 'flex', fontSize: 30, color: '#9fdde6', fontWeight: 600 }}>MLOps MENA Academy · Certificate of {cert?.kind === 'ATTENDANCE' ? 'attendance' : 'completion'}</div>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
           <div style={{ display: 'flex', fontSize: name && name.length > 28 ? 64 : 80, fontWeight: 700, lineHeight: 1.1 }}>{name ?? 'Verified certificate'}</div>
           {course && <div style={{ display: 'flex', marginTop: 20, fontSize: 40, color: '#c6cfdc' }}>{course}</div>}

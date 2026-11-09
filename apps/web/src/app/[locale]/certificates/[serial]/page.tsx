@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const course = pick(locale, c.courseTitleEn, c.courseTitleAr);
   const name = locale === 'ar' ? c.nameAr || c.name : c.name;
   const title = t('certificates.verify.metaNamed', { name, course });
-  const description = c.status === 'VALID' ? t('certificates.verify.metaDescription', { name, course }) : t('certificates.verify.revoked');
+  const description = c.status === 'VALID' ? t(c.kind === 'ATTENDANCE' ? 'certificates.verify.metaDescriptionAttendance' : 'certificates.verify.metaDescription', { name, course }) : t('certificates.verify.revoked');
   return {
     title,
     description,
@@ -69,7 +69,7 @@ export default async function CertificatePage({ params }: Props) {
             <Image src="/logo.svg" alt="" width={72} height={40} className="h-9 w-auto" priority />
             <div className="min-w-0">
               <p className="font-semibold text-primary">{t('certificates.verify.academy')}</p>
-              <p className="text-sm text-muted">{t('certificates.verify.heading')}</p>
+              <p className="text-sm text-muted">{t(r.kind === 'found' && r.cert.status !== 'UNAVAILABLE' && r.cert.kind === 'ATTENDANCE' ? 'certificates.verify.headingAttendance' : 'certificates.verify.heading')}</p>
             </div>
           </div>
           {children}

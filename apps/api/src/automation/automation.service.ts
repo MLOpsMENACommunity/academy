@@ -45,6 +45,7 @@ const COURSE_SELECT = {
   recordingsPlatform: true,
   certMinSessionsPercent: true,
   certRequireAssessments: true,
+  selfPaced: true,
   automationPaused: true,
 } as const;
 

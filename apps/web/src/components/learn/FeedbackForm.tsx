@@ -13,11 +13,16 @@ export function FeedbackForm({
   sessionId,
   legend,
   initial,
+  requireComment = false,
+  onSaved,
 }: {
   slug: string;
   sessionId: string | null;
   legend: string;
   initial: { rating: number; comment: string | null } | null;
+  /** Self-paced course feedback counts toward the certificate only with a comment. */
+  requireComment?: boolean;
+  onSaved?: () => void;
 }) {
   const { t } = useI18n();
   const [rating, setRating] = useState(initial?.rating ?? 0);
@@ -25,13 +30,16 @@ export function FeedbackForm({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const ready = rating > 0 && (!requireComment || comment.trim().length > 0);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!rating) return;
+    if (!ready) return;
     setBusy(true);
     try {
       await api(`/learn/${slug}/feedback`, { method: 'PUT', json: { sessionId, rating, comment: comment || null } });
       setMsg({ ok: true, text: t('learn.feedbackSaved') });
+      onSaved?.();
     } catch (err) {
       setMsg({ ok: false, text: errorMessage(err, t) });
     } finally {
@@ -42,9 +50,9 @@ export function FeedbackForm({
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <StarRating legend={legend} value={rating} onChange={setRating} />
-      <TextAreaField label={t('learn.comment')} value={comment} onChange={setComment} rows={2} maxLength={2000} />
+      <TextAreaField label={t('learn.comment')} value={comment} onChange={setComment} rows={2} maxLength={2000} required={requireComment} />
       <div className="flex items-center gap-3">
-        <Button type="submit" size="sm" variant="secondary" disabled={!rating} loading={busy}>
+        <Button type="submit" size="sm" variant="secondary" disabled={!ready} loading={busy}>
           {t('learn.sendFeedback')}
         </Button>
         <span role="status" className={`text-sm ${msg?.ok ? 'text-success' : 'text-danger'}`}>

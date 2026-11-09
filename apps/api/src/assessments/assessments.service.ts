@@ -135,6 +135,7 @@ export function toMySubmission(s: Submission): MySubmissionDto {
 @Injectable()
 export class AssessmentsService {
   private readonly logger = new Logger(AssessmentsService.name);
+  private readonly resultListeners: ((courseId: string, userId: string) => Promise<void>)[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -144,6 +145,18 @@ export class AssessmentsService {
     private readonly courseAccess: CourseAccessService,
     private readonly cache: SignedInCache,
   ) {}
+
+  /** Runs after a student's score changes (certificates can't be injected here: they depend on this service). */
+  onResultChanged(listener: (courseId: string, userId: string) => Promise<void>): void {
+    this.resultListeners.push(listener);
+  }
+
+  /** Never fails the submission or the grading that triggered it. */
+  async resultChanged(courseId: string, userId: string): Promise<void> {
+    for (const listener of this.resultListeners) {
+      await listener(courseId, userId).catch((err: unknown) => this.logger.error(`Result listener failed: ${(err as Error).message}`));
+    }
+  }
 
   /**
    * Whoever teaches the course may read (preview) its published assessments: SUPER and
@@ -224,7 +237,7 @@ export class AssessmentsService {
       passPercent: a.passPercent,
       countsForCertificate: a.countsForCertificate,
       certificateTag: certificateTag(
-        { minSessionsPercent: course.certMinSessionsPercent, requireAssessments: course.certRequireAssessments, textEn: course.certRuleEn, textAr: course.certRuleAr },
+        { minSessionsPercent: course.certMinSessionsPercent, requireAssessments: course.certRequireAssessments || course.selfPaced, textEn: course.certRuleEn, textAr: course.certRuleAr },
         course.included as { certificate?: boolean } | null,
         a.countsForCertificate,
       ),
@@ -351,6 +364,7 @@ export class AssessmentsService {
     if (done.count !== 1) throw new ConflictException({ code: 'ALREADY_SUBMITTED', message: 'This attempt was already submitted' });
     // Points follow the counted score (a better attempt adds the difference).
     await this.points.syncAssessmentSafe(a.id, user.id);
+    await this.resultChanged(course.id, user.id);
     const submitted = await this.prisma.submission.count({ where: { assessmentId: a.id, userId: user.id, submittedAt: { not: null } } });
     const started = await this.prisma.submission.count({ where: { assessmentId: a.id, userId: user.id } });
     const revealed = answersRevealed({ ...a, submitted, inProgress: false, now });

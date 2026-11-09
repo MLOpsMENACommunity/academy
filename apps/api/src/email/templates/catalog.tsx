@@ -156,7 +156,7 @@ export type EmailTemplate =
       courseUrl: string;
     }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
-  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
+  | { name: 'certificateIssued'; attendance?: boolean; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
   /** Consultations: the student's payment proof was received, approved (book a time) or rejected (why). */
   | {
       name: 'consultationPayment';
@@ -1001,9 +1001,13 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             banner={{ text: ar ? 'مبروك!' : 'Congratulations!', tone: 'success' }}
             heading={subject}
             paragraphs={[
-              ar
-                ? `أصدر فريق الدورة شهادة إتمامك لدورة ${t.courseTitle}. رقمها التسلسلي ${t.serial}، ويمكن لأي شخص التحقق منها عبر الرابط العام.`
-                : `The course team has issued your certificate of completion for ${t.courseTitle}. Its serial number is ${t.serial}, and anyone can verify it at its public link.`,
+              t.attendance
+                ? ar
+                  ? `شهادة حضورك لدورة ${t.courseTitle} جاهزة. رقمها التسلسلي ${t.serial}، ويمكن لأي شخص التحقق منها عبر الرابط العام.`
+                  : `Your certificate of attendance for ${t.courseTitle} is ready. Its serial number is ${t.serial}, and anyone can verify it at its public link.`
+                : ar
+                  ? `أصدر فريق الدورة شهادة إتمامك لدورة ${t.courseTitle}. رقمها التسلسلي ${t.serial}، ويمكن لأي شخص التحقق منها عبر الرابط العام.`
+                  : `The course team has issued your certificate of completion for ${t.courseTitle}. Its serial number is ${t.serial}, and anyone can verify it at its public link.`,
               <>
                 <Link href={t.downloadUrl} style={{ textDecoration: 'underline' }}>
                   {ar ? 'نزّل الشهادة (PDF)' : 'Download the PDF'}

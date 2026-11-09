@@ -425,3 +425,15 @@ export type StaffVisibility = (typeof STAFF_VISIBILITIES)[number];
 export const BUILTIN_COURSE_ROLES = ['MAIN', 'CO', 'MODERATOR'] as const;
 export const BuiltinCourseRole = defineEnum(BUILTIN_COURSE_ROLES);
 export type BuiltinCourseRole = (typeof BUILTIN_COURSE_ROLES)[number];
+
+/** How a self-paced lesson was completed. */
+export const LESSON_COMPLETION_SOURCES = ['WATCHED', 'MANUAL'] as const;
+export type LessonCompletionSource = (typeof LESSON_COMPLETION_SOURCES)[number];
+
+/** A testimonial is public only while APPROVED. */
+export const TESTIMONIAL_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type TestimonialStatus = (typeof TESTIMONIAL_STATUSES)[number];
+
+/** What a certificate states. */
+export const CERTIFICATE_KINDS = ['COMPLETION', 'ATTENDANCE'] as const;
+export type CertificateKind = (typeof CERTIFICATE_KINDS)[number];

@@ -549,6 +549,38 @@ needs no sign-in.
   Feedback tab with names; course staff with **See session feedback** read it in /teach → Feedback without
   names, so students can be honest.
 
+### Self-paced free courses
+
+**Status:** Pending (not merged yet). **Who:** enrolled students; ACADEMIC admins set it up.
+
+A free course can run as video lessons taken at the student's own pace. The videos stay on YouTube, so
+views count on our channel.
+
+- **Set-up:** Admin → Courses → course: tick **Self-paced course**, type Free, approval off, status Open
+  (clear any application dates). Each lesson is a session with its normal YouTube link in **Recording
+  link**; tick **Optional video** where it applies. A new lesson's date isn't shown: use any past date.
+  Add the quizzes in Assessments as **Mandatory for the certificate**, pass mark 70.
+- **Student view:** `/learn/<slug>` shows the video list with no dates or calendar, YouTube's own player
+  (no autoplay, so the student presses YouTube's play button) and the lesson's quizzes. The Join link,
+  calendar and session dates are hidden.
+- **Completing a lesson:** automatically when the video reaches its end, or with **Mark as complete**
+  (which can be undone). Each completion stores how it happened (watched or marked). Optional videos
+  can be completed but don't count; a lesson with no YouTube link can't be completed and doesn't count.
+- **Progress** is required videos finished. Attendance, and sessions ticked before PR #87, don't count.
+- **Attendance certificate:** issued automatically, with the usual email and notification, as soon as
+  the student has finished every required video, passed every mandatory assessment (the pass mark is
+  per quiz; exactly the pass mark passes) and sent the course feedback with a comment. The course needs
+  at least one mandatory assessment, so watching alone never earns it. A student with no name on their profile gets it the next time they
+  open the course after adding one. The course's Certificate rule form isn't used.
+- **Enrolment required:** the videos aren't shown on the public course page or in the Recordings library,
+  even with **Recordings are public** ticked.
+- **Testimonials:** once the course feedback is in, the student is asked for a testimonial (20 to 600
+  characters, with a tick agreeing to publication with their name). It's optional and never affects the
+  certificate. ACADEMIC admins review them in Admin → Courses → course → **Testimonials**; approved ones
+  appear on the public course page as the name and the text only. Editing sends it back to review and
+  takes it off the site; the student can remove it at any time; deleting the account deletes it.
+- Live courses are unchanged.
+
 ---
 
 ## 6. Assessments (quizzes, labs, assignments)
@@ -655,6 +687,8 @@ Students get the `certificateIssued` email and a notification; the dashboard's *
 logo shows), **View** and **Copy link**. The PDF is a bilingual landscape A4 with the logo, serial and a
 QR code to the verification page. One certificate per enrolment. Issuing adds the certificate bonus
 points and the **Certified** badge; revoking takes both back.
+
+Self-paced courses issue a **Certificate of Attendance** automatically: see [Self-paced free courses](#self-paced-free-courses).
 
 ---
 
@@ -1127,6 +1161,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Pending | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance after the course feedback, and reviewed testimonials on the course page | Pending |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |
 | #104 | When the edge purge is configured (`EDGE_PURGE_ZONE_ID` and `EDGE_PURGE_API_TOKEN`), Cloudflare keeps anonymous public pages and catalog API reads for an hour instead of 30 s; admin edits still purge them within seconds. Seat counts and upcoming/past labels on public pages can lag up to an hour for anonymous visitors. Without the purge nothing changes. Cuts container and database wake-ups (hosting cost). No API change, no migration | Pending |
 | #103 | Production and staging containers sleep after 5 idle minutes instead of 15 (production) and 10 (staging), to cut hosting cost; the first visit after a quiet spell waits for a cold start more often. DEPLOY.md "Costs" explains the October bill and what keeps the containers awake. No code change, no migration | Pending |

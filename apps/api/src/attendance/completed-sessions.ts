@@ -2,6 +2,18 @@ import { ATTENDED_STATUSES, completedSessions } from '@academy/shared';
 import type { Prisma } from '@prisma/client';
 
 /**
+ * Self-paced lessons each student completed, out of `sessionIds`. Only completions from the lesson
+ * player count (source set): neither attendance nor a session ticked before that box was retired.
+ */
+export async function completedLessonsBy(db: Prisma.TransactionClient, sessionIds: string[], userIds: string[]): Promise<Map<string, Set<string>>> {
+  const out = new Map(userIds.map((id) => [id, new Set<string>()]));
+  if (!userIds.length || !sessionIds.length) return out;
+  const rows = await db.sessionProgress.findMany({ where: { userId: { in: userIds }, sessionId: { in: sessionIds }, source: { not: null } }, select: { userId: true, sessionId: true } });
+  for (const r of rows) out.get(r.userId)?.add(r.sessionId);
+  return out;
+}
+
+/**
  * Sessions of a course each student completed: attended (Present or Partial), or marked done by
  * the student before that box was retired. Used by the learn page, certificates, the roster and
  * "Finisher", so they all count the same way.

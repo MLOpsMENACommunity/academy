@@ -18,6 +18,7 @@ export type CourseWithRelations = Course & {
   instructors: { instructor: Instructor; order: number }[];
   sessions?: CourseSession[];
   screeningQuestions?: ScreeningQuestion[];
+  testimonials?: { id: string; body: string; user: { profile: { fullNameEn: string | null; fullNameAr: string | null } | null } }[];
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -95,12 +96,13 @@ export function toCourseSummary(c: CourseWithRelations, seats: SeatCount, now = 
  * lessons are public on YouTube), and only once the lesson is over.
  */
 export function publicRecording(
-  c: Pick<Course, 'publicRecordings' | 'type'>,
+  c: Pick<Course, 'publicRecordings' | 'type' | 'selfPaced'>,
   s: Pick<CourseSession, 'recordingUrl' | 'startsAt' | 'durationMin'>,
   now = new Date(),
 ) {
   // Belt and braces: the admin form only allows public recordings on free courses.
-  return c.publicRecordings && c.type === 'FREE' && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
+  // A self-paced course's videos are watched by enrolling, whatever the old checkbox says.
+  return c.publicRecordings && !c.selfPaced && c.type === 'FREE' && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
 }
 
 export function toCourseDetail(c: CourseWithRelations, seats: SeatCount, now = new Date(), staff: PublicStaffGroupDto[] = []): CourseDetailDto {
@@ -123,7 +125,14 @@ export function toCourseDetail(c: CourseWithRelations, seats: SeatCount, now = n
     recordingsPlatform: c.recordingsPlatform,
     externalPlatform: c.externalPlatform,
     externalUrl: c.externalUrl,
-    publicRecordings: c.publicRecordings && c.type === 'FREE',
+    publicRecordings: c.publicRecordings && !c.selfPaced && c.type === 'FREE',
+    selfPaced: c.selfPaced,
+    // Only the name and the words: no link to the student, and nothing without a name to show.
+    testimonials: (c.testimonials ?? []).flatMap((x) => {
+      const en = x.user.profile?.fullNameEn?.trim() || '';
+      const ar = x.user.profile?.fullNameAr?.trim() || '';
+      return en || ar ? [{ id: x.id, name: en || ar, nameAr: ar || null, body: x.body }] : [];
+    }),
     instructors: [...c.instructors].sort((a, b) => a.order - b.order).map((x) => toInstructorDto(x.instructor)),
     staff,
     sessions: [...(c.sessions ?? [])]

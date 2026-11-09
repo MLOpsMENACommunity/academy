@@ -2,7 +2,9 @@ import { Body, Controller, Get, Header, HttpCode, Inject, Param, Put, Res } from
 import { ApiTags } from '@nestjs/swagger';
 import {
   feedbackSchema,
+  lessonCompletionSchema,
   reminderPreferenceSchema,
+  type LessonCompletionInput,
   type FeedbackDueDto,
   type FeedbackInput,
   type LearnAnnouncementDto,
@@ -54,6 +56,18 @@ export class LearnController {
   @Put('learn/:slug/sessions/:sessionId/progress')
   async progress(): Promise<void> {
     await this.learn.setProgress();
+  }
+
+  /** Self-paced courses: the video reached its end (WATCHED), or the student marked it (MANUAL). */
+  @Put('learn/:slug/sessions/:sessionId/lesson-completion')
+  @HttpCode(204)
+  async lessonCompletion(
+    @CurrentUser() user: AuthUser,
+    @Param('slug') slug: string,
+    @Param('sessionId') sessionId: string,
+    @Body(new ZodPipe(lessonCompletionSchema)) body: LessonCompletionInput,
+  ): Promise<void> {
+    await this.learn.setLessonCompletion(user, slug, sessionId, body);
   }
 
   @Put('learn/:slug/feedback')

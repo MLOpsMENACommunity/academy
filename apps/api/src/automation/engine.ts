@@ -76,6 +76,7 @@ export interface CourseRow {
   recordingsPlatform: string;
   certMinSessionsPercent: number | null;
   certRequireAssessments: boolean;
+  selfPaced: boolean;
 }
 
 interface Session {

@@ -14,6 +14,7 @@ import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements, markAnnouncementsSeen, useNewAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
+import { TestimonialForm } from '@/components/learn/TestimonialForm';
 import { Leaderboard } from '@/components/points/Leaderboard';
 import { Alert } from '@/components/ui/Alert';
 import { buttonClass } from '@/components/ui/Button';
@@ -194,6 +195,10 @@ function Inner({ user }: { user: MeResponse }) {
   const next = index >= 0 && index < sessions.length - 1 ? sessions[index + 1] : null;
   const ended = sessions.length > 0 && sessions.every((s) => s.phase === 'ended');
   const dueCount = assessments.filter((a) => a.due).length;
+  // Asked once the course feedback is in; at the top of the page once the certificate is issued.
+  const testimonialForm =
+    course.selfPaced && course.canTrackProgress && course.courseFeedback ? <TestimonialForm slug={course.slug} initial={course.testimonial} onChanged={load} /> : null;
+  const certificateIssued = certificate?.certificate?.status === 'VALID';
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
   const go = (s: LearnSessionDto) => {
     setSelected(s.order);
@@ -265,7 +270,7 @@ function Inner({ user }: { user: MeResponse }) {
             <h2 id="curriculum" className="text-base">
               {t('learn.content')}
             </h2>
-            <span className="text-[0.8125rem] text-muted">{t('learn.progress', { completed: course.progress.completed, total: course.progress.total })}</span>
+            <span className="text-[0.8125rem] text-muted">{t(course.selfPaced ? 'learn.selfPacedProgress' : 'learn.progress', { completed: course.progress.completed, total: course.progress.total })}</span>
           </div>
           <ol className="overflow-hidden rounded-xl border border-line bg-card">
             {sessions.map((s) => {
@@ -294,7 +299,16 @@ function Inner({ user }: { user: MeResponse }) {
                         {s.order}. {sessionTitle(s)}
                       </span>
                       <span className={`block text-[0.8125rem] font-normal ${s.phase === 'live' ? 'text-danger' : 'text-muted'}`}>
-                        {s.phase === 'live' ? t('learn.live') : <LocalTime iso={s.startsAt} style="date" />}
+                        {course.selfPaced ? (
+                          <>
+                            {t('course.minutes', { count: s.durationMin })}
+                            {s.optional && ` · ${t('learn.optionalLesson')}`}
+                          </>
+                        ) : s.phase === 'live' ? (
+                          t('learn.live')
+                        ) : (
+                          <LocalTime iso={s.startsAt} style="date" />
+                        )}
                       </span>
                     </span>
                   </a>
@@ -336,7 +350,7 @@ function Inner({ user }: { user: MeResponse }) {
               {t('learn.tools')}
             </h2>
             <div className="flex flex-col items-start gap-1 text-[0.9375rem]">
-              <CalendarMenu slug={course.slug} align="start" />
+              {!course.selfPaced && <CalendarMenu slug={course.slug} align="start" />}
               {course.youtubePlaylistUrl && (
                 <a href={course.youtubePlaylistUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-primary underline">
                   {t('learn.playlist')}
@@ -408,6 +422,7 @@ function Inner({ user }: { user: MeResponse }) {
           </div>
           <div role="tabpanel" id="learn-panel-sessions" aria-labelledby="learn-tab-sessions" hidden={tab !== 'sessions'} className="flex flex-col gap-8">
           <CertificateBanner data={certificate} />
+          {certificateIssued && testimonialForm}
           {current ? (
             <SessionCard
               key={current.id}
@@ -415,6 +430,7 @@ function Inner({ user }: { user: MeResponse }) {
               session={current}
               total={sessions.length}
               assessments={assessments.filter((a) => a.sessionId === current.id)}
+              onLessonChange={load}
             />
           ) : (
             <p className="text-muted">{t('learn.noSessions')}</p>
@@ -465,9 +481,10 @@ function Inner({ user }: { user: MeResponse }) {
 
           {ended && (
             <section id="course-feedback" className="scroll-mt-6 rounded-xl border border-line p-5 sm:p-6">
-              <FeedbackForm slug={course.slug} sessionId={null} legend={t('learn.courseFeedback')} initial={course.courseFeedback} />
+              <FeedbackForm slug={course.slug} sessionId={null} legend={t('learn.courseFeedback')} initial={course.courseFeedback} requireComment={course.selfPaced} onSaved={load} />
             </section>
           )}
+          {!certificateIssued && testimonialForm}
           </div>
         </div>
       </div>

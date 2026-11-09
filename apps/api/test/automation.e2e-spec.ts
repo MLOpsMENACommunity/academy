@@ -238,7 +238,7 @@ describe('course automation rules (e2e)', () => {
     const rules = await prisma.courseAutomationRule.findMany({ where: { courseId: c.id } });
     const certificates = app.get(CertificatesService);
     const data = new CourseData(prisma, await prisma.course.findUniqueOrThrow({ where: { id: c.id } }), NOON, (ids) =>
-      certificates.eligibilityFor({ id: c.id, certMinSessionsPercent: 50, certRequireAssessments: true }, ids),
+      certificates.eligibilityFor({ id: c.id, certMinSessionsPercent: 50, certRequireAssessments: true, selfPaced: false }, ids),
     );
     const acted = new Set<string>();
     for (const r of rules) if ((await automation.runRule(r, data)) > 0) acted.add(r.type);

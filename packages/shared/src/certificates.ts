@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CertificateTag, CourseResults } from './assessments';
+import type { CertificateKind } from './enums';
 
 /**
  * Completion certificates: one per student per course, issued by the course team.
@@ -77,6 +78,10 @@ export interface EligibilityInput {
   results: Pick<CourseResults, 'assessments' | 'total' | 'certificate'>;
   /** Assessment ids that are course-level labs or assignments counting toward the certificate (the capstone). */
   capstoneIds?: string[];
+  /** Self-paced courses need at least one required assessment (watching alone never earns the certificate) and the course feedback. */
+  selfPaced?: boolean;
+  /** Self-paced courses: the student rated the course and wrote a comment. */
+  courseFeedback?: boolean;
 }
 
 export interface Eligibility {
@@ -87,6 +92,8 @@ export interface Eligibility {
   averagePercent: number | null;
   /** The capstone's state, when the course has one; null otherwise. */
   capstone: CapstoneState | null;
+  /** Self-paced courses only: whether the course feedback is in. */
+  feedback?: { ok: boolean };
 }
 
 const percentOf = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
@@ -98,7 +105,7 @@ export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsP
   const sessionsOk = rule.minSessionsPercent === null || (total > 0 && percent >= rule.minSessionsPercent);
   const required = input.results.assessments.filter((a) => a.countsForCertificate);
   const pending = required.filter((a) => !a.passed && a.pending).length;
-  const assessmentsOk = !rule.requireAssessments || input.results.certificate.allPassed;
+  const assessmentsOk = (!rule.requireAssessments || input.results.certificate.allPassed) && !(input.selfPaced && required.length === 0);
   const capstones = required.filter((a) => (input.capstoneIds ?? []).includes(a.assessmentId));
   const capstone: CapstoneState | null = !capstones.length
     ? null
@@ -110,11 +117,12 @@ export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsP
           ? 'NOT_PASSED'
           : 'MISSING';
   return {
-    eligible: sessionsOk && assessmentsOk,
+    eligible: sessionsOk && assessmentsOk && (!input.selfPaced || Boolean(input.courseFeedback)),
     sessions: { completed, total, percent, required: rule.minSessionsPercent, ok: sessionsOk },
     assessments: { required: input.results.certificate.required, passed: input.results.certificate.passed, pending, ok: assessmentsOk, needed: rule.requireAssessments },
     averagePercent: input.results.total.possible ? input.results.total.percent : null,
     capstone,
+    ...(input.selfPaced ? { feedback: { ok: Boolean(input.courseFeedback) } } : {}),
   };
 }
 
@@ -218,6 +226,8 @@ export interface MyCertificateDto {
 export interface LearnCertificateDto {
   /** Whether the course awards a certificate at all (shows the card). */
   offered: boolean;
+  /** Self-paced: the certificate is issued automatically once the rule is met. */
+  selfPaced: boolean;
   rule: CertificateRule;
   eligibility: Eligibility;
   certificate: MyCertificateDto | null;
@@ -228,6 +238,7 @@ export type PublicCertificateDto =
   | { status: 'UNAVAILABLE'; serial: string }
   | {
       status: CertificateStatus;
+      kind: CertificateKind;
       serial: string;
       name: string;
       nameAr: string | null;

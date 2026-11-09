@@ -142,7 +142,7 @@ export default async function CoursePage({ params }: Props) {
     : [];
   const facts: [string, ReactNode][] = [
     ...(ran ? ([[t('course.ran'), ran]] as [string, ReactNode][]) : []),
-    ...(c.startDate && !completed ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
+    ...(c.startDate && !completed && !c.selfPaced ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
     ...(c.durationWeeks ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
     ...(c.hoursPerWeek ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
     [t('course.facts.level'), courseLevelsText(c, locale)],
@@ -378,8 +378,12 @@ export default async function CoursePage({ params }: Props) {
                         <p className="text-sm font-medium text-primary">{t('course.lesson', { n: s.order })}</p>
                         <h3 className="mt-0.5 text-[1.0625rem] leading-snug">{lessonTitle}</h3>
                         <p className="mt-1 text-sm text-muted">
-                          <time dateTime={s.startsAt}>{formatDate(s.startsAt, locale)}</time>
-                          <span aria-hidden> · </span>
+                          {!c.selfPaced && (
+                            <>
+                              <time dateTime={s.startsAt}>{formatDate(s.startsAt, locale)}</time>
+                              <span aria-hidden> · </span>
+                            </>
+                          )}
                           {durationLabel(s.durationMin, locale)}
                         </p>
                       </div>
@@ -471,7 +475,7 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          {c.sessions.length > 0 && !completed && (
+          {c.sessions.length > 0 && !completed && !c.selfPaced && (
             <Section id="schedule" title={t('course.schedule')}>
               <p className="-mt-1 mb-5 text-[0.9375rem] text-muted">
                 {t('course.scheduleNote', { tz: '\u0000' }).split('\u0000')[0]}
@@ -499,6 +503,25 @@ export default async function CoursePage({ params }: Props) {
                   </li>
                 ))}
               </ol>
+            </Section>
+          )}
+
+          {c.testimonials.length > 0 && (
+            <Section id="testimonials" title={t('course.testimonials')}>
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {c.testimonials.map((x) => (
+                  <li key={x.id}>
+                    <figure className="h-full rounded-xl border border-line bg-card p-5">
+                      <blockquote dir="auto" className="leading-relaxed whitespace-pre-line text-body">
+                        {x.body}
+                      </blockquote>
+                      <figcaption dir="auto" className="mt-3 text-sm font-medium text-fg">
+                        {pick(locale, x.name, x.nameAr ?? x.name)}
+                      </figcaption>
+                    </figure>
+                  </li>
+                ))}
+              </ul>
             </Section>
           )}
 

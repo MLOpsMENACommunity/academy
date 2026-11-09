@@ -121,6 +121,7 @@ export class AccountService {
         },
         sessionProgress: true,
         sessionFeedback: true,
+        testimonials: { select: { courseId: true, body: true, status: true, consentAt: true, createdAt: true } },
         reminderPreferences: true,
         // The link itself is a credential: only whether it exists and when it was used.
         calendarFeed: { select: { createdAt: true, rotatedAt: true, lastFetchedAt: true } },
@@ -249,6 +250,7 @@ export class AccountService {
         })),
       sessionProgress: user.sessionProgress,
       feedback: user.sessionFeedback,
+      testimonials: user.testimonials,
       reminderPreferences: user.reminderPreferences,
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
@@ -463,6 +465,7 @@ export class AccountService {
       // Every invite for the address goes, including the one they enrolled through (the audit log keeps ids only).
       this.prisma.courseInvite.deleteMany({ where: { OR: [{ enrolledUserId: userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
+      this.prisma.testimonial.deleteMany({ where: { userId } }),
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),
