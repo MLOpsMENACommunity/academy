@@ -22,7 +22,7 @@ describe('issuesToErrors', () => {
       status: 'PUBLISHED',
       titleEn: 'AMA',
       titleAr: '',
-      startsAt: '2026-11-01T17:00:00Z',
+      startsAt: '2099-11-01T17:00:00Z',
       durationMin: 60,
       language: 'EN',
       platform: 'GOOGLE_MEET',
