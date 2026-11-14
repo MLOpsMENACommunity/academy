@@ -13,6 +13,7 @@ import { randomToken, sha256 } from '../common/crypto';
 import { ApplicationWorkflow } from '../applications/workflow.service';
 import { AuditService } from '../audit/audit.service';
 import { ConsultationsService } from '../consultations/consultations.service';
+import { PublicRevalidator } from '../common/revalidate';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../common/decorators';
 import { TokensService } from '../auth/tokens.service';
@@ -44,6 +45,7 @@ export class AccountService {
     private readonly invites: InvitesService,
     private readonly workflow: ApplicationWorkflow,
     private readonly consultations: ConsultationsService,
+    private readonly revalidator: PublicRevalidator,
   ) {}
 
   /**
@@ -375,8 +377,10 @@ export class AccountService {
     await this.tokens.revokeAllForUser(userId);
     // Free their seats in live sessions that haven't started (past ones stay until anonymisation).
     await this.prisma.eventRegistration.deleteMany({ where: { userId, event: { startsAt: { gt: new Date() } } } });
-    // The private calendar link stops working at once (calendar apps poll without signing in).
-    await this.prisma.calendarFeed.deleteMany({ where: { userId } });
+    // The private calendar link stops working at once (calendar apps poll without signing in),
+    // and the edge's copy of the feed is purged with the site's (deploy/cloudflare/src/edge-cache.ts).
+    const feeds = await this.prisma.calendarFeed.deleteMany({ where: { userId } });
+    if (feeds.count) this.revalidator.changed();
     // Off every leaderboard at once (boards also skip deleted accounts).
     await this.prisma.leaderboardOptIn.deleteMany({ where: { userId } });
     // Off every waiting list: nobody should email a deleted account about new courses.
