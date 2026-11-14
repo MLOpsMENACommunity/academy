@@ -192,8 +192,9 @@ more often than every `SLEEP_AFTER`. What keeps them awake, from most to least:
 
 - signed-in tabs left open (the notifications bell polled every 2 minutes; it now stops after
   10 minutes without input),
-- calendar apps polling students' private feeds (`/api/calendar/<token>.ics`), which reach the
-  API and the database on every poll,
+- calendar apps polling students' private feeds (`/api/calendar/<token>.ics`). With the edge
+  purge configured the Worker now keeps each feed for 30 minutes (`FEED_TTL` in
+  `deploy/cloudflare/src/edge-cache.ts`), so most polls stop at the edge,
 - anonymous visitors and crawlers on pages missing the edge cache (30 s copies), and
 - the hourly jobs tick, which wakes the API for about `SLEEP_AFTER` each hour.
 

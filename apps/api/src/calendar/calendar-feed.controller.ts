@@ -44,7 +44,9 @@ export class CalendarFeedController {
   /**
    * The subscription feed calendar apps poll (no cookies; the token is the credential).
    * Google and Apple refresh on their own schedule; 15 minutes of private caching keeps
-   * repeated polls from one client cheap.
+   * repeated polls from one client cheap. The Cloudflare Worker also keeps a copy at the edge
+   * (FEED_TTL in deploy/cloudflare/src/edge-cache.ts), so most polls never reach the API or the
+   * database; resetting the link or deleting the account purges it.
    */
   @Public()
   @Get('calendar/:file')
