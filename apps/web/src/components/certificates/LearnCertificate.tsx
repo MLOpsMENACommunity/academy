@@ -57,7 +57,7 @@ export function CertificateRuleCard({ data, progress }: { data: LearnCertificate
   // Sessions follow the page's own progress (ticking a session updates it at once).
   const min = data.rule.minSessionsPercent;
   const sessionsOk = min === null || (progress.total > 0 && progress.percent >= min);
-  const e = { ...data.eligibility, sessions: { ...progress, required: min, ok: sessionsOk }, eligible: sessionsOk && data.eligibility.assessments.ok };
+  const e = { ...data.eligibility, sessions: { ...progress, required: min, ok: sessionsOk }, eligible: sessionsOk && data.eligibility.assessments.ok && data.eligibility.total.ok };
   return (
     <section aria-labelledby="cert-rule" className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5 sm:p-6">
       <h2 id="cert-rule" className="text-lg sm:text-xl">
@@ -82,9 +82,12 @@ export function CertificateRuleCard({ data, progress }: { data: LearnCertificate
                 {e.assessments.pending > 0 && <span className="block text-sm text-muted">{t('certificates.earn.pending', { count: e.assessments.pending })}</span>}
               </Check>
             )}
+            {data.rule.minTotalPercent !== null && (
+              <Check ok={e.total.ok}>{t('certificates.earn.total', { percent: e.total.percent ?? 0, required: data.rule.minTotalPercent })}</Check>
+            )}
             {e.capstone && <Check ok={e.capstone === 'PASSED'}>{t(`certificates.earn.capstone.${e.capstone}`)}</Check>}
           </ul>
-          {e.averagePercent !== null && <p className="text-sm text-muted">{t('certificates.earn.average', { percent: e.averagePercent })}</p>}
+          {e.averagePercent !== null && data.rule.minTotalPercent === null && <p className="text-sm text-muted">{t('certificates.earn.average', { percent: e.averagePercent })}</p>}
           <p className={`text-sm font-medium ${e.eligible ? 'text-success' : 'text-muted'}`}>{t(e.eligible ? (data.selfPaced ? 'certificates.earn.selfPacedEligible' : 'certificates.earn.eligible') : 'certificates.earn.keepGoing')}</p>
         </>
       )}

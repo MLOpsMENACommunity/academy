@@ -76,9 +76,11 @@ const certInclude = {
 } as const;
 
 /** A self-paced course has one fixed rule: every required video, and every required assessment passed with 80% or more. */
-const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certRuleEn' | 'certRuleAr' | 'selfPaced'>): CertificateRule => ({
+const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certMinTotalPercent' | 'certRuleEn' | 'certRuleAr' | 'selfPaced'>): CertificateRule => ({
   minSessionsPercent: c.selfPaced ? 100 : c.certMinSessionsPercent,
   requireAssessments: c.selfPaced || c.certRequireAssessments,
+  // Self-paced courses have their own fixed rule (80% on every required quiz).
+  minTotalPercent: c.selfPaced ? null : c.certMinTotalPercent,
   textEn: c.certRuleEn,
   textAr: c.certRuleAr,
 });
@@ -133,7 +135,7 @@ export class CertificatesService implements OnModuleInit {
   }
 
   /** Each student's eligibility under the course rule: sessions completed, required assessments, capstone. */
-  async eligibilityFor(course: Pick<Course, 'id' | 'certMinSessionsPercent' | 'certRequireAssessments' | 'selfPaced'>, userIds: string[]): Promise<Map<string, Eligibility>> {
+  async eligibilityFor(course: Pick<Course, 'id' | 'certMinSessionsPercent' | 'certRequireAssessments' | 'certMinTotalPercent' | 'selfPaced'>, userIds: string[]): Promise<Map<string, Eligibility>> {
     const lessonIds = course.selfPaced ? await this.requiredLessonIds(course.id) : null;
     const [total, progress, results, capstones] = await Promise.all([
       lessonIds ? lessonIds.length : this.prisma.courseSession.count({ where: { courseId: course.id } }),
@@ -208,14 +210,20 @@ export class CertificatesService implements OnModuleInit {
     await this.course(courseId);
     const c = await this.prisma.course.update({
       where: { id: courseId },
-      data: { certMinSessionsPercent: input.minSessionsPercent, certRequireAssessments: input.requireAssessments, certRuleEn: input.textEn, certRuleAr: input.textAr },
+      data: {
+        certMinSessionsPercent: input.minSessionsPercent,
+        certRequireAssessments: input.requireAssessments,
+        certMinTotalPercent: input.minTotalPercent,
+        certRuleEn: input.textEn,
+        certRuleAr: input.textAr,
+      },
     });
     await this.audit.log({
       actorId: admin.id,
       action: 'course.certificate_rule_updated',
       entityType: 'Course',
       entityId: courseId,
-      metadata: { minSessionsPercent: input.minSessionsPercent, requireAssessments: input.requireAssessments },
+      metadata: { minSessionsPercent: input.minSessionsPercent, requireAssessments: input.requireAssessments, minTotalPercent: input.minTotalPercent },
     });
     return ruleOf(c);
   }

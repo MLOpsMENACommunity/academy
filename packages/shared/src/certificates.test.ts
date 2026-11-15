@@ -110,7 +110,7 @@ function results(rows: [ResultAssessment, ResultSubmission[]][]) {
 }
 
 describe('certificateEligibility', () => {
-  const rule = { minSessionsPercent: 80, requireAssessments: true };
+  const rule = { minSessionsPercent: 80, requireAssessments: true, minTotalPercent: null };
 
   it('is eligible with enough sessions and every required assessment passed', () => {
     const r = results([
@@ -126,7 +126,7 @@ describe('certificateEligibility', () => {
   });
 
   describe('self-paced (Certificate of Attendance)', () => {
-    const selfPaced = { minSessionsPercent: 100, requireAssessments: true };
+    const selfPaced = { minSessionsPercent: 100, requireAssessments: true, minTotalPercent: null };
     const all = { completed: 5, total: 5 };
 
     it('needs 80% on every required assessment, even when the quiz pass mark is lower', () => {
@@ -161,6 +161,43 @@ describe('certificateEligibility', () => {
     });
   });
 
+  describe('total score threshold', () => {
+    const totalRule = { minSessionsPercent: null, requireAssessments: false, minTotalPercent: 70 };
+    const sessions = { completed: 0, total: 10 };
+
+    it('counts every published assessment, with unsubmitted work as 0, and passes at exactly the threshold', () => {
+      // 60 + 10 of 100 points = 70%: the missing assignment counts as 0.
+      const r = results([
+        [assessment('quiz', false, 60), [sub(60)]],
+        [assessment('lab', false, 30), [sub(10)]],
+        [assessment('assignment', false, 10), []],
+      ]);
+      const e = certificateEligibility(totalRule, { sessions, results: r });
+      expect(e.total).toEqual({ percent: 70, required: 70, ok: true });
+      expect(e.eligible).toBe(true);
+    });
+
+    it('is not eligible below it, nor with no published assessment', () => {
+      const low = results([[assessment('quiz', false, 100), [sub(69)]]]);
+      expect(certificateEligibility(totalRule, { sessions, results: low })).toMatchObject({ eligible: false, total: { percent: 69, ok: false } });
+      const none = results([]);
+      expect(certificateEligibility(totalRule, { sessions, results: none })).toMatchObject({ eligible: false, total: { percent: null, ok: false } });
+    });
+
+    it('adds up with the other requirements', () => {
+      const r = results([[assessment('quiz', true, 100, 50), [sub(60)]]]);
+      // Passes the quiz (50) but not the total (70).
+      expect(certificateEligibility({ ...totalRule, requireAssessments: true }, { sessions, results: r }).eligible).toBe(false);
+      expect(certificateEligibility({ ...totalRule, requireAssessments: true, minTotalPercent: 60 }, { sessions, results: r }).eligible).toBe(true);
+    });
+
+    it('is optional in the schema (older clients) and described to students', () => {
+      expect(certificateRuleSchema.parse({ minSessionsPercent: null, requireAssessments: true }).minTotalPercent).toBeNull();
+      expect(certificateRuleSchema.safeParse({ minSessionsPercent: null, requireAssessments: true, minTotalPercent: 0 }).success).toBe(false);
+      expect(describeRule({ ...DEFAULT_CERTIFICATE_RULE, requireAssessments: false, minTotalPercent: 70 }, 'en')).toBe("To earn the certificate, score at least 70% of the course's total points.");
+    });
+  });
+
   it('is not eligible below the sessions threshold', () => {
     const r = results([[assessment('quiz', true), [sub(100)]]]);
     const e = certificateEligibility(rule, { sessions: { completed: 7, total: 10 }, results: r });
@@ -180,9 +217,9 @@ describe('certificateEligibility', () => {
 
   it('ignores assessments when the rule does not require them, and sessions when no minimum is set', () => {
     const failed = results([[assessment('quiz', true), [sub(10)]]]);
-    expect(certificateEligibility({ minSessionsPercent: 80, requireAssessments: false }, { sessions: { completed: 9, total: 10 }, results: failed }).eligible).toBe(true);
+    expect(certificateEligibility({ minSessionsPercent: 80, requireAssessments: false, minTotalPercent: null }, { sessions: { completed: 9, total: 10 }, results: failed }).eligible).toBe(true);
     const passed = results([[assessment('quiz', true), [sub(90)]]]);
-    expect(certificateEligibility({ minSessionsPercent: null, requireAssessments: true }, { sessions: { completed: 0, total: 10 }, results: passed }).eligible).toBe(true);
+    expect(certificateEligibility({ minSessionsPercent: null, requireAssessments: true, minTotalPercent: null }, { sessions: { completed: 0, total: 10 }, results: passed }).eligible).toBe(true);
   });
 
   it('a minimum with no sessions at all is never met; no rule at all is always met', () => {

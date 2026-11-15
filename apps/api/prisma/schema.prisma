@@ -667,6 +667,8 @@ model Course {
   certMinSessionsPercent Int?
   /// Certificate rule: every published assessment marked "counts toward certificate" must be passed.
   certRequireAssessments Boolean       @default(true)
+  /// Certificate rule: minimum total score (0–100) over every published assessment, null for none.
+  certMinTotalPercent    Int?
   /// Optional wording of the rule shown to students (otherwise generated from the fields above).
   certRuleEn             String        @default("")
   certRuleAr             String        @default("")

@@ -76,6 +76,7 @@ export interface CourseRow {
   recordingsPlatform: string;
   certMinSessionsPercent: number | null;
   certRequireAssessments: boolean;
+  certMinTotalPercent: number | null;
   selfPaced: boolean;
 }
 
@@ -525,9 +526,13 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     const hits: Hit[] = [];
     for (const s of students) {
       const e = elig.get(s.userId);
-      // Exactly one rule short: attendance, or the required assessments.
-      if (!e || e.eligible || e.sessions.ok === e.assessments.ok) continue;
-      const missing = !e.sessions.ok ? { sessions: { required: e.sessions.required ?? 0, percent: e.sessions.percent } } : { assessments: e.assessments.required - e.assessments.passed };
+      // Exactly one rule short: attendance, the required assessments, or the total score.
+      if (!e || e.eligible || [e.sessions.ok, e.assessments.ok, e.total.ok].filter((ok) => !ok).length !== 1) continue;
+      const missing = !e.sessions.ok
+        ? { sessions: { required: e.sessions.required ?? 0, percent: e.sessions.percent } }
+        : !e.total.ok
+          ? { total: { required: e.total.required ?? 0, percent: e.total.percent ?? 0 } }
+          : { assessments: e.assessments.required - e.assessments.passed };
       hits.push({ key: s.userId, userId: s.userId, label: s.label, message: msg(studentTexts.certAlmost(d.names, missing), d.learn()) });
     }
     return { hits };

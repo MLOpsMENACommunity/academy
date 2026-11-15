@@ -1865,6 +1865,9 @@
         "minSessionsHint": "Leave empty for no minimum.",
         "requireAssessments": "Students must pass every mandatory assessment",
         "requireAssessmentsHint": "Mark assessments as mandatory or optional in the Assessments tab.",
+        "minTotal": "Total score (minimum %)",
+        "minTotalHint": "Points earned ÷ points of every published quiz, lab and assignment. Work not submitted or not graded yet counts as 0. Leave empty for no minimum.",
+        "autoIssueHint": "To issue certificates automatically when the course ends, turn on \"Certificate earned\" with \"Issue\" in the Automation tab. It issues to every eligible student who has none yet, and again after later grades.",
         "textEn": "Rule shown to students (English)",
         "textAr": "Rule shown to students (Arabic)",
         "textHint": "Leave empty to show a sentence generated from the settings above.",
@@ -3215,6 +3218,7 @@
       "notYet": "Not yet",
       "sessions": "Sessions completed: {completed} of {total} ({percent}%, at least {required}% needed)",
       "assessments": "Required assessments passed: {passed} of {required}",
+      "total": "Total score: {percent}% (at least {required}% needed)",
       "pending": "{count, plural, one {# is waiting to be graded} other {# are waiting to be graded}}",
       "capstone": {
         "PASSED": "Capstone passed",
