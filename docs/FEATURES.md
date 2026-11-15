@@ -684,9 +684,12 @@ Assessments):
 
 1. Admin → Courses → course → **Certificates** → **Certificate rule**: minimum % of sessions completed
    (optional), "Students must pass every **mandatory** assessment" (assessments are marked mandatory or
-   optional in the Assessments tab), and optional wording in English and Arabic (otherwise generated).
+   optional in the Assessments tab), a **minimum total score** (optional: points earned ÷ points of every
+   published quiz, lab and assignment; work not submitted or not graded yet counts as 0; exactly the
+   minimum passes), and optional wording in English and Arabic (otherwise generated). Every requirement
+   that is set must be met. Students see each one with their own progress on the course page.
 2. The **roster** shows every enrolled student with sessions %, required assessments passed (and any
-   waiting to be graded), average %, capstone state and an **Eligible** badge. Filters: all, eligible,
+   waiting to be graded), average % (the total score), capstone state and an **Eligible** badge. Filters: all, eligible,
    not issued, issued, revoked.
 3. Select students → **Issue** (optional grade, e.g. "Distinction"; up to 500 at once). Issuing to a
    student who doesn't meet the rule needs an explicit confirmation. Issuing twice still gives one
@@ -694,6 +697,10 @@ Assessments):
 4. **Revoke** with a reason (the public page shows Revoked, the PDF stops); **Re-issue** keeps the same
    serial with a fresh snapshot of name, title and instructors.
 5. CSV export. All actions audited.
+6. **Automatic issue (live courses):** Automation tab → **Certificate earned** with **Issue**. After the
+   course ends, each automation run issues the certificate to every eligible student who has none yet,
+   so a grade given later (by an admin or course staff in /teach) is picked up on the next run.
+   **Almost there** messages students who are exactly one requirement short, including the total score.
 
 Students get the `certificateIssued` email and a notification; the dashboard's **My certificates** has
 **Download PDF**, **Add to LinkedIn** (prefilled with the MLOps MENA Community organisation, so the
@@ -1176,6 +1183,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Pending | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
 | Pending | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |
 | #108 | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |

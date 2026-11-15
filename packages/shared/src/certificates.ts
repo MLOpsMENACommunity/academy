@@ -38,15 +38,21 @@ export interface CertificateRule {
   minSessionsPercent: number | null;
   /** Every published assessment marked mandatory for the certificate (countsForCertificate) must be passed. */
   requireAssessments: boolean;
+  /**
+   * Total score, 0–100: points earned ÷ points of every published assessment (work not submitted or
+   * not yet graded counts as 0); null: no requirement.
+   */
+  minTotalPercent: number | null;
   /** Optional wording shown to students instead of the generated sentence. */
   textEn: string;
   textAr: string;
 }
 
-export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, textEn: '', textAr: '' };
+export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, minTotalPercent: null, textEn: '', textAr: '' };
 
 /** The course team wrote or configured a rule beyond the defaults. */
-export const ruleIsSet = (r: Pick<CertificateRule, 'minSessionsPercent' | 'textEn' | 'textAr'>): boolean => r.minSessionsPercent !== null || Boolean(r.textEn || r.textAr);
+export const ruleIsSet = (r: Pick<CertificateRule, 'minSessionsPercent' | 'minTotalPercent' | 'textEn' | 'textAr'>): boolean =>
+  r.minSessionsPercent !== null || r.minTotalPercent !== null || Boolean(r.textEn || r.textAr);
 
 /** Whether students see the course's certificate (the learn page's card): it's included, a rule is set, or one was issued. */
 export function certificateOffered(rule: CertificateRule, included: { certificate?: boolean } | null | undefined, issued = false): boolean {
@@ -66,6 +72,8 @@ export function certificateTag(rule: CertificateRule, included: { certificate?: 
 export const certificateRuleSchema = z.object({
   minSessionsPercent: z.number().int().min(1).max(100).nullable(),
   requireAssessments: z.boolean(),
+  /** Absent (older clients): no total-score requirement. */
+  minTotalPercent: z.number().int().min(1).max(100).nullable().default(null),
   textEn: z.string().trim().max(500).default(''),
   textAr: z.string().trim().max(500).default(''),
 });
@@ -91,6 +99,8 @@ export interface Eligibility {
   assessments: { required: number; passed: number; pending: number; ok: boolean; needed: boolean };
   /** Average over every published assessment (points earned ÷ points available). */
   averagePercent: number | null;
+  /** The total-score requirement: the student's total (null with no published assessment) against the rule. */
+  total: { percent: number | null; required: number | null; ok: boolean };
   /** The capstone's state, when the course has one; null otherwise. */
   capstone: CapstoneState | null;
 }
@@ -104,7 +114,7 @@ export const SELF_PACED_PASS_PERCENT = 80;
 const percentOf = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
 /** Whether a student meets the course's certificate rule, with each signal for the admin table and the student card. */
-export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsPercent' | 'requireAssessments'>, input: EligibilityInput): Eligibility {
+export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsPercent' | 'requireAssessments' | 'minTotalPercent'>, input: EligibilityInput): Eligibility {
   const { completed, total } = input.sessions;
   const percent = percentOf(completed, total);
   const sessionsOk = rule.minSessionsPercent === null || (total > 0 && percent >= rule.minSessionsPercent);
@@ -114,6 +124,9 @@ export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsP
   const passed = input.selfPaced ? required.filter((a) => a.passed && a.percent !== null && a.percent + 1e-9 >= SELF_PACED_PASS_PERCENT).length : input.results.certificate.passed;
   const allPassed = input.selfPaced ? passed === required.length : input.results.certificate.allPassed;
   const assessmentsOk = (!rule.requireAssessments || allPassed) && !(input.selfPaced && required.length === 0);
+  const totalPercent = input.results.total.possible ? input.results.total.percent : null;
+  // Exactly the threshold passes; a course with no published assessment can't meet a total requirement.
+  const totalOk = rule.minTotalPercent === null || (totalPercent !== null && totalPercent + 1e-9 >= rule.minTotalPercent);
   const capstones = required.filter((a) => (input.capstoneIds ?? []).includes(a.assessmentId));
   const capstone: CapstoneState | null = !capstones.length
     ? null
@@ -125,10 +138,11 @@ export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsP
           ? 'NOT_PASSED'
           : 'MISSING';
   return {
-    eligible: sessionsOk && assessmentsOk,
+    eligible: sessionsOk && assessmentsOk && totalOk,
     sessions: { completed, total, percent, required: rule.minSessionsPercent, ok: sessionsOk },
     assessments: { required: input.results.certificate.required, passed, pending, ok: assessmentsOk, needed: rule.requireAssessments },
-    averagePercent: input.results.total.possible ? input.results.total.percent : null,
+    averagePercent: totalPercent,
+    total: { percent: totalPercent, required: rule.minTotalPercent, ok: totalOk },
     capstone,
   };
 }
@@ -139,6 +153,8 @@ export function describeRule(rule: CertificateRule, locale: 'en' | 'ar'): string
   if (own) return own;
   const parts: string[] = [];
   if (rule.requireAssessments) parts.push(locale === 'ar' ? 'اجتياز كل التقييمات المطلوبة للشهادة' : 'pass every assessment required for the certificate');
+  if (rule.minTotalPercent !== null)
+    parts.push(locale === 'ar' ? `الحصول على ${rule.minTotalPercent}٪ على الأقل من مجموع درجات الدورة` : `score at least ${rule.minTotalPercent}% of the course's total points`);
   if (rule.minSessionsPercent !== null)
     parts.push(locale === 'ar' ? `إكمال ${rule.minSessionsPercent}٪ على الأقل من الجلسات` : `complete at least ${rule.minSessionsPercent}% of the sessions`);
   if (!parts.length) return locale === 'ar' ? 'يصدر فريق الدورة الشهادة عند إتمامها.' : 'The course team issues the certificate when you complete the course.';

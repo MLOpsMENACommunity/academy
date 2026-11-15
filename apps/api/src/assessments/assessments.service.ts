@@ -237,7 +237,13 @@ export class AssessmentsService {
       passPercent: a.passPercent,
       countsForCertificate: a.countsForCertificate,
       certificateTag: certificateTag(
-        { minSessionsPercent: course.certMinSessionsPercent, requireAssessments: course.certRequireAssessments || course.selfPaced, textEn: course.certRuleEn, textAr: course.certRuleAr },
+        {
+          minSessionsPercent: course.certMinSessionsPercent,
+          requireAssessments: course.certRequireAssessments || course.selfPaced,
+          minTotalPercent: course.certMinTotalPercent,
+          textEn: course.certRuleEn,
+          textAr: course.certRuleAr,
+        },
         course.included as { certificate?: boolean } | null,
         a.countsForCertificate,
       ),
