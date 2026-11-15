@@ -262,10 +262,13 @@ export interface MyCertificateDto {
   status: CertificateStatus;
   issuedAt: string;
   grade: string | null;
-  courseSlug: string;
+  /** Null for a certificate issued before the academy (no course page here). */
+  courseSlug: string | null;
   courseTitleEn: string;
   courseTitleAr: string;
   nameOnCertificate: string;
+  /** Whether a PDF can be downloaded (certificates issued before the academy have none here). */
+  pdf: boolean;
 }
 
 /** The learn page's "How to earn the certificate" card. */
@@ -288,13 +291,16 @@ export type PublicCertificateDto =
       serial: string;
       name: string;
       nameAr: string | null;
-      courseSlug: string;
+      /** Null for a certificate issued before the academy (no course page here). */
+      courseSlug: string | null;
       courseTitleEn: string;
       courseTitleAr: string;
       instructors: InstructorName[];
       issuedAt: string;
       grade: string | null;
       revokedAt: string | null;
+      /** Whether the PDF can be downloaded (certificates issued before the academy have none here). */
+      pdf: boolean;
     };
 
 // ------------------------------------------------------------------ LinkedIn

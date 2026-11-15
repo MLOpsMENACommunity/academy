@@ -1,4 +1,4 @@
-import { certificatePath, type PublicCertificateDto } from '@academy/shared';
+import { certificatePath, linkedInAddUrl, type PublicCertificateDto } from '@academy/shared';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -58,7 +58,6 @@ export default async function CertificatePage({ params }: Props) {
   const { locale, serial } = await params;
   if (!isLocale(locale)) notFound();
   const r = await lookupCertificate(serial);
-  if (r.kind === 'missing') notFound();
   const t = createTranslator(locale);
 
   const shell = (children: ReactNode) => (
@@ -79,6 +78,20 @@ export default async function CertificatePage({ params }: Props) {
   );
 
   if (r.kind === 'limited') return shell(<Alert tone="warning">{t('certificates.verify.limited')}</Alert>);
+  if (r.kind === 'missing') {
+    return shell(
+      <>
+        <Alert tone="danger" title={t('certificates.verify.notFound')}>
+          {t('certificates.verify.notFoundBody')}
+        </Alert>
+        <div>
+          <Link href={`/${locale}/verify-certificate`} className={buttonClass('primary', 'md')}>
+            {t('certificates.verify.another')}
+          </Link>
+        </div>
+      </>,
+    );
+  }
   const c = r.cert;
   if (c.status === 'UNAVAILABLE') {
     return shell(
@@ -122,9 +135,13 @@ export default async function CertificatePage({ params }: Props) {
 
       <dl>
         <Row label={t('certificates.verify.course')}>
-          <Link href={`/${locale}/courses/${cert.courseSlug}`} className="font-medium text-primary hover:underline">
-            {pick(locale, cert.courseTitleEn, cert.courseTitleAr)}
-          </Link>
+          {cert.courseSlug ? (
+            <Link href={`/${locale}/courses/${cert.courseSlug}`} className="font-medium text-primary hover:underline">
+              {pick(locale, cert.courseTitleEn, cert.courseTitleAr)}
+            </Link>
+          ) : (
+            <span className="font-medium">{pick(locale, cert.courseTitleEn, cert.courseTitleAr)}</span>
+          )}
         </Row>
         <Row label={t('certificates.verify.issued')}>{formatDate(cert.issuedAt, locale)}</Row>
         {instructors && <Row label={t('certificates.verify.instructors')}>{instructors}</Row>}
@@ -137,14 +154,28 @@ export default async function CertificatePage({ params }: Props) {
         <Row label={t('certificates.verify.issuer')}>{t('certificates.verify.issuerValue')}</Row>
       </dl>
 
-      {valid && (
-        <div className="flex flex-wrap gap-2">
-          {/* A plain link: the public download needs no sign-in and is streamed by the API. */}
+      <div className="flex flex-wrap gap-2">
+        {/* A plain link: the public download needs no sign-in and is streamed by the API. */}
+        {valid && cert.pdf && (
           <a href={`/api/certificates/${cert.serial}/pdf`} className={buttonClass('primary', 'md')} download>
             {t('certificates.download')}
           </a>
-        </div>
-      )}
+        )}
+        {valid && (
+          // The holder adds it to their profile from here, as on the old verify tool. English title and page, like the dashboard.
+          <a
+            href={linkedInAddUrl({ courseTitle: cert.courseTitleEn, issuedAt: cert.issuedAt, verifyUrl: absoluteUrl(certificatePath('en', cert.serial)), serial: cert.serial })}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass('secondary', 'md')}
+          >
+            {t('certificates.linkedin')} <span aria-hidden className="inline-block rtl:-scale-x-100">↗</span>
+          </a>
+        )}
+        <Link href={`/${locale}/verify-certificate`} className={buttonClass('secondary', 'md')}>
+          {t('certificates.verify.another')}
+        </Link>
+      </div>
     </>,
   );
 }

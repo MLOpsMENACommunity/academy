@@ -54,6 +54,7 @@
     "refund": "Refund Policy",
     "conduct": "Code of Conduct",
     "contact": "Contact & support",
+    "verify": "Verify a certificate",
     "community": "Community",
     "rights": "© {year} MLOps MENA Community",
     "academy": "Academy"
@@ -623,12 +624,28 @@
     "helpNoContact": "Questions about payment? See"
   },
   "admin": {
+    "earlierCertificates": {
+      "pageTitle": "Certificates",
+      "pageIntro": "Certificates are issued per course, in each course's Certificates tab (by hand, or automatically with the course's automation). Here you import the certificates issued before the academy, so their codes keep verifying here and appear in the students' dashboards.",
+      "verifyLink": "Open the public verify page",
+      "importTitle": "Import earlier certificates",
+      "importHint": "A CSV with a header row: code, holder_name, course, issued_on (YYYY/MM/DD), and optionally status (valid or revoked), email and kind (attendance or completion). Rows are matched on the code: new codes are added, known ones updated, nothing is deleted. An email links the certificate to the account with that confirmed address, now or when the student signs up. Check the file first; a file with any error isn't saved.",
+      "chooseFile": "Choose a CSV file",
+      "fileTooLarge": "The file is larger than 2 MB.",
+      "check": "Check the file",
+      "line": "Line {line}",
+      "hasErrors": "{count, plural, one {# problem} other {# problems}} to fix in the file. Nothing was saved.",
+      "summary": "{rows} rows: {created} new, {updated} changed, {unchanged} unchanged. {linked} will be linked to existing accounts.",
+      "save": "Import",
+      "imported": "Imported: {created} new and {updated} changed, {linked} linked to accounts. {total} earlier certificates in total."
+    },
     "title": "Admin",
     "nav": {
       "dashboard": "Dashboard",
       "payments": "Payments",
       "applications": "Applications",
       "students": "Students",
+      "certificates": "Certificates",
       "talents": "Talents",
       "courses": "Courses",
       "settings": "Settings",
@@ -3237,7 +3254,27 @@
       "selfPacedEligible": "You meet the requirements and your certificate is on its way. If it doesn't appear, check that your full name is on your profile.",
       "keepGoing": "Keep going: your status updates as you complete sessions and assessments are graded."
     },
+    "verifier": {
+      "metaTitle": "Verify a certificate",
+      "metaDescription": "Check that an MLOps MENA certificate is genuine: type its ID or scan its QR code.",
+      "title": "Verify a certificate",
+      "intro": "Type the certificate ID, or scan the QR code printed on the certificate, to check that MLOps MENA issued it.",
+      "label": "Certificate ID",
+      "manualTab": "Type the ID",
+      "scanTab": "Scan the QR code",
+      "verify": "Verify",
+      "hint": "Printed under the QR code, e.g. MLOPS-01-2026-00023.",
+      "invalidFormat": "That doesn't look like a certificate ID. Check it and try again.",
+      "scanning": "Point your camera at the QR code on the certificate.",
+      "scanStop": "Stop scanning",
+      "cameraDenied": "The camera couldn't be used. Allow camera access, or type the ID instead.",
+      "cameraMissing": "No camera found on this device. Type the ID instead.",
+      "notCertificateQr": "This QR code isn't from an MLOps MENA certificate. Type the ID instead."
+    },
     "verify": {
+      "another": "Verify another certificate",
+      "notFound": "No certificate with this ID",
+      "notFoundBody": "Check the ID on the certificate and try again. IDs look like MLOPS-01-2026-00023 or MMA-2026-7KQ4XM2P.",
       "metaTitle": "Certificate verification",
       "metaNamed": "{name}: certificate for {course}",
       "metaDescription": "{name} completed {course} at MLOps MENA Academy. Verify this certificate.",

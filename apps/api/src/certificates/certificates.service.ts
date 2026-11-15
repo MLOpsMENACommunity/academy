@@ -41,6 +41,7 @@ import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PointsService } from '../points/points.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EarlierCertificatesService } from './earlier-certificates.service';
 import { StorageService } from '../storage/storage.service';
 
 /**
@@ -106,6 +107,7 @@ export class CertificatesService implements OnModuleInit {
     private readonly points: PointsService,
     @Inject(ENV) private readonly env: Env,
     private readonly cache: SignedInCache,
+    private readonly earlier: EarlierCertificatesService,
   ) {}
 
   onModuleInit(): void {
@@ -556,6 +558,7 @@ export class CertificatesService implements OnModuleInit {
       courseTitleEn: c.courseTitleEn,
       courseTitleAr: c.courseTitleAr,
       nameOnCertificate: c.nameOnCertificate,
+      pdf: !c.revokedAt,
     };
   }
 
@@ -566,7 +569,9 @@ export class CertificatesService implements OnModuleInit {
       orderBy: { issuedAt: 'desc' },
       include: { enrollment: { select: { course: { select: { slug: true } } } } },
     });
-    return list.map((c) => this.toMine(c));
+    // Certificates issued before the academy, linked to this account by its verified email.
+    const earlier = await this.earlier.mine(userId);
+    return [...list.map((c) => this.toMine(c)), ...earlier].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
   }
 
   /** The learn page's card: the rule, my live status against it, and my certificate once issued. */
@@ -601,7 +606,14 @@ export class CertificatesService implements OnModuleInit {
   }
 
   async publicView(raw: string): Promise<PublicCertificateDto> {
-    const c = await this.bySerial(raw);
+    const serial = normalizeSerial(raw);
+    const c = serial ? await this.prisma.certificate.findUnique({ where: { serial }, include: certInclude }) : null;
+    if (!c) {
+      // Not issued by the academy: maybe one of the certificates issued before it.
+      const earlier = await this.earlier.publicView(raw);
+      if (!earlier) throw new NotFoundException('Certificate not found');
+      return earlier;
+    }
     // A deleted (or anonymised) account: the certificate stays on record but shows nothing personal.
     if (c.enrollment.user.deletedAt || c.enrollment.user.anonymizedAt) return { status: 'UNAVAILABLE', serial: c.serial };
     return {
@@ -617,6 +629,7 @@ export class CertificatesService implements OnModuleInit {
       issuedAt: c.issuedAt.toISOString(),
       grade: c.grade,
       revokedAt: c.revokedAt?.toISOString() ?? null,
+      pdf: !c.revokedAt,
     };
   }
 
