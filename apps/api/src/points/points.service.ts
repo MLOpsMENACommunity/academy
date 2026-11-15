@@ -318,17 +318,19 @@ export class PointsService {
       bodyAr: course ? `${badge.descriptionAr} ${course.titleAr}.`.trim() : badge.descriptionAr,
       link: '/dashboard#points',
     });
-    const ar = user.locale === 'ar';
+    // The "Certified" badge comes with the certificate, which is English only: so is its email.
+    const locale = badge.code === BADGE_CODES.CERTIFIED ? 'en' : user.locale;
+    const ar = locale === 'ar';
     void this.email.send(
       user.email,
-      user.locale,
+      locale,
       {
         name: 'badgeAwarded',
         icon: badge.icon,
         badgeName: (ar ? badge.nameAr : badge.nameEn) + (ar ? week.ar : week.en),
         description: ar ? badge.descriptionAr : badge.descriptionEn,
         courseTitle: course ? (ar ? course.titleAr : course.titleEn) : null,
-        url: this.email.url(user.locale, '/dashboard#points'),
+        url: this.email.url(locale, '/dashboard#points'),
       },
       { bulk: true },
     );

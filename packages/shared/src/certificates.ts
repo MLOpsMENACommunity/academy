@@ -222,6 +222,8 @@ export type CertificateStatus = 'VALID' | 'REVOKED';
 export interface InstructorName {
   name: string;
   nameAr: string | null;
+  /** Professional title, printed under the name on the certificate (snapshots since the template design). */
+  title?: string | null;
 }
 
 export interface AdminCertificateSummary {

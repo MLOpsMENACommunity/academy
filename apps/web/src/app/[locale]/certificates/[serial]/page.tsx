@@ -11,7 +11,6 @@ import { IconCheck } from '@/components/ui/Icons';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { formatDate } from '@/lib/format';
-import { pick } from '@/lib/sessions';
 import { absoluteUrl } from '@/lib/site';
 import { lookupCertificate } from './data';
 
@@ -33,8 +32,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const robots = { index: false, follow: false };
   if (r.kind !== 'found' || r.cert.status === 'UNAVAILABLE') return { title: t('certificates.verify.metaTitle'), robots };
   const c = r.cert;
-  const course = pick(locale, c.courseTitleEn, c.courseTitleAr);
-  const name = locale === 'ar' ? c.nameAr || c.name : c.name;
+  // The certificate is English only: its name and course stay in English on both locales.
+  const course = c.courseTitleEn;
+  const name = c.name;
   const title = t('certificates.verify.metaNamed', { name, course });
   const description = c.status === 'VALID' ? t(c.kind === 'ATTENDANCE' ? 'certificates.verify.metaDescriptionAttendance' : 'certificates.verify.metaDescription', { name, course }) : t('certificates.verify.revoked');
   return {
@@ -105,9 +105,8 @@ export default async function CertificatePage({ params }: Props) {
   }
   const cert = c as Extract<PublicCertificateDto, { status: 'VALID' | 'REVOKED' }>;
   const valid = cert.status === 'VALID';
-  const primaryName = locale === 'ar' && cert.nameAr ? cert.nameAr : cert.name;
-  const otherName = locale === 'ar' ? (cert.nameAr ? cert.name : null) : cert.nameAr;
-  const instructors = cert.instructors.map((i) => pick(locale, i.name, i.nameAr)).join(locale === 'ar' ? '، ' : ', ');
+  // English only, like the certificate itself (the page around it follows the locale).
+  const instructors = cert.instructors.map((i) => i.name).join(', ');
 
   return shell(
     <>
@@ -129,22 +128,27 @@ export default async function CertificatePage({ params }: Props) {
 
       <div className="flex flex-col gap-1">
         <p className="text-sm text-muted">{t('certificates.verify.awardedTo')}</p>
-        <h1 className={`text-[1.75rem] leading-tight sm:text-[2.25rem] ${valid ? '' : 'text-muted line-through decoration-1'}`}>{primaryName}</h1>
-        {otherName && <p className="text-lg text-body">{otherName}</p>}
+        <h1 className={`text-[1.75rem] leading-tight sm:text-[2.25rem] ${valid ? '' : 'text-muted line-through decoration-1'}`}>
+          <span className="ltr-embed">{cert.name}</span>
+        </h1>
       </div>
 
       <dl>
         <Row label={t('certificates.verify.course')}>
           {cert.courseSlug ? (
-            <Link href={`/${locale}/courses/${cert.courseSlug}`} className="font-medium text-primary hover:underline">
-              {pick(locale, cert.courseTitleEn, cert.courseTitleAr)}
+            <Link href={`/${locale}/courses/${cert.courseSlug}`} className="font-medium text-primary hover:underline ltr-embed">
+              {cert.courseTitleEn}
             </Link>
           ) : (
-            <span className="font-medium">{pick(locale, cert.courseTitleEn, cert.courseTitleAr)}</span>
+            <span className="font-medium ltr-embed">{cert.courseTitleEn}</span>
           )}
         </Row>
         <Row label={t('certificates.verify.issued')}>{formatDate(cert.issuedAt, locale)}</Row>
-        {instructors && <Row label={t('certificates.verify.instructors')}>{instructors}</Row>}
+        {instructors && (
+          <Row label={t('certificates.verify.instructors')}>
+            <span className="ltr-embed">{instructors}</span>
+          </Row>
+        )}
         {cert.grade && <Row label={t('certificates.verify.grade')}>{cert.grade}</Row>}
         <Row label={t('certificates.verify.serial')}>
           <span dir="ltr" className="font-mono text-[0.9375rem]">

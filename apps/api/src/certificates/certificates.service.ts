@@ -29,7 +29,7 @@ import { randomBytes } from 'node:crypto';
 import { capRows } from '../admin/export';
 import type { Actor } from '../applications/workflow.service';
 import { completedLessonsBy, completedSessionsBy } from '../attendance/completed-sessions';
-import { dateAr, dateEn } from './dates';
+import { dateEn } from './dates';
 import { AssessmentsService } from '../assessments/assessments.service';
 import { AuditService } from '../audit/audit.service';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
@@ -73,11 +73,14 @@ export function newSerial(now = new Date()): string {
 const cairoYear = (d: Date) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', year: 'numeric' }).format(d));
 
 type CertWithCourse = Certificate & {
-  enrollment: { userId: string; courseId: string; course: { slug: string }; user: { deletedAt: Date | null; anonymizedAt: Date | null } };
+  enrollment: { userId: string; courseId: string; course: { slug: string; shortDescriptionEn: string }; user: { deletedAt: Date | null; anonymizedAt: Date | null } };
 };
 
+/** Storage folder of rendered PDFs (template design); older cached files are ignored. */
+const PDF_CACHE = 'certificate-pdfs';
+
 const certInclude = {
-  enrollment: { select: { userId: true, courseId: true, course: { select: { slug: true } }, user: { select: { deletedAt: true, anonymizedAt: true } } } },
+  enrollment: { select: { userId: true, courseId: true, course: { select: { slug: true, shortDescriptionEn: true } }, user: { select: { deletedAt: true, anonymizedAt: true } } } },
 } as const;
 
 /** A self-paced course has one fixed rule: every required video, and every required assessment passed with 80% or more. */
@@ -283,14 +286,14 @@ export class CertificatesService implements OnModuleInit {
             cohortNumber: true,
             titleEn: true,
             titleAr: true,
-            instructors: { orderBy: { order: 'asc' }, select: { instructor: { select: { name: true, nameAr: true } } } },
+            instructors: { orderBy: { order: 'asc' }, select: { instructor: { select: { name: true, nameAr: true, titleEn: true } } } },
           },
         },
       },
     });
     const en = e.user.profile?.fullNameEn?.trim() || '';
     const ar = e.user.profile?.fullNameAr?.trim() || '';
-    const instructors: InstructorName[] = e.course.instructors.map((i) => ({ name: i.instructor.name, nameAr: i.instructor.nameAr }));
+    const instructors: InstructorName[] = e.course.instructors.map((i) => ({ name: i.instructor.name, nameAr: i.instructor.nameAr, title: i.instructor.titleEn }));
     return {
       enrollment: e,
       data: {
@@ -501,21 +504,20 @@ export class CertificatesService implements OnModuleInit {
           link: path,
         })
         .catch((err: unknown) => this.logger.error(`Certificate notification failed: ${(err as Error).name}`));
-      const ar = e.user.locale === 'ar';
-      const courseTitle = ar ? e.course.titleAr || e.course.titleEn : e.course.titleEn;
-      const verifyUrl = this.verifyUrl(e.user.locale, c.serial);
+      // The certificate email is English only, like the certificate, whatever the student's language.
+      const verifyUrl = this.verifyUrl('en', c.serial);
       void this.email.send(
         e.user.email,
-        e.user.locale,
+        'en',
         {
           name: 'certificateIssued',
           attendance: c.kind === 'ATTENDANCE',
-          holderName: (ar && c.nameOnCertificateAr) || c.nameOnCertificate,
-          courseTitle,
+          holderName: c.nameOnCertificate,
+          courseTitle: c.courseTitleEn,
           serial: c.serial,
-          issuedOn: ar ? dateAr(c.issuedAt) : dateEn(c.issuedAt),
+          issuedOn: dateEn(c.issuedAt),
           verifyUrl,
-          ...(e.course.selfPaced ? { testimonialUrl: `${this.email.url(e.user.locale, `/learn/${e.course.slug}`)}#testimonial` } : {}),
+          ...(e.course.selfPaced ? { testimonialUrl: `${this.email.url('en', `/learn/${e.course.slug}`)}#testimonial` } : {}),
           downloadUrl: this.publicPdfUrl(c.serial),
           linkedInUrl: linkedInAddUrl({ courseTitle: c.courseTitleEn, issuedAt: c.issuedAt, verifyUrl: this.verifyUrl('en', c.serial), serial: c.serial }),
         },
@@ -656,8 +658,9 @@ export class CertificatesService implements OnModuleInit {
   }
 
   /** The cached PDF from the bucket, or a freshly rendered one (then cached under certificates/). */
-  private async pdf(c: Certificate): Promise<Buffer> {
-    if (c.pdfKey) {
+  private async pdf(c: CertWithCourse): Promise<Buffer> {
+    // PDFs cached before the template design are drawn again (and the old file deleted below).
+    if (c.pdfKey?.startsWith(`${PDF_CACHE}/`)) {
       try {
         const cached = await this.storage.get(c.pdfKey);
         if (cached) return cached;
@@ -667,20 +670,19 @@ export class CertificatesService implements OnModuleInit {
     }
     // Loaded on first download, not at boot (PDFKit and fontkit add to the container's start time).
     const { renderCertificatePdf } = await import('./pdf');
+    // English only, on the community's design.
     const body = await renderCertificatePdf({
       kind: c.kind,
       serial: c.serial,
       name: c.nameOnCertificate,
-      nameAr: c.nameOnCertificateAr,
-      courseTitleEn: c.courseTitleEn,
-      courseTitleAr: c.courseTitleAr,
+      courseTitle: c.courseTitleEn,
+      courseDescription: c.enrollment.course.shortDescriptionEn,
       instructors: (c.instructorNames as unknown as InstructorName[]) ?? [],
       issuedAt: c.issuedAt,
-      grade: c.grade,
       verifyUrl: this.verifyUrl('en', c.serial),
     });
     try {
-      const key = await this.storage.put('certificates', body, 'application/pdf');
+      const key = await this.storage.put(PDF_CACHE, body, 'application/pdf');
       // Only if nothing changed meanwhile (a revocation or re-issue clears pdfKey and must win).
       const r = await this.prisma.certificate.updateMany({ where: { id: c.id, pdfKey: c.pdfKey, revokedAt: null, updatedAt: c.updatedAt }, data: { pdfKey: key } });
       if (r.count !== 1) await this.safeDelete(key);
