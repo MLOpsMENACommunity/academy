@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { API_TTL, browserCacheControl, cacheKind, localeCookie, PAGE_TTL, PURGED_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
+import { API_TTL, browserCacheControl, cacheKind, EDGE_TAG, FEED_TTL, localeCookie, PAGE_TTL, PURGED_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
 
 const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
   new Request(`https://academy.mlopsmena.com${path}`, init);
@@ -206,4 +206,43 @@ test('browsers always revalidate cached pages and API answers; assets keep their
   assert.equal(browserCacheControl('page', 'public, max-age=14400, s-maxage=60'), 'public, max-age=0, must-revalidate');
   assert.equal(browserCacheControl('api', 'public, max-age=14400, s-maxage=60'), 'public, max-age=0, must-revalidate');
   assert.equal(browserCacheControl('asset', 'public, max-age=31536000, immutable'), 'public, max-age=31536000, immutable');
+});
+
+const FEED_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJ012-_45';
+const feedPath = `/api/calendar/${FEED_TOKEN}.ics`;
+const ics = (headers: Record<string, string> = {}, status = 200) =>
+  new Response('BEGIN:VCALENDAR', { status, headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'private, max-age=900', ...headers } });
+
+test('calendar feed polls are cacheable by their own URL, whatever cookies come along', () => {
+  assert.equal(FEED_TOKEN.length, 43);
+  assert.equal(cacheKind(req(feedPath)), 'feed');
+  // The body depends only on the token: a browser opening the link while signed in gets the same.
+  assert.equal(cacheKind(req(feedPath, { headers: { cookie: 'has_session=1; access_token=x' } })), 'feed');
+  for (const p of [
+    `${feedPath}?x=1`,
+    `/api/calendar/${FEED_TOKEN.slice(1)}.ics`,
+    `/api/calendar/${FEED_TOKEN}`,
+    `/api/calendar/${FEED_TOKEN}.ics/x`,
+    '/api/calendar/feed/secret-token.ics',
+    '/api/me/calendar-feed',
+  ]) {
+    assert.equal(cacheKind(req(p)), null, p);
+  }
+  assert.equal(cacheKind(req(feedPath, { headers: { origin: 'https://example.com' } })), null);
+  assert.equal(cacheKind(req(feedPath, { headers: { authorization: 'Bearer x' } })), null);
+  for (const method of ['POST', 'HEAD']) assert.equal(cacheKind(req(feedPath, { method })), null, method);
+});
+
+test('a calendar feed is stored FEED_TTL only when the purge can revoke it', () => {
+  assert.equal(storableCacheControl('feed', ics(), true), `public, max-age=0, s-maxage=${FEED_TTL}`);
+  // Without the purge a reset link could keep answering from the edge: never stored.
+  assert.equal(storableCacheControl('feed', ics(), false), null);
+  // Reset or unknown links (404), throttling (429), errors, cookies, no-store, other bodies.
+  for (const status of [404, 429, 500]) assert.equal(storableCacheControl('feed', ics({}, status), true), null, String(status));
+  assert.equal(storableCacheControl('feed', ics({ 'set-cookie': 'a=b' }), true), null);
+  assert.equal(storableCacheControl('feed', ics({ 'cache-control': 'no-store' }), true), null);
+  assert.equal(storableCacheControl('feed', ics({ 'content-type': 'application/json' }), true), null);
+  // Calendar apps keep getting the API's own header; the stored copy is purgeable.
+  assert.equal(browserCacheControl('feed', `public, max-age=0, s-maxage=${FEED_TTL}`), 'private, max-age=900');
+  assert.equal(storedCopy(ics(), 'public, max-age=0, s-maxage=1800', 'feed').headers.get('cache-tag'), EDGE_TAG);
 });

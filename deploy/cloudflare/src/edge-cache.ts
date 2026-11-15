@@ -18,6 +18,15 @@
  *     personal field (apps/api/src/common/public-cache.ts). Kept for at most API_TTL seconds.
  *     Requests with an Origin header (cross-origin callers) are not cached (CORS headers vary).
  *
+ *   - Calendar feeds: GET /api/calendar/<token>.ics, the private subscription feed that Google,
+ *     Apple and Outlook poll without cookies (the token in the URL is the credential, and the
+ *     body depends only on it). Every poll used to reach the API and the database, and with
+ *     many subscribers some calendar was always polling, so neither could sleep. A 200
+ *     text/calendar answer is kept FEED_TTL, under its own URL (one entry per link), and only
+ *     when the purge is configured: resetting a link or deleting an account asks the API to
+ *     revalidate, which purges these copies with the pages (EDGE_TAG), so a revoked link stops
+ *     at once. Without the purge, feeds are never stored. Errors (404 for a reset link) never are.
+ *
  * How fast an admin edit shows: the API asks the Worker to revalidate (revalidate.ts), which
  * re-renders the pages in every running web container and purges every copy stored here
  * (they carry Cache-Tag EDGE_TAG) when the purge is configured, and then copies are kept
@@ -54,6 +63,13 @@ export const API_TTL = 30;
  * visits would otherwise find a 30 s copy expired: this is what lets the containers sleep.
  */
 export const PURGED_TTL = 3600;
+/**
+ * Edge lifetime of a calendar feed copy. Calendar apps refresh every few hours anyway, and a
+ * schedule edit or a link reset purges it sooner, so this only bounds what changes without one.
+ */
+export const FEED_TTL = 1800;
+/** What a calendar app gets for a feed, from the edge or not: the API's own header. */
+export const FEED_BROWSER_CACHE_CONTROL = 'private, max-age=900';
 /** Cache-Tag on every stored page and API answer: one purge clears them all (revalidate.ts). */
 export const EDGE_TAG = 'academy-public';
 /** Sent by the web app's server-side reads (apps/web/src/lib/server-api.ts): never from the edge cache. */
@@ -71,6 +87,8 @@ const MEDIA = /^\/api\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 
 const PUBLIC_API =
   /^\/api\/(courses|courses\/[a-z0-9-]{1,100}|events|events\/[a-z0-9-]{1,100}|speakers|speakers\/[a-z0-9-]{1,100}|recordings|recordings\/search|settings\/public)$/;
+/** A private calendar feed (apps/api/src/calendar): a 43-character base64url token. */
+const FEED = /^\/api\/calendar\/[A-Za-z0-9_-]{43}\.ics$/;
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
 const LOCALES = ['en', 'ar'] as const;
 
@@ -81,7 +99,7 @@ const NEXT_CLIENT_HEADERS = ['rsc', 'next-router-state-tree', 'next-router-prefe
 const PRIVATE_PAGE =
   /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn|verify-email|reset-password|waitlist)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
 
-export type CacheKind = 'page' | 'asset' | 'api';
+export type CacheKind = 'page' | 'asset' | 'api' | 'feed';
 
 export function cookieValue(request: Request, name: string): string | undefined {
   const header = request.headers.get('cookie');
@@ -115,6 +133,9 @@ export function cacheKind(request: Request): CacheKind | null {
     // Public, immutable images: the same bytes for everyone, so a session doesn't matter. No query
     // string (it would only multiply cache entries) and no cross-origin callers (CORS headers vary).
     if (MEDIA.test(path)) return url.search || request.headers.has('origin') || request.headers.has('authorization') ? null : 'asset';
+    // The feed depends only on the token in the path, never on cookies; no query string (the token
+    // is the whole key) and no cross-origin or authorised callers.
+    if (FEED.test(path)) return url.search || request.headers.has('origin') || request.headers.has('authorization') ? null : 'feed';
     if (hasSession(request) || request.headers.has('origin') || request.headers.has('authorization')) return null;
     return PUBLIC_API.test(path) ? 'api' : null;
   }
@@ -158,6 +179,14 @@ export function storableCacheControl(kind: CacheKind, response: Response, purge 
   // doesn't stop caching (storedCopy drops it), or a launch spike of new visitors would never hit.
   if (response.headers.has('set-cookie') && !(kind === 'page' && onlySetsLocaleCookie(response))) return null;
   const cc = parseCacheControl(response.headers.get('cache-control'));
+  if (kind === 'feed') {
+    // Before the `private` check below: the API marks the feed private for calendar apps and any
+    // shared cache between them; this edge keys it by the secret URL alone.
+    // Only with the purge: it is what makes a reset link stop at once (see the top of this file).
+    if (!purge || cc.directives.has('no-store') || cc.directives.has('no-cache')) return null;
+    if (!(response.headers.get('content-type') ?? '').startsWith('text/calendar')) return null;
+    return `public, max-age=0, s-maxage=${FEED_TTL}`;
+  }
   if (['private', 'no-store', 'no-cache'].some((d) => cc.directives.has(d))) return null;
   if (kind === 'asset') {
     return cc.directives.has('immutable') && (cc.maxAge ?? 0) > 0 ? response.headers.get('cache-control') : null;
@@ -186,6 +215,7 @@ export function storableCacheControl(kind: CacheKind, response: Response, purge 
  */
 export function browserCacheControl(kind: CacheKind, current: string | null): string | null {
   if (kind === 'asset') return current;
+  if (kind === 'feed') return FEED_BROWSER_CACHE_CONTROL;
   return 'public, max-age=0, must-revalidate';
 }
 
@@ -218,7 +248,7 @@ export function onlySetsLocaleCookie(response: Response): boolean {
  * The copy to put in the edge cache: with the storable Cache-Control and never a Set-Cookie
  * (the only one storableCacheControl lets through is NEXT_LOCALE, which the Worker sets per
  * visitor itself: the miss passes the middleware's on, and hits add it with localeCookie).
- * Pages and API answers are tagged EDGE_TAG so an admin edit can purge them all; build
+ * Pages, API answers and calendar feeds are tagged EDGE_TAG so an admin edit can purge them all; build
  * assets and images never change, so they aren't.
  */
 export function storedCopy(response: Response, cacheControl: string, kind: CacheKind = 'page'): Response {
