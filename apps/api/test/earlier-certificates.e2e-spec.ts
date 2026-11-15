@@ -14,6 +14,10 @@ describe('certificates issued before the academy (e2e)', () => {
 
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
+    // A re-run on the same database starts afresh.
+    await prisma.externalCertificate.deleteMany({ where: { code: { startsWith: 'EARL-' } } });
+    await prisma.certificate.deleteMany({ where: { serial: { startsWith: 'EARL-' } } });
+    await prisma.certificateSequence.deleteMany({ where: { code: 'EARL' } });
     admin = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC'], prefix: 'earlier-admin' });
     student = await createUser(app, prisma, { prefix: 'earlier-student' });
     unconfirmed = await createUser(app, prisma, { prefix: 'earlier-unconfirmed', verified: false });
