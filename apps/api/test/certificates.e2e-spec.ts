@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { CertificatesService, type CertificateIssuedEvent } from '../src/certificates/certificates.service';
+import { EmailService } from '../src/email/email.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { AccountService } from '../src/users/account.service';
 import { createCourse, createTestApp, createUser } from './helpers';
@@ -214,6 +215,26 @@ describe('certificates (e2e)', () => {
 
     const plain = await createCourse(prisma);
     expect(await issueTo(plain.id)).toMatch(/^MMA-\d{4}-[0-9A-Z]{8}$/);
+  });
+
+  it('a student whose account is in Arabic gets the certificate email and the Certified badge email in English', async () => {
+    const send = jest.spyOn(app.get(EmailService), 'send');
+    const u = await createUser(app, prisma, { prefix: 'cert-arabic' });
+    await prisma.user.update({ where: { id: u.id }, data: { locale: 'ar' } });
+    await prisma.profile.update({ where: { userId: u.id }, data: { fullNameEn: 'Arabic Locale Student', fullNameAr: 'طالب عربي' } });
+    await prisma.enrollment.create({ data: { userId: u.id, courseId: course.id } });
+    await http().post(`/api/admin/courses/${course.id}/certificates`).set('Cookie', admin.cookie).send({ userIds: [u.id], force: true }).expect(201);
+    const sentTo = () => send.mock.calls.filter((c) => c[0] === u.email);
+    // The badge email goes out after the issue returns (fire and forget).
+    for (let i = 0; i < 50 && sentTo().length < 2; i++) await new Promise((r) => setTimeout(r, 100));
+    const byName = (name: string) => sentTo().find((c) => (c[2] as { name: string }).name === name);
+    const cert = byName('certificateIssued');
+    const badge = byName('badgeAwarded');
+    expect(cert?.[1]).toBe('en');
+    expect(cert?.[2]).toMatchObject({ holderName: 'Arabic Locale Student' });
+    expect(badge?.[1]).toBe('en');
+    expect(JSON.stringify([cert?.[2], badge?.[2]])).not.toMatch(/[\u0600-\u06FF]/);
+    send.mockRestore();
   });
 
   it('exports the roster as CSV', async () => {
