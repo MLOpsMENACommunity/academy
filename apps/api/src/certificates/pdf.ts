@@ -40,11 +40,14 @@ const asset = (name: string) => {
   return p;
 };
 
-/** The founder's signature is part of the artwork, so she isn't drawn again as an instructor. */
+/** The founder's own signature is part of the artwork, so she is never drawn again as an instructor. */
 const FOUNDER = /^(eng\.?\s+)?aya\s+nasser(\s+salama)?$/i;
 
-type Weight = 400 | 500 | 700 | 800 | 900;
+/** 0 is the handwriting font used for instructors' signatures. */
+type Weight = 0 | 400 | 500 | 700 | 800 | 900;
+const SCRIPT = 0;
 const FONT_FILES: Record<Weight, string> = {
+  0: 'GreatVibes-Regular.ttf',
   400: 'Montserrat-Regular.ttf',
   500: 'Montserrat-Medium.ttf',
   700: 'Montserrat-Bold.ttf',
@@ -72,7 +75,10 @@ interface Layout {
   qr: { x: number; y: number; size: number };
   id: Box;
   date: { x: number; y: number; size: number };
-  instructors: { zone: { x: number; y: number; w: number }; ruleY: number; ruleX1: number; ruleX2: number; nameY: number; titleY: number; centerX: number };
+  /** The founder's block (signature, rule, name, title) as it sits in the artwork, and where her copy goes when someone else teaches. */
+  founder: { file: string; paper: string; x: number; y: number; w: number; h: number; ruleY: number; left: { x: number; w: number } };
+  /** Another instructor, drawn in the founder's place and style. */
+  signer: { ruleX1: number; ruleX2: number; ruleY: number; nameY: number; nameSize: number; titleY: number; titleSize: number };
 }
 
 /** From completion_template_v2.svg and attendance_template_v2.svg. */
@@ -87,7 +93,8 @@ const LAYOUTS: Record<'COMPLETION' | 'ATTENDANCE', Layout> = {
     qr: { x: 497, y: 819, size: 100 },
     id: { x: 630, y: 887, size: 20, minSize: 12, maxWidth: 245, weight: 700, color: '#080E3C' },
     date: { x: 630, y: 916, size: 16 },
-    instructors: { zone: { x: 135, y: 776, w: 330 }, ruleY: 866, ruleX1: 145, ruleX2: 455, nameY: 902, titleY: 929, centerX: 300 },
+    founder: { file: 'completion-founder.png', paper: 'completion-paper.png', x: 945, y: 785, w: 420, h: 160, ruleY: 865, left: { x: 140, w: 330 } },
+    signer: { ruleX1: 958, ruleX2: 1351, ruleY: 865, nameY: 902, nameSize: 21, titleY: 930, titleSize: 18 },
   },
   ATTENDANCE: {
     file: 'attendance-background.png',
@@ -99,7 +106,8 @@ const LAYOUTS: Record<'COMPLETION' | 'ATTENDANCE', Layout> = {
     qr: { x: 516, y: 795, size: 96 },
     id: { x: 650, y: 862, size: 16, minSize: 11, maxWidth: 255, weight: 700, color: '#080E3C' },
     date: { x: 650, y: 890, size: 15 },
-    instructors: { zone: { x: 140, y: 752, w: 338 }, ruleY: 841, ruleX1: 150, ruleX2: 460, nameY: 875, titleY: 902, centerX: 305 },
+    founder: { file: 'attendance-founder.png', paper: 'attendance-paper.png', x: 975, y: 765, w: 425, h: 155, ruleY: 840, left: { x: 145, w: 338 } },
+    signer: { ruleX1: 988, ruleX2: 1392, ruleY: 840, nameY: 876, nameSize: 20, titleY: 904, titleSize: 17 },
   },
 };
 
@@ -226,23 +234,39 @@ function qr(doc: Doc, text: string, x: number, y: number, size: number): void {
   doc.restore();
 }
 
-/** Instructors in the signature zone: one uses the template's own slot; two or three share the zone in columns. */
-function instructors(doc: Doc, list: CertificatePdfInstructor[], l: Layout['instructors']): void {
-  const people = list.filter((i) => clean(i.name) && !FOUNDER.test(clean(i.name))).slice(0, 3);
-  if (!people.length) return;
-  const gap = 14;
-  const single = people.length === 1;
-  const colW = single ? l.ruleX2 - l.ruleX1 : (l.zone.w - gap * (people.length - 1)) / people.length;
-  people.forEach((p, i) => {
-    const x1 = single ? l.ruleX1 : l.zone.x + i * (colW + gap);
-    const cx = single ? l.centerX : x1 + colW / 2;
-    doc.save().moveTo(x1, l.ruleY).lineTo(x1 + colW, l.ruleY).lineWidth(2).strokeColor(INK).stroke().restore();
+/**
+ * Signatures. The founder signs every certificate: her block is part of the artwork, on the right.
+ * When she teaches the course (or it lists no instructor) that one signature stands for both.
+ * When someone else teaches, her block moves to the left and the instructor signs on the right,
+ * in the same style; two other instructors share the right side. The instructors' signatures
+ * are their names in a handwriting font (Great Vibes, OFL).
+ */
+function signatures(doc: Doc, list: CertificatePdfInstructor[], L: Layout): void {
+  const others = list.filter((i) => clean(i.name) && !FOUNDER.test(clean(i.name))).slice(0, 2);
+  if (!others.length) return;
+  const f = L.founder;
+  // Clear the founder's place on the right, then put her block on the left at the same rule height.
+  doc.image(asset(f.paper), f.x, f.y, { width: f.w, height: f.h });
+  const k = f.left.w / f.w;
+  doc.image(asset(f.file), f.left.x, f.ruleY - (f.ruleY - f.y) * k, { width: f.left.w, height: f.h * k });
+
+  const s = L.signer;
+  const gap = 24;
+  const colW = (s.ruleX2 - s.ruleX1 - gap * (others.length - 1)) / others.length;
+  others.forEach((p, i) => {
+    const x1 = s.ruleX1 + i * (colW + gap);
+    const cx = x1 + colW / 2;
     const name = clean(p.name);
-    draw(doc, name, cx, l.nameY, { weight: 800, size: fitSize(doc, name, { size: single ? 19 : 14, minSize: 11, maxWidth: colW, weight: 800 }), color: INK, anchor: 'middle' });
+    const sigSize = fitSize(doc, name, { size: others.length === 1 ? 54 : 40, minSize: 24, maxWidth: colW * 0.92, weight: SCRIPT });
+    draw(doc, name, cx, s.ruleY - 12, { weight: SCRIPT, size: sigSize, color: INK, anchor: 'middle' });
+    doc.save().moveTo(x1, s.ruleY).lineTo(x1 + colW, s.ruleY).lineWidth(2).strokeColor(INK).stroke().restore();
+    const upper = name.toUpperCase();
+    const nameSize = fitSize(doc, upper, { size: others.length === 1 ? s.nameSize : s.nameSize - 4, minSize: 11, maxWidth: colW, weight: 800 });
+    draw(doc, upper, cx, s.nameY, { weight: 800, size: nameSize, color: INK, anchor: 'middle' });
     const title = clean(p.title);
     if (title) {
-      const size = fitSize(doc, title, { size: single ? 16 : 12, minSize: 9.5, maxWidth: colW, weight: 500 });
-      draw(doc, ellipsize(doc, title, 500, size, colW), cx, l.titleY, { weight: 500, size, color: TITLE_GREY, anchor: 'middle' });
+      const size = fitSize(doc, title, { size: others.length === 1 ? s.titleSize : s.titleSize - 3, minSize: 10, maxWidth: colW, weight: 400 });
+      draw(doc, ellipsize(doc, title, 400, size, colW), cx, s.titleY, { weight: 400, size, color: TITLE_GREY, anchor: 'middle' });
     }
   });
 }
@@ -296,7 +320,7 @@ export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
   draw(doc, 'Issued:', L.date.x, L.date.y, { weight: 500, size: L.date.size, color: GREY });
   draw(doc, dateEn(c.issuedAt), L.date.x + width(doc, 'Issued:', 500, L.date.size) + 6, L.date.y, { weight: 700, size: L.date.size, color: INK });
 
-  instructors(doc, c.instructors, L.instructors);
+  signatures(doc, c.instructors, L);
 
   doc.end();
   return done;

@@ -56,6 +56,12 @@ describe('renderCertificatePdf (the community templates)', () => {
     }
   });
 
+  it('signs with the founder alone when she teaches, and with one or two other instructors', async () => {
+    for (const instructors of [[], [{ name: 'Aya Nasser' }], [{ name: 'Sameh Mohamed', title: 'Senior MLOps Engineer' }], [{ name: 'Sameh Mohamed' }, { name: 'Omar Hassan', title: 'Data Engineer' }]]) {
+      isPdf(await renderCertificatePdf({ ...base, instructors }));
+    }
+  });
+
   it('copes with long text, several instructors, no description and a name in Arabic letters', async () => {
     isPdf(
       await renderCertificatePdf({

@@ -717,8 +717,10 @@ Students get the `certificateIssued` email and a notification; the dashboard's *
 logo shows), **View** and **Copy link**. The PDF uses the community's own designs (Certificate of
 Completion and Certificate of Attendance, the operations team's templates): the student's English name,
 the course name, the course's short description (two lines at most), a QR code to the verification
-page, the ID, the issue date and up to three instructors with their titles; the founder's signature is
-part of the artwork. Certificates and the certificate email are **English only**, whatever the
+page, the ID and the issue date. **Signatures:** the founder signs every certificate. When she teaches
+the course (or it lists no instructor) hers is the only signature; when someone else teaches, hers moves
+to the left and the instructor's signature (their name in a handwriting font), name and title go on the
+right (two other instructors share the right side). The MLOps MENA watermark is redrawn from the logo. Certificates and the certificate email are **English only**, whatever the
 student's language. One certificate per enrolment. Issuing adds the certificate bonus
 points and the **Certified** badge; revoking takes both back.
 
@@ -1208,7 +1210,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| Pending | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID, date and instructors with titles). Certificates and the certificate email are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
+| Pending | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates and the certificate email are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | Pending | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | Pending | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
 | Pending | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
