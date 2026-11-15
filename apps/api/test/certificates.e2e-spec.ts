@@ -191,6 +191,9 @@ describe('certificates (e2e)', () => {
       await http().post(`/api/admin/courses/${courseId}/certificates`).set('Cookie', admin.cookie).send({ userIds: [u.id], force: true }).expect(201);
       return (await prisma.certificate.findFirstOrThrow({ where: { enrollment: { userId: u.id, courseId } } })).serial;
     };
+    // A re-run on the same database starts the prefix afresh.
+    await prisma.certificate.deleteMany({ where: { serial: { startsWith: 'ZZ9-' } } });
+    await prisma.certificateSequence.deleteMany({ where: { code: 'ZZ9' } });
     const rule = { minSessionsPercent: null, requireAssessments: false };
     const cohort3 = await createCourse(prisma);
     await prisma.course.update({ where: { id: cohort3.id }, data: { cohortNumber: 3 } });
