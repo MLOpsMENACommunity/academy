@@ -16,10 +16,23 @@ export const SERIAL_RANDOM_LENGTH = 8;
 /** e.g. MMA-2026-7KQ4XM2P: the year it was issued, then 40 random bits. */
 export const SERIAL_PATTERN = /^MMA-\d{4}-[0-9A-HJKMNP-TV-Z]{8}$/;
 
+/** A course's certificate ID prefix: a letter, then up to 9 letters or digits (e.g. MLOPS, K8S). */
+export const CERT_CODE_PATTERN = /^[A-Z][A-Z0-9]{1,9}$/;
+/**
+ * Serials of courses with a prefix: {PREFIX}-{cohort, 2 digits}-{year}-{number, 5+ digits}, e.g.
+ * MLOPS-01-2026-00209, the format of the certificates issued before the academy.
+ */
+export const COURSE_SERIAL_PATTERN = /^[A-Z][A-Z0-9]{1,9}-\d{2}-\d{4}-\d{5,}$/;
+
 /** A serial as typed or pasted (lowercase, spaces) in its canonical form, or null if it can't be one. */
 export function normalizeSerial(raw: string): string | null {
   const s = raw.trim().toUpperCase();
-  return SERIAL_PATTERN.test(s) ? s : null;
+  return SERIAL_PATTERN.test(s) || COURSE_SERIAL_PATTERN.test(s) ? s : null;
+}
+
+/** e.g. formatCourseSerial('MLOPS', 1, 2026, 209) → MLOPS-01-2026-00209. A missing cohort number is 01. */
+export function formatCourseSerial(code: string, cohort: number | null, year: number, n: number): string {
+  return `${code}-${String(cohort ?? 1).padStart(2, '0')}-${year}-${String(n).padStart(5, '0')}`;
 }
 
 /** Builds a serial from random bytes (at least SERIAL_RANDOM_LENGTH of them; the API passes crypto bytes). */
@@ -43,12 +56,14 @@ export interface CertificateRule {
    * not yet graded counts as 0); null: no requirement.
    */
   minTotalPercent: number | null;
+  /** Prefix of the course's certificate IDs (MLOPS → MLOPS-01-2026-00001); null: random MMA- serials. */
+  codePrefix: string | null;
   /** Optional wording shown to students instead of the generated sentence. */
   textEn: string;
   textAr: string;
 }
 
-export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, minTotalPercent: null, textEn: '', textAr: '' };
+export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, minTotalPercent: null, codePrefix: null, textEn: '', textAr: '' };
 
 /** The course team wrote or configured a rule beyond the defaults. */
 export const ruleIsSet = (r: Pick<CertificateRule, 'minSessionsPercent' | 'minTotalPercent' | 'textEn' | 'textAr'>): boolean =>
@@ -74,6 +89,14 @@ export const certificateRuleSchema = z.object({
   requireAssessments: z.boolean(),
   /** Absent (older clients): no total-score requirement. */
   minTotalPercent: z.number().int().min(1).max(100).nullable().default(null),
+  /** Absent or empty: random MMA- serials. Typed in any case. */
+  codePrefix: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .nullish()
+    .transform((v) => v || null)
+    .refine((v) => v === null || CERT_CODE_PATTERN.test(v), { message: 'A letter, then up to 9 letters or digits (e.g. MLOPS)' }),
   textEn: z.string().trim().max(500).default(''),
   textAr: z.string().trim().max(500).default(''),
 });

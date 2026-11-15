@@ -241,6 +241,7 @@ export class AssessmentsService {
           minSessionsPercent: course.certMinSessionsPercent,
           requireAssessments: course.certRequireAssessments || course.selfPaced,
           minTotalPercent: course.certMinTotalPercent,
+          codePrefix: course.certCode,
           textEn: course.certRuleEn,
           textAr: course.certRuleAr,
         },

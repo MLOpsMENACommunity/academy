@@ -669,6 +669,8 @@ model Course {
   certRequireAssessments Boolean       @default(true)
   /// Certificate rule: minimum total score (0–100) over every published assessment, null for none.
   certMinTotalPercent    Int?
+  /// Certificate ID prefix (MLOPS → MLOPS-01-2026-00001, numbered per prefix); null: random MMA- serials.
+  certCode               String?
   /// Optional wording of the rule shown to students (otherwise generated from the fields above).
   certRuleEn             String        @default("")
   certRuleAr             String        @default("")
@@ -896,6 +898,12 @@ model ProjectSubmission {
 /// issue time so later edits don't change an issued certificate; re-issuing refreshes them.
 /// Restrict: an issued certificate is never deleted with its enrolment (accounts are soft-deleted,
 /// and anonymisation clears the name instead).
+/// The next number of each certificate ID prefix (MLOPS-01-2026-00209 → MLOPS). Numbers are never reused.
+model CertificateSequence {
+  code String @id
+  next Int
+}
+
 model Certificate {
   id                  String     @id @default(cuid())
   enrollmentId        String     @unique

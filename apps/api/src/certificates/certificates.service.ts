@@ -3,6 +3,7 @@ import {
   certificateEligibility,
   certificateOffered,
   certificatePath,
+  formatCourseSerial,
   formatSerial,
   isRequiredLesson,
   linkedInAddUrl,
@@ -67,6 +68,9 @@ export function newSerial(now = new Date()): string {
   return formatSerial(now.getUTCFullYear(), randomBytes(SERIAL_RANDOM_LENGTH));
 }
 
+/** The year in Cairo, as printed in course-prefixed serials. */
+const cairoYear = (d: Date) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', year: 'numeric' }).format(d));
+
 type CertWithCourse = Certificate & {
   enrollment: { userId: string; courseId: string; course: { slug: string }; user: { deletedAt: Date | null; anonymizedAt: Date | null } };
 };
@@ -76,11 +80,12 @@ const certInclude = {
 } as const;
 
 /** A self-paced course has one fixed rule: every required video, and every required assessment passed with 80% or more. */
-const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certMinTotalPercent' | 'certRuleEn' | 'certRuleAr' | 'selfPaced'>): CertificateRule => ({
+const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certMinTotalPercent' | 'certCode' | 'certRuleEn' | 'certRuleAr' | 'selfPaced'>): CertificateRule => ({
   minSessionsPercent: c.selfPaced ? 100 : c.certMinSessionsPercent,
   requireAssessments: c.selfPaced || c.certRequireAssessments,
   // Self-paced courses have their own fixed rule (80% on every required quiz).
   minTotalPercent: c.selfPaced ? null : c.certMinTotalPercent,
+  codePrefix: c.certCode,
   textEn: c.certRuleEn,
   textAr: c.certRuleAr,
 });
@@ -153,7 +158,7 @@ export class CertificatesService implements OnModuleInit {
       }),
     ]);
     const done = new Map(progress.map((p) => [p.userId, p._count._all]));
-    const rule = ruleOf({ ...course, certRuleEn: '', certRuleAr: '' });
+    const rule = ruleOf({ ...course, certCode: null, certRuleEn: '', certRuleAr: '' });
     const capstoneIds = capstones.map((a) => a.id);
     return new Map(
       userIds.map((id) => [id, certificateEligibility(rule, { sessions: { completed: done.get(id) ?? 0, total }, results: results.get(id)!, capstoneIds, selfPaced: course.selfPaced })]),
@@ -214,6 +219,7 @@ export class CertificatesService implements OnModuleInit {
         certMinSessionsPercent: input.minSessionsPercent,
         certRequireAssessments: input.requireAssessments,
         certMinTotalPercent: input.minTotalPercent,
+        certCode: input.codePrefix,
         certRuleEn: input.textEn,
         certRuleAr: input.textAr,
       },
@@ -223,7 +229,7 @@ export class CertificatesService implements OnModuleInit {
       action: 'course.certificate_rule_updated',
       entityType: 'Course',
       entityId: courseId,
-      metadata: { minSessionsPercent: input.minSessionsPercent, requireAssessments: input.requireAssessments, minTotalPercent: input.minTotalPercent },
+      metadata: { minSessionsPercent: input.minSessionsPercent, requireAssessments: input.requireAssessments, minTotalPercent: input.minTotalPercent, codePrefix: input.codePrefix },
     });
     return ruleOf(c);
   }
@@ -271,6 +277,8 @@ export class CertificatesService implements OnModuleInit {
           select: {
             slug: true,
             selfPaced: true,
+            certCode: true,
+            cohortNumber: true,
             titleEn: true,
             titleAr: true,
             instructors: { orderBy: { order: 'asc' }, select: { instructor: { select: { name: true, nameAr: true } } } },
@@ -295,6 +303,20 @@ export class CertificatesService implements OnModuleInit {
   }
 
   /**
+   * The serial of a new certificate: random (MMA-…) unless the course has an ID prefix; then the
+   * prefix's next number, taken atomically outside the issue transaction, so a failed issue leaves
+   * a gap and a number is never given twice (like the generator the academy replaced).
+   */
+  private async nextSerial(course: { certCode: string | null; cohortNumber: number | null }, now = new Date()): Promise<string> {
+    if (!course.certCode) return newSerial(now);
+    const [row] = await this.prisma.$queryRaw<{ n: number }[]>`
+      INSERT INTO "CertificateSequence" ("code", "next") VALUES (${course.certCode}, 2)
+      ON CONFLICT ("code") DO UPDATE SET "next" = "CertificateSequence"."next" + 1
+      RETURNING "next" - 1 AS "n"`;
+    return formatCourseSerial(course.certCode, course.cohortNumber, cairoYear(now), Number(row!.n));
+  }
+
+  /**
    * Issues one enrolment's certificate (the single entry point; bulk issue calls it per student).
    * Idempotent: an enrolment that already has one (valid or revoked) gets it back with created=false.
    */
@@ -305,9 +327,10 @@ export class CertificatesService implements OnModuleInit {
     if (!data.nameOnCertificate) throw new ConflictException({ code: 'NO_NAME', message: 'The student has no name on their profile' });
     for (let attempt = 0; ; attempt++) {
       try {
+        const serial = await this.nextSerial(enrollment.course);
         const certificate = await this.prisma.$transaction(async (tx) => {
           const c = await tx.certificate.create({
-            data: { enrollmentId, serial: newSerial(), issuedById: opts.issuedById, grade: opts.grade ?? null, kind: enrollment.course.selfPaced ? 'ATTENDANCE' : 'COMPLETION', ...data },
+            data: { enrollmentId, serial, issuedById: opts.issuedById, grade: opts.grade ?? null, kind: enrollment.course.selfPaced ? 'ATTENDANCE' : 'COMPLETION', ...data },
           });
           await this.audit.log(
             {
@@ -330,7 +353,7 @@ export class CertificatesService implements OnModuleInit {
           if (target.includes('enrollmentId')) {
             return { certificate: await this.prisma.certificate.findUniqueOrThrow({ where: { enrollmentId } }), created: false };
           }
-          // A serial collision (1 in 2^40 per pair): draw again.
+          // A serial collision (1 in 2^40 per pair, or a prefix number already used): draw again.
           if (attempt < 3) continue;
         }
         throw err;

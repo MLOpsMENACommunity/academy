@@ -1,6 +1,6 @@
 'use client';
 
-import { certificatePath, describeRule, MAX_BULK_CERTIFICATES, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
+import { CERT_CODE_PATTERN, certificatePath, describeRule, MAX_BULK_CERTIFICATES, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CheckboxField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -41,6 +41,8 @@ function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: Certi
   const [min, setMin] = useState(rule.minSessionsPercent === null ? '' : String(rule.minSessionsPercent));
   const [requireAssessments, setRequire] = useState(rule.requireAssessments);
   const [minTotal, setMinTotal] = useState(rule.minTotalPercent === null ? '' : String(rule.minTotalPercent));
+  const [prefix, setPrefix] = useState(rule.codePrefix ?? '');
+  const [prefixError, setPrefixError] = useState<string | undefined>();
   const [textEn, setTextEn] = useState(rule.textEn);
   const [textAr, setTextAr] = useState(rule.textAr);
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +62,12 @@ function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: Certi
     const total = percent(minTotal);
     setMinError(valid(n) ? undefined : t('forms.errors.invalid'));
     setTotalError(valid(total) ? undefined : t('forms.errors.invalid'));
-    if (!valid(n) || !valid(total)) return;
+    const codePrefix = prefix.trim().toUpperCase() || null;
+    setPrefixError(codePrefix === null || CERT_CODE_PATTERN.test(codePrefix) ? undefined : r('codePrefixError'));
+    if (!valid(n) || !valid(total) || (codePrefix !== null && !CERT_CODE_PATTERN.test(codePrefix))) return;
     setBusy(true);
     try {
-      const next = { minSessionsPercent: n, requireAssessments, minTotalPercent: total, textEn, textAr };
+      const next = { minSessionsPercent: n, requireAssessments, minTotalPercent: total, codePrefix, textEn, textAr };
       await api(`${courseApi}/certificate-rule`, { method: 'PUT', json: next });
       setSaved(true);
       onSaved(next);
@@ -108,6 +112,17 @@ function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: Certi
           className="max-w-56"
         />
         <p className="text-sm text-muted">{r('autoIssueHint')}</p>
+        <TextField
+          label={r('codePrefix')}
+          hint={r('codePrefixHint')}
+          value={prefix}
+          onChange={(v) => setPrefix(v.toUpperCase())}
+          maxLength={10}
+          autoCapitalize="characters"
+          error={prefixError}
+          className="max-w-56"
+          dir="ltr"
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextAreaField label={r('textEn')} hint={r('textHint')} value={textEn} onChange={setTextEn} rows={2} maxLength={500} />
           <TextAreaField label={r('textAr')} value={textAr} onChange={setTextAr} rows={2} maxLength={500} dir="rtl" />
