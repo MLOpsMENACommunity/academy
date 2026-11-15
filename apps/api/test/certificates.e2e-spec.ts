@@ -183,6 +183,36 @@ describe('certificates (e2e)', () => {
     expect(events.filter((e) => e.certificateId === c.id).map((e) => e.reissued)).toEqual([false, true]);
   });
 
+  it('a course ID prefix numbers certificates per prefix, with the cohort and year; no prefix keeps random serials', async () => {
+    const issueTo = async (courseId: string) => {
+      const u = await createUser(app, prisma, { prefix: 'cert-prefix' });
+      await prisma.profile.update({ where: { userId: u.id }, data: { fullNameEn: 'Prefix Student' } });
+      await prisma.enrollment.create({ data: { userId: u.id, courseId } });
+      await http().post(`/api/admin/courses/${courseId}/certificates`).set('Cookie', admin.cookie).send({ userIds: [u.id], force: true }).expect(201);
+      return (await prisma.certificate.findFirstOrThrow({ where: { enrollment: { userId: u.id, courseId } } })).serial;
+    };
+    const rule = { minSessionsPercent: null, requireAssessments: false };
+    const cohort3 = await createCourse(prisma);
+    await prisma.course.update({ where: { id: cohort3.id }, data: { cohortNumber: 3 } });
+    const cohort4 = await createCourse(prisma);
+    await prisma.course.update({ where: { id: cohort4.id }, data: { cohortNumber: 4 } });
+    await http().put(`/api/admin/courses/${cohort3.id}/certificate-rule`).set('Cookie', admin.cookie).send({ ...rule, codePrefix: 'zz9' }).expect(200);
+    await http().put(`/api/admin/courses/${cohort4.id}/certificate-rule`).set('Cookie', admin.cookie).send({ ...rule, codePrefix: 'ZZ9' }).expect(200);
+    await http().put(`/api/admin/courses/${cohort4.id}/certificate-rule`).set('Cookie', admin.cookie).send({ ...rule, codePrefix: '9ZZ' }).expect(400);
+
+    const year = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', year: 'numeric' }).format(new Date());
+    expect(await issueTo(cohort3.id)).toBe(`ZZ9-03-${year}-00001`);
+    // One running number for the prefix, whatever the cohort.
+    expect(await issueTo(cohort4.id)).toBe(`ZZ9-04-${year}-00002`);
+    const serial = await issueTo(cohort3.id);
+    expect(serial).toBe(`ZZ9-03-${year}-00003`);
+    // The public page finds it, typed in lower case too.
+    await http().get(`/api/certificates/${serial.toLowerCase()}`).expect(200);
+
+    const plain = await createCourse(prisma);
+    expect(await issueTo(plain.id)).toMatch(/^MMA-\d{4}-[0-9A-Z]{8}$/);
+  });
+
   it('exports the roster as CSV', async () => {
     const c = (await certOf(ready.id))!;
     const res = await http().get(`/api/admin/courses/${course.id}/certificates.csv`).set('Cookie', admin.cookie).expect(200);

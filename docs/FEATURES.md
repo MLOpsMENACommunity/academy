@@ -688,6 +688,9 @@ Assessments):
    published quiz, lab and assignment; work not submitted or not graded yet counts as 0; exactly the
    minimum passes), and optional wording in English and Arabic (otherwise generated). Every requirement
    that is set must be met. Students see each one with their own progress on the course page.
+   **Certificate ID prefix** (optional, e.g. `MLOPS`): IDs become `MLOPS-01-2026-00001` (prefix, cohort
+   number, year in Cairo, then a running number shared by every course with that prefix and never
+   reused). Without a prefix, IDs stay random (`MMA-2026-7KQ4XM2P`). Changing it affects only later certificates.
 2. The **roster** shows every enrolled student with sessions %, required assessments passed (and any
    waiting to be graded), average % (the total score), capstone state and an **Eligible** badge. Filters: all, eligible,
    not issued, issued, revoked.
@@ -1183,6 +1186,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Pending | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
 | Pending | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
 | Pending | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |

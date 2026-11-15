@@ -7,6 +7,7 @@ import {
   certificateRuleSchema,
   certificateTag,
   describeRule,
+  formatCourseSerial,
   formatSerial,
   issueCertificatesSchema,
   linkedInAddUrl,
@@ -108,6 +109,30 @@ const sub = (score: number | null, attempt = 1): ResultSubmission => ({ attempt,
 function results(rows: [ResultAssessment, ResultSubmission[]][]) {
   return summarizeResults('u', 'c', rows.map(([a, s]) => assessmentResult(a, s)));
 }
+
+describe('course-prefixed serials', () => {
+  it('formats prefix, cohort (01 by default), year and a 5-digit number', () => {
+    expect(formatCourseSerial('MLOPS', 1, 2026, 209)).toBe('MLOPS-01-2026-00209');
+    expect(formatCourseSerial('K8S', null, 2027, 1)).toBe('K8S-01-2027-00001');
+    expect(formatCourseSerial('MLOPS', 12, 2026, 123456)).toBe('MLOPS-12-2026-123456');
+  });
+
+  it('normalizes both serial formats as typed, and rejects anything else', () => {
+    expect(normalizeSerial(' mlops-01-2026-00023 ')).toBe('MLOPS-01-2026-00023');
+    expect(normalizeSerial('MMA-2026-7KQ4XM2P')).toBe('MMA-2026-7KQ4XM2P');
+    expect(normalizeSerial('MLOPS-1-2026-00023')).toBeNull();
+    expect(normalizeSerial('1MLOPS-01-2026-00023')).toBeNull();
+    expect(normalizeSerial('MLM-2026-AB12CD')).toBeNull();
+  });
+
+  it('accepts a prefix in any case, empty as none, and rejects bad ones', () => {
+    const base = { minSessionsPercent: null, requireAssessments: true };
+    expect(certificateRuleSchema.parse({ ...base, codePrefix: ' mlops ' }).codePrefix).toBe('MLOPS');
+    expect(certificateRuleSchema.parse({ ...base, codePrefix: '' }).codePrefix).toBeNull();
+    expect(certificateRuleSchema.parse(base).codePrefix).toBeNull();
+    for (const bad of ['M', '9K', 'ML-OPS', 'TOOLONGPREF1']) expect(certificateRuleSchema.safeParse({ ...base, codePrefix: bad }).success).toBe(false);
+  });
+});
 
 describe('certificateEligibility', () => {
   const rule = { minSessionsPercent: 80, requireAssessments: true, minTotalPercent: null };
