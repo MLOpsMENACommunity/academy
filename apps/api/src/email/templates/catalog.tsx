@@ -1012,7 +1012,7 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
           : `You've completed ${t.courseTitle}: your certificate is ready`
         : ar
           ? `شهادتك في ${t.courseTitle} جاهزة`
-          : `Your ${t.courseTitle} certificate is ready`;
+          : `Your certificate for ${t.courseTitle} is ready`;
       return {
         subject,
         element: (

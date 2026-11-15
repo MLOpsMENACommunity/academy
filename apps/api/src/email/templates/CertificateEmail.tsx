@@ -141,7 +141,7 @@ export function CertificateEmail(p: CertificateEmailProps) {
                   : `You've completed ${p.courseTitle}`
                 : ar
                   ? `شهادتك في ${p.courseTitle} جاهزة`
-                  : `Your ${p.courseTitle} certificate is ready`}
+                  : `Your certificate for ${p.courseTitle} is ready`}
             </Heading>
             <Text style={text}>
               {p.attendance
