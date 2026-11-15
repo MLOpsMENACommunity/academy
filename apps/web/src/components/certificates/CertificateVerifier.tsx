@@ -1,7 +1,7 @@
 'use client';
 
 import { certificatePath, codeFromScan, normalizeCertificateCode } from '@academy/shared';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { IconKeyboard, IconQr } from '@/components/ui/Icons';
@@ -18,7 +18,9 @@ export function CertificateVerifier() {
   const { locale, t } = useI18n();
   const v = (k: string) => t(`certificates.verifier.${k}`);
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>('manual');
+  // ?scan=1: opened again for the camera (see cameraBlocked), so start scanning straight away.
+  const reopened = useSearchParams().get('scan') === '1';
+  const [mode, setMode] = useState<Mode>(reopened ? 'scan' : 'manual');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
@@ -38,6 +40,13 @@ export function CertificateVerifier() {
 
   useEffect(() => {
     if (mode !== 'scan') return;
+    // The camera is allowed on this page only (Permissions-Policy). Reached from another page
+    // without a reload, the document still has the site-wide "no camera" policy: load the page
+    // afresh, scanning.
+    if (cameraBlocked()) {
+      window.location.assign(`/${locale}/verify-certificate?scan=1`);
+      return;
+    }
     let cancelled = false;
     let scanner: { stop: () => Promise<void>; clear: () => void } | null = null;
     void (async () => {
@@ -63,14 +72,28 @@ export function CertificateVerifier() {
         );
       } catch (err) {
         if (cancelled) return;
-        setError((err as { name?: string })?.name === 'NotFoundError' ? v('cameraMissing') : v('cameraDenied'));
+        const why = `${(err as { name?: string })?.name ?? ''} ${String(err)}`;
+        // Browsers without the policy check (Firefox, Safari) just refuse: try once on a fresh page.
+        if (!reopened && /NotAllowed|Permission|policy/i.test(why)) {
+          window.location.assign(`/${locale}/verify-certificate?scan=1`);
+          return;
+        }
+        setError(/NotFound/.test(why) ? v('cameraMissing') : v('cameraDenied'));
         setMode('manual');
       }
     })();
     return () => {
       cancelled = true;
       const s = scanner;
-      if (s) s.stop().then(() => s.clear()).catch(() => {});
+      if (!s) return;
+      // stop() throws (not rejects) when the camera never started, e.g. permission refused.
+      try {
+        s.stop()
+          .then(() => s.clear())
+          .catch(() => {});
+      } catch {
+        /* not running */
+      }
     };
     // open() and v() are stable enough for one scanning session; restart only when the mode changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,4 +168,14 @@ export function CertificateVerifier() {
       </p>
     </div>
   );
+}
+
+/** True when this document's Permissions-Policy forbids the camera (Chromium exposes it; others don't, and then we just try). */
+function cameraBlocked(): boolean {
+  const d = document as Document & {
+    permissionsPolicy?: { allowsFeature: (f: string) => boolean };
+    featurePolicy?: { allowsFeature: (f: string) => boolean };
+  };
+  const policy = d.permissionsPolicy ?? d.featurePolicy;
+  return policy ? !policy.allowsFeature('camera') : false;
 }
