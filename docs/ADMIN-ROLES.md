@@ -34,6 +34,7 @@ use both sets of pages. `SUPER` can do everything.
 | Students | ✓ | | | ✓ | | |
 | Talents | ✓ | | | | | |
 | Points & badges | ✓ | ✓ | | | | |
+| Certificates (earlier certificates import) | ✓ | ✓ | | | | |
 | Courses | ✓ | ✓ | | ✓ (read) | | |
 | Sessions (live) | ✓ | ✓ | | | | |
 | Speakers | ✓ | | | | ✓ | |
@@ -280,6 +281,7 @@ is listed.
 | Certificates | GET | `/api/admin/courses/:id/certificates.csv` | ACADEMIC |
 | Certificates | POST | `/api/admin/certificates/:id/revoke` | ACADEMIC |
 | Certificates | POST | `/api/admin/certificates/:id/reissue` | ACADEMIC |
+| Certificates | POST | `/api/admin/certificates/earlier/import` | ACADEMIC |
 | Testimonials | GET | `/api/admin/courses/:id/testimonials` | ACADEMIC |
 | Testimonials | PUT | `/api/admin/courses/:id/testimonials/:testimonialId/review` | ACADEMIC |
 | Points, badges, leaderboards | GET | `/api/admin/students/:id/points` | ACADEMIC |

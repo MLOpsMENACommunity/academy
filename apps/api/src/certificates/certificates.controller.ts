@@ -3,10 +3,12 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import {
   certificateRuleSchema,
+  earlierCertificatesImportSchema,
   issueCertificatesSchema,
   reissueCertificateSchema,
   revokeCertificateSchema,
   type CertificateRuleInput,
+  type EarlierCertificatesImportInput,
   type IssueCertificatesInput,
   type RevokeCertificateInput,
 } from '@academy/shared';
@@ -15,6 +17,7 @@ import type { z } from 'zod';
 import { AdminCan, CurrentUser, Public, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { CertificatesService } from './certificates.service';
+import { EarlierCertificatesService } from './earlier-certificates.service';
 
 /** Streams a PDF: never cached by browsers or the edge (a revocation must take effect at once). */
 function sendPdf(res: Response, pdf: { filename: string; body: Buffer }): void {
@@ -79,7 +82,18 @@ export class CertificatesController {
 @AdminCan('ACADEMIC')
 @Controller('admin')
 export class AdminCertificatesController {
-  constructor(private readonly certificates: CertificatesService) {}
+  constructor(
+    private readonly certificates: CertificatesService,
+    private readonly earlier: EarlierCertificatesService,
+  ) {}
+
+  /** Admin → Certificates: import the certificates issued before the academy (dry run first). */
+  @Post('certificates/earlier/import')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  importEarlier(@CurrentUser() user: AuthUser, @Body(new ZodPipe(earlierCertificatesImportSchema)) body: EarlierCertificatesImportInput) {
+    return this.earlier.importCsv(body.csv, body.dryRun, user);
+  }
 
   @Get('courses/:id/certificates')
   roster(@Param('id') id: string) {

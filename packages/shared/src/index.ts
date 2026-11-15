@@ -31,6 +31,7 @@ export * from './quiz-book';
 export * from './xlsx';
 export * from './points';
 export * from './certificates';
+export * from './earlier-certificates';
 export * from './invites';
 export * from './speaker-announcements';
 export * from './speaker-course';

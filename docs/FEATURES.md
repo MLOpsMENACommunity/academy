@@ -215,11 +215,18 @@ calendar is on mlopsmena.com/sessions (website repository). The academy offers:
 
 **Status:** Live. **Who:** anyone (employers, recruiters). **Use:** proves a certificate is genuine.
 
-`/certificates/<serial>` (serial like `MMA-2026-XXXXXXXX`) shows the name (English and Arabic), the
-course, issue date, instructors, grade, serial, issuer and status (**Valid** or **Revoked**), with a
-public PDF download for valid ones. Unknown serials give "not found". The page is never cached, so a
-revocation shows at once; it is `noindex`. Limits: 30 lookups a minute per visitor; 10 PDF downloads
-a minute per IP.
+**Verify a certificate** (`/verify-certificate`, linked in the footer): type the certificate ID or
+scan the QR code with the camera. It opens the certificate's page. `?code=<ID>` opens it directly (the
+website's old verify tool redirects here). The scanner reads both the bare IDs printed on certificates
+issued before the academy and the links in the academy's own QR codes.
+
+`/certificates/<serial>` (serial like `MMA-2026-XXXXXXXX`, `MLOPS-01-2026-00023`, any case) shows the
+name (English and Arabic), the course, issue date, instructors, grade, serial, issuer and status
+(**Valid** or **Revoked**), with a public PDF download for valid ones and **Add to LinkedIn**.
+Certificates issued before the academy (imported, see §7) show the same, without a PDF or a course
+link. Unknown IDs show "No certificate with this ID" and a way to try another. The page is never
+cached, so a revocation shows at once; it is `noindex`. Limits: 30 lookups a minute per visitor; 10
+PDF downloads a minute per IP.
 
 ### 2.8 What's new, policies and contact
 
@@ -713,6 +720,17 @@ points and the **Certified** badge; revoking takes both back.
 
 Self-paced courses issue a **Certificate of Attendance** automatically: see [Self-paced free courses](#self-paced-free-courses).
 
+**Certificates issued before the academy** (the n8n workflow and its public verification sheet):
+Admin → **Certificates** → **Import earlier certificates** takes the sheet as CSV (`code, holder_name,
+course, issued_on`, optional `status`, `email`, `kind`). Check the file first; a file with any error
+saves nothing. Rows match on the code: new ones are added, known ones updated, nothing is deleted, and
+a code issued by the academy is refused. Each prefix's numbering then continues after the highest
+imported number (`MLOPS-01-2026-00208` → the next MLOps certificate is `…-00209`). An email links the
+certificate to the account with that **confirmed** address, at import or when the student signs up
+later; linked ones appear in **My certificates** (no PDF). Emails are never shown publicly. Deleting
+the account hides the certificate; anonymisation removes its name and email, and a re-import doesn't
+bring them back. Audited.
+
 ---
 
 ## 8. Points, badges and leaderboards
@@ -1186,6 +1204,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Pending | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | Pending | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
 | Pending | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
 | Pending | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
