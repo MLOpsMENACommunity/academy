@@ -59,9 +59,33 @@ Then point the app at the restored database: update `DATABASE_URL` and `DIRECT_D
 
 Neon console → your project → **Branches** → **Restore** → choose a timestamp, either restoring `main` in place or creating a new branch. This is the fastest fix for "an admin deleted something an hour ago".
 
+## Email provider: Cloudflare Email Service or Resend
+
+The API sends through **Cloudflare Email Service** when the Worker has both secrets
+`CLOUDFLARE_EMAIL_API_TOKEN` (an **account** API token with *Email Sending: Edit*) and
+`CLOUDFLARE_EMAIL_ACCOUNT_ID`, and through **Resend** otherwise (`deploy/cloudflare/src/email.ts`).
+Cost: the Workers Paid plan includes 3,000 emails a month, then $0.35 per 1,000 (the academy
+sends about 8,500 a month, so about $2), against $20 a month for Resend Pro.
+
+- **Switch to Cloudflare:** onboard the domain once (Compute → Email Service → Email Sending →
+  Onboard Domain → `mlopsmena.com`; it adds MX, SPF and DKIM on `cf-bounce.mlopsmena.com`), set
+  both secrets in the GitHub environment (staging first) and redeploy, or `wrangler secret put`
+  them for an immediate switch.
+- **Switch back to Resend:** delete `CLOUDFLARE_EMAIL_API_TOKEN` from the Worker (`wrangler secret
+  delete`) and from the GitHub environment. `RESEND_API_KEY` stays set for exactly this.
+- **Daily quota:** Cloudflare starts new accounts on an unpublished daily quota and raises it with
+  sending reputation (Limit Increase Request Form on the limits page). A day over it puts the
+  rest of the outbox off until after midnight UTC, as Resend's quota did (`daily_quota_exceeded`).
+- **Suppressed addresses** (earlier hard bounces or complaints) fail that one email; the dashboard
+  lists them under Email Sending → Suppressions.
+- There is no open or click tracking either way.
+
 ## Email deliverability (SPF, DKIM, DMARC)
 
-Mail is sent through Resend from `academy@mlopsmena.com`. Adding the domain in Resend (with the Cloudflare auto-configure option) creates:
+Mail is sent from `academy@mlopsmena.com`, through Cloudflare Email Service or Resend (above).
+With Cloudflare, onboarding adds `MX`, SPF (`v=spf1 include:_spf.mx.cloudflare.net ~all`) and DKIM
+records on `cf-bounce.mlopsmena.com`, so it doesn't touch the Resend records below or the root SPF.
+With Resend: Adding the domain in Resend (with the Cloudflare auto-configure option) creates:
 
 | Record | Name | Purpose |
 |---|---|---|
@@ -162,6 +186,7 @@ Repeated failed logins also trigger a 15-minute lockout. The limits are held in 
 |---|---|---|
 | `JWT_ACCESS_SECRET` | Access tokens become invalid; sessions renew silently via the refresh cookie. **Every private calendar link is revoked at once** (feed tokens are derived from this secret and checked on each request): subscriptions return 404 and stop updating. Students see their new link the next time they open the calendar menu or Profile → Account, and must add it to their calendar again. Tell enrolled students when you rotate | New value in GitHub env → redeploy |
 | `RESEND_API_KEY` | None, if the new key is set before the old one is revoked | Create a new key in Resend → GitHub env → redeploy → revoke the old one |
+| `CLOUDFLARE_EMAIL_API_TOKEN` | None, if the new token is set before the old one is revoked | New account API token (Email Sending: Edit) → GitHub env → redeploy → delete the old token |
 | R2 keys (`S3_*`) | None, as above | New R2 API token → GitHub env → redeploy → delete the old token |
 | `JOBS_TOKEN` | None. Unless `REVALIDATE_TOKEN` is set, the revalidation token derived from it changes too, and the containers restart with the new one | GitHub env → redeploy (the Worker and the API read the same value) |
 | `BOT_API_TOKEN` (optional) | The community bot's sync fails until it has the new value; its reports keep the last synced data | New value (32+ characters) on the Worker, then the same value as `ACADEMY_BOT_TOKEN` on the bot, then restart the bot |

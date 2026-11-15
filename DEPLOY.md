@@ -11,7 +11,7 @@ academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
      ├── /*       → WebContainer   (apps/web/Dockerfile, Next.js)
      └── cron     → POST /api/internal/jobs/tick (hourly)
                        │
-          Neon Postgres · private R2 bucket · Resend
+          Neon Postgres · private R2 bucket · Cloudflare Email Service (or Resend)
 ```
 
 Production runs one API container and up to three web containers (`standard-1`), and
@@ -172,7 +172,8 @@ ready). The browser (Playwright) tests no longer gate a release: run them locall
   [Jobs on staging](#jobs-on-staging)).
 - Neon: free tier (both databases in one project).
 - R2: free tier, up to 10 GB.
-- Resend: free tier at first.
+- Email: Cloudflare Email Service, 3,000 a month included then $0.35 per 1,000, or Resend
+  (OPERATIONS.md, "Email provider").
 
 See `docs/COST_ANALYSIS.md`, which is local only and not in git.
 
