@@ -195,10 +195,10 @@ function Inner({ user }: { user: MeResponse }) {
   const next = index >= 0 && index < sessions.length - 1 ? sessions[index + 1] : null;
   const ended = sessions.length > 0 && sessions.every((s) => s.phase === 'ended');
   const dueCount = assessments.filter((a) => a.due).length;
-  // Asked once the course feedback is in; at the top of the page once the certificate is issued.
-  const testimonialForm =
-    course.selfPaced && course.canTrackProgress && course.courseFeedback ? <TestimonialForm slug={course.slug} initial={course.testimonial} onChanged={load} /> : null;
   const certificateIssued = certificate?.certificate?.status === 'VALID';
+  // Asked once the course feedback is in or the certificate is issued (then at the top of the page).
+  const testimonialForm =
+    course.selfPaced && course.canTrackProgress && (course.courseFeedback || certificateIssued) ? <TestimonialForm slug={course.slug} initial={course.testimonial} onChanged={load} /> : null;
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
   const go = (s: LearnSessionDto) => {
     setSelected(s.order);
@@ -481,7 +481,7 @@ function Inner({ user }: { user: MeResponse }) {
 
           {ended && (
             <section id="course-feedback" className="scroll-mt-6 rounded-xl border border-line p-5 sm:p-6">
-              <FeedbackForm slug={course.slug} sessionId={null} legend={t('learn.courseFeedback')} initial={course.courseFeedback} requireComment={course.selfPaced} onSaved={load} />
+              <FeedbackForm slug={course.slug} sessionId={null} legend={t('learn.courseFeedback')} initial={course.courseFeedback} onSaved={load} />
             </section>
           )}
           {!certificateIssued && testimonialForm}

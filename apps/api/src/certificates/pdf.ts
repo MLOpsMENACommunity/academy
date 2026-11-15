@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
 import qrcode from 'qrcode-generator';
 import { CERTIFICATE_ORGANIZATION, type InstructorName } from '@academy/shared';
+import { dateAr, dateEn } from './dates';
 
 /**
  * The certificate PDF: landscape A4, bilingual, drawn with PDFKit (pure JavaScript, no browser
@@ -122,9 +123,6 @@ function qr(doc: Doc, text: string, x: number, y: number, size: number): void {
   doc.restore();
 }
 
-const dateEn = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Cairo' });
-// Latin digits: Arabic-Indic digits inside a right-to-left line would need full bidi.
-const dateAr = (d: Date) => d.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Cairo' });
 
 /** Renders the certificate to a PDF buffer. */
 export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {

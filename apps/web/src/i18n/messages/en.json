@@ -1059,7 +1059,7 @@
         "externalUrl": "Link to it on that platform",
         "publicRecordings": "Recordings are public: shown on the course page and in the Recordings library once each lesson has ended",
         "selfPaced": "Self-paced course",
-        "selfPacedHint": "Students enrol instantly, watch the YouTube videos at their own pace, and get an attendance certificate automatically after every required video, every required quiz and their course feedback. The videos are shown to enrolled students only. Needs a free course with no approval step and status Open. The certificate rule below is not used.",
+        "selfPacedHint": "Students enrol instantly, watch the YouTube videos at their own pace, and get an attendance certificate automatically after every required video, every required quiz passed with 80% or more. Quizzes in this course get a pass mark of at least 80% when saved. The videos are shown to enrolled students only. Needs a free course with no approval step and status Open. The certificate rule below is not used.",
         "showEnrolledCount": "Show enrolled count publicly",
         "showEnrolledCountHint": "The course page and its cards say how many students are enrolled (the number only, never names).",
         "sessionTags": "Tags (Recordings filter)"
@@ -3225,8 +3225,8 @@
       "average": "Your average score so far: {percent}%",
       "eligible": "You meet the requirements. The course team issues certificates after the course ends.",
       "lessons": "{completed} of {total, plural, one {# required video} other {# required videos}} finished",
-      "selfPacedRule": "Finish every required video, pass every required quiz and share your course feedback. Your Certificate of Attendance is then issued automatically.",
-      "feedback": "Share your course feedback (rating and comment)",
+      "selfPacedRule": "Finish every required video and score 80% or more on every required quiz. Your Certificate of Attendance is then issued automatically and emailed to you.",
+      "selfPacedAssessments": "Required quizzes passed with 80% or more: {passed} of {required}",
       "selfPacedEligible": "You meet the requirements and your certificate is on its way. If it doesn't appear, check that your full name is on your profile.",
       "keepGoing": "Keep going: your status updates as you complete sessions and assessments are graded."
     },

@@ -21,16 +21,34 @@ describe('self-paced courses (e2e)', () => {
   /** Two required videos, one optional video, one lesson with no video, and a required quiz (70%). */
   async function setup(opts: { quiz?: boolean; name?: boolean; selfPaced?: boolean } = {}) {
     const course = await createCourse(prisma, { requiresApproval: false });
-    await prisma.course.update({ where: { id: course.id }, data: { selfPaced: opts.selfPaced ?? true } });
+    await prisma.course.update({
+      where: { id: course.id },
+      data: { selfPaced: opts.selfPaced ?? true },
+    });
     const lesson = (order: number, recordingUrl: string | null, optional = false) =>
-      prisma.courseSession.create({ data: { courseId: course.id, order, titleEn: `L${order}`, titleAr: `د${order}`, startsAt: past, durationMin: 60, recordingUrl, optional } });
+      prisma.courseSession.create({
+        data: {
+          courseId: course.id,
+          order,
+          titleEn: `L${order}`,
+          titleAr: `د${order}`,
+          startsAt: past,
+          durationMin: 60,
+          recordingUrl,
+          optional,
+        },
+      });
     const required1 = await lesson(1, video('aaaaaaaaaaa'));
     const required2 = await lesson(2, video('bbbbbbbbbbb'));
     const optional = await lesson(3, video('ccccccccccc'), true);
     const noVideo = await lesson(4, null);
     const student = await createUser(app, prisma);
     await prisma.enrollment.create({ data: { userId: student.id, courseId: course.id } });
-    await prisma.profile.update({ where: { userId: student.id }, data: opts.name === false ? { fullNameEn: '', fullNameAr: '' } : { fullNameEn: 'Sam Student' } });
+    await prisma.profile.update({
+      where: { userId: student.id },
+      data:
+        opts.name === false ? { fullNameEn: '', fullNameAr: '' } : { fullNameEn: 'Sam Student' },
+    });
     let quiz: { id: string; questionId: string; right: string; wrong: string } | null = null;
     if (opts.quiz !== false) {
       const a = await prisma.assessment.create({
@@ -44,28 +62,62 @@ describe('self-paced courses (e2e)', () => {
           passPercent: 70,
           attemptsAllowed: 0,
           countsForCertificate: true,
-          questions: { create: { kind: 'SINGLE', promptEn: 'Q', promptAr: 'س', weight: 1, order: 0, options: { create: [{ labelEn: 'Yes', labelAr: 'نعم', correct: true, order: 0 }, { labelEn: 'No', labelAr: 'لا', correct: false, order: 1 }] } } },
+          questions: {
+            create: {
+              kind: 'SINGLE',
+              promptEn: 'Q',
+              promptAr: 'س',
+              weight: 1,
+              order: 0,
+              options: {
+                create: [
+                  { labelEn: 'Yes', labelAr: 'نعم', correct: true, order: 0 },
+                  { labelEn: 'No', labelAr: 'لا', correct: false, order: 1 },
+                ],
+              },
+            },
+          },
         },
         include: { questions: { include: { options: true } } },
       });
       const q = a.questions[0]!;
-      quiz = { id: a.id, questionId: q.id, right: q.options.find((o) => o.correct)!.id, wrong: q.options.find((o) => !o.correct)!.id };
+      quiz = {
+        id: a.id,
+        questionId: q.id,
+        right: q.options.find((o) => o.correct)!.id,
+        wrong: q.options.find((o) => !o.correct)!.id,
+      };
     }
     return { course, student, required1, required2, optional, noVideo, quiz };
   }
 
   type Ctx = Awaited<ReturnType<typeof setup>>;
-  const put = (c: Ctx, sessionId: string, body: { completed: boolean; source: 'WATCHED' | 'MANUAL' }, cookie = c.student.cookie) =>
-    http().put(`/api/learn/${c.course.slug}/sessions/${sessionId}/lesson-completion`).set('Cookie', cookie).send(body);
-  const learn = async (c: Ctx) => (await http().get(`/api/learn/${c.course.slug}`).set('Cookie', c.student.cookie).expect(200)).body;
-  const certOf = (c: Ctx) => prisma.certificate.findFirst({ where: { enrollment: { userId: c.student.id, courseId: c.course.id } } });
+  const put = (
+    c: Ctx,
+    sessionId: string,
+    body: { completed: boolean; source: 'WATCHED' | 'MANUAL' },
+    cookie = c.student.cookie,
+  ) =>
+    http()
+      .put(`/api/learn/${c.course.slug}/sessions/${sessionId}/lesson-completion`)
+      .set('Cookie', cookie)
+      .send(body);
+  const learn = async (c: Ctx) =>
+    (await http().get(`/api/learn/${c.course.slug}`).set('Cookie', c.student.cookie).expect(200))
+      .body;
+  const certOf = (c: Ctx) =>
+    prisma.certificate.findFirst({
+      where: { enrollment: { userId: c.student.id, courseId: c.course.id } },
+    });
   async function takeQuiz(c: Ctx, optionId: string) {
     const base = `/api/learn/${c.course.slug}/assessments/${c.quiz!.id}`;
     await http().post(`${base}/start`).set('Cookie', c.student.cookie).expect(200);
-    await http().post(`${base}/submit`).set('Cookie', c.student.cookie).send({ answers: { [c.quiz!.questionId]: [optionId] } }).expect(200);
+    await http()
+      .post(`${base}/submit`)
+      .set('Cookie', c.student.cookie)
+      .send({ answers: { [c.quiz!.questionId]: [optionId] } })
+      .expect(200);
   }
-  const giveFeedback = (c: Ctx, comment: string | null = 'Clear and practical.') =>
-    http().put(`/api/learn/${c.course.slug}/feedback`).set('Cookie', c.student.cookie).send({ rating: 5, comment }).expect(204);
   const finishRequired = async (c: Ctx) => {
     await put(c, c.required1.id, { completed: true, source: 'WATCHED' }).expect(204);
     await put(c, c.required2.id, { completed: true, source: 'MANUAL' }).expect(204);
@@ -98,9 +150,15 @@ describe('self-paced courses (e2e)', () => {
   it('refuses a lesson with no video, a live course, a stranger and an invalid source', async () => {
     const c = await setup();
     await put(c, c.noVideo.id, { completed: true, source: 'MANUAL' }).expect(409);
-    await http().put(`/api/learn/${c.course.slug}/sessions/${c.required1.id}/lesson-completion`).set('Cookie', c.student.cookie).send({ completed: true, source: 'OTHER' }).expect(400);
+    await http()
+      .put(`/api/learn/${c.course.slug}/sessions/${c.required1.id}/lesson-completion`)
+      .set('Cookie', c.student.cookie)
+      .send({ completed: true, source: 'OTHER' })
+      .expect(400);
     const stranger = await createUser(app, prisma);
-    await put(c, c.required1.id, { completed: true, source: 'MANUAL' }, stranger.cookie).expect(403);
+    await put(c, c.required1.id, { completed: true, source: 'MANUAL' }, stranger.cookie).expect(
+      403,
+    );
 
     const live = await setup({ selfPaced: false });
     await put(live, live.required1.id, { completed: true, source: 'MANUAL' }).expect(409);
@@ -108,20 +166,24 @@ describe('self-paced courses (e2e)', () => {
 
   it('issues the attendance certificate as soon as the quiz is passed after the videos', async () => {
     const c = await setup();
-    await giveFeedback(c);
     await finishRequired(c);
     expect(await certOf(c)).toBeNull();
     await takeQuiz(c, c.quiz!.wrong);
     expect(await certOf(c)).toBeNull();
     await takeQuiz(c, c.quiz!.right);
-    expect(await certOf(c)).toMatchObject({ kind: 'ATTENDANCE', issuedById: null, nameOnCertificate: 'Sam Student' });
-    const view = await http().get(`/api/certificates/${(await certOf(c))!.serial}`).expect(200);
+    expect(await certOf(c)).toMatchObject({
+      kind: 'ATTENDANCE',
+      issuedById: null,
+      nameOnCertificate: 'Sam Student',
+    });
+    const view = await http()
+      .get(`/api/certificates/${(await certOf(c))!.serial}`)
+      .expect(200);
     expect(view.body.kind).toBe('ATTENDANCE');
   });
 
   it('issues it when the last video is finished after the quiz, and does not need the optional one', async () => {
     const c = await setup();
-    await giveFeedback(c);
     await takeQuiz(c, c.quiz!.right);
     await put(c, c.required1.id, { completed: true, source: 'MANUAL' }).expect(204);
     expect(await certOf(c)).toBeNull();
@@ -131,17 +193,36 @@ describe('self-paced courses (e2e)', () => {
 
   it('never issues on watching alone: a course with no required quiz gives no certificate', async () => {
     const c = await setup({ quiz: false });
-    await giveFeedback(c);
     await finishRequired(c);
     expect(await certOf(c)).toBeNull();
-    const card = (await http().get(`/api/learn/${c.course.slug}/certificate`).set('Cookie', c.student.cookie).expect(200)).body;
-    expect(card).toMatchObject({ selfPaced: true, eligibility: { eligible: false }, certificate: null });
+    const card = (
+      await http()
+        .get(`/api/learn/${c.course.slug}/certificate`)
+        .set('Cookie', c.student.cookie)
+        .expect(200)
+    ).body;
+    expect(card).toMatchObject({
+      selfPaced: true,
+      eligibility: { eligible: false },
+      certificate: null,
+    });
   });
 
   it('ignores completions that did not come from the lesson player', async () => {
     const c = await setup();
-    await prisma.sessionProgress.createMany({ data: [c.required1, c.required2].map((s) => ({ userId: c.student.id, sessionId: s.id })) });
-    await prisma.sessionAttendance.create({ data: { userId: c.student.id, sessionId: c.required2.id, minutes: 60, percent: 100, status: 'PRESENT', source: 'MANUAL' } });
+    await prisma.sessionProgress.createMany({
+      data: [c.required1, c.required2].map((s) => ({ userId: c.student.id, sessionId: s.id })),
+    });
+    await prisma.sessionAttendance.create({
+      data: {
+        userId: c.student.id,
+        sessionId: c.required2.id,
+        minutes: 60,
+        percent: 100,
+        status: 'PRESENT',
+        source: 'MANUAL',
+      },
+    });
     await takeQuiz(c, c.quiz!.right);
     expect(await certOf(c)).toBeNull();
     expect((await learn(c)).progress.completed).toBe(0);
@@ -149,34 +230,128 @@ describe('self-paced courses (e2e)', () => {
 
   it('issues a certificate held back by a missing name once the name is added and the course is opened', async () => {
     const c = await setup({ name: false });
-    await giveFeedback(c);
     await finishRequired(c);
     await takeQuiz(c, c.quiz!.right);
     expect(await certOf(c)).toBeNull();
-    await prisma.profile.update({ where: { userId: c.student.id }, data: { fullNameEn: 'Late Name' } });
-    const card = (await http().get(`/api/learn/${c.course.slug}/certificate`).set('Cookie', c.student.cookie).expect(200)).body;
+    await prisma.profile.update({
+      where: { userId: c.student.id },
+      data: { fullNameEn: 'Late Name' },
+    });
+    const card = (
+      await http()
+        .get(`/api/learn/${c.course.slug}/certificate`)
+        .set('Cookie', c.student.cookie)
+        .expect(200)
+    ).body;
     expect(card.certificate).toMatchObject({ nameOnCertificate: 'Late Name', status: 'VALID' });
   });
 
-  it('waits for the course feedback with a comment, and issues the moment it arrives', async () => {
-    const c = await setup();
+  it('needs 80% on every required quiz, even below a lower pass mark, and no course feedback', async () => {
+    const c = await setup({ quiz: false });
+    const options = {
+      create: [
+        { labelEn: 'Yes', labelAr: 'نعم', correct: true, order: 0 },
+        { labelEn: 'No', labelAr: 'لا', correct: false, order: 1 },
+      ],
+    };
+    const a = await prisma.assessment.create({
+      data: {
+        courseId: c.course.id,
+        type: 'QUIZ',
+        status: 'PUBLISHED',
+        titleEn: 'Four questions',
+        titleAr: 'أربعة أسئلة',
+        maxPoints: 4,
+        passPercent: 70,
+        attemptsAllowed: 0,
+        countsForCertificate: true,
+        questions: {
+          create: [0, 1, 2, 3].map((order) => ({
+            kind: 'SINGLE' as const,
+            promptEn: `Q${order}`,
+            promptAr: `س${order}`,
+            weight: 1,
+            order,
+            options,
+          })),
+        },
+      },
+      include: { questions: { include: { options: true } } },
+    });
+    const answer = async (right: number) => {
+      const base = `/api/learn/${c.course.slug}/assessments/${a.id}`;
+      await http().post(`${base}/start`).set('Cookie', c.student.cookie).expect(200);
+      const answers = Object.fromEntries(
+        a.questions.map((q, i) => [q.id, [q.options.find((o) => o.correct === i < right)!.id]]),
+      );
+      await http()
+        .post(`${base}/submit`)
+        .set('Cookie', c.student.cookie)
+        .send({ answers })
+        .expect(200);
+    };
     await finishRequired(c);
-    await takeQuiz(c, c.quiz!.right);
+    await answer(3); // 75%: passes the quiz's own 70%, not the certificate's 80%
     expect(await certOf(c)).toBeNull();
-    await giveFeedback(c, null);
-    expect(await certOf(c)).toBeNull();
-    let card = (await http().get(`/api/learn/${c.course.slug}/certificate`).set('Cookie', c.student.cookie).expect(200)).body;
-    expect(card.eligibility).toMatchObject({ eligible: false, feedback: { ok: false } });
-    await giveFeedback(c);
+    const card = (
+      await http()
+        .get(`/api/learn/${c.course.slug}/certificate`)
+        .set('Cookie', c.student.cookie)
+        .expect(200)
+    ).body;
+    expect(card.eligibility).toMatchObject({
+      eligible: false,
+      assessments: { required: 1, passed: 0, ok: false },
+    });
+    expect(card.eligibility).not.toHaveProperty('feedback');
+    await answer(4);
     expect((await certOf(c))?.kind).toBe('ATTENDANCE');
-    card = (await http().get(`/api/learn/${c.course.slug}/certificate`).set('Cookie', c.student.cookie).expect(200)).body;
-    expect(card.certificate.status).toBe('VALID');
+  });
+
+  it('raises a self-paced quiz pass mark below 80% when it is saved', async () => {
+    const c = await setup({ quiz: false });
+    const admin = await createUser(app, prisma, { role: 'ADMIN', prefix: 'pass-mark-admin' });
+    const body = {
+      type: 'QUIZ',
+      status: 'DRAFT',
+      titleEn: 'Check',
+      maxPoints: 10,
+      passPercent: 60,
+      countsForCertificate: true,
+      attemptsAllowed: 2,
+      revealAnswers: 'AFTER_SUBMIT',
+      questions: [
+        {
+          kind: 'SINGLE',
+          promptEn: 'Q',
+          weight: 1,
+          options: [
+            { labelEn: 'Yes', correct: true },
+            { labelEn: 'No', correct: false },
+          ],
+        },
+      ],
+    };
+    const res = await http()
+      .post(`/api/admin/courses/${c.course.id}/assessments`)
+      .set('Cookie', admin.cookie)
+      .send(body);
+    expect(res.status).toBe(201);
+    expect(res.body.passPercent).toBe(80);
+    const higher = await http()
+      .post(`/api/admin/courses/${c.course.id}/assessments`)
+      .set('Cookie', admin.cookie)
+      .send({ ...body, passPercent: 90 })
+      .expect(201);
+    expect(higher.body.passPercent).toBe(90);
   });
 
   describe('testimonials', () => {
     const text = 'This course changed how I ship models to production.';
-    const say = (c: Ctx, body: Record<string, unknown>, cookie = c.student.cookie) => http().put(`/api/learn/${c.course.slug}/testimonial`).set('Cookie', cookie).send(body);
-    const publicList = async (c: Ctx) => (await http().get(`/api/courses/${c.course.slug}`).expect(200)).body.testimonials;
+    const say = (c: Ctx, body: Record<string, unknown>, cookie = c.student.cookie) =>
+      http().put(`/api/learn/${c.course.slug}/testimonial`).set('Cookie', cookie).send(body);
+    const publicList = async (c: Ctx) =>
+      (await http().get(`/api/courses/${c.course.slug}`).expect(200)).body.testimonials;
     const admin = () => createUser(app, prisma, { role: 'ADMIN', prefix: 'testimonial-admin' });
     const base = (c: Ctx) => `/api/admin/courses/${c.course.id}/testimonials`;
 
@@ -184,7 +359,9 @@ describe('self-paced courses (e2e)', () => {
       const c = await setup();
       await say(c, { body: text, consent: false }).expect(400);
       await say(c, { body: 'too short', consent: true }).expect(400);
-      await say(c, { body: text, consent: true }, (await createUser(app, prisma)).cookie).expect(403);
+      await say(c, { body: text, consent: true }, (await createUser(app, prisma)).cookie).expect(
+        403,
+      );
       const live = await setup({ selfPaced: false });
       await say(live, { body: text, consent: true }).expect(409);
     });
@@ -198,10 +375,24 @@ describe('self-paced courses (e2e)', () => {
 
       await http().get(base(c)).set('Cookie', c.student.cookie).expect(403);
       const [row] = (await http().get(base(c)).set('Cookie', a.cookie).expect(200)).body;
-      await http().put(`${base(c)}/${row.id}/review`).set('Cookie', c.student.cookie).send({ status: 'APPROVED' }).expect(403);
-      await http().put(`${base(c)}/${row.id}/review`).set('Cookie', a.cookie).send({ status: 'APPROVED' }).expect(204);
-      expect(await publicList(c)).toEqual([{ id: row.id, name: 'Sam Student', nameAr: null, body: text }]);
-      expect(await prisma.auditLog.count({ where: { action: 'testimonial.reviewed', entityId: row.id } })).toBe(1);
+      await http()
+        .put(`${base(c)}/${row.id}/review`)
+        .set('Cookie', c.student.cookie)
+        .send({ status: 'APPROVED' })
+        .expect(403);
+      await http()
+        .put(`${base(c)}/${row.id}/review`)
+        .set('Cookie', a.cookie)
+        .send({ status: 'APPROVED' })
+        .expect(204);
+      expect(await publicList(c)).toEqual([
+        { id: row.id, name: 'Sam Student', nameAr: null, body: text },
+      ]);
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'testimonial.reviewed', entityId: row.id },
+        }),
+      ).toBe(1);
 
       // An edit goes back to review and leaves the site.
       await say(c, { body: `${text} Edited.`, consent: true }).expect(204);
@@ -215,16 +406,26 @@ describe('self-paced courses (e2e)', () => {
       const a = await admin();
       await say(c, { body: text, consent: true }).expect(204);
       const [row] = (await http().get(base(c)).set('Cookie', a.cookie).expect(200)).body;
-      await http().put(`${base(other)}/${row.id}/review`).set('Cookie', a.cookie).send({ status: 'APPROVED' }).expect(404);
-      await http().put(`${base(c)}/${row.id}/review`).set('Cookie', a.cookie).send({ status: 'APPROVED' }).expect(204);
-      await http().delete(`/api/learn/${c.course.slug}/testimonial`).set('Cookie', c.student.cookie).expect(204);
+      await http()
+        .put(`${base(other)}/${row.id}/review`)
+        .set('Cookie', a.cookie)
+        .send({ status: 'APPROVED' })
+        .expect(404);
+      await http()
+        .put(`${base(c)}/${row.id}/review`)
+        .set('Cookie', a.cookie)
+        .send({ status: 'APPROVED' })
+        .expect(204);
+      await http()
+        .delete(`/api/learn/${c.course.slug}/testimonial`)
+        .set('Cookie', c.student.cookie)
+        .expect(204);
       expect(await publicList(c)).toEqual([]);
       expect(await prisma.testimonial.count({ where: { courseId: c.course.id } })).toBe(0);
     });
 
     it('is not needed for the certificate', async () => {
       const c = await setup();
-      await giveFeedback(c);
       await finishRequired(c);
       await takeQuiz(c, c.quiz!.right);
       expect((await certOf(c))?.kind).toBe('ATTENDANCE');
@@ -237,13 +438,21 @@ describe('self-paced courses (e2e)', () => {
     await prisma.course.update({ where: { id: c.course.id }, data: { publicRecordings: true } });
     const page = (await http().get(`/api/courses/${c.course.slug}`).expect(200)).body;
     expect(page.publicRecordings).toBe(false);
-    expect(page.sessions.map((s: { recordingUrl: string | null }) => s.recordingUrl)).toEqual([null, null, null, null]);
+    expect(page.sessions.map((s: { recordingUrl: string | null }) => s.recordingUrl)).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
     expect(await learn(c)).toMatchObject({ selfPaced: true });
   });
 
   it('leaves live courses as they were: same rule, completion certificates, no automatic issue', async () => {
     const c = await setup({ selfPaced: false });
-    await prisma.course.update({ where: { id: c.course.id }, data: { certMinSessionsPercent: null } });
+    await prisma.course.update({
+      where: { id: c.course.id },
+      data: { certMinSessionsPercent: null },
+    });
     await takeQuiz(c, c.quiz!.right);
     expect(await certOf(c)).toBeNull();
     expect((await learn(c)).selfPaced).toBe(false);

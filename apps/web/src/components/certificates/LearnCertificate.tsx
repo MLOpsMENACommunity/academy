@@ -57,7 +57,7 @@ export function CertificateRuleCard({ data, progress }: { data: LearnCertificate
   // Sessions follow the page's own progress (ticking a session updates it at once).
   const min = data.rule.minSessionsPercent;
   const sessionsOk = min === null || (progress.total > 0 && progress.percent >= min);
-  const e = { ...data.eligibility, sessions: { ...progress, required: min, ok: sessionsOk }, eligible: sessionsOk && data.eligibility.assessments.ok && (data.eligibility.feedback?.ok ?? true) };
+  const e = { ...data.eligibility, sessions: { ...progress, required: min, ok: sessionsOk }, eligible: sessionsOk && data.eligibility.assessments.ok };
   return (
     <section aria-labelledby="cert-rule" className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5 sm:p-6">
       <h2 id="cert-rule" className="text-lg sm:text-xl">
@@ -78,15 +78,8 @@ export function CertificateRuleCard({ data, progress }: { data: LearnCertificate
             )}
             {data.rule.requireAssessments && e.assessments.required > 0 && (
               <Check ok={e.assessments.ok}>
-                {t('certificates.earn.assessments', { passed: e.assessments.passed, required: e.assessments.required })}
+                {t(data.selfPaced ? 'certificates.earn.selfPacedAssessments' : 'certificates.earn.assessments', { passed: e.assessments.passed, required: e.assessments.required })}
                 {e.assessments.pending > 0 && <span className="block text-sm text-muted">{t('certificates.earn.pending', { count: e.assessments.pending })}</span>}
-              </Check>
-            )}
-            {data.eligibility.feedback && (
-              <Check ok={data.eligibility.feedback.ok}>
-                <a href="#course-feedback" className="underline">
-                  {t('certificates.earn.feedback')}
-                </a>
               </Check>
             )}
             {e.capstone && <Check ok={e.capstone === 'PASSED'}>{t(`certificates.earn.capstone.${e.capstone}`)}</Check>}

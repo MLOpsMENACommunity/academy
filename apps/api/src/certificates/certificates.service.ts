@@ -28,6 +28,7 @@ import { randomBytes } from 'node:crypto';
 import { capRows } from '../admin/export';
 import type { Actor } from '../applications/workflow.service';
 import { completedLessonsBy, completedSessionsBy } from '../attendance/completed-sessions';
+import { dateAr, dateEn } from './dates';
 import { AssessmentsService } from '../assessments/assessments.service';
 import { AuditService } from '../audit/audit.service';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
@@ -74,7 +75,7 @@ const certInclude = {
   enrollment: { select: { userId: true, courseId: true, course: { select: { slug: true } }, user: { select: { deletedAt: true, anonymizedAt: true } } } },
 } as const;
 
-/** A self-paced course has one fixed rule: every required video, and every required assessment passed. */
+/** A self-paced course has one fixed rule: every required video, and every required assessment passed with 80% or more. */
 const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certRuleEn' | 'certRuleAr' | 'selfPaced'>): CertificateRule => ({
   minSessionsPercent: c.selfPaced ? 100 : c.certMinSessionsPercent,
   requireAssessments: c.selfPaced || c.certRequireAssessments,
@@ -151,13 +152,9 @@ export class CertificatesService implements OnModuleInit {
     ]);
     const done = new Map(progress.map((p) => [p.userId, p._count._all]));
     const rule = ruleOf({ ...course, certRuleEn: '', certRuleAr: '' });
-    const feedback = course.selfPaced
-      ? await this.prisma.sessionFeedback.findMany({ where: { courseId: course.id, userId: { in: userIds }, scopeKey: 'course' }, select: { userId: true, comment: true } })
-      : [];
-    const gaveFeedback = new Set(feedback.filter((f) => f.comment?.trim()).map((f) => f.userId));
     const capstoneIds = capstones.map((a) => a.id);
     return new Map(
-      userIds.map((id) => [id, certificateEligibility(rule, { sessions: { completed: done.get(id) ?? 0, total }, results: results.get(id)!, capstoneIds, selfPaced: course.selfPaced, courseFeedback: gaveFeedback.has(id) })]),
+      userIds.map((id) => [id, certificateEligibility(rule, { sessions: { completed: done.get(id) ?? 0, total }, results: results.get(id)!, capstoneIds, selfPaced: course.selfPaced })]),
     );
   }
 
@@ -456,7 +453,7 @@ export class CertificatesService implements OnModuleInit {
   /** Email (bulk lane) and in-app notification to the student, then the onIssued listeners. */
   private async announce(
     c: Certificate,
-    e: { userId: string; courseId: string; user: { email: string; locale: Locale; deletedAt: Date | null }; course: { titleEn: string; titleAr: string } },
+    e: { userId: string; courseId: string; user: { email: string; locale: Locale; deletedAt: Date | null }; course: { slug: string; selfPaced: boolean; titleEn: string; titleAr: string } },
     reissued: boolean,
   ): Promise<void> {
     if (!e.user.deletedAt) {
@@ -480,9 +477,12 @@ export class CertificatesService implements OnModuleInit {
         {
           name: 'certificateIssued',
           attendance: c.kind === 'ATTENDANCE',
+          holderName: (ar && c.nameOnCertificateAr) || c.nameOnCertificate,
           courseTitle,
           serial: c.serial,
+          issuedOn: ar ? dateAr(c.issuedAt) : dateEn(c.issuedAt),
           verifyUrl,
+          ...(e.course.selfPaced ? { testimonialUrl: `${this.email.url(e.user.locale, `/learn/${e.course.slug}`)}#testimonial` } : {}),
           downloadUrl: this.publicPdfUrl(c.serial),
           linkedInUrl: linkedInAddUrl({ courseTitle: c.courseTitleEn, issuedAt: c.issuedAt, verifyUrl: this.verifyUrl('en', c.serial), serial: c.serial }),
         },

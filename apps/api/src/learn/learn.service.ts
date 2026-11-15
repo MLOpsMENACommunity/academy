@@ -243,8 +243,6 @@ export class LearnService {
       update: data,
       create: { ...data, userId: user.id, courseId: course.id, sessionId, scopeKey },
     });
-    // The course feedback can be the last thing a self-paced certificate was waiting for.
-    if (!sessionId) await this.certificates.issueIfEarned(course.id, user.id);
   }
 
   async setReminders(user: AuthUser, slug: string, emailReminders: boolean): Promise<void> {
