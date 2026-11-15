@@ -40,13 +40,16 @@ const envSchema = z.object({
   /** Service account key (JSON, or base64 of it) that shares paid courses' Drive folders. Unset: shared by hand. */
   GOOGLE_DRIVE_SERVICE_ACCOUNT: z.string().optional(),
 
-  EMAIL_PROVIDER: z.enum(['smtp', 'resend', 'log']).default('smtp'),
+  EMAIL_PROVIDER: z.enum(['smtp', 'resend', 'cloudflare', 'log']).default('smtp'),
   EMAIL_FROM: z.string().default('MLOps MENA Academy <academy@mlopsmena.com>'),
-  /** Minimum gap between provider calls; defaults to 550 ms for Resend (2 requests/s account limit), 0 otherwise. */
+  /** Minimum gap between provider calls; defaults to 550 ms for Resend (2 requests/s account limit), 200 ms for Cloudflare, 0 otherwise. */
   EMAIL_MIN_INTERVAL_MS: z.coerce.number().int().min(0).max(10_000).optional(),
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().int().default(1025),
   RESEND_API_KEY: z.string().optional(),
+  /** EMAIL_PROVIDER=cloudflare (Cloudflare Email Service): an account API token with Email Sending: Edit, and the account id. */
+  CLOUDFLARE_EMAIL_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_EMAIL_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/).optional(),
   /**
    * Non-production safety net (set on staging only). Mail to anyone not on EMAIL_ALLOWLIST
    * (comma-separated addresses or "@domain" entries) goes to EMAIL_REDIRECT_TO instead, with
@@ -126,6 +129,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       problems.push('S3 credentials must be set (not the MinIO defaults)');
     }
     if (env.EMAIL_PROVIDER === 'resend' && !env.RESEND_API_KEY) problems.push('RESEND_API_KEY must be set');
+    if (env.EMAIL_PROVIDER === 'cloudflare' && !(env.CLOUDFLARE_EMAIL_API_TOKEN && env.CLOUDFLARE_EMAIL_ACCOUNT_ID)) {
+      problems.push('CLOUDFLARE_EMAIL_API_TOKEN and CLOUDFLARE_EMAIL_ACCOUNT_ID must be set');
+    }
     // Compose runs NODE_ENV=production locally over http; only enforce https for real domains.
     if (!env.WEB_URL.startsWith('https://') && !/localhost|127\.0\.0\.1/.test(env.WEB_URL)) {
       problems.push('WEB_URL must use https');

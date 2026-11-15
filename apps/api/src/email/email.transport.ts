@@ -116,6 +116,86 @@ export class ResendTransport extends EmailTransport {
   }
 }
 
+/** Splits "Name <address>" (EMAIL_FROM) into its parts; a bare address has no name. */
+export function parseFrom(from: string): { address: string; name?: string } {
+  const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
+  if (!m) return { address: from.trim() };
+  const name = m[1]!.replace(/^"|"$/g, '').trim();
+  return name ? { address: m[2]!.trim(), name } : { address: m[2]!.trim() };
+}
+
+/** Cloudflare API error codes (email/sending/send) that mean "this account can't send right now". */
+const CLOUDFLARE_PAUSED = new Set([10105, 10203, 10207]);
+
+type Fetch = (url: string, init: RequestInit) => Promise<Response>;
+
+/**
+ * Cloudflare Email Service (Email Sending), through its REST API: one POST per email, no SDK.
+ * Needs the sending domain onboarded in the account (DEPLOY.md, "Email") and an account API
+ * token with Email Sending: Edit. Cloudflare has no idempotency keys, so a crash between the
+ * send and the outbox update can send a row twice (the outbox's lease keeps that rare).
+ *
+ * Errors become EmailSendError so the outbox decides as it does for Resend:
+ *   - the daily quota of a new account ("daily" in the message) waits for tomorrow,
+ *   - 429 (10004, throttled) is retried shortly,
+ *   - sending disabled or the account paused (10105, 10203, 10207) is retried later: it isn't
+ *     the email's fault, and failing every queued row for it would lose them,
+ *   - other 4xx (an invalid or suppressed address, a rejected header) and a permanent bounce
+ *     or suppressed recipient reported in the response fail that one email.
+ */
+export class CloudflareTransport extends EmailTransport {
+  private readonly url: string;
+  private readonly from: { address: string; name?: string };
+
+  constructor(
+    accountId: string,
+    private readonly apiToken: string,
+    from: string,
+    private readonly fetchFn: Fetch = (url, init) => fetch(url, init),
+  ) {
+    super();
+    this.url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/email/sending/send`;
+    this.from = parseFrom(from);
+  }
+
+  async send(m: EmailMessage): Promise<void> {
+    let res: Response;
+    try {
+      res = await this.fetchFn(this.url, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${this.apiToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          from: this.from,
+          to: [m.to],
+          subject: m.subject,
+          html: m.html,
+          text: m.text,
+          ...(m.headers ? { headers: m.headers } : {}),
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (err) {
+      throw new EmailSendError(`network_${(err as Error).name}`);
+    }
+    const body = (await res.json().catch(() => null)) as {
+      success?: boolean;
+      errors?: { code?: number; message?: string }[];
+      result?: { permanent_bounces?: unknown[]; suppressed_recipients?: unknown[] } | null;
+    } | null;
+    if (res.ok && body?.success) {
+      if (body.result?.permanent_bounces?.length) throw new EmailSendError('permanent_bounce', 400);
+      // An earlier hard bounce or complaint: Cloudflare accepts the request but doesn't send.
+      if (body.result?.suppressed_recipients?.length) throw new EmailSendError('suppressed_recipient', 400);
+      return;
+    }
+    const first = body?.errors?.[0];
+    const code = first?.code;
+    if (/daily/i.test(first?.message ?? '')) throw new EmailSendError('daily_quota_exceeded', 429);
+    if (code !== undefined && CLOUDFLARE_PAUSED.has(code)) throw new EmailSendError(`cloudflare_${code}`, 503);
+    throw new EmailSendError(code !== undefined ? `cloudflare_${code}` : 'cloudflare_error', res.status);
+  }
+}
+
 export interface EmailGuardOptions {
   /** Comma-separated addresses or "@domain" entries that receive their own mail. */
   allowlist: string;
