@@ -132,8 +132,8 @@ describe('certificates (e2e)', () => {
     expect(pub.headers['content-disposition']).toBe(`attachment; filename="${c.serial}.pdf"`);
     expect(pub.headers['cache-control']).toBe('private, no-store');
     expect((pub.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
-    // Cached in the bucket under certificates/.
-    expect((await certOf(ready.id))!.pdfKey).toMatch(/^certificates\/[0-9a-f-]{36}\.pdf$/);
+    // Cached in the bucket under certificate-pdfs/ (the template design).
+    expect((await certOf(ready.id))!.pdfKey).toMatch(/^certificate-pdfs\/[0-9a-f-]{36}\.pdf$/);
 
     const mine = await http().get(`/api/me/certificates/${c.serial}/pdf`).set('Cookie', ready.cookie).buffer(true).parse(binary).expect(200);
     expect(mine.headers['content-type']).toBe('application/pdf');
