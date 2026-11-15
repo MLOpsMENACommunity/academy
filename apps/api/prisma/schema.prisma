@@ -232,6 +232,25 @@ enum DeliveryPlatform {
   YOUTUBE_LIVE
 }
 
+/// A testimonial is public only while APPROVED.
+enum TestimonialStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// How a self-paced lesson was completed: the video reached its end, or the student said so.
+enum LessonCompletionSource {
+  WATCHED
+  MANUAL
+}
+
+/// What a certificate states: completing a course, or attending a self-paced one.
+enum CertificateKind {
+  COMPLETION
+  ATTENDANCE
+}
+
 enum RecordingsPlatform {
   YOUTUBE
   GOOGLE_DRIVE
@@ -336,6 +355,8 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   sessionProgress         SessionProgress[]
   sessionFeedback         SessionFeedback[]
+  testimonials            Testimonial[]            @relation("TestimonialAuthor")
+  testimonialsReviewed    Testimonial[]            @relation("TestimonialReviewer")
   submissions             Submission[]             @relation("SubmissionStudent")
   submissionsGraded       Submission[]             @relation("SubmissionGrader")
   assessmentsEdited       Assessment[]             @relation("AssessmentEditor")
@@ -631,6 +652,9 @@ model Course {
   externalUrl         String?
   /// Session recordings are shown to everyone (public YouTube), not only to enrolled students.
   publicRecordings    Boolean            @default(false)
+  /// Free course taken at the student's own pace: lessons are YouTube videos, completion comes from watching or
+  /// "Mark as complete", and the attendance certificate is issued automatically.
+  selfPaced           Boolean            @default(false)
   /// The course page and cards show "N students enrolled" (only the number, never names).
   showEnrolledCount   Boolean            @default(true)
   /// "import" when created by prisma/import-archive.ts.
@@ -664,6 +688,7 @@ model Course {
   applications       Application[]
   enrollments        Enrollment[]
   feedback           SessionFeedback[]
+  testimonials       Testimonial[]
   funnelEvents       FunnelEventLog[]
   reminderPreferences ReminderPreference[]
   assessments         Assessment[]
@@ -729,6 +754,8 @@ model CourseSession {
   /// [{ labelEn, labelAr, url }]
   materials     Json     @default("[]")
   assignmentUrl String?
+  /// Self-paced courses: this video doesn't count toward the certificate.
+  optional      Boolean  @default(false)
   /// Short filter tags for the recordings library.
   topics        String[] @default([])
   createdAt     DateTime @default(now())
@@ -880,6 +907,8 @@ model Certificate {
   revokeReason        String?
   /// e.g. "Distinction".
   grade               String?
+  /// Set once when issued, and kept by a re-issue.
+  kind                CertificateKind @default(COMPLETION)
   /// The student's English name when issued; emptied when the account is anonymised.
   nameOnCertificate   String
   nameOnCertificateAr String?
@@ -902,6 +931,8 @@ model SessionProgress {
   sessionId   String
   session     CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   completedAt DateTime      @default(now())
+  /// Set for self-paced lessons only. Null: a live session ticked before that box was retired.
+  source      LessonCompletionSource?
 
   @@id([userId, sessionId])
 }
@@ -963,6 +994,28 @@ model SessionFeedback {
   @@unique([userId, sessionId])
   @@index([courseId, sessionId])
   @@index([userId])
+}
+
+/// A student's words about a self-paced course, one per student per course. Deleted with the account's
+/// personal data. The name shown is read from the profile when the page is built.
+model Testimonial {
+  id           String            @id @default(cuid())
+  userId       String
+  user         User              @relation("TestimonialAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  body         String
+  status       TestimonialStatus @default(PENDING)
+  /// When the student last agreed to publication with their name.
+  consentAt    DateTime
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?             @relation("TestimonialReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([courseId, status])
 }
 
 model ReminderPreference {

@@ -1,16 +1,19 @@
 'use client';
 
 import { googleCalendarLink, type AssessmentSummaryDto, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { LocalTime } from '@/components/course/LocalTime';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
+import { api } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { AssessmentList } from './AssessmentList';
 import { DriveNote } from './DriveNote';
 import { FeedbackForm } from './FeedbackForm';
+import { LessonCompletion } from './LessonCompletion';
+import { LessonPlayer } from './LessonPlayer';
 import { YouTubeFacade } from './YouTubeFacade';
 
 const rowLink = 'flex min-h-14 items-center justify-between gap-4 px-5 py-3.5 hover:bg-hover-bg';
@@ -24,6 +27,7 @@ export function SessionCard({
   session: s,
   total,
   assessments = [],
+  onLessonChange,
 }: {
   course: LearnCourseDto;
   session: LearnSessionDto;
@@ -31,6 +35,8 @@ export function SessionCard({
   total?: number;
   /** Published assessments attached to this session. */
   assessments?: AssessmentSummaryDto[];
+  /** Self-paced courses: a lesson was completed or undone, so progress and the certificate may have changed. */
+  onLessonChange?: () => void;
 }) {
   const { locale, t } = useI18n();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,10 +46,37 @@ export function SessionCard({
   const pageUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
 
   const hasMaterials = s.materials.length > 0 || Boolean(s.assignmentUrl);
+  const lessonVideoId = course.selfPaced ? s.recording?.youtubeId ?? null : null;
+  const [lessonBusy, setLessonBusy] = useState(false);
+  const [lessonError, setLessonError] = useState<string | null>(null);
+  // YouTube reports the end more than once.
+  const endReported = useRef(false);
+
+  const saveLesson = useCallback(
+    (completed: boolean, source: 'WATCHED' | 'MANUAL') => {
+      setLessonBusy(true);
+      setLessonError(null);
+      api(`/learn/${course.slug}/sessions/${s.id}/lesson-completion`, { method: 'PUT', json: { completed, source } })
+        .then(() => onLessonChange?.())
+        .catch((err: unknown) => {
+          endReported.current = false;
+          setLessonError(errorMessage(err, t));
+        })
+        .finally(() => setLessonBusy(false));
+    },
+    [course.slug, s.id, onLessonChange, t],
+  );
+  // The end of the video can also upgrade a manual tick; the server keeps WATCHED once it is set.
+  const onVideoEnded = () => {
+    if (!course.canTrackProgress || s.lessonCompletion === 'WATCHED' || endReported.current) return;
+    endReported.current = true;
+    saveLesson(true, 'WATCHED');
+  };
 
   return (
     <article id={`session-${s.order}`} className="flex scroll-mt-6 flex-col gap-6" aria-labelledby={`session-${s.id}-title`}>
-      {s.phase === 'ended' &&
+      {lessonVideoId && <LessonPlayer id={lessonVideoId} title={title} onEnded={onVideoEnded} />}
+      {!lessonVideoId && s.phase === 'ended' &&
         (!s.recording ? (
           <div className="grid aspect-video place-items-center rounded-xl bg-muted-bg p-6 text-center text-muted">{t('learn.noRecording')}</div>
         ) : s.recording.kind === 'youtube' && s.recording.youtubeId ? (
@@ -71,8 +104,12 @@ export function SessionCard({
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            {total ? t('learn.sessionOf', { n: s.order, total }) : t('learn.session', { n: s.order })}
-            <Badge tone={s.phase === 'live' ? 'danger' : s.phase === 'upcoming' ? 'info' : 'neutral'}>{t(`learn.${s.phase}`)}</Badge>
+            {course.selfPaced && total ? t('learn.lessonOf', { n: s.order, total }) : total ? t('learn.sessionOf', { n: s.order, total }) : t('learn.session', { n: s.order })}
+            {course.selfPaced ? (
+              s.optional && <Badge tone="neutral">{t('learn.optionalLesson')}</Badge>
+            ) : (
+              <Badge tone={s.phase === 'live' ? 'danger' : s.phase === 'upcoming' ? 'info' : 'neutral'}>{t(`learn.${s.phase}`)}</Badge>
+            )}
             {s.attendance && (
               <Badge tone={s.attendance.status === 'PRESENT' ? 'success' : s.attendance.status === 'PARTIAL' ? 'warning' : 'neutral'}>
                 {t(`attendance.mine.${s.attendance.status}`, { minutes: s.attendance.minutes })}
@@ -83,10 +120,22 @@ export function SessionCard({
             {title}
           </h2>
           <p className="text-[0.9375rem] text-muted">
-            <LocalTime iso={s.startsAt} style="weekday-datetime" /> · {t('course.minutes', { count: s.durationMin })}
+            {!course.selfPaced && (
+              <>
+                <LocalTime iso={s.startsAt} style="weekday-datetime" /> ·{' '}
+              </>
+            )}
+            {t('course.minutes', { count: s.durationMin })}
           </p>
         </div>
       </div>
+
+      {lessonVideoId && course.canTrackProgress && (
+        <LessonCompletion completion={s.lessonCompletion} busy={lessonBusy} error={lessonError} onChange={(completed) => {
+            endReported.current = false;
+            saveLesson(completed, 'MANUAL');
+          }} />
+      )}
 
       {s.phase !== 'ended' &&
         (s.liveUrl ? (

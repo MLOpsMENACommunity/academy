@@ -125,6 +125,42 @@ describe('certificateEligibility', () => {
     expect(e.capstone).toBeNull();
   });
 
+  describe('self-paced (Certificate of Attendance)', () => {
+    const selfPaced = { minSessionsPercent: 100, requireAssessments: true };
+    const all = { completed: 5, total: 5 };
+
+    it('needs 80% on every required assessment, even when the quiz pass mark is lower', () => {
+      const r = results([
+        [assessment('q1', true, 100, 70), [sub(80)]],
+        [assessment('q2', true, 100, 70), [sub(75)]],
+      ]);
+      const e = certificateEligibility(selfPaced, { sessions: all, results: r, selfPaced: true });
+      expect(e.eligible).toBe(false);
+      expect(e.assessments).toMatchObject({ required: 2, passed: 1, ok: false });
+      // The same scores meet a live course's rule (pass mark 70).
+      expect(certificateEligibility(selfPaced, { sessions: all, results: r }).eligible).toBe(true);
+    });
+
+    it('is eligible at exactly 80%, with no course feedback needed', () => {
+      const r = results([[assessment('q1', true, 10, 70), [sub(8)]]]);
+      const e = certificateEligibility(selfPaced, { sessions: all, results: r, selfPaced: true });
+      expect(e.eligible).toBe(true);
+      expect(e).not.toHaveProperty('feedback');
+    });
+
+    it('keeps a higher pass mark set on the quiz', () => {
+      const r = results([[assessment('q1', true, 100, 90), [sub(85)]]]);
+      expect(certificateEligibility(selfPaced, { sessions: all, results: r, selfPaced: true }).eligible).toBe(false);
+    });
+
+    it('needs every required video and at least one required assessment', () => {
+      const r = results([[assessment('q1', true), [sub(100)]]]);
+      expect(certificateEligibility(selfPaced, { sessions: { completed: 4, total: 5 }, results: r, selfPaced: true }).eligible).toBe(false);
+      const none = results([[assessment('practice', false), [sub(100)]]]);
+      expect(certificateEligibility(selfPaced, { sessions: all, results: none, selfPaced: true }).eligible).toBe(false);
+    });
+  });
+
   it('is not eligible below the sessions threshold', () => {
     const r = results([[assessment('quiz', true), [sub(100)]]]);
     const e = certificateEligibility(rule, { sessions: { completed: 7, total: 10 }, results: r });

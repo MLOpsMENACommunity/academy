@@ -553,6 +553,47 @@ needs no sign-in.
   Feedback tab with names; course staff with **See session feedback** read it in /teach → Feedback without
   names, so students can be honest.
 
+### Self-paced free courses
+
+**Status:** Pending (not merged yet). **Who:** enrolled students; ACADEMIC admins set it up.
+
+A free course can run as video lessons taken at the student's own pace. The videos stay on YouTube, so
+views count on our channel.
+
+- **Set-up:** Admin → Courses → course: tick **Self-paced course**, type Free, approval off, status Open
+  (clear any application dates). Each lesson is a session with its normal YouTube link in **Recording
+  link**; tick **Optional video** where it applies. A new lesson's date isn't shown: use any past date.
+  Add the quizzes in Assessments as **Mandatory for the certificate**. In a self-paced course a pass mark
+  below 80% is raised to 80% when the quiz is saved (or imported); a higher one is kept.
+- **Student view:** `/learn/<slug>` shows the video list with no dates or calendar, YouTube's own player
+  (no autoplay, so the student presses YouTube's play button) and the lesson's quizzes. The Join link,
+  calendar and session dates are hidden.
+- **Completing a lesson:** automatically when the video reaches its end, or with **Mark as complete**
+  (which can be undone). Each completion stores how it happened (watched or marked). Optional videos
+  can be completed but don't count; a lesson with no YouTube link can't be completed and doesn't count.
+- **Progress** is required videos finished. Attendance, and sessions ticked before PR #87, don't count.
+- **Attendance certificate:** issued automatically, with an email and a notification, as soon as the
+  student has finished every required video and scored at least 80% on every mandatory assessment
+  (exactly 80% passes; a quiz with a higher pass mark needs that). The course feedback is optional and
+  doesn't affect it. The course needs at least one mandatory assessment, so watching alone never earns
+  it. A student with no name on their profile gets it the next time they open the course after adding
+  one. The course's Certificate rule form isn't used. A course switched to self-paced after its quizzes
+  were made still needs 80% for the certificate, even where the quiz shows a lower pass mark until it
+  is saved again.
+- **Certificate email:** subject "You've completed {course}: your certificate is ready". It shows a
+  certificate card (name, course, issue date, certificate ID), **Download your certificate** and **Add
+  it to LinkedIn** buttons, how to verify it (the QR code or the verification page), and an invitation
+  to share it on LinkedIn and write a testimonial. Live courses' certificates use the same design with
+  completion wording.
+- **Enrolment required:** the videos aren't shown on the public course page or in the Recordings library,
+  even with **Recordings are public** ticked.
+- **Testimonials:** once the course feedback is in or the certificate is issued, the student is asked for a testimonial (20 to 600
+  characters, with a tick agreeing to publication with their name). It's optional and never affects the
+  certificate. ACADEMIC admins review them in Admin → Courses → course → **Testimonials**; approved ones
+  appear on the public course page as the name and the text only. Editing sends it back to review and
+  takes it off the site; the student can remove it at any time; deleting the account deletes it.
+- Live courses are unchanged.
+
 ---
 
 ## 6. Assessments (quizzes, labs, assignments)
@@ -659,6 +700,8 @@ Students get the `certificateIssued` email and a notification; the dashboard's *
 logo shows), **View** and **Copy link**. The PDF is a bilingual landscape A4 with the logo, serial and a
 QR code to the verification page. One certificate per enrolment. Issuing adds the certificate bonus
 points and the **Certified** badge; revoking takes both back.
+
+Self-paced courses issue a **Certificate of Attendance** automatically: see [Self-paced free courses](#self-paced-free-courses).
 
 ---
 
@@ -1133,6 +1176,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| Pending | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |
 | #108 | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |

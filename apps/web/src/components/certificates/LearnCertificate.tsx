@@ -63,7 +63,7 @@ export function CertificateRuleCard({ data, progress }: { data: LearnCertificate
       <h2 id="cert-rule" className="text-lg sm:text-xl">
         {t('certificates.earn.title')}
       </h2>
-      <p className="text-body">{describeRule(data.rule, locale)}</p>
+      <p className="text-body">{data.selfPaced ? t('certificates.earn.selfPacedRule') : describeRule(data.rule, locale)}</p>
       {c?.status === 'REVOKED' ? (
         <p className="text-sm text-danger">{t('certificates.revokedNote')}</p>
       ) : (
@@ -71,19 +71,21 @@ export function CertificateRuleCard({ data, progress }: { data: LearnCertificate
           <ul className="flex flex-col gap-2.5 text-[0.9375rem]">
             {data.rule.minSessionsPercent !== null && (
               <Check ok={e.sessions.ok}>
-                {t('certificates.earn.sessions', { completed: e.sessions.completed, total: e.sessions.total, percent: e.sessions.percent, required: data.rule.minSessionsPercent })}
+                {data.selfPaced
+                  ? t('certificates.earn.lessons', { completed: e.sessions.completed, total: e.sessions.total })
+                  : t('certificates.earn.sessions', { completed: e.sessions.completed, total: e.sessions.total, percent: e.sessions.percent, required: data.rule.minSessionsPercent })}
               </Check>
             )}
             {data.rule.requireAssessments && e.assessments.required > 0 && (
               <Check ok={e.assessments.ok}>
-                {t('certificates.earn.assessments', { passed: e.assessments.passed, required: e.assessments.required })}
+                {t(data.selfPaced ? 'certificates.earn.selfPacedAssessments' : 'certificates.earn.assessments', { passed: e.assessments.passed, required: e.assessments.required })}
                 {e.assessments.pending > 0 && <span className="block text-sm text-muted">{t('certificates.earn.pending', { count: e.assessments.pending })}</span>}
               </Check>
             )}
             {e.capstone && <Check ok={e.capstone === 'PASSED'}>{t(`certificates.earn.capstone.${e.capstone}`)}</Check>}
           </ul>
           {e.averagePercent !== null && <p className="text-sm text-muted">{t('certificates.earn.average', { percent: e.averagePercent })}</p>}
-          <p className={`text-sm font-medium ${e.eligible ? 'text-success' : 'text-muted'}`}>{t(e.eligible ? 'certificates.earn.eligible' : 'certificates.earn.keepGoing')}</p>
+          <p className={`text-sm font-medium ${e.eligible ? 'text-success' : 'text-muted'}`}>{t(e.eligible ? (data.selfPaced ? 'certificates.earn.selfPacedEligible' : 'certificates.earn.eligible') : 'certificates.earn.keepGoing')}</p>
         </>
       )}
     </section>

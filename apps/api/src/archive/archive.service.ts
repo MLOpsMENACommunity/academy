@@ -24,7 +24,7 @@ const LIBRARY_TTL_MS = 60_000;
 const MAX_ITEMS = 2_000;
 
 /** Course lessons whose recordings are public: a free public course that opted in. */
-const publicCourse = { publicRecordings: true, type: 'FREE', status: { in: [...PUBLIC_COURSE_STATUSES] } } satisfies Prisma.CourseWhereInput;
+const publicCourse = { publicRecordings: true, selfPaced: false, type: 'FREE', status: { in: [...PUBLIC_COURSE_STATUSES] } } satisfies Prisma.CourseWhereInput;
 
 interface LibraryItem {
   item: RecordingDto;

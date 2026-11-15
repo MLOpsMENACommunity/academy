@@ -79,6 +79,7 @@ export const COURSE_TAB_PERMISSIONS = {
   announcements: ['ACADEMIC'],
   waitlist: ['ADMISSIONS'],
   feedback: ['ACADEMIC'],
+  testimonials: ['ACADEMIC'],
   automation: ['ACADEMIC'],
 } as const satisfies Record<string, readonly AdminPermission[]>;
 

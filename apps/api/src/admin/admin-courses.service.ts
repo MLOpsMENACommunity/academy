@@ -300,6 +300,7 @@ export class AdminCoursesService {
       liveUrl: s.liveUrl ?? null,
       recordingUrl: s.recordingUrl ?? null,
       assignmentUrl: s.assignmentUrl ?? null,
+      optional: s.optional,
       materials: s.materials as Json,
       topics: s.topics,
     };
