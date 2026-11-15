@@ -152,6 +152,7 @@ describe('CloudflareTransport', () => {
     expect(await kind(failure(500, 10000, 'Internal'))).toBe('retryable');
     expect(await kind(new TypeError('fetch failed'))).toBe('retryable');
     expect(await kind(reply(200, { ...ok, result: { delivered: [], permanent_bounces: ['s@x.com'], queued: [] } }))).toBe('permanent');
+    expect(await kind(reply(200, { ...ok, result: { delivered: [], permanent_bounces: [], queued: [], suppressed_recipients: ['s@x.com'] } }))).toBe('permanent');
     expect(await kind(reply(200, ok))).toBe('sent');
   });
 

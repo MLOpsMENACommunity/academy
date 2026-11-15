@@ -141,7 +141,7 @@ type Fetch = (url: string, init: RequestInit) => Promise<Response>;
  *   - sending disabled or the account paused (10105, 10203, 10207) is retried later: it isn't
  *     the email's fault, and failing every queued row for it would lose them,
  *   - other 4xx (an invalid or suppressed address, a rejected header) and a permanent bounce
- *     reported in the response fail that one email.
+ *     or suppressed recipient reported in the response fail that one email.
  */
 export class CloudflareTransport extends EmailTransport {
   private readonly url: string;
@@ -180,10 +180,12 @@ export class CloudflareTransport extends EmailTransport {
     const body = (await res.json().catch(() => null)) as {
       success?: boolean;
       errors?: { code?: number; message?: string }[];
-      result?: { permanent_bounces?: unknown[] } | null;
+      result?: { permanent_bounces?: unknown[]; suppressed_recipients?: unknown[] } | null;
     } | null;
     if (res.ok && body?.success) {
       if (body.result?.permanent_bounces?.length) throw new EmailSendError('permanent_bounce', 400);
+      // An earlier hard bounce or complaint: Cloudflare accepts the request but doesn't send.
+      if (body.result?.suppressed_recipients?.length) throw new EmailSendError('suppressed_recipient', 400);
       return;
     }
     const first = body?.errors?.[0];
