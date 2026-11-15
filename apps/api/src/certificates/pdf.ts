@@ -2,26 +2,33 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
 import qrcode from 'qrcode-generator';
-import { CERTIFICATE_ORGANIZATION, type InstructorName } from '@academy/shared';
-import { dateAr, dateEn } from './dates';
+import { CERTIFICATE_ORGANIZATION } from '@academy/shared';
+import { dateEn } from './dates';
 
 /**
- * The certificate PDF: landscape A4, bilingual, drawn with PDFKit (pure JavaScript, no browser
- * or native dependency in the container). IBM Plex Sans Arabic (bundled under ./assets, OFL)
- * covers both Latin and Arabic; fontkit shapes Arabic words and this file orders words for
- * right-to-left lines (PDFKit itself only lays text out left to right).
+ * The certificate PDF, drawn on the community's own designs (the attendance and completion
+ * templates from the operations team, v2): the artwork is a fixed background image, and the
+ * name, course, description, QR code, ID, date and instructors are placed where the templates
+ * put them. English only. Coordinates below are the templates' own (SVG pixels); the page is
+ * scaled to A4 landscape width. Fonts: Montserrat (OFL), static instances of the template's
+ * variable font. IBM Plex Sans Arabic is only a fallback for a name typed in Arabic letters,
+ * so it never prints as empty boxes.
  */
+
+export interface CertificatePdfInstructor {
+  name: string;
+  title?: string | null;
+}
 
 export interface CertificatePdfData {
   kind?: 'COMPLETION' | 'ATTENDANCE';
   serial: string;
   name: string;
-  nameAr: string | null;
-  courseTitleEn: string;
-  courseTitleAr: string;
-  instructors: InstructorName[];
+  courseTitle: string;
+  /** Up to two lines under the course name; longer text is shortened with an ellipsis. */
+  courseDescription?: string | null;
+  instructors: CertificatePdfInstructor[];
   issuedAt: Date;
-  grade: string | null;
   verifyUrl: string;
 }
 
@@ -33,24 +40,84 @@ const asset = (name: string) => {
   return p;
 };
 
-const W = 841.89; // A4 landscape, points
-const H = 595.28;
-const INK = '#08142e';
-const MUTED = '#566580';
-const TEAL = '#0b7a71';
-const CYAN = '#16C6D8';
-const ORANGE = '#FF9912';
+/** The founder's signature is part of the artwork, so she isn't drawn again as an instructor. */
+const FOUNDER = /^(eng\.?\s+)?aya\s+nasser(\s+salama)?$/i;
 
-// ------------------------------------------------------------------ bidi (word level)
+type Weight = 400 | 500 | 700 | 800 | 900;
+const FONT_FILES: Record<Weight, string> = {
+  400: 'Montserrat-Regular.ttf',
+  500: 'Montserrat-Medium.ttf',
+  700: 'Montserrat-Bold.ttf',
+  800: 'Montserrat-ExtraBold.ttf',
+  900: 'Montserrat-Black.ttf',
+};
+
+interface Box {
+  x: number;
+  y: number;
+  size: number;
+  minSize: number;
+  maxWidth: number;
+  weight: Weight;
+  color: string;
+}
+
+interface Layout {
+  file: string;
+  width: number;
+  height: number;
+  name: Box & { letterSpacing: number };
+  course: Box & { wrapBelow: number; lineHeight: number };
+  description: Box & { lineHeight: number };
+  qr: { x: number; y: number; size: number };
+  id: Box;
+  date: { x: number; y: number; size: number };
+  instructors: { zone: { x: number; y: number; w: number }; ruleY: number; ruleX1: number; ruleX2: number; nameY: number; titleY: number; centerX: number };
+}
+
+/** From completion_template_v2.svg and attendance_template_v2.svg. */
+const LAYOUTS: Record<'COMPLETION' | 'ATTENDANCE', Layout> = {
+  COMPLETION: {
+    file: 'completion-background.png',
+    width: 1491,
+    height: 1055,
+    name: { x: 146, y: 494, size: 58, minSize: 30, maxWidth: 1080, weight: 900, color: '#080E3C', letterSpacing: 0.5 },
+    course: { x: 143, y: 630, size: 34, minSize: 22, maxWidth: 1080, weight: 700, color: '#19A3BA', wrapBelow: 27, lineHeight: 36 },
+    description: { x: 145, y: 679, size: 21, minSize: 15, maxWidth: 800, weight: 400, color: '#767482', lineHeight: 33 },
+    qr: { x: 497, y: 819, size: 100 },
+    id: { x: 630, y: 887, size: 20, minSize: 12, maxWidth: 245, weight: 700, color: '#080E3C' },
+    date: { x: 630, y: 916, size: 16 },
+    instructors: { zone: { x: 135, y: 776, w: 330 }, ruleY: 866, ruleX1: 145, ruleX2: 455, nameY: 902, titleY: 929, centerX: 300 },
+  },
+  ATTENDANCE: {
+    file: 'attendance-background.png',
+    width: 1536,
+    height: 1024,
+    name: { x: 148, y: 478, size: 40, minSize: 24, maxWidth: 1080, weight: 900, color: '#080E3C', letterSpacing: 0.5 },
+    course: { x: 148, y: 614, size: 38, minSize: 24, maxWidth: 1080, weight: 700, color: '#09A4BF', wrapBelow: 30, lineHeight: 40 },
+    description: { x: 150, y: 659, size: 20, minSize: 15, maxWidth: 880, weight: 400, color: '#6D6C7B', lineHeight: 31 },
+    qr: { x: 516, y: 795, size: 96 },
+    id: { x: 650, y: 862, size: 16, minSize: 11, maxWidth: 255, weight: 700, color: '#080E3C' },
+    date: { x: 650, y: 890, size: 15 },
+    instructors: { zone: { x: 140, y: 752, w: 338 }, ruleY: 841, ruleX1: 150, ruleX2: 460, nameY: 875, titleY: 902, centerX: 305 },
+  },
+};
+
+const INK = '#080E3C';
+const GREY = '#5A6075';
+const TITLE_GREY = '#7A8194';
+/** The page is A4 landscape wide; the height follows the artwork's proportions. */
+const PAGE_WIDTH = 841.89;
+
+// ------------------------------------------------------------------ text helpers
 
 const RTL_CHAR = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
 export const isRtl = (s: string) => RTL_CHAR.test(s);
 
 /**
- * Words of one line in visual (left-to-right) order. Enough bidi for names and titles:
- * words are grouped into runs of one direction; on a right-to-left line the runs go right to
- * left, and inside a right-to-left run the words do too. Each Arabic word is shaped (and its
- * glyphs ordered) by fontkit. Digits are their own left-to-right words, so dates read right.
+ * Words of one line in visual (left-to-right) order, for the rare name typed in Arabic letters:
+ * runs of one direction; on a right-to-left line the runs go right to left, and so do the words
+ * inside a right-to-left run (fontkit shapes each word).
  */
 export function visualWords(text: string, baseRtl = isRtl(text)): string[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -66,45 +133,81 @@ export function visualWords(text: string, baseRtl = isRtl(text)): string[] {
 }
 
 type Doc = PDFKit.PDFDocument;
-type Font = 'regular' | 'semibold' | 'bold';
 
-interface TextOpts {
-  font: Font;
-  size: number;
-  color?: string;
-  /** Box to align in (defaults to the page width). */
-  x?: number;
-  width?: number;
-  align?: 'left' | 'center' | 'right';
-  /** Shrink the font until the line fits the box (long names). */
-  minSize?: number;
-  /** Base direction; by default right to left when the line has any Arabic. Bilingual labels ("Issued · تاريخ") pass false. */
-  rtl?: boolean;
+const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+function useFont(doc: Doc, weight: Weight, text: string, size: number): void {
+  doc.font(isRtl(text) ? (weight >= 700 ? 'arabic-bold' : 'arabic') : `m${weight}`).fontSize(size);
 }
 
-function lineWidth(doc: Doc, words: string[]): number {
-  const space = doc.widthOfString(' ');
-  return words.reduce((n, w) => n + doc.widthOfString(w), 0) + space * Math.max(0, words.length - 1);
+function width(doc: Doc, text: string, weight: Weight, size: number, spacing = 0): number {
+  useFont(doc, weight, text, size);
+  return doc.widthOfString(text, { characterSpacing: spacing });
 }
 
-/** One line of text, never wrapped, word-ordered for its direction. Returns the line's height. */
-function line(doc: Doc, text: string, y: number, o: TextOpts): number {
-  const x0 = o.x ?? 0;
-  const width = o.width ?? W;
-  const words = visualWords(text, o.rtl);
-  let size = o.size;
-  doc.font(o.font).fillColor(o.color ?? INK);
-  doc.fontSize(size);
-  while (o.minSize && size > o.minSize && lineWidth(doc, words) > width) doc.fontSize((size -= 1));
-  const total = lineWidth(doc, words);
-  const align = o.align ?? 'center';
-  let x = align === 'left' ? x0 : align === 'right' ? x0 + width - total : x0 + (width - total) / 2;
-  const space = doc.widthOfString(' ');
-  for (const w of words) {
-    doc.text(w, x, y, { lineBreak: false });
-    x += doc.widthOfString(w) + space;
+/** One line at a baseline (as SVG text is placed); `anchor` middle centres it on x. */
+function draw(doc: Doc, text: string, x: number, y: number, o: { weight: Weight; size: number; color: string; spacing?: number; anchor?: 'start' | 'middle' }): void {
+  if (!text) return;
+  const spacing = o.spacing ?? 0;
+  const line = isRtl(text) ? visualWords(text).join(' ') : text;
+  const w = width(doc, line, o.weight, o.size, spacing);
+  const left = o.anchor === 'middle' ? x - w / 2 : x;
+  doc.fillColor(o.color).text(line, left, y, { lineBreak: false, baseline: 'alphabetic', characterSpacing: spacing });
+}
+
+/** The largest size from `size` down to `minSize` at which the text fits `maxWidth`. */
+function fitSize(doc: Doc, text: string, b: { size: number; minSize: number; maxWidth: number; weight: Weight }, spacing = 0): number {
+  let s = b.size;
+  while (s > b.minSize && width(doc, text, b.weight, s, spacing) > b.maxWidth) s -= 0.5;
+  return s;
+}
+
+/** Greedy word wrap into at most `max` lines; the last line is cut with an ellipsis if needed. */
+function wrap(doc: Doc, text: string, weight: Weight, size: number, maxWidth: number, max: number): { lines: string[]; overflow: boolean } {
+  const words = text.split(' ').filter(Boolean);
+  const lines: string[] = [];
+  let cur = '';
+  let i = 0;
+  for (; i < words.length; i++) {
+    const next = cur ? `${cur} ${words[i]}` : words[i]!;
+    if (!cur || width(doc, next, weight, size) <= maxWidth) {
+      cur = next;
+      continue;
+    }
+    lines.push(cur);
+    cur = words[i]!;
+    if (lines.length === max) break;
   }
-  return doc.currentLineHeight();
+  if (lines.length < max && cur) {
+    lines.push(cur);
+    i = words.length;
+  }
+  const overflow = i < words.length || lines.some((l) => width(doc, l, weight, size) > maxWidth);
+  return { lines, overflow };
+}
+
+function ellipsize(doc: Doc, text: string, weight: Weight, size: number, maxWidth: number): string {
+  if (width(doc, text, weight, size) <= maxWidth) return text;
+  let t = text;
+  while (t.length > 1 && width(doc, `${t}…`, weight, size) > maxWidth) t = t.slice(0, -1).trimEnd();
+  return `${t}…`;
+}
+
+/**
+ * Text that may take up to `maxLines` lines: one line, shrinking down to `wrapBelow`; then
+ * wrapped, shrinking down to `minSize`; at the smallest size, the last line gets an ellipsis.
+ */
+function multiline(doc: Doc, text: string, b: Box, maxLines: number, wrapBelow = b.size): { lines: string[]; size: number } {
+  for (let s = b.size; s >= wrapBelow; s -= 0.5) if (width(doc, text, b.weight, s) <= b.maxWidth) return { lines: [text], size: s };
+  for (let s = Math.min(wrapBelow, b.size); s >= b.minSize; s -= 0.5) {
+    const r = wrap(doc, text, b.weight, s, b.maxWidth, maxLines);
+    if (!r.overflow) return { lines: r.lines, size: s };
+  }
+  const { lines } = wrap(doc, text, b.weight, b.minSize, b.maxWidth, maxLines);
+  const last = lines.length - 1;
+  const rest = text.split(' ').slice(lines.slice(0, last).join(' ').split(' ').filter(Boolean).length).join(' ');
+  lines[last] = ellipsize(doc, rest, b.weight, b.minSize, b.maxWidth);
+  return { lines, size: b.minSize };
 }
 
 function qr(doc: Doc, text: string, x: number, y: number, size: number): void {
@@ -123,24 +226,45 @@ function qr(doc: Doc, text: string, x: number, y: number, size: number): void {
   doc.restore();
 }
 
+/** Instructors in the signature zone: one uses the template's own slot; two or three share the zone in columns. */
+function instructors(doc: Doc, list: CertificatePdfInstructor[], l: Layout['instructors']): void {
+  const people = list.filter((i) => clean(i.name) && !FOUNDER.test(clean(i.name))).slice(0, 3);
+  if (!people.length) return;
+  const gap = 14;
+  const single = people.length === 1;
+  const colW = single ? l.ruleX2 - l.ruleX1 : (l.zone.w - gap * (people.length - 1)) / people.length;
+  people.forEach((p, i) => {
+    const x1 = single ? l.ruleX1 : l.zone.x + i * (colW + gap);
+    const cx = single ? l.centerX : x1 + colW / 2;
+    doc.save().moveTo(x1, l.ruleY).lineTo(x1 + colW, l.ruleY).lineWidth(2).strokeColor(INK).stroke().restore();
+    const name = clean(p.name);
+    draw(doc, name, cx, l.nameY, { weight: 800, size: fitSize(doc, name, { size: single ? 19 : 14, minSize: 11, maxWidth: colW, weight: 800 }), color: INK, anchor: 'middle' });
+    const title = clean(p.title);
+    if (title) {
+      const size = fitSize(doc, title, { size: single ? 16 : 12, minSize: 9.5, maxWidth: colW, weight: 500 });
+      draw(doc, ellipsize(doc, title, 500, size, colW), cx, l.titleY, { weight: 500, size, color: TITLE_GREY, anchor: 'middle' });
+    }
+  });
+}
 
 /** Renders the certificate to a PDF buffer. */
 export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
   const attendance = c.kind === 'ATTENDANCE';
+  const L = LAYOUTS[attendance ? 'ATTENDANCE' : 'COMPLETION'];
+  const k = PAGE_WIDTH / L.width;
   const doc = new PDFDocument({
-    size: 'A4',
-    layout: 'landscape',
+    size: [PAGE_WIDTH, L.height * k],
     margin: 0,
     info: {
-      Title: `${c.courseTitleEn}: certificate ${c.serial}`,
+      Title: `${c.courseTitle}: certificate ${c.serial}`,
       Author: CERTIFICATE_ORGANIZATION,
       Subject: `Certificate of ${attendance ? 'attendance' : 'completion'} for ${c.name}`,
       Creator: 'MLOps MENA Academy',
     },
   });
-  doc.registerFont('regular', asset('IBMPlexSansArabic-Regular.ttf'));
-  doc.registerFont('semibold', asset('IBMPlexSansArabic-SemiBold.ttf'));
-  doc.registerFont('bold', asset('IBMPlexSansArabic-Bold.ttf'));
+  for (const [w, file] of Object.entries(FONT_FILES)) doc.registerFont(`m${w}`, asset(file));
+  doc.registerFont('arabic', asset('IBMPlexSansArabic-Regular.ttf'));
+  doc.registerFont('arabic-bold', asset('IBMPlexSansArabic-Bold.ttf'));
 
   const chunks: Buffer[] = [];
   const done = new Promise<Buffer>((resolve, reject) => {
@@ -149,62 +273,30 @@ export function renderCertificatePdf(c: CertificatePdfData): Promise<Buffer> {
     doc.on('error', reject);
   });
 
-  // Frame: a thin brand gradient band on top, a double border.
-  const band = doc.linearGradient(0, 0, W, 0);
-  band.stop(0, CYAN).stop(0.5, '#72B97B').stop(1, ORANGE);
-  doc.rect(0, 0, W, 10).fill(band);
-  doc.lineWidth(1.2).strokeColor(TEAL).rect(24, 30, W - 48, H - 54).stroke();
-  doc.lineWidth(0.5).strokeColor('#c9d3e0').rect(30, 36, W - 60, H - 66).stroke();
+  // Everything below is in the template's own pixels.
+  doc.scale(k);
+  doc.image(asset(L.file), 0, 0, { width: L.width, height: L.height });
 
-  // Header: logo and the academy's name in both languages.
-  doc.image(asset('logo-mark.png'), 60, 54, { width: 52 });
-  line(doc, 'MLOps MENA Academy', 62, { font: 'bold', size: 15, color: TEAL, x: 122, width: 300, align: 'left' });
-  line(doc, 'أكاديمية MLOps MENA', 82, { font: 'regular', size: 12, color: MUTED, x: 122, width: 300, align: 'left' });
-  line(doc, attendance ? 'Certificate of Attendance' : 'Certificate of Completion', 60, { font: 'semibold', size: 13, color: MUTED, x: W - 360, width: 300, align: 'right' });
-  line(doc, attendance ? 'شهادة حضور' : 'شهادة إتمام', 80, { font: 'semibold', size: 13, color: MUTED, x: W - 360, width: 300, align: 'right' });
+  const name = clean(c.name);
+  draw(doc, name, L.name.x, L.name.y, { ...L.name, size: fitSize(doc, name, L.name, L.name.letterSpacing), spacing: L.name.letterSpacing });
 
-  // Body.
-  let y = 138;
-  line(doc, 'This certifies that  ·  تشهد الأكاديمية بأن', y, { rtl: false, font: 'regular', size: 13, color: MUTED });
-  y += 30;
-  const nameBox = { x: 70, width: W - 140 };
-  const hasName = c.name.trim().length > 0;
-  y += line(doc, hasName ? c.name : c.nameAr ?? '', y, { font: 'bold', size: 40, minSize: 22, ...nameBox }) + 2;
-  if (hasName && c.nameAr) y += line(doc, c.nameAr, y, { font: 'semibold', size: 24, minSize: 14, color: INK, ...nameBox });
-  y += 14;
-  doc.moveTo(W / 2 - 120, y).lineTo(W / 2 + 120, y).lineWidth(1).strokeColor(ORANGE).stroke();
-  y += 16;
-  line(doc, attendance ? 'has attended the course  ·  حضر دورة' : 'has successfully completed the course  ·  أتمّ بنجاح دورة', y, { rtl: false, font: 'regular', size: 13, color: MUTED });
-  y += 28;
-  y += line(doc, c.courseTitleEn, y, { font: 'bold', size: 24, minSize: 14, ...nameBox });
-  if (c.courseTitleAr && c.courseTitleAr !== c.courseTitleEn) y += line(doc, c.courseTitleAr, y + 2, { font: 'semibold', size: 18, minSize: 12, ...nameBox });
-  if (c.grade) {
-    y += 14;
-    line(doc, `Grade: ${c.grade}`, y, { font: 'semibold', size: 14, color: TEAL });
+  const course = multiline(doc, clean(c.courseTitle), L.course, 2, L.course.wrapBelow);
+  course.lines.forEach((t, i) => draw(doc, t, L.course.x, L.course.y + i * L.course.lineHeight, { ...L.course, size: course.size }));
+  // A second course line pushes the description down.
+  const push = (course.lines.length - 1) * L.course.lineHeight;
+
+  const description = clean(c.courseDescription);
+  if (description) {
+    const d = multiline(doc, description, L.description, 2);
+    d.lines.forEach((t, i) => draw(doc, t, L.description.x, L.description.y + push + i * L.description.lineHeight, { ...L.description, size: d.size }));
   }
 
-  // Footer: date and instructors on the left, signature in the middle, QR and serial on the right.
-  const fy = H - 150;
-  line(doc, 'Issued  ·  تاريخ الإصدار', fy, { rtl: false, font: 'regular', size: 9.5, color: MUTED, x: 60, width: 250, align: 'left' });
-  line(doc, dateEn(c.issuedAt), fy + 14, { font: 'semibold', size: 12, x: 60, width: 250, align: 'left' });
-  line(doc, dateAr(c.issuedAt), fy + 31, { font: 'regular', size: 11, x: 60, width: 250, align: 'left' });
-  if (c.instructors.length) {
-    line(doc, 'Instructors  ·  المدربون', fy + 56, { rtl: false, font: 'regular', size: 9.5, color: MUTED, x: 60, width: 250, align: 'left' });
-    const names = c.instructors.map((i) => i.name).join(', ');
-    line(doc, names, fy + 70, { font: 'semibold', size: 11, minSize: 7, x: 60, width: 250, align: 'left' });
-  }
+  qr(doc, c.verifyUrl, L.qr.x, L.qr.y, L.qr.size);
+  draw(doc, c.serial, L.id.x, L.id.y, { ...L.id, size: fitSize(doc, c.serial, L.id) });
+  draw(doc, 'Issued:', L.date.x, L.date.y, { weight: 500, size: L.date.size, color: GREY });
+  draw(doc, dateEn(c.issuedAt), L.date.x + width(doc, 'Issued:', 500, L.date.size) + 6, L.date.y, { weight: 700, size: L.date.size, color: INK });
 
-  const sx = W / 2 - 110;
-  doc.moveTo(sx, fy + 58).lineTo(sx + 220, fy + 58).lineWidth(0.8).strokeColor(INK).stroke();
-  line(doc, CERTIFICATE_ORGANIZATION, fy + 64, { font: 'semibold', size: 12, x: sx, width: 220 });
-  line(doc, 'مجتمع MLOps MENA', fy + 81, { font: 'regular', size: 10.5, color: MUTED, x: sx, width: 220 });
-
-  const qs = 78;
-  const qx = W - 60 - qs;
-  qr(doc, c.verifyUrl, qx, fy - 4, qs);
-  line(doc, 'Verify  ·  تحقّق', fy + 2, { rtl: false, font: 'regular', size: 9.5, color: MUTED, x: qx - 190, width: 180, align: 'right' });
-  line(doc, c.serial, fy + 16, { font: 'semibold', size: 12, x: qx - 190, width: 180, align: 'right' });
-  line(doc, c.verifyUrl.replace(/^https?:\/\//, ''), fy + 90, { font: 'regular', size: 7.5, color: MUTED, minSize: 5, x: W - 360, width: 300, align: 'right' });
+  instructors(doc, c.instructors, L.instructors);
 
   doc.end();
   return done;

@@ -33,20 +33,39 @@ describe('newSerial', () => {
   });
 });
 
-describe('renderCertificatePdf', () => {
-  it('renders a PDF with English and Arabic names', async () => {
-    const pdf = await renderCertificatePdf({
-      serial: 'MMA-2026-7KQ4XM2P',
-      name: 'Test Person',
-      nameAr: 'شخص تجريبي',
-      courseTitleEn: 'AI Architecture Design',
-      courseTitleAr: 'تصميم معمارية الذكاء الاصطناعي',
-      instructors: [{ name: 'Mohamed Samy', nameAr: null }],
-      issuedAt: new Date('2026-12-13T18:00:00Z'),
-      grade: 'Distinction',
-      verifyUrl: 'https://academy.mlopsmena.com/en/certificates/MMA-2026-7KQ4XM2P',
-    });
+describe('renderCertificatePdf (the community templates)', () => {
+  const base = {
+    serial: 'MLOPS-01-2026-00209',
+    name: 'Test Person',
+    courseTitle: 'The MLOps Practitioner Course',
+    courseDescription: 'From notebooks to production: pipelines, serving, monitoring and Kubernetes deployment strategies.',
+    instructors: [{ name: 'Mohamed Samy', title: 'Senior ML Engineer' }],
+    issuedAt: new Date('2026-12-13T18:00:00Z'),
+    verifyUrl: 'https://academy.mlopsmena.com/en/certificates/MLOPS-01-2026-00209',
+  };
+  const isPdf = (pdf: Buffer) => {
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
-    expect(pdf.length).toBeGreaterThan(10_000);
+    expect(pdf.length).toBeGreaterThan(100_000); // the artwork is embedded
+  };
+
+  it('renders both designs, A4 landscape wide', async () => {
+    for (const kind of ['COMPLETION', 'ATTENDANCE'] as const) {
+      const pdf = await renderCertificatePdf({ ...base, kind });
+      isPdf(pdf);
+      expect(pdf.toString('latin1')).toMatch(/\/MediaBox \[0 0 841\.89 /);
+    }
+  });
+
+  it('copes with long text, several instructors, no description and a name in Arabic letters', async () => {
+    isPdf(
+      await renderCertificatePdf({
+        ...base,
+        name: 'Abdelrahman Mohamed Abdelaziz Elsayed Abdelmoneim Hassan',
+        courseTitle: 'Machine Learning Operations at Scale: From Experiment Tracking to Production Monitoring',
+        courseDescription: 'word '.repeat(80),
+        instructors: [{ name: 'Aya Nasser' }, { name: 'Mohamed Samy', title: 'Senior ML Engineer' }, { name: 'Sara Ahmed' }, { name: 'Omar Hassan' }],
+      }),
+    );
+    isPdf(await renderCertificatePdf({ ...base, name: 'شخص تجريبي', courseDescription: null, instructors: [] }));
   });
 });
