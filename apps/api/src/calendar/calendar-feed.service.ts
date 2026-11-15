@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { CalendarFeedDto, Locale } from '@academy/shared';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sha256 } from '../common/crypto';
+import { PublicRevalidator } from '../common/revalidate';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
 import { buildIcs, type IcsEvent } from '../learn/ics';
@@ -50,6 +51,7 @@ export class CalendarFeedService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(ENV) private readonly env: Env,
+    private readonly revalidator: PublicRevalidator,
   ) {
     // A subkey for this one purpose: the JWT secret itself never signs feed tokens.
     // Rotating JWT_ACCESS_SECRET revokes every calendar link immediately (render()
@@ -100,6 +102,9 @@ export class CalendarFeedService {
       // Without `rotate` this only runs when a concurrent first create won the race: keep its row.
       update: rotate ? { version, tokenHash, rotatedAt: new Date(), lastFetchedAt: null } : {},
     });
+    // The edge keeps a copy of each feed (deploy/cloudflare/src/edge-cache.ts): revalidating the
+    // site purges it, so the old URL stops working everywhere within seconds, not after FEED_TTL.
+    if (existing && rotate) this.revalidator.changed();
     return this.status(userId);
   }
 

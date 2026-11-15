@@ -80,6 +80,8 @@ const envSchema = z.object({
   JOBS_ENABLED: bool.default('true'),
   /** Shared secret for POST /api/internal/jobs/tick. Unset disables the endpoint. */
   JOBS_TOKEN: z.string().min(32).optional(),
+  /** Shared secret for the community bot's GET /api/bot/v1/activity. Unset disables the endpoint. */
+  BOT_API_TOKEN: z.string().min(32).optional(),
 
   /**
    * Where to ask the public site to revalidate its pages after an admin edit (common/revalidate.ts):

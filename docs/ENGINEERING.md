@@ -236,6 +236,8 @@ certificates); every status change goes through a service (the application state
 
 ## 8. Jobs and cron
 
+**Community bot feed.** `GET /api/bot/v1/activity?from&to` (`apps/api/src/bot`) gives the Telegram community bot quiz, practical-task and attendance facts (user id, Telegram username, course slug, timestamps). It is outside `/api/internal/*` because the bot runs off Cloudflare; `BotTokenGuard` checks `x-bot-token` against `BOT_API_TOKEN` in constant time (404 when unset), the default rate limit applies, and responses are `no-store`.
+
 Containers sleep, so in-process cron is off in production (`JOBS_ENABLED=false`); the Worker's Cron
 Trigger (`0 * * * *`) calls `POST /api/internal/jobs/tick` with the `x-jobs-token` header (constant-time
 check; 404 when no token is set). Staging has no cron: run `POST /_jobs/tick` with staging's token by
