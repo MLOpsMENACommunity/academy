@@ -777,4 +777,18 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     });
     return { hits };
   },
+
+  // ------------------------------------------------------------------ course Q&A
+  async QUESTION_UNANSWERED(d, p) {
+    const hours = n(p, 'hours');
+    // Visible, still OPEN (not closed, no visible answer) and asked more than `hours` ago.
+    const questions = await d.prisma.courseQuestion.findMany({
+      where: { courseId: d.course.id, status: 'OPEN', hiddenAt: null, answerCount: 0, createdAt: { lte: new Date(d.t - hours * HOUR) } },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+      select: { id: true, title: true },
+    });
+    const hits = questions.map((q): Hit => ({ key: q.id, userId: null, label: q.title, subject: q.title, alert: true }));
+    return { hits, alert: (c) => alertTexts.questionUnanswered(d.names, c, hours), link: { admin: `/teach/courses/${d.course.id}?tab=qa`, teach: 'qa' } };
+  },
 };

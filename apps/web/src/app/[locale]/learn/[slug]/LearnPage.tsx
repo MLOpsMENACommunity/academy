@@ -12,6 +12,7 @@ import { AssessmentList } from '@/components/learn/AssessmentList';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements, markAnnouncementsSeen, useNewAnnouncements } from '@/components/learn/Announcements';
+import { CourseQA } from '@/components/learn/CourseQA';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
 import { TestimonialForm } from '@/components/learn/TestimonialForm';
@@ -40,9 +41,20 @@ function defaultSession(sessions: LearnSessionDto[]): number | null {
   return pick?.order ?? null;
 }
 
-/** The main column's two tabs; #announcements (from the announcement emails and notifications) opens the second. */
-type Tab = 'sessions' | 'announcements';
+/**
+ * The main column's tabs; #announcements (from the announcement emails and notifications) opens
+ * the second, #qa (or ?q=<question>, from Q&A notifications and emails) the third.
+ */
+type Tab = 'sessions' | 'announcements' | 'qa';
+const TABS: Tab[] = ['sessions', 'announcements', 'qa'];
 const ANNOUNCEMENTS_HASH = '#announcements';
+const QA_HASH = '#qa';
+/** The tab the address asks for, if any. */
+function tabFromUrl(): Tab | null {
+  if (window.location.hash === ANNOUNCEMENTS_HASH) return 'announcements';
+  if (window.location.hash === QA_HASH || new URLSearchParams(window.location.search).has('q')) return 'qa';
+  return null;
+}
 const NO_ANNOUNCEMENTS: LearnAnnouncementDto[] = [];
 
 /** #session-3 (or #session-3-feedback, from the feedback emails and the dashboard) → 3. */
@@ -79,6 +91,8 @@ function Inner({ user }: { user: MeResponse }) {
   const [seenVersion, setSeenVersion] = useState(0);
   // The Announcements panel loads its list the first time it opens, then stays mounted (hidden).
   const [announcementsOpened, setAnnouncementsOpened] = useState(false);
+  // The same for Q&A.
+  const [qaOpened, setQaOpened] = useState(false);
   const main = useRef<HTMLDivElement>(null);
   const latestAnnouncements = course?.announcements ?? NO_ANNOUNCEMENTS;
   const newAnnouncements = useNewAnnouncements(slug, latestAnnouncements, seenVersion);
@@ -133,13 +147,15 @@ function Inner({ user }: { user: MeResponse }) {
     initialised.current = true;
     const fromHash = hashOrder();
     setSelected(fromHash && course.sessions.some((s) => s.order === fromHash) ? fromHash : defaultSession(course.sessions));
-    if (window.location.hash === ANNOUNCEMENTS_HASH) setTab('announcements');
+    const fromUrl = tabFromUrl();
+    if (fromUrl) setTab(fromUrl);
     if (window.location.hash === '#reminders') requestAnimationFrame(() => document.getElementById('reminders')?.scrollIntoView({ block: 'start' }));
     scrollToFeedback();
   }, [course]);
   useEffect(() => {
     const onHash = () => {
-      if (window.location.hash === ANNOUNCEMENTS_HASH) return setTab('announcements');
+      const fromUrl = tabFromUrl();
+      if (fromUrl) return setTab(fromUrl);
       const n = hashOrder();
       if (n) {
         setSelected(n);
@@ -151,7 +167,11 @@ function Inner({ user }: { user: MeResponse }) {
     // no hashchange: catch clicks on any link to this page's #announcements too.
     const onClick = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a');
-      if (a && a.hash === ANNOUNCEMENTS_HASH && a.pathname === window.location.pathname) setTab('announcements');
+      if (a && a.pathname === window.location.pathname) {
+        if (a.hash === ANNOUNCEMENTS_HASH) setTab('announcements');
+        // A Q&A notification: the panel follows ?q= in the address itself.
+        if (a.hash === QA_HASH) setTab('qa');
+      }
     };
     window.addEventListener('hashchange', onHash);
     document.addEventListener('click', onClick);
@@ -163,6 +183,7 @@ function Inner({ user }: { user: MeResponse }) {
 
   useEffect(() => {
     if (tab === 'announcements') setAnnouncementsOpened(true);
+    if (tab === 'qa') setQaOpened(true);
   }, [tab]);
   useEffect(() => {
     if (tab !== 'announcements' || !latestAnnouncements.length) return;
@@ -203,19 +224,33 @@ function Inner({ user }: { user: MeResponse }) {
   const go = (s: LearnSessionDto) => {
     setSelected(s.order);
     setTab('sessions');
-    window.history.replaceState(null, '', `#session-${s.order}`);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('q');
+    url.hash = `#session-${s.order}`;
+    window.history.replaceState(null, '', url.toString());
     if (window.matchMedia('(max-width: 63.99rem)').matches) main.current?.scrollIntoView({ block: 'start' });
   };
   const openTab = (next: Tab, focus = false) => {
     setTab(next);
-    window.history.replaceState(null, '', next === 'announcements' ? ANNOUNCEMENTS_HASH : current ? `#session-${current.order}` : window.location.pathname + window.location.search);
+    // Leaving Q&A drops its ?q=, so a reload opens the tab that was shown.
+    const url = new URL(window.location.href);
+    if (next !== 'qa') url.searchParams.delete('q');
+    url.hash = next === 'announcements' ? ANNOUNCEMENTS_HASH : next === 'qa' ? QA_HASH : current ? `#session-${current.order}` : '';
+    window.history.replaceState(null, '', url.toString());
     if (focus) document.getElementById(`learn-tab-${next}`)?.focus();
   };
-  // Two tabs: either arrow key moves to the other one (left and right swap in Arabic, as everywhere).
+  // Arrow keys move along the tabs and wrap around (left and right swap in Arabic, as everywhere); Home and End jump to the ends.
   const onTabKey = (e: KeyboardEvent) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const i = TABS.indexOf(tab);
+    let next: Tab | null = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const d = (e.key === 'ArrowRight') !== (locale === 'ar') ? 1 : -1;
+      next = TABS[(i + d + TABS.length) % TABS.length]!;
+    } else if (e.key === 'Home') next = TABS[0]!;
+    else if (e.key === 'End') next = TABS[TABS.length - 1]!;
+    if (!next) return;
     e.preventDefault();
-    openTab(tab === 'sessions' ? 'announcements' : 'sessions', true);
+    openTab(next, true);
   };
   // The sidebar's Assessments and Leaderboard links: their sections are on the Sessions tab.
   const showOnSessionsTab = (id: string) => {
@@ -414,9 +449,24 @@ function Inner({ user }: { user: MeResponse }) {
                 <span className="rounded-full bg-cta px-2 py-0.5 text-[0.8125rem] font-semibold text-cta-text">{t('learn.announcementsNew', { count: newAnnouncements })}</span>
               )}
             </button>
+            <button
+              type="button"
+              id="learn-tab-qa"
+              role="tab"
+              aria-selected={tab === 'qa'}
+              aria-controls="learn-panel-qa"
+              tabIndex={tab === 'qa' ? 0 : -1}
+              onClick={() => openTab('qa')}
+              className={tabClass('qa')}
+            >
+              {t('learn.qaTab')}
+            </button>
           </div>
 
-          {/* Both panels stay mounted (hidden, not removed), so a half-written rating or a playing video survives a tab switch. */}
+          {/* The panels stay mounted (hidden, not removed), so a half-written rating, question or a playing video survives a tab switch. */}
+          <div role="tabpanel" id="learn-panel-qa" aria-labelledby="learn-tab-qa" hidden={tab !== 'qa'}>
+            {qaOpened && <CourseQA slug={course.slug} sessions={sessions} currentSessionId={current?.id ?? null} headingId="qa-title" />}
+          </div>
           <div role="tabpanel" id="learn-panel-announcements" aria-labelledby="learn-tab-announcements" hidden={tab !== 'announcements'}>
             {announcementsOpened && <CourseAnnouncements slug={course.slug} latest={latestAnnouncements} headingId="announcements" />}
           </div>

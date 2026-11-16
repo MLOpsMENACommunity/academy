@@ -2193,7 +2193,8 @@
         "ENROL": "Enrol students",
         "ISSUE_CERTIFICATES": "Issue certificates",
         "VIEW_FEEDBACK": "See session feedback",
-        "MANAGE_RULES": "Manage automation rules"
+        "MANAGE_RULES": "Manage automation rules",
+        "ANSWER_QUESTIONS": "Answer questions"
       },
       "permHint": {
         "MANAGE_ASSESSMENTS": "Create, edit, publish and upload quizzes and assignments.",
@@ -2209,7 +2210,8 @@
         "ENROL": "Enrol by email and invites, and the waiting list.",
         "ISSUE_CERTIFICATES": "Issue, revoke and re-issue certificates, and the rule.",
         "VIEW_FEEDBACK": "Students’ feedback on each session.",
-        "MANAGE_RULES": "Rules that act on their own in this course."
+        "MANAGE_RULES": "Rules that act on their own in this course.",
+        "ANSWER_QUESTIONS": "The course Q&A: answer, pin, close and reopen, hide and unhide questions and answers."
       },
       "saveRole": "Save role",
       "createRole": "Create role",
@@ -2433,6 +2435,10 @@
         "WEEKLY_SUMMARY": {
           "title": "Weekly points summary",
           "desc": "Each week while the course runs, tells students who earned points the week before how many and their rank."
+        },
+        "QUESTION_UNANSWERED": {
+          "title": "Question waiting for an answer",
+          "desc": "Alerts the team about questions in the course Q&A that nobody has answered after the set number of hours."
         }
       }
     }
@@ -2533,7 +2539,8 @@
     "sessionNav": "Previous and next session",
     "nextSession": "Next: {n}. {title}",
     "confirmEmailFirst": "Were you added to this course by email? Confirm your email address first (we sent you a link) and you'll be enrolled automatically.",
-    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way."
+    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way.",
+    "qaTab": "Q&A"
   },
   "speakerAnnouncements": {
     "title": "My courses & sessions",
@@ -3184,7 +3191,8 @@
       "MANUAL_OTHER": "Other",
       "ADJUSTMENT": "Correction",
       "ATTENDANCE": "Attendance",
-      "AUTOMATION": "Automation bonus"
+      "AUTOMATION": "Automation bonus",
+      "QA_ANSWER": "Accepted answer in the Q&A"
     }
   },
   "badges": {
@@ -3453,6 +3461,97 @@
     "saveEdit": "Save the change",
     "confirmRemove": "Remove the points"
   },
+  "qa": {
+    "title": "Questions and answers",
+    "intro": "Ask the course team and your classmates about the course or one lesson, and help others with what you know. Be kind, and don't share private details or solutions to graded work.",
+    "introTeach": "Students' questions in this course. Answer them, accept the best answer, pin useful threads, close finished ones and hide what breaks the course rules. Hidden posts stay visible to their author.",
+    "ask": "Ask a question",
+    "askTitle": "Ask a question",
+    "filterLabel": "Show questions",
+    "filters": {
+      "all": "All",
+      "unanswered": "Unanswered",
+      "mine": "Mine",
+      "following": "Following",
+      "lesson": "This lesson"
+    },
+    "search": "Search questions",
+    "searchButton": "Search",
+    "count": "{count, plural, =0 {No questions} one {# question} other {# questions}}",
+    "empty": "No questions yet. Be the first to ask.",
+    "emptyFiltered": "No questions match.",
+    "pages": "Pages of questions",
+    "prev": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pages}",
+    "courseTeam": "Course team",
+    "formerStudent": "Former student",
+    "you": "you",
+    "pinned": "Pinned",
+    "status": {
+      "OPEN": "Unanswered",
+      "ANSWERED": "Answered",
+      "CLOSED": "Closed"
+    },
+    "acceptedBadge": "Has an accepted answer",
+    "hidden": "Hidden",
+    "answers": "{count, plural, =0 {No answers} one {# answer} other {# answers}}",
+    "votes": "{count, plural, =0 {Nobody else asked} one {# has this question too} other {# have this question too}}",
+    "questionTitle": "Your question",
+    "questionTitleHint": "One sentence, 5 to 150 characters.",
+    "details": "Details",
+    "markdownHint": "Markdown works: **bold**, `code`, ``` for code blocks, and links. Up to 5,000 characters.",
+    "lesson": "Lesson or session",
+    "wholeCourse": "The whole course",
+    "post": "Post the question",
+    "cancel": "Cancel",
+    "save": "Save",
+    "invalid": {
+      "title": "Write a question of 5 to 150 characters.",
+      "body": "Write up to 5,000 characters.",
+      "sessionId": "Choose a lesson from the list."
+    },
+    "notFound": "This question isn't available. It may have been hidden by the course team.",
+    "back": "All questions",
+    "aboutLesson": "About {lesson}",
+    "hiddenNote": "The course team hid this question: only you can still see it.",
+    "hiddenNoteStaff": "Hidden: only its author and the course team see it.",
+    "edited": "Edited",
+    "sameQuestion": "{count, plural, =0 {I have this question too} other {I have this question too (#)}}",
+    "follow": "Follow",
+    "unfollow": "Stop following",
+    "followHint": "You'll be told about new answers in the app and by email (course reminder emails).",
+    "edit": "Edit",
+    "moderation": "Course team",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "close": "Close the question",
+    "reopen": "Reopen",
+    "hideQuestion": "Hide the question",
+    "unhideQuestion": "Show the question",
+    "hideAnswer": "Hide",
+    "unhideAnswer": "Show",
+    "noAnswers": "No answers yet.",
+    "closedNote": "This question is closed: no new answers.",
+    "accepted": "Accepted answer",
+    "accept": "Accept this answer",
+    "unaccept": "Remove acceptance",
+    "answerTitle": "Your answer",
+    "yourAnswer": "Answer",
+    "postAnswer": "Post the answer",
+    "errors": {
+      "NOT_ENROLLED": "Questions are for the students enrolled in this course.",
+      "QUESTION_CLOSED": "This question is closed: no new answers.",
+      "EDIT_WINDOW_OVER": "Posts can be edited for 30 minutes after posting.",
+      "OWN_QUESTION": "This is your own question.",
+      "NOT_YOUR_POST": "Only its author can edit this.",
+      "NOT_YOUR_QUESTION": "Only the person who asked, or the course team, can accept an answer.",
+      "COURSE_PERMISSION": "Your role in this course doesn't include this.",
+      "QUESTION_NOT_FOUND": "This question isn't available.",
+      "ANSWER_NOT_FOUND": "This answer isn't available.",
+      "SESSION_NOT_FOUND": "That lesson isn't in this course."
+    }
+  },
   "teach": {
     "title": "Teaching",
     "intro": "The courses you help run. What you can do in each depends on your role there.",
@@ -3481,7 +3580,8 @@
       "applications": "Applications",
       "enrolment": "Enrolment",
       "certificates": "Certificates",
-      "automation": "Automation"
+      "automation": "Automation",
+      "qa": "Q&A"
     },
     "details": {
       "adminOnly": "The status, address, price and who teaches the course stay with the academy team."

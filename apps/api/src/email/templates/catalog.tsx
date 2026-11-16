@@ -107,6 +107,11 @@ export type EmailTemplate =
   /** A quiz, lab or assignment was published (sent once per assessment), to enrolled students who get course reminders. */
   | { name: 'assessmentPublished'; courseTitle: string; title: string; kind: 'QUIZ' | 'LAB' | 'ASSIGNMENT'; dueAt: string | null; url: string; unsubscribeUrl: string }
   /**
+   * Course Q&A: a new answer to a question the student asked or follows (through the outbox, under the
+   * course's reminders opt-out). `excerpt` is plain text, already cut short; the answer stays on the site.
+   */
+  | { name: 'qaAnswer'; courseTitle: string; questionTitle: string; excerpt: string; byTeam: boolean; url: string; unsubscribeUrl: string }
+  /**
    * After every course session (30 minutes to 72 hours after it ends), one per student and session.
    * `courseUrl` is set at the last session: the same email then also asks for the course rating.
    * `unsubscribeUrl`: the tokened "stop feedback emails for this course" page (no login).
@@ -1196,6 +1201,26 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             ]}
             cta={{ label: ar ? 'افتح التقييم' : 'Open the assessment', url: t.url }}
             note={ar ? `لإيقاف تذكيرات هذه الدورة: ${t.unsubscribeUrl}` : `To stop reminders for this course: ${t.unsubscribeUrl}`}
+          />
+        ),
+      };
+    }
+    case 'qaAnswer': {
+      const subject = ar ? `إجابة جديدة: ${t.questionTitle}` : `New answer: ${t.questionTitle}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={ar ? 'إجابة جديدة على سؤال تتابعه' : 'A new answer to a question you follow'}
+            paragraphs={[
+              ar ? `في ${t.courseTitle}، على السؤال «${t.questionTitle}»:` : `In ${t.courseTitle}, on "${t.questionTitle}":`,
+              t.excerpt,
+              t.byTeam ? (ar ? 'الإجابة من فريق الدورة.' : 'The answer is from the course team.') : ar ? 'الإجابة من زميل في الدورة.' : 'The answer is from a classmate.',
+            ]}
+            cta={{ label: ar ? 'شاهد الإجابة' : 'See the answer', url: t.url }}
+            noteLink={{ label: ar ? 'أوقف رسائل التذكير لهذه الدورة' : 'Stop reminder emails for this course', url: t.unsubscribeUrl }}
           />
         ),
       };

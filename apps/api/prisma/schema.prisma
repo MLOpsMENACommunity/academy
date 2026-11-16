@@ -394,6 +394,12 @@ model User {
   outboundEmails              OutboundEmail[]
   consultationsBooked         ConsultationBooking[]      @relation("ConsultationStudent")
   consultationsReviewed       ConsultationBooking[]      @relation("ConsultationReviewer")
+  questionsAsked              CourseQuestion[]           @relation("QuestionAuthor")
+  questionsHidden             CourseQuestion[]           @relation("QuestionHider")
+  answersWritten              CourseAnswer[]             @relation("AnswerAuthor")
+  answersHidden               CourseAnswer[]             @relation("AnswerHider")
+  questionVotes               QuestionVote[]
+  questionFollows             QuestionFollow[]
 
   @@index([role])
   @@index([createdAt])
@@ -707,6 +713,7 @@ model Course {
   /// The speaker booking this course was drafted from, if any.
   speakingSlot        SpeakingSlot?
   automationRules     CourseAutomationRule[]
+  questions           CourseQuestion[]
 
   @@index([status])
 }
@@ -772,6 +779,7 @@ model CourseSession {
   reminders   ReminderLog[]
   assessments Assessment[]
   attendance  SessionAttendance[]
+  questions   CourseQuestion[]
 
   @@index([courseId, order])
   @@index([startsAt])
@@ -1728,6 +1736,7 @@ enum PointsReason {
   ADJUSTMENT
   ATTENDANCE
   AUTOMATION
+  QA_ANSWER
 }
 
 enum BadgeKind {
@@ -1839,6 +1848,7 @@ enum CoursePermission {
   ENROL
   ISSUE_CERTIFICATES
   MANAGE_RULES
+  ANSWER_QUESTIONS
 }
 
 enum StaffVisibility {
@@ -2067,4 +2077,90 @@ model AutomationFiring {
   @@unique([ruleId, dedupeKey])
   @@index([courseId, createdAt])
   @@index([courseId, type, createdAt])
+}
+
+// ============================================================ Course Q&A
+
+/// A student's question in a course, optionally about one session or lesson. `status` is text with a
+/// CHECK constraint (OPEN | ANSWERED | CLOSED). Hidden questions stay; only their author and the staff
+/// see them. `answerCount` counts visible answers; `voteCount` is "I have this question too".
+model CourseQuestion {
+  id               String         @id @default(cuid())
+  courseId         String
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sessionId        String?
+  session          CourseSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  authorId         String
+  author           User           @relation("QuestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  title            String
+  /// Markdown.
+  body             String
+  /// "OPEN" | "ANSWERED" | "CLOSED"
+  status           String         @default("OPEN")
+  pinned           Boolean        @default(false)
+  hiddenAt         DateTime?
+  hiddenById       String?
+  hiddenBy         User?          @relation("QuestionHider", fields: [hiddenById], references: [id], onDelete: SetNull)
+  acceptedAnswerId String?        @unique
+  acceptedAnswer   CourseAnswer?  @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+  voteCount        Int            @default(0)
+  answerCount      Int            @default(0)
+  lastActivityAt   DateTime       @default(now())
+  /// Last edit by the author (shown as "edited"); updatedAt also moves on pins, counts and moderation.
+  editedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  answers CourseAnswer[]
+  votes   QuestionVote[]
+  follows QuestionFollow[]
+
+  @@index([courseId, status, lastActivityAt])
+  @@index([courseId, sessionId])
+  @@index([authorId])
+}
+
+model CourseAnswer {
+  id          String          @id @default(cuid())
+  questionId  String
+  question    CourseQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User            @relation("AnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  /// Markdown.
+  body        String
+  hiddenAt    DateTime?
+  hiddenById  String?
+  hiddenBy    User?           @relation("AnswerHider", fields: [hiddenById], references: [id], onDelete: SetNull)
+  /// Last edit by the author (shown as "edited").
+  editedAt    DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  acceptedFor CourseQuestion? @relation("AcceptedAnswer")
+
+  @@index([questionId, createdAt])
+  @@index([authorId])
+}
+
+/// "I have this question too".
+model QuestionVote {
+  questionId String
+  question   CourseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@id([questionId, userId])
+  @@index([userId])
+}
+
+/// Told (in the app and by email) about new answers. Asking or answering follows the question.
+model QuestionFollow {
+  questionId String
+  question   CourseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@id([questionId, userId])
+  @@index([userId])
 }

@@ -24,11 +24,12 @@ Profile → Points.
 | `ASSESSMENT` | Automatic, per assessment | The counted score, rounded to whole points |
 | `SESSION_COMPLETED` | Automatic, per course session | `sessionCompletedPoints` (Settings, default **5**) |
 | `CERTIFICATE` | Automatic, per certificate | `certificatePoints` (Settings, default **50**) |
+| `QA_ANSWER` | Automatic, per accepted Q&A answer by a student (not staff, not the asker) | **5** (`QA_ANSWER_POINTS`); back to 0 when the acceptance moves or is removed, or the answer is hidden |
 | `MANUAL_COMMUNITY` | By hand: "Community help" | Any whole number −10,000…10,000 except 0 |
 | `MANUAL_OTHER` | By hand: "Other" | Same |
 | `ADJUSTMENT` | By hand: "Correction" | Same |
 
-Automatic entries are idempotent: each has a source (`ASSESSMENT`/`SESSION`/`CERTIFICATE` + id) and a
+Automatic entries are idempotent: each has a source (`ASSESSMENT`/`SESSION`/`CERTIFICATE`/`QA_ANSWER` + id) and a
 sequence number, unique per student. A sync computes the target, compares it with what the ledger
 already holds for that source, and appends only the difference. Running a sync twice, or two syncs at
 the same moment, never double-counts.
