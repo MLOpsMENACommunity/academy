@@ -371,7 +371,7 @@ describe('self-paced courses (e2e)', () => {
       const a = await admin();
       await say(c, { body: text, consent: true }).expect(204);
       expect(await publicList(c)).toEqual([]);
-      expect((await learn(c)).testimonial).toEqual({ body: text, status: 'PENDING' });
+      expect((await learn(c)).testimonial).toEqual({ body: text, rating: null, status: 'PENDING' });
 
       await http().get(base(c)).set('Cookie', c.student.cookie).expect(403);
       const [row] = (await http().get(base(c)).set('Cookie', a.cookie).expect(200)).body;
@@ -386,7 +386,7 @@ describe('self-paced courses (e2e)', () => {
         .send({ status: 'APPROVED' })
         .expect(204);
       expect(await publicList(c)).toEqual([
-        { id: row.id, name: 'Sam Student', nameAr: null, body: text },
+        { id: row.id, name: 'Sam Student', nameAr: null, body: text, rating: null },
       ]);
       expect(
         await prisma.auditLog.count({

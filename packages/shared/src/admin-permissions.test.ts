@@ -27,11 +27,11 @@ describe('hasAdminPermission', () => {
 
 describe('admin nav', () => {
   it('follows the presets', () => {
-    expect(adminNavFor(admin('SUPER'))).toEqual(['dashboard', 'payments', 'applications', 'students', 'talents', 'points', 'certificates', 'courses', 'sessions', 'speakers', 'consultations', 'media', 'team', 'settings', 'audit']);
+    expect(adminNavFor(admin('SUPER'))).toEqual(['dashboard', 'payments', 'applications', 'students', 'talents', 'points', 'certificates', 'courses', 'reviews', 'sessions', 'speakers', 'consultations', 'media', 'team', 'settings', 'audit']);
     expect(adminNavFor(admin('CONTENT'))).toEqual(['media']);
     expect(adminNavFor(admin('FINANCE'))).toEqual(['dashboard', 'payments', 'consultations']);
     expect(adminNavFor(admin('ADMISSIONS'))).toEqual(['dashboard', 'applications', 'students', 'courses']);
-    expect(adminNavFor(admin('ACADEMIC'))).toEqual(['dashboard', 'points', 'certificates', 'courses', 'sessions']);
+    expect(adminNavFor(admin('ACADEMIC'))).toEqual(['dashboard', 'points', 'certificates', 'courses', 'reviews', 'sessions']);
     expect(adminNavFor(admin('SPEAKERS'))).toEqual(['speakers', 'consultations']);
     expect(adminNavFor(admin())).toEqual([]);
     expect(adminNavFor({ role: 'STUDENT' })).toEqual([]);
@@ -41,6 +41,7 @@ describe('admin nav', () => {
     expect(adminSectionOf('')).toBe('dashboard');
     expect(adminSectionOf('/')).toBe('dashboard');
     expect(adminSectionOf('/courses/abc?tab=x')).toBe('courses');
+    expect(adminSectionOf('/reviews')).toBe('reviews');
     expect(adminSectionOf('/speakers/applications/1')).toBe('speakers');
     expect(adminSectionOf('/team')).toBe('team');
     expect(adminSectionOf('/nope')).toBeNull();

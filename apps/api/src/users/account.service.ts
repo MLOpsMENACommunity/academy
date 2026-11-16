@@ -128,7 +128,7 @@ export class AccountService {
           orderBy: { updatedAt: 'asc' },
         },
         sessionFeedback: true,
-        testimonials: { select: { courseId: true, body: true, status: true, consentAt: true, createdAt: true } },
+        testimonials: { select: { courseId: true, body: true, rating: true, status: true, consentAt: true, createdAt: true } },
         earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
         reminderPreferences: true,
         // The link itself is a credential: only whether it exists and when it was used.

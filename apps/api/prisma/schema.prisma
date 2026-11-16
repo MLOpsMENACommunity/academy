@@ -1069,7 +1069,10 @@ model Testimonial {
   user         User              @relation("TestimonialAuthor", fields: [userId], references: [id], onDelete: Cascade)
   courseId     String
   course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// The words; '' for a review that is stars only.
   body         String
+  /// 1 to 5 stars (CHECK in the migration); null for a testimonial written before ratings, or words only.
+  rating       Int?
   status       TestimonialStatus @default(PENDING)
   /// When the student last agreed to publication with their name.
   consentAt    DateTime

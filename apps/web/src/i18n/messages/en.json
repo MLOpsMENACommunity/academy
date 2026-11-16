@@ -154,6 +154,7 @@
     "errors": {
       "INVALID_CREDENTIALS": "That email and password don't match.",
       "EMAIL_TAKEN": "An account with this email already exists. Try logging in.",
+      "REVIEW_NOT_FINISHED": "You can rate this course once you have finished it.",
       "TOKEN_INVALID": "This link is invalid or has expired.",
       "WRONG_PASSWORD": "Your current password is incorrect.",
       "google_unavailable": "Google sign-in isn't available right now. Use email and password.",
@@ -447,6 +448,8 @@
     "details": "Details and how to apply",
     "detailsOnly": "Details",
     "applyBy": "Apply by {date}",
+    "rating": "{average} ★ ({count, plural, one {# rating} other {# ratings}})",
+    "ratingLabel": "Rated {average} out of 5 from {count, plural, one {# rating} other {# ratings}}",
     "notifyCta": "Get notified when it opens",
     "selfPaced": "Self-paced"
   },
@@ -517,6 +520,7 @@
     "externalNote": "This cohort ran on {platform}.",
     "recordings": "Recordings",
     "recordingsNote": "Every lesson of this cohort, free to watch.",
+    "rated": "Rated {n} out of 5",
     "testimonials": "What students say",
     "noRecording": "No public recording for this lesson.",
     "lesson": "Lesson {n}",
@@ -641,6 +645,15 @@
       "save": "Import",
       "imported": "Imported: {created} new and {updated} changed, {linked} linked to accounts. {total} earlier certificates in total."
     },
+    "reviews": {
+      "title": "Reviews",
+      "intro": "Students' star ratings and reviews of every course. Nothing appears on the site until you approve it; a course shows its average once it has {min} approved ratings. If a student edits a review, it comes back here.",
+      "filter": "Show",
+      "empty": "Nothing here.",
+      "starsOnly": "Stars only, no words.",
+      "noRating": "No stars, words only.",
+      "limit": "Showing the first {count}."
+    },
     "title": "Admin",
     "nav": {
       "dashboard": "Dashboard",
@@ -656,6 +669,7 @@
       "speakers": "Speakers",
       "media": "Media",
       "team": "Team",
+      "reviews": "Reviews",
       "consultations": "Consultations"
     },
     "payments": {
@@ -1001,7 +1015,7 @@
       },
       "feedback": "Feedback",
       "testimonials": "Testimonials",
-      "testimonialsHint": "Only approved testimonials appear on the public course page, with the student's name. If a student edits one, it comes back here for review.",
+      "testimonialsHint": "Only approved ratings and testimonials appear on the public course page, with the student's name, and only approved stars count in the course's average. If a student edits one, it comes back here for review.",
       "testimonialsEmpty": "No testimonials yet.",
       "testimonialApprove": "Approve and publish",
       "testimonialReject": "Don't publish",
@@ -2447,14 +2461,17 @@
   },
   "learn": {
     "testimonial": {
-      "title": "Would you recommend this course?",
-      "intro": "A few words from you help other engineers decide. This is optional and doesn't affect your certificate.",
-      "label": "Your testimonial",
-      "hint": "Between {min} and {max} characters.",
+      "title": "How would you rate this course?",
+      "intro": "Your stars and a few words help other engineers decide. This is optional and doesn't affect your certificate.",
+      "label": "Your review (optional)",
+      "hint": "Optional if you choose stars. Otherwise between {min} and {max} characters.",
       "consent": "I agree that MLOps MENA can publish this on the course page with my name. I can remove it at any time.",
-      "send": "Send testimonial",
+      "send": "Send review",
       "update": "Save changes",
-      "remove": "Remove my testimonial",
+      "remove": "Remove my review",
+      "ratingLegend": "Your rating",
+      "clearRating": "Clear stars",
+      "needOne": "Choose a star rating or write a few words.",
       "status": {
         "PENDING": "Thank you! The team will review it before it appears.",
         "APPROVED": "Published on the course page. If you change it, it is reviewed again.",

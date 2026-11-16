@@ -15,13 +15,14 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { ApplyCta } from '@/components/course/ApplyCta';
-import { availabilityStyle, enrolmentFacts, priceLabel } from '@/components/course/CourseCard';
+import { availabilityStyle, enrolmentFacts, priceLabel, ratingFacts } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
 import { IconUsers } from '@/components/ui/Icons';
+import { Stars } from '@/components/ui/Stars';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
@@ -165,6 +166,8 @@ export default async function CoursePage({ params }: Props) {
   // seconds of an enrolment or a withdrawal (the API revalidates this page).
   const enrolment = enrolmentFacts(c, locale);
   const enrolmentParts = [enrolment.enrolled, enrolment.seats].filter((x): x is string => Boolean(x));
+  // The approved ratings' average: null (nothing shown) until RATING_MIN_TO_SHOW are approved.
+  const rating = ratingFacts(c.rating, locale);
 
   // Open courses: apply. Anything else (coming soon, closed, a past cohort): the waiting list.
   const cta = (compact: boolean) => (
@@ -208,6 +211,9 @@ export default async function CoursePage({ params }: Props) {
         }[c.availability],
         url,
       },
+      ...(c.rating
+        ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: c.rating.average, ratingCount: c.rating.count, bestRating: 5, worstRating: 1 } }
+        : {}),
       hasCourseInstance: {
         '@type': 'CourseInstance',
         courseMode: c.selfPaced ? 'online, self-paced' : 'online',
@@ -303,6 +309,12 @@ export default async function CoursePage({ params }: Props) {
             </p>
           )}
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
+          {rating && c.rating && (
+            <p data-testid="course-rating" className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium text-fg">
+              <Stars value={Math.round(c.rating.average)} label={rating.label} />
+              <span aria-hidden>{rating.text}</span>
+            </p>
+          )}
           {enrolmentParts.length > 0 && (
             <p data-testid="course-enrolment" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] font-medium text-fg">
               <IconUsers className="shrink-0 text-muted" />
@@ -519,6 +531,7 @@ export default async function CoursePage({ params }: Props) {
                 {c.testimonials.map((x) => (
                   <li key={x.id}>
                     <figure className="h-full rounded-xl border border-line bg-card p-5">
+                      {x.rating !== null && <Stars value={x.rating} label={t('course.rated', { n: x.rating })} className="mb-2" />}
                       <blockquote dir="auto" className="leading-relaxed whitespace-pre-line text-body">
                         {x.body}
                       </blockquote>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enrolmentFacts } from './CourseCard';
+import { enrolmentFacts, ratingFacts } from './CourseCard';
 
 const open = { availability: 'OPEN', completed: false } as const;
 
@@ -24,5 +24,18 @@ describe('enrolmentFacts (course page and cards)', () => {
     expect(enrolmentFacts({ ...open, enrolledCount: null, seatsLeft: 4 }, 'en')).toEqual({ enrolled: null, seats: '4 seats left' });
     expect(enrolmentFacts({ availability: 'CLOSED', completed: true, enrolledCount: 0, seatsLeft: null }, 'en').enrolled).toBeNull();
     expect(enrolmentFacts({ availability: 'CLOSED', completed: true, enrolledCount: 25, seatsLeft: null }, 'en').enrolled).toBe('25 students enrolled');
+  });
+});
+
+describe('ratingFacts (course page and cards)', () => {
+  it('shows nothing until there is a public rating', () => {
+    expect(ratingFacts(null, 'en')).toBeNull();
+    expect(ratingFacts(undefined, 'ar')).toBeNull();
+  });
+  it('says the average with one decimal and the count, in both languages', () => {
+    expect(ratingFacts({ average: 4.7, count: 38 }, 'en')).toEqual({ text: '4.7 ★ (38 ratings)', label: 'Rated 4.7 out of 5 from 38 ratings' });
+    expect(ratingFacts({ average: 5, count: 5 }, 'en')?.text).toBe('5.0 ★ (5 ratings)');
+    expect(ratingFacts({ average: 4.4, count: 5 }, 'ar')?.text).toMatch(/^4[.٫]4 ★ \(5 تقييمات\)$/);
+    expect(ratingFacts({ average: 4.4, count: 11 }, 'ar')?.text).toMatch(/11 تقييمًا/);
   });
 });
