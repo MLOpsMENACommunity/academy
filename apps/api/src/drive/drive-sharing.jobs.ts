@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ScheduledJob, type ScheduledJobRunner } from '../jobs/jobs-registry';
 import { DriveSharingService } from './drive-sharing.service';
 
-/** Shares paid courses' Drive folders with new students and removes old addresses, hourly. */
+/** Shares paid courses' Drive folders with new students and removes old addresses, on each jobs tick. */
 @Injectable()
 @ScheduledJob('driveShared')
 export class DriveSharingJobs implements ScheduledJobRunner {

@@ -36,6 +36,7 @@ When a release reaches staging, change its "Merged" entries to "Staging"; when i
 4. [Applications and admissions](#4-applications-and-admissions)
    - [Applying](#41-applying) · [Statuses](#42-application-statuses) · [Reviewing applications](#43-reviewing-applications-admin) · [CVs](#44-cvs) · [Payments](#45-payments-paid-courses) · [Google Drive access](#46-google-drive-access-paid-courses) · [Enrol by email](#47-enrol-by-email) · [Waiting list](#48-waiting-list-notify-me)
 5. [The learn page](#5-the-learn-page)
+   - [Course Q&A](#51-course-qa)
 6. [Assessments](#6-assessments-quizzes-labs-assignments)
 7. [Certificates](#7-certificates)
 8. [Points, badges and leaderboards](#8-points-badges-and-leaderboards)
@@ -73,6 +74,8 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Speaker application, slots, bookings | | | own | | | | | | |
 | Announce to enrolled students / session registrants | | staff³ | staff³ / own sessions | ✓ (courses) | ✓ (courses) | | | | |
 | Create and grade assessments, gradebook | | staff³ | staff³ | ✓ | ✓ | | | | |
+| Course Q&A: ask, answer, vote, follow, accept an answer to own question | | enrolled | enrolled | ✓ | ✓ | enrolled¹ | enrolled¹ | enrolled¹ | enrolled¹ |
+| Course Q&A: answer as the course team, accept any answer, pin, close, hide (Q&A tab) | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Award or remove course points | | staff³ | staff³ | ✓ | ✓² | | | | |
 | Edit session materials (what we cover, recording, links) | | staff³ | staff³ | ✓ | ✓ | ✓ (media fields only, S) | | | |
 | Courses: create, edit, sessions, questions, status | | | | ✓ | ✓ | | read | | |
@@ -349,7 +352,7 @@ community (with consent).
 
 **Status:** Live. The bell in the header shows unread notifications (checked every 2 minutes while
 the tab is visible and in use; a tab left untouched for 10 minutes stops checking until someone
-moves the mouse, types or scrolls, then refreshes at once): application updates, announcements, grades, new assessments, badges, points,
+moves the mouse, types or scrolls, then refreshes at once): application updates, announcements, grades, new assessments, Q&A answers, badges, points,
 certificates, speaker reviews and bookings, admin alerts. **Mark all as read**. Each links to the
 relevant page. Times show in the viewer's own time zone; if the list can't load, the panel says so.
 
@@ -449,7 +452,7 @@ with the address to remove, then click **Removed**.
 **Automatic sharing** (Pending; on once the `GOOGLE_DRIVE_SERVICE_ACCOUNT` secret is set, DEPLOY.md):
 - Applies to paid courses with recordings on Google Drive and a folder link, once the folder is shared
   with the academy's service account as **Editor**.
-- Every hour (the jobs tick, `driveShared`) the academy gives each enrolled student's Google email
+- On every jobs tick (`driveShared`: hourly while the site is in use, at least every 4 hours) the academy gives each enrolled student's Google email
   **Viewer** access (no email from Google) and ticks **Drive access granted**. It first removes old
   addresses: a changed Google email, or a deleted account. It only ever removes Viewers and Commenters,
   never the team's Editors.
@@ -533,6 +536,7 @@ admins can preview any course; course staff can preview assessments.
   that browser). The in-app notification and the email open it directly (`/learn/<slug>#announcements`).
   Students see the announcements sent to enrolled students and any sent to them directly, never
   those for other statuses.
+- **Q&A tab** (after **Announcements**): the course's questions and answers, see [5.1](#51-course-qa).
 - **Assessments** list with how many are due, **Leaderboard**, **How to earn the certificate** card or
   the certificate banner.
 - Dashboard (`/dashboard`): my courses (all, in progress, completed), next live sessions, my
@@ -546,8 +550,8 @@ didn't turn reminders off.
 **Status:** Live (PR #73). **Who:** enrolled students; the per-course opt-out link
 needs no sign-in.
 
-- **When:** from 30 minutes to 72 hours after each course session ends, at the next hourly jobs tick
-  (so usually within the hour). The wide window means a late deploy still asks about a session.
+- **When:** from 30 minutes to 72 hours after each course session ends, at the next jobs tick, which
+  runs when a prompt falls due (so usually within 15 minutes). The wide window means a late deploy still asks about a session.
 - **Who is asked:** every student (role Student) who was enrolled before the session ended, whose
   account isn't deleted, and who hasn't rated that session yet. Courses that are Open, Closed or
   Completed; it goes by the session's time, not the course status.
@@ -581,6 +585,11 @@ views count on our channel.
   link**; tick **Optional video** where it applies. A new lesson's date isn't shown: use any past date.
   Add the quizzes in Assessments as **Mandatory for the certificate**. In a self-paced course a pass mark
   below 80% is raised to 80% when the quiz is saved (or imported); a higher one is kept.
+- **Public pages:** while the course is open, its status reads **Start any time** (ابدأ في أي وقت) instead of
+  "Applications open", on the course page, course cards, the Learn menu and speaker pages. The facts row
+  shows **Format: 12 video lessons at your own pace** (the number of lessons) instead of the duration in
+  weeks, hours per week, start date or apply-by date, even when those are still filled in from a live run.
+  Cards say **Self-paced** instead of the weeks.
 - **Student view:** `/learn/<slug>` shows the video list with no dates or calendar, YouTube's own player
   (no autoplay, so the student presses YouTube's play button) and the lesson's quizzes. The Join link,
   calendar and session dates are hidden.
@@ -611,6 +620,47 @@ views count on our channel.
   appear on the public course page as the name and the text only. Editing sends it back to review and
   takes it off the site; the student can remove it at any time; deleting the account deletes it.
 - Live courses are unchanged.
+
+### 5.1 Course Q&A
+
+**Status:** Pending (PR #121).
+
+**Who:** students enrolled in the course ask, answer, vote and follow; course staff whose role has
+**Answer questions** (Main instructor, Co-instructor and Moderator by default) and SUPER/ACADEMIC admins
+answer as the course team and moderate. Anyone else gets "This page is for enrolled students"
+(`NOT_ENROLLED`).
+
+**Use:** learn page → **Q&A** tab (`/learn/<slug>#qa`; `?q=<question>` opens one thread), or for staff
+`/teach/courses/<id>?tab=qa` (opens on **Unanswered**).
+
+- **Ask:** a title (5–150 characters), details in Markdown (up to 5,000 characters; code blocks read left
+  to right) and optionally the lesson or session it is about (the one open on the page is preselected).
+  Asking follows the question.
+- **List:** pinned first, then the most recent activity; filters **All**, **Unanswered**, **Mine**,
+  **Following** and **This lesson** (the session open on the learn page); search in titles and details;
+  20 per page.
+- **Answer:** anyone who can see the question, unless it is closed. Answering follows the question.
+  Staff in a publicly shown role answer under their name and the role's name; staff in an anonymous
+  role, and admins outside the course staff, show only as "Course team", with no name. Students appear by first name and last initial; a deleted account shows as "Former student".
+- **I have this question too** (not on your own question) and **Follow / Stop following**.
+- **Edit:** only the author, within 30 minutes of posting (shown as "Edited"). Staff can't change
+  anyone's words; they hide instead.
+- **Accept:** the asker or the course team accepts one answer; it shows first. A student's accepted
+  answer earns **5 points** (`QA_ANSWER`) once; accepting another answer or removing the acceptance
+  takes them back. Staff answers, admins' answers and the asker's own answer never earn points.
+- **Moderation** (Answer questions): **Pin/Unpin**, **Close/Reopen** (a closed question takes no new
+  answers), **Hide/Show** a question or an answer. A hidden post stays visible to its author, marked
+  hidden, and to the staff; hiding an accepted answer removes the acceptance (and its points). Each
+  moderation action is in the audit log (ids only). Nothing ever removes a student or a post.
+- **Status:** Unanswered until a visible answer exists, then Answered; Closed until reopened.
+- **Notifications:** a new visible answer tells every follower but its author, in the app and by
+  email (`qaAnswer`, through the outbox; the course's reminder-emails switch turns the emails off).
+  A hidden question's answers reach only its asker.
+- **Automation:** the rule **Question waiting for an answer** (Community group, recommended) alerts
+  staff with Answer questions about visible questions nobody answered after N hours (6–168, default 48),
+  once per question (section 11.1).
+- **Limits:** 20 questions, answers or edits a minute per person; 60 votes, follows and moderation
+  actions a minute.
 
 ---
 
@@ -842,8 +892,8 @@ reach only the courses they are on.
 
 - **Roles:** each course starts with three editable built-in roles. *Main instructor* (every
   permission; can be renamed and changed, never deleted), *Co-instructor* (assessments, grading,
-  materials, roster, attendance, points, announcements, session feedback) and *Moderator* (roster,
-  attendance, points, announcements, session feedback; anonymous). Only the Main instructor manages
+  materials, roster, attendance, points, announcements, session feedback, answer questions) and *Moderator* (roster,
+  attendance, points, announcements, session feedback, answer questions; anonymous). Only the Main instructor manages
   automation rules by default. Add any role: an English and Arabic name, the permission checkboxes,
   **Shown** or **Anonymous**, and an order. A role can be deleted once nobody is in it.
 - **People:** add an existing account by email, or pick a public speaker profile; choose the role;
@@ -865,6 +915,7 @@ reach only the courses they are on.
 | Students and attendance | Upload attendance | Google Meet attendance files, marking by hand |
 | Students and attendance | Manage points | Add, edit and remove course points (within the speaker points cap) |
 | Communication | Send announcements | Messages to enrolled students, sent at once, "From" the sender |
+| Communication | Answer questions | The Q&A tab: answer as the course team, accept, pin, close and reopen, hide and unhide (section 5.1). Main instructor, Co-instructor and Moderator have it by default |
 | Communication | See session feedback | The Feedback tab: each session's and the course's average rating and comments, **without students' names** (admins see names) |
 | Course management | Edit the course | Course details (not status, address, type, price or who teaches) |
 | Course management | Manage sessions | Dates, Meet links, the session list |
@@ -875,7 +926,7 @@ reach only the courses they are on.
 
 **The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
 courses whose staff you are on, with your role. Each course shows only the tabs your role opens:
-Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Feedback, Details, Sessions,
+Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Q&A, Feedback, Details, Sessions,
 Applications, Enrolment, Certificates, Automation. They are the admin screens, limited to that course. The old
 `/speaker/courses/…` pages redirect there.
 
@@ -926,7 +977,7 @@ checked by hand until Paymob arrives. **Pay first, then book.**
    to another open time, up to 24 hours before (both sides told; reminders follow). The expert or a
    FINANCE admin can cancel a paid call (booked or not): the student is told they'll be refunded
    (by hand) and the booking shows "refund due". The Refund Policy says so.
-7. **Reminders and retention** (hourly job): 24 hours and 1 hour before a booked call, to both
+7. **Reminders and retention** (jobs tick, when due): 24 hours and 1 hour before a booked call, to both
    sides (no "tomorrow" email within 2 hours of booking); payment screenshots are deleted after the
    retention period (Settings, 180 days), never while waiting for review; the record stays.
 8. **Google Calendar (optional, per expert):** on `/consultations/expert` the expert connects their
@@ -1113,10 +1164,11 @@ a student, change an application or release a seat. A unit test holds the code t
 | Community | Community links | Telegram and/or Discord invite links | Links |
 | Community | Telegram username missing | Asks enrolled students to add it | Days after enrolment (1) |
 | Community | Weekly summary | Last week's points and leaderboard place (only to students who earned points) | — |
+| Community | Question waiting for an answer ★ | Course Q&A questions nobody answered: alert to staff with Answer questions | Hours (48) |
 
 ★ in the recommended set.
 
-**How it runs:** an hourly job (the Worker's Cron Trigger in production; every 10 minutes locally),
+**How it runs:** on the jobs tick (in production hourly while the site is in use, and whenever a reminder or retry is due, at least every 4 hours; every 10 minutes locally),
 only for Open and Closed courses and Completed ones within 30 days of their end, never while the
 course is **paused**. Each rule acts once per occasion (a student and a session, an assessment, a
 week…), recorded in the activity log. Team alerts are one notification per rule and run, counting what
@@ -1164,6 +1216,7 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | speakerBookingConfirmed | Speaker booked a slot | Transactional |
 | speakerBookingTeam | Booking or cancellation, to each session team address | Bulk |
 | speakerSessionPublished | The team published the speaker's session | Transactional |
+| qaAnswer | A new answer to a course Q&A question you asked or follow (through the outbox); per-course reminder opt-out | Bulk |
 | automationMessage | A course automation rule's message (section 11.1); per-course reminder or feedback opt-out, quiet hours, 3 a day | Bulk |
 | adminAlert | Drive access to remove, and similar team alerts | Transactional |
 | profileReview | Profile untouched for ~6 months | Transactional |
@@ -1172,7 +1225,7 @@ In-app notifications accompany most of these (see 3.7). Students turn off course
 on the learn page; marketing emails are opt-in. Feedback emails have their own per-course "stop" link
 that works without signing in (section 5).
 
-Feedback prompts and assessment publish notices go through the **durable outbox**: each
+Feedback prompts, assessment publish notices and Q&A answers go through the **durable outbox**: each
 email is a database row, sent in the background with retries, so a restart doesn't lose it and the
 same email is never sent twice.
 
@@ -1198,6 +1251,10 @@ same email is never sent twice.
 - **No tracking cookies:** only strictly necessary cookies; optional analytics are cookieless.
 - **Logs** contain no personal data (route patterns, not URLs); error reports strip user data.
 - **Audit log** records every admin action with ids only.
+- **Course Q&A** (5.1): questions and answers are visible to the course's students and staff only,
+  with students' first name and last initial, never an email. They are in the data export (with
+  votes and follows). On anonymisation the posts stay as "Former student" (other students' threads
+  depend on them) and votes and follows are deleted.
 - Egypt's PDPL (Law 151/2020) governs incidents: 72 hours to notify (see OPERATIONS.md).
 
 ---
@@ -1211,6 +1268,8 @@ same email is never sent twice.
 | Data | Real | Separate database and storage; test data only |
 | Email | Real recipients | Everyone not on the allowlist is redirected to one team inbox, with the original recipient in the subject |
 | Search engines | Indexed | `noindex`, `robots.txt` disallows everything |
+| Scheduled jobs | When due (reminders, prompts, email retries), hourly while the site is in use, at least every 4 hours (retention, points, anonymisation) | None by default; run by hand when testing |
+| Search engines | Indexed; SEO-tool crawlers (Semrush, Ahrefs, ibou and similar) are disallowed in `robots.txt` | `noindex`, `robots.txt` disallows everything |
 | Scheduled jobs | Hourly (reminders, retention, points, anonymisation) | None by default; run by hand when testing |
 | Version now | `v2026.10.24-1` (PRs up to #85) | `v2026.10.26-1` (PRs up to #88) |
 
@@ -1225,11 +1284,17 @@ One entry per pull request in the academy repository. Newest first.
 | PR | Change | Status |
 |---|---|---|
 | #122 | **Resume at the exact second**: YouTube recordings and self-paced videos on the learn page start where the student stopped (3 s earlier), with "You stopped at 42:10" under the player, a **Continue video 3 at 42:10** link in the header and the page opening on that video. The player saves at most every 15 s while playing, on pause and on leaving (keepalive); completed or nearly finished videos start from the beginning. New `PUT /api/learn/:slug/sessions/:sessionId/position` (enrolled students, 30/min, leaves the signed-in cache alone); `resumeAt` per session and `lastWatched` on `GET /api/learn/:slug`. In the data export, deleted on anonymisation; privacy policy updated. Migration: `LessonWatch` table (additive) | Pending |
+| #121 | **Course Q&A** (section 5.1): a Q&A tab on the learn page and in the Teaching area. Enrolled students ask (optionally about one lesson), answer, vote "I have this question too", follow and accept; staff with the new **Answer questions** permission (Main instructor, Co-instructor, Moderator by default) and SUPER/ACADEMIC admins pin, close, hide. New answers notify followers in the app and by email (`qaAnswer`, reminders opt-out). An accepted student answer earns 5 points. Automation rule **Question waiting for an answer**. Migration: CourseQuestion, CourseAnswer, QuestionVote, QuestionFollow tables; CoursePermission ANSWER_QUESTIONS; PointsReason QA_ANSWER | Pending |
+| #120 | Self-paced courses on public pages: **Start any time** instead of "Applications open", and **{n} video lessons at your own pace** instead of the duration in weeks, hours per week, start and apply-by dates (course page, cards, Learn menu, speaker pages). The course summary and speaker course list now carry `selfPaced`. No migration | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
 | #116 | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
+| #115 | The scheduled jobs no longer wake the API and the database every hour. The Worker checks every 15 minutes and calls the jobs tick only when something is due (the tick now answers `nextDueAt`: the next reminder window, feedback prompt or email retry), when the API is awake anyway (at most hourly), or every 4 hours at most. Reminders keep their 24-hour and 1-hour timing. Automation rules, Drive sharing and points run hourly while the site is in use and at least every 4 hours. No migration (hosting cost) | Pending |
 | #113 | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
+| #112 | Production `robots.txt` disallows SEO-tool crawlers (SemrushBot, AhrefsBot, MJ12bot, DotBot, DataForSeoBot, BLEXBot, ibou): they bring no visitors but wake the containers (hosting cost). Search engines (Google, Bing) and AI assistants are unaffected. No API change, no migration | Pending |
+| #111 | The seed and the archive import run on the first API start of each release (and again if `SEED_ADMIN_EMAIL`, `SEED_PLACEHOLDER_STATUS` or `ARCHIVE_IMPORT` change), not on every wake from sleep: less CPU and database time per cold start (hosting cost). The run is recorded in the `__startupTasksDone` setting row; locally (no `ACADEMY_RELEASE`) they still run on every start. No migration | Pending |
+| #110 | The site's fixed files (logo, favicons, speaker photos in `apps/web/public`) are cached at Cloudflare's edge for a day, for everyone, instead of waking the web container on every first view; browsers keep them an hour. A replaced file can take up to a day to show unless purged by URL. No API change, no migration | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |
 | #108 | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |

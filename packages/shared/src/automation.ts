@@ -233,6 +233,16 @@ export const AUTOMATION_RULES = [
   },
   { type: 'TELEGRAM_MISSING', group: 'community', audience: 'student', params: [int('days', 'days', 0, 14, 1)], note: false, recommended: false },
   { type: 'WEEKLY_SUMMARY', group: 'community', audience: 'student', params: [], note: false, recommended: false },
+  {
+    type: 'QUESTION_UNANSWERED',
+    group: 'community',
+    audience: 'staff',
+    params: [int('hours', 'hours', 6, 168, 48)],
+    note: false,
+    staffPermission: 'ANSWER_QUESTIONS',
+    adminPresets: ['ACADEMIC'],
+    recommended: true,
+  },
 ] as const satisfies readonly AutomationRuleDef[];
 
 export type AutomationRuleType = (typeof AUTOMATION_RULES)[number]['type'];

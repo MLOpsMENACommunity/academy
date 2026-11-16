@@ -414,4 +414,10 @@ export const alertTexts = {
     bodyEn: `${count} past ${plural(count, 'session has', 'sessions have')} no recording link yet.`,
     bodyAr: `${arCount(count, 'جلسة سابقة', 'جلستان سابقتان', 'جلسات سابقة', 'جلسة سابقة')} بلا رابط تسجيل حتى الآن.`,
   }),
+  questionUnanswered: (c: CourseNames, count: number, hours: number): AlertText => ({
+    titleEn: `${c.en}: ${count} ${plural(count, 'question', 'questions')} waiting for an answer`,
+    titleAr: `${c.ar}: ${arCount(count, 'سؤال', 'سؤالان', 'أسئلة', 'سؤالًا')} بانتظار إجابة`,
+    bodyEn: `Asked ${hours}+ hours ago in the course Q&A and not answered yet.`,
+    bodyAr: `طُرحت في أسئلة الدورة منذ ${hours} ساعة أو أكثر ولم يُجب عنها بعد.`,
+  }),
 };

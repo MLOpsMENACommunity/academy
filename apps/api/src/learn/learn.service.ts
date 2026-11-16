@@ -22,6 +22,7 @@ import {
 } from '@academy/shared';
 import type { Course } from '@prisma/client';
 import { CertificatesService } from '../certificates/certificates.service';
+import { CourseAccessService } from '../course-access/course-access.service';
 import type { AuthUser } from '../common/decorators';
 import { courseKey, SignedInCache } from '../common/signed-in-cache';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,6 +47,7 @@ export class LearnService {
     private readonly points: PointsService,
     private readonly cache: SignedInCache,
     private readonly certificates: CertificatesService,
+    private readonly courseAccess: CourseAccessService,
   ) {}
 
   /**
@@ -80,7 +82,7 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const { course, enrollment } = await this.accessWithEnrolment(user, slug);
-    const [sessions, feedback, pref, profile, s, announcements, attendance, watches] = await Promise.all([
+    const [sessions, feedback, pref, profile, s, announcements, attendance, watches, canModerateQA] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
@@ -95,6 +97,7 @@ export class LearnService {
         select: { sessionId: true, positionSec: true, durationSec: true },
         orderBy: { updatedAt: 'desc' },
       }),
+      this.courseAccess.can(user, course.id, 'ANSWER_QUESTIONS'),
     ]);
     const attended = new Map(attendance.map((a) => [a.sessionId, { status: a.status, minutes: a.minutes, percent: a.percent }]));
     // Progress is attendance (Present or Partial), plus sessions marked done before that box was retired.
@@ -140,6 +143,7 @@ export class LearnService {
       testimonial,
       announcements,
       lastWatched: last ? { sessionId: last.sessionId, positionSec: last.positionSec } : null,
+      canModerateQA,
       sessions: sessions.map((x) => {
         const visible = hasAdminPermission(user, ['ACADEMIC']) || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
         const fb = fbBySession.get(x.id);

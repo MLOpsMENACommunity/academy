@@ -192,6 +192,8 @@ export interface CourseSummaryDto {
   /** Seats still free, only while applications are open and the course has a capacity (0 = full); otherwise null. */
   seatsLeft: number | null;
   instructorNames: string[];
+  /** Video lessons at the student's own pace: no schedule, dates or weeks to show; "Start any time" while open. */
+  selfPaced: boolean;
   /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
   completed: boolean;
   /**
@@ -253,8 +255,6 @@ export interface CourseDetailDto extends CourseSummaryDto {
   externalPlatform: string | null;
   externalUrl: string | null;
   publicRecordings: boolean;
-  /** Video lessons at the student's own pace: no schedule or dates to show. */
-  selfPaced: boolean;
   /** Approved by the team, newest first. */
   testimonials: PublicTestimonialDto[];
   /** The course's instructors (Main and Co-instructor roles with a public speaker profile, SHOWN only). */

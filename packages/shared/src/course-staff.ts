@@ -34,7 +34,7 @@ export const COURSE_PERMISSION_GROUPS = [
   { key: 'teaching', permissions: ['MANAGE_ASSESSMENTS', 'GRADE'] },
   { key: 'material', permissions: ['MANAGE_MATERIALS'] },
   { key: 'students', permissions: ['VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS'] },
-  { key: 'communication', permissions: ['ANNOUNCE', 'VIEW_FEEDBACK'] },
+  { key: 'communication', permissions: ['ANNOUNCE', 'VIEW_FEEDBACK', 'ANSWER_QUESTIONS'] },
   { key: 'management', permissions: ['EDIT_COURSE', 'MANAGE_SESSIONS', 'MANAGE_APPLICATIONS', 'ENROL', 'ISSUE_CERTIFICATES', 'MANAGE_RULES'] },
 ] as const satisfies readonly { key: string; permissions: readonly CoursePermission[] }[];
 export type CoursePermissionGroup = (typeof COURSE_PERMISSION_GROUPS)[number]['key'];
@@ -49,14 +49,14 @@ export const BUILTIN_ROLE_DEFAULTS: Record<
     name: 'Co-instructor',
     nameAr: 'مدرّب مشارك',
     // What an assigned speaker could do before course roles existed, plus the roster.
-    permissions: ['MANAGE_ASSESSMENTS', 'GRADE', 'MANAGE_MATERIALS', 'VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE', 'VIEW_FEEDBACK'],
+    permissions: ['MANAGE_ASSESSMENTS', 'GRADE', 'MANAGE_MATERIALS', 'VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE', 'VIEW_FEEDBACK', 'ANSWER_QUESTIONS'],
     visibility: 'SHOWN',
     order: 1,
   },
   MODERATOR: {
     name: 'Moderator',
     nameAr: 'مشرف',
-    permissions: ['VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE', 'VIEW_FEEDBACK'],
+    permissions: ['VIEW_ROSTER', 'UPLOAD_ATTENDANCE', 'MANAGE_POINTS', 'ANNOUNCE', 'VIEW_FEEDBACK', 'ANSWER_QUESTIONS'],
     // Often a past student: kept off the public page unless the team decides otherwise.
     visibility: 'ANONYMOUS',
     order: 2,
@@ -173,6 +173,7 @@ export const TEACH_TAB_PERMISSIONS = {
   points: ['MANAGE_POINTS'],
   roster: ['VIEW_ROSTER'],
   announcements: ['ANNOUNCE'],
+  qa: ['ANSWER_QUESTIONS'],
   feedback: ['VIEW_FEEDBACK'],
   details: ['EDIT_COURSE'],
   sessions: ['MANAGE_SESSIONS'],

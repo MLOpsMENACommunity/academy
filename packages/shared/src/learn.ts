@@ -119,6 +119,8 @@ export interface LearnCourseDto {
   lastWatched: { sessionId: string; positionSec: number } | null;
   /** The latest LEARN_PAGE_ANNOUNCEMENTS announcements (all of them: GET /learn/:slug/announcements). */
   announcements: LearnAnnouncementDto[];
+  /** The viewer may moderate the course Q&A (pin, close, hide): course staff with ANSWER_QUESTIONS, or a SUPER/ACADEMIC admin. */
+  canModerateQA: boolean;
 }
 
 /**
