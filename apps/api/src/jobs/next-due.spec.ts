@@ -13,6 +13,7 @@ function prisma(rows: {
   assessments?: Date[];
   pending?: Date[];
   sending?: Date[];
+  plans?: { weekdays: number[]; reminderHour: number; startDate: Date; user: { profile: { timezone: string | null } | null } }[];
 }) {
   const first = (dates: Date[] = [], after?: Date) => [...dates].sort((a, b) => +a - +b).find((d) => !after || d > after) ?? null;
   return {
@@ -26,6 +27,7 @@ function prisma(rows: {
     liveEvent: { findFirst: jest.fn(async ({ where }) => ((d) => (d ? { startsAt: d } : null))(first(rows.live, where.startsAt.gt))) },
     consultationBooking: { findFirst: jest.fn(async ({ where }) => ((d) => (d ? { startsAt: d } : null))(first(rows.calls, where.startsAt.gt))) },
     assessment: { findFirst: jest.fn(async ({ where }) => ((d) => (d ? { dueAt: d } : null))(first(rows.assessments, where.dueAt.gt))) },
+    studyPlan: { findMany: jest.fn(async () => rows.plans ?? []) },
     outboundEmail: {
       findFirst: jest.fn(async ({ where }) => {
         if (where.status === 'PENDING') return ((d) => (d ? { notBefore: d } : null))(first(rows.pending));
@@ -37,6 +39,11 @@ function prisma(rows: {
 const nextDue = (rows: Parameters<typeof prisma>[0]) => new NextDue(prisma(rows) as never).at(now);
 
 describe('NextDue', () => {
+  it('a study-plan reminder counts: the next study day at the student’s hour (2026-11-20 is a Friday)', async () => {
+    const plans = [{ weekdays: [5], reminderHour: 20, startDate: new Date('2026-11-01T00:00:00Z'), user: { profile: { timezone: 'UTC' } } }];
+    expect(await nextDue({ plans })).toEqual(new Date('2026-11-20T20:00:00Z'));
+  });
+
   it('is null when nothing is scheduled', async () => {
     expect(await nextDue({})).toBeNull();
   });

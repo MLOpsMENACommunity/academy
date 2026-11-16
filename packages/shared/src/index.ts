@@ -46,3 +46,4 @@ export * from './course-staff';
 export * from './consultations';
 export * from './bot';
 export * from './qa';
+export * from './study-plan';

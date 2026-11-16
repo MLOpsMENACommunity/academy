@@ -401,6 +401,7 @@ model User {
   answersHidden               CourseAnswer[]             @relation("AnswerHider")
   questionVotes               QuestionVote[]
   questionFollows             QuestionFollow[]
+  studyPlans                  StudyPlan[]
 
   @@index([role])
   @@index([createdAt])
@@ -715,6 +716,7 @@ model Course {
   speakingSlot        SpeakingSlot?
   automationRules     CourseAutomationRule[]
   questions           CourseQuestion[]
+  studyPlans          StudyPlan[]
 
   @@index([status])
 }
@@ -1084,6 +1086,28 @@ model Testimonial {
 
   @@unique([userId, courseId])
   @@index([courseId, status])
+}
+
+/// A student's study plan for a self-paced course (packages/shared/src/study-plan.ts): study weekdays, minutes
+/// per day, a start date and an optional reminder hour. Personal data: in the export, deleted on anonymisation.
+model StudyPlan {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// 0 = Sunday … 6 = Saturday, at least one.
+  weekdays      Int[]
+  /// 15–240.
+  minutesPerDay Int
+  startDate     DateTime @db.Date
+  /// 0–23 in the student's time zone (profile, else Africa/Cairo); null: no reminder.
+  reminderHour  Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([courseId])
 }
 
 model ReminderPreference {

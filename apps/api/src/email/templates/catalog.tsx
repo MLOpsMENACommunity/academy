@@ -125,6 +125,12 @@ export type EmailTemplate =
       courseUrl?: string | null;
       unsubscribeUrl: string;
     }
+  /**
+   * Self-paced study plan: the reminder on a study day, at the hour the student chose (their time
+   * zone). `items` are today's lessons and quizzes, already in their language.
+   * `unsubscribeUrl`: the tokened "stop reminder emails for this course" page (no login).
+   */
+  | { name: 'studyPlanReminder'; courseTitle: string; minutes: number; items: string[]; url: string; unsubscribeUrl: string }
   /** A course automation rule's message to a student (apps/api/src/automation/texts.ts), already in their language. */
   | {
       name: 'automationMessage';
@@ -1258,6 +1264,29 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             cta={{ label: ar ? 'قيّم الجلسة' : 'Rate the session', url: t.url }}
             secondaryCta={t.courseUrl ? { label: ar ? 'قيّم الدورة' : 'Rate the course', url: t.courseUrl } : undefined}
             noteLink={{ label: ar ? 'أوقف رسائل التقييم لهذه الدورة' : 'Stop feedback emails for this course', url: t.unsubscribeUrl }}
+          />
+        ),
+      };
+    }
+    case 'studyPlanReminder': {
+      // Sent within a few hours of the student's own reminder time on the study day, so "today" holds.
+      const subject = ar ? `يوم دراسة: ${t.courseTitle}` : `Study day: ${t.courseTitle}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={ar ? `خطة اليوم: ${t.items[0] ?? ''}` : `Today's plan: ${t.items[0] ?? ''}`}
+            heading={ar ? 'اليوم يوم دراسة' : 'Today is a study day'}
+            paragraphs={[
+              ar
+                ? `حسب خطة الدراسة التي وضعتها لـ ${t.courseTitle}، هذا ما عليك اليوم (نحو ${t.minutes} دقيقة).`
+                : `Your study plan for ${t.courseTitle} has this for today (about ${t.minutes} minutes).`,
+            ]}
+            list={{ title: ar ? 'خطة اليوم' : "Today's plan", items: t.items }}
+            after={[ar ? 'يمكنك تعديل أيام الدراسة أو وقت التذكير أو إيقافه من صفحة الدورة.' : 'You can change your study days or reminder time, or turn the reminder off, on the course page.']}
+            cta={{ label: ar ? 'ابدأ الدراسة' : 'Start studying', url: t.url }}
+            noteLink={{ label: ar ? 'أوقف رسائل التذكير لهذه الدورة' : 'Stop reminder emails for this course', url: t.unsubscribeUrl }}
           />
         ),
       };

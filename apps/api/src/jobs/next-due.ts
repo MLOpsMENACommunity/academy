@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { WINDOW as ASSESSMENT_WINDOW } from '../assessments/assessment-reminders.jobs';
 import { MAX_SESSION_MS, PROMPT_AFTER_MS } from '../learn/feedback-prompts.jobs';
 import { PrismaService } from '../prisma/prisma.service';
+import { planStartDate, planTimezone } from '../study-plan/study-items';
+import { nextReminderAfter } from '../study-plan/study-plan.jobs';
 import { WINDOWS } from './reminders.jobs';
 
 const MINUTE = 60_000;
@@ -21,8 +23,8 @@ const FEEDBACK_LOOKAHEAD = 50;
  *
  * The windows are the jobs' own: course and live-session reminders and consultation calls
  * (24 hours and 1 hour before: WINDOWS, also used by event-reminders.jobs.ts and
- * ConsultationsService.queueReminders), assessment deadlines (24 hours before) and feedback
- * prompts (30 minutes after a session ends). A window opens `to` minutes before the start, and
+ * ConsultationsService.queueReminders), assessment deadlines (24 hours before), feedback
+ * prompts (30 minutes after a session ends) and study-plan reminders (the student's chosen hour). A window opens `to` minutes before the start, and
  * the tick reaching it any time before `from` still sends, so a tick within 15 minutes of the
  * opening is on time.
  */
@@ -74,6 +76,16 @@ export class NextDue {
     if (pending) candidates.push(pending.notBefore.getTime() > t ? pending.notBefore : new Date(t + OUTBOX_RETRY_MS));
     // A run that died mid-batch leaves rows SENDING until their lease ends: the next tick takes them back.
     if (sending?.leaseUntil) candidates.push(sending.leaseUntil.getTime() > t ? sending.leaseUntil : new Date(t + OUTBOX_RETRY_MS));
+
+    // Study-day reminders (self-paced study plans): sent only within a few hours of the student's
+    // chosen time, so the Worker must wake the API for them rather than wait for MAX_GAP.
+    const plans = await this.prisma.studyPlan.findMany({
+      where: { reminderHour: { not: null }, user: { deletedAt: null, anonymizedAt: null }, course: { selfPaced: true, status: { in: ['OPEN', 'CLOSED'] } } },
+      select: { weekdays: true, reminderHour: true, startDate: true, user: { select: { profile: { select: { timezone: true } } } } },
+    });
+    for (const p of plans) {
+      candidates.push(nextReminderAfter({ weekdays: p.weekdays, reminderHour: p.reminderHour!, startDate: planStartDate(p) }, planTimezone(p.user.profile?.timezone), now));
+    }
 
     return earliestAfter(candidates, now);
   }

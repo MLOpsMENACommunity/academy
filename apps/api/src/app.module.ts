@@ -8,6 +8,7 @@ import { AdminTeamModule } from './admin-team/admin-team.module';
 import { ArchiveModule } from './archive/archive.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
+import { StudyPlanModule } from './study-plan/study-plan.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuditModule } from './audit/audit.module';
@@ -83,6 +84,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     AssessmentsModule,
     TestimonialsModule,
     QaModule,
+    StudyPlanModule,
     PointsModule,
     BotModule,
     AttendanceModule,

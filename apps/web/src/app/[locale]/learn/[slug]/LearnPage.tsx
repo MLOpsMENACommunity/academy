@@ -26,6 +26,7 @@ import { CourseQA } from '@/components/learn/CourseQA';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
 import { TextWithTime } from '@/components/learn/VideoTime';
+import { StudyPlanCard } from '@/components/learn/StudyPlanCard';
 import { TestimonialForm } from '@/components/learn/TestimonialForm';
 import { Leaderboard } from '@/components/points/Leaderboard';
 import { Alert } from '@/components/ui/Alert';
@@ -416,6 +417,9 @@ function Inner({ user }: { user: MeResponse }) {
             {t('leaderboard.title')}
             <span aria-hidden>🏆</span>
           </a>
+
+          {/* Self-paced: the student's own study plan (the API answers only for a real enrolment). */}
+          {course.selfPaced && course.canTrackProgress && <StudyPlanCard slug={course.slug} version={course.progress.completed} />}
 
           <section aria-labelledby="course-tools" className="flex flex-col gap-3 rounded-xl border border-line bg-card p-4">
             <h2 id="course-tools" className="text-sm font-medium text-muted">
