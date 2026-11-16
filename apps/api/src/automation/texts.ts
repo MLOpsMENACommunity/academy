@@ -301,6 +301,25 @@ export const studentTexts = {
       },
       { title: 'أضف اسم مستخدم Telegram', lines: [`يستخدم فريق ${c.ar} تطبيق Telegram لمجموعة الدورة. أضف اسم المستخدم إلى ملفك الشخصي ليضيفوك.`], cta: 'أضفه إلى ملفي' },
     ),
+  studyPlanBehind: (c: CourseNames, behind: number) =>
+    both(
+      {
+        title: `Your study plan for ${c.en}: ${behind} ${plural(behind, 'step', 'steps')} behind`,
+        lines: [
+          `Your study plan for ${c.en} expected ${behind} more ${plural(behind, 'lesson or quiz', 'lessons and quizzes')} done by now.`,
+          'No problem: open the course and pick up the next one, or change your study days or minutes per day to a pace that fits your week.',
+        ],
+        cta: 'Open my study plan',
+      },
+      {
+        title: `خطة دراستك في ${c.ar}: متأخر ${arCount(behind, 'خطوة واحدة', 'خطوتين', 'خطوات', 'خطوة')}`,
+        lines: [
+          `كانت خطة دراستك في ${c.ar} تتوقع أن تنهي ${arCount(behind, 'درسًا أو اختبارًا آخر', 'درسين أو اختبارين آخرين', 'دروس واختبارات أخرى', 'درسًا واختبارًا آخر')} حتى الآن.`,
+          'لا بأس: افتح الدورة وابدأ الدرس التالي، أو غيّر أيام الدراسة أو الدقائق اليومية إلى وتيرة تناسب أسبوعك.',
+        ],
+        cta: 'افتح خطة دراستي',
+      },
+    ),
   weeklySummary: (c: CourseNames, week: number, rank: number, of: number) =>
     both(
       {

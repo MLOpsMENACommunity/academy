@@ -2279,7 +2279,8 @@
         "percent": "percent",
         "times": "times",
         "ratings": "ratings",
-        "stars": "stars"
+        "stars": "stars",
+        "items": "items"
       },
       "actions": {
         "message": "Message",
@@ -2307,7 +2308,8 @@
         "firstDays": "First reminder after",
         "secondDays": "Second reminder and team alert after",
         "telegramUrl": "Telegram group link",
-        "discordUrl": "Discord server link"
+        "discordUrl": "Discord server link",
+        "items": "Items behind"
       },
       "options": {
         "review": "Alert the team to review and issue",
@@ -2329,6 +2331,10 @@
         "FULL_ATTENDANCE_MIDWAY": {
           "title": "Perfect attendance at halfway",
           "desc": "When attendance for the first half of the sessions is recorded, gives bonus points and a message to students who attended all of them."
+        },
+        "STUDY_PLAN_BEHIND": {
+          "title": "Behind the study plan",
+          "desc": "Self-paced courses: nudges a student whose own study plan says they are behind by at least the set number of lessons and quizzes, at most once a week. Students without a plan get nothing."
         },
         "OFTEN_LATE": {
           "title": "Often joins late",
@@ -2438,6 +2444,47 @@
     }
   },
   "learn": {
+    "studyPlan": {
+      "title": "Study plan",
+      "pitch": "Pick the days and how long you can study. We spread the remaining lessons and quizzes over those days, show when you will finish and remind you on study days.",
+      "start": "Make a study plan",
+      "weekdays": "Study days",
+      "weekdaysHint": "Pick at least one day.",
+      "days": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "minutes": "Time per day",
+      "startDate": "Start date",
+      "reminder": "Reminder",
+      "reminderHint": "An email and a notification on each study day at this time ({zone} time).",
+      "zoneDefault": "Your profile has no time zone, so times use the academy's time zone ({zone}). You can set yours in your profile.",
+      "noReminder": "No reminder",
+      "save": "Save plan",
+      "cancel": "Cancel",
+      "edit": "Edit plan",
+      "delete": "Delete plan",
+      "saved": "Plan saved.",
+      "deleted": "Plan deleted.",
+      "nextDay": "Next study day: {date}",
+      "today": "today",
+      "finishBy": "Finish by {date}",
+      "onTrack": "On track",
+      "behind": "{count, plural, one {Behind by # item} other {Behind by # items}}",
+      "allDone": "You have finished every lesson and quiz in the plan. Well done!",
+      "quiz": "Quiz: {title}",
+      "part": "{title} (part {part} of {parts})",
+      "summary": "{days} · {minutes} a day",
+      "reminderAt": "Reminder at {time}",
+      "calendarNote": "Study days are in your calendar feed too:",
+      "errorDays": "Pick at least one study day.",
+      "errorDate": "Pick a start date."
+    },
     "testimonial": {
       "title": "Would you recommend this course?",
       "intro": "A few words from you help other engineers decide. This is optional and doesn't affect your certificate.",

@@ -14,7 +14,7 @@ export type AutomationGroup = (typeof AUTOMATION_GROUPS)[number];
 
 /** A setting of a rule: a whole number, a 1-5 rating with tenths, a choice, or a link. */
 export type AutomationParam =
-  | { key: string; kind: 'int'; unit: 'sessions' | 'days' | 'hours' | 'points' | 'percent' | 'times' | 'ratings'; min: number; max: number; default: number }
+  | { key: string; kind: 'int'; unit: 'sessions' | 'days' | 'hours' | 'points' | 'percent' | 'times' | 'ratings' | 'items'; min: number; max: number; default: number }
   | { key: string; kind: 'rating'; min: number; max: number; default: number }
   | { key: string; kind: 'choice'; options: readonly string[]; default: string }
   | { key: string; kind: 'url'; default: string };
@@ -77,6 +77,8 @@ export const AUTOMATION_RULES = [
     recommended: false,
   },
   { type: 'OFTEN_LATE', group: 'attendance', audience: 'student', params: [int('times', 'times', 2, 10, 3)], note: true, recommended: false },
+  /** Self-paced courses: the student's own study plan says they are behind (at most once a week). */
+  { type: 'STUDY_PLAN_BEHIND', group: 'attendance', audience: 'student', params: [int('items', 'items', 1, 10, 3)], note: true, recommended: false },
   // ---- assessments
   { type: 'DUE_SOON', group: 'assessments', audience: 'student', params: [int('hours', 'hours', 6, 168, 48)], note: true, recommended: false },
   {

@@ -126,6 +126,7 @@ export class AccountService {
         testimonials: { select: { courseId: true, body: true, status: true, consentAt: true, createdAt: true } },
         earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
         reminderPreferences: true,
+        studyPlans: { select: { weekdays: true, minutesPerDay: true, startDate: true, reminderHour: true, createdAt: true, updatedAt: true, course: { select: { slug: true, titleEn: true } } } },
         // The link itself is a credential: only whether it exists and when it was used.
         calendarFeed: { select: { createdAt: true, rotatedAt: true, lastFetchedAt: true } },
         notifications: { select: { titleEn: true, bodyEn: true, createdAt: true, readAt: true } },
@@ -266,6 +267,7 @@ export class AccountService {
       feedback: user.sessionFeedback,
       testimonials: user.testimonials,
       reminderPreferences: user.reminderPreferences,
+      studyPlans: user.studyPlans.map(({ startDate, ...p }) => ({ ...p, startDate: startDate.toISOString().slice(0, 10) })),
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
       liveSessionRegistrations: user.eventRegistrations.map((r) => ({ session: r.event, registeredAt: r.createdAt })),
@@ -482,6 +484,7 @@ export class AccountService {
       this.prisma.courseInvite.deleteMany({ where: { OR: [{ enrolledUserId: userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
       this.prisma.testimonial.deleteMany({ where: { userId } }),
+      this.prisma.studyPlan.deleteMany({ where: { userId } }),
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),

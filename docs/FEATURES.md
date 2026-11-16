@@ -203,12 +203,13 @@ calendar is on mlopsmena.com/sessions (website repository). The academy offers:
 - **Per session:** "Add to calendar" (Google Calendar link or `.ics`) on live session pages and on
   each course session in the learn page; "Whole course" `.ics` on the learn page.
 - **Private calendar subscription** (Profile → Account → Calendar, or the learn page calendar menu):
-  a personal `webcal` link with all your course sessions and the live sessions you registered for.
+  a personal `webcal` link with all your course sessions, the live sessions you registered for and
+  the study days of your self-paced study plans (next 8 weeks, see [Study plan](#study-plan-self-paced-courses)).
   It updates by itself (calendar apps poll it, Apple/Outlook every 6 h, Google on its own schedule).
   **Reset link** revokes the old URL at once. It never contains join links or your name.
   Cloudflare keeps each feed for up to 30 minutes (only when the edge purge is configured), so
   calendar polls don't wake the API and database; a schedule edit, a link reset or a deleted
-  account purges it within seconds. Other changes (a new enrolment, a session passing) can take
+  account purges it within seconds, and so does saving or deleting a study plan. Other changes (a new enrolment, a session passing) can take
   up to 30 minutes to reach the feed, well inside how often calendar apps poll anyway.
 
 ### 2.7 Certificate verification
@@ -600,6 +601,41 @@ views count on our channel.
   appear on the public course page as the name and the text only. Editing sends it back to review and
   takes it off the site; the student can remove it at any time; deleting the account deletes it.
 - Live courses are unchanged.
+
+### Study plan (self-paced courses)
+
+**Status:** Pending (not merged yet). **Who:** students enrolled in a self-paced course (not admins
+previewing it). **Use:** a pace the student chose, and a nudge to keep it.
+
+- **Setting it:** the **Study plan** card on `/learn/<slug>` (side column, above Course tools) has a short
+  pitch and **Make a study plan**: study days (Sun–Sat, at least one), time per day (15 minutes to 4
+  hours), a start date (today by default) and a reminder time (any hour, or **No reminder**). **Edit
+  plan** and **Delete plan** change or remove it at any time. One plan per student and course.
+- **What gets scheduled:** the required videos not finished yet (each counts for its video length,
+  the lesson's duration) and the mandatory quizzes not passed with 80% yet (20 minutes each), in course
+  order (a lesson, then its quizzes; course-level quizzes last). Optional videos and lessons without a
+  video don't count. Items fill each study day up to the time per day; an item that doesn't fit what is
+  left of the day starts the next study day; one longer than a day spans consecutive study days ("part
+  2 of 3"). Nothing is ever put on a past day.
+- **What the card shows:** **Next study day** (today if it is one) with its items and minutes,
+  **Finish by** (the last study day), and **On track** or **Behind by N items**: N is how many items the
+  plan, laid out from its start date, expected done before today, minus those done. When everything is
+  done it says so.
+- **Time zone:** dates and the reminder hour use the time zone in the student's profile; without one,
+  the academy's (Africa/Cairo), and the form says so.
+- **Calendar:** the study days of the next 8 weeks are in the student's private calendar feed (section
+  2.6) as "Study: {course} — {first item}", at the reminder time (19:00 without one), as long as the time
+  per day. Saving or deleting a plan purges the feed's edge copy, as resetting the link does, when the
+  student has a feed.
+- **Reminders:** on each study day, once the reminder time has passed (at the next hourly jobs tick), an
+  in-app notification and the `studyPlanReminder` email listing that day's items, with **Start studying**.
+  Once per plan and day; dropped if it would be more than 3 hours late (a missed tick). None before the
+  start date, for finished students (nothing left, or a certificate) or for courses that aren't Open or
+  Closed. The course's **Reminders** switch on the learn page (and the email's "Stop reminder emails for
+  this course" link) stops the emails; the in-app notification still comes. The student chose the time,
+  so the automation quiet hours don't apply.
+- **Automation:** the **Behind the study plan** rule (11.1) can nudge students who fall behind.
+- Live courses have no study plan (the API answers 409).
 
 ---
 
@@ -1061,7 +1097,7 @@ one down, delete it from storage and purge the URL in Cloudflare.
 **Automation**) and course staff with **Manage automation rules** (/teach → course → **Automation**).
 **Use:** the follow-ups the team used to do by hand, done on time for every student.
 
-A catalog of 30 rules, each **off** until someone switches it on for the course. A rule has a few
+A catalog of 31 rules, each **off** until someone switches it on for the course. A rule has a few
 settings (days, hours, sessions, a threshold, points) and, for student messages, an optional note from
 the team in English and Arabic. **Turn on the recommended set** switches on seven common ones.
 
@@ -1077,6 +1113,7 @@ a student, change an application or release a seat. A unit test holds the code t
 | Attendance | Inactive | No attendance, submission, rating or sign-in for a while: next session and what's due | Days (7) |
 | Attendance | Full attendance halfway | Every session of the first half attended: bonus points and a message | Points (10) |
 | Attendance | Often late | Partial attendance several times: a friendly note | Times (3) |
+| Attendance | Behind the study plan | Self-paced courses: a student's own study plan says they are behind by at least N lessons and quizzes: a nudge, at most once a week | Items (3) |
 | Assessments | Due soon, not started | Reminder before the due date | Hours (48) |
 | Assessments | Deadline missed ★ | Message (late submission allowed or not), team alert | — |
 | Assessments | Quiz not passed | Materials to review and attempts left | — |
@@ -1153,6 +1190,7 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | speakerBookingConfirmed | Speaker booked a slot | Transactional |
 | speakerBookingTeam | Booking or cancellation, to each session team address | Bulk |
 | speakerSessionPublished | The team published the speaker's session | Transactional |
+| studyPlanReminder | Self-paced study plan: on each study day at the student's reminder time (their time zone), once per plan and day, not more than 3 h late; per-course reminder opt-out | Bulk |
 | automationMessage | A course automation rule's message (section 11.1); per-course reminder or feedback opt-out, quiet hours, 3 a day | Bulk |
 | adminAlert | Drive access to remove, and similar team alerts | Transactional |
 | profileReview | Profile untouched for ~6 months | Transactional |
@@ -1173,6 +1211,8 @@ same email is never sent twice.
 
 - **Telegram and Discord usernames** are shown to the academy team only (never on public pages or
   leaderboards); they are in the data export and removed with the profile on anonymisation.
+- **Study plans** (study days, time per day, start date, reminder hour, per self-paced course) are the
+  student's own: in the data export, deleted on anonymisation (and with the course or account).
 - **Data minimisation:** leaderboards show first name + last initial and only for students who opt in;
   speakers see counts, never recipients; certificates show the name the student gave.
 - **Private files** (CVs, payment screenshots, assessment PDFs, certificate PDFs) are in a private
@@ -1210,6 +1250,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #PR | **Study plan** for self-paced courses: the student picks study days, time per day, a start date and a reminder time; the learn page shows the next study day and its lessons and quizzes, a finish date and On track / Behind by N; study days go into the private calendar feed (8 weeks); a study-day reminder (in-app and the new `studyPlanReminder` email, once per day, per-course reminder opt-out) from the hourly tick; new automation rule **Behind the study plan** (nudge, at most weekly). New `GET`/`PUT`/`DELETE /api/learn/:slug/study-plan`. Data export and anonymisation include it; privacy policy updated. Migration: StudyPlan table (en/ar) | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
