@@ -131,7 +131,7 @@ describe('course Q&A (e2e)', () => {
     const anon = await staffMember(course.id, ['ANSWER_QUESTIONS'], 'ANONYMOUS');
     const q2 = (await http().post(base).set('Cookie', asker.cookie).send({ title: 'Second question', body: 'x' }).expect(201)).body;
     const anonAnswer = (await http().post(`${base}/${q2.id}/answers`).set('Cookie', anon.cookie).send({ body: 'Hi' }).expect(201)).body.answers[0];
-    expect(anonAnswer.author).toMatchObject({ isStaff: true, roleLabel: null });
+    expect(anonAnswer.author).toMatchObject({ isStaff: true, roleLabel: null, name: null });
     const admin = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['ACADEMIC'], prefix: 'acad' });
     await http().put(`${base}/${q2.id}/pin`).set('Cookie', admin.cookie).send({ pinned: true }).expect(200);
     const ops = await createUser(app, prisma, { role: 'ADMIN', adminPermissions: ['FINANCE'], prefix: 'fin' });

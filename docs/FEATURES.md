@@ -624,8 +624,8 @@ answer as the course team and moderate. Anyone else gets "This page is for enrol
   **Following** and **This lesson** (the session open on the learn page); search in titles and details;
   20 per page.
 - **Answer:** anyone who can see the question, unless it is closed. Answering follows the question.
-  Staff answers show the course role's name ("Course team" for an anonymous role or an admin outside
-  the staff). Students appear by first name and last initial; a deleted account shows as "Former student".
+  Staff in a publicly shown role answer under their name and the role's name; staff in an anonymous
+  role, and admins outside the course staff, show only as "Course team", with no name. Students appear by first name and last initial; a deleted account shows as "Former student".
 - **I have this question too** (not on your own question) and **Follow / Stop following**.
 - **Edit:** only the author, within 30 minutes of posting (shown as "Edited"). Staff can't change
   anyone's words; they hide instead.

@@ -137,8 +137,8 @@ export class QaService {
 
   /**
    * Names and staff labels for these authors in this course. Students: first name + last initial
-   * (like the leaderboards). Staff: their speaker or full name, and their role's name when the role
-   * is shown publicly (anonymous roles and admins outside the staff: no label, "Course team").
+   * (like the leaderboards). Staff in a publicly shown role: their speaker or full name and the
+   * role's name. Anonymous roles and admins outside the staff: no name and no label ("Course team").
    * A deleted account has no name. Never an email.
    */
   private async authors(courseId: string, rows: AuthorRow[]): Promise<Map<string, AuthorInfo>> {
@@ -157,9 +157,10 @@ export class QaService {
       const admin = r.role === 'ADMIN' && hasAdminPermission(r, ['ACADEMIC']);
       const isStaff = Boolean(role) || admin;
       const full = r.profile?.fullNameEn || r.profile?.fullNameAr || null;
-      let name: string | null = null;
-      if (!r.deletedAt) name = isStaff ? r.speakerProfile?.name || full : full ? boardName(full) : null;
       const shown = role?.visibility === 'SHOWN';
+      // Staff in an anonymous role, and admins outside the course staff, stay anonymous: "Course team".
+      let name: string | null = null;
+      if (!r.deletedAt) name = isStaff ? (shown ? r.speakerProfile?.name || full : null) : full ? boardName(full) : null;
       out.set(r.id, { name, isStaff, roleLabel: shown ? role!.name : null, roleLabelAr: shown ? role!.nameAr || role!.name : null });
     }
     return out;

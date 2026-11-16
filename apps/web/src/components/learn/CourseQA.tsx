@@ -257,10 +257,11 @@ function sessionLabel(s: { order: number; titleEn: string; titleAr: string }, lo
 function AuthorLine({ author, at }: { author: QaAuthorDto; at: string }) {
   const { locale, t } = useI18n();
   const name = author.name ?? (author.isStaff ? t('qa.courseTeam') : t('qa.formerStudent'));
-  const role = author.isStaff ? (locale === 'ar' ? author.roleLabelAr : author.roleLabel) || t('qa.courseTeam') : null;
+  // An anonymous staff member already reads "Course team" as the name: no second label.
+  const role = author.isStaff && author.name ? (locale === 'ar' ? author.roleLabelAr : author.roleLabel) || t('qa.courseTeam') : null;
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] text-muted">
-      <span className="font-medium text-fg">{name}</span>
+      <bdi className="font-medium text-fg">{name}</bdi>
       {author.isYou && <span>({t('qa.you')})</span>}
       {role && role !== name && <Badge tone="primary">{role}</Badge>}
       <span>· {formatDateTime(at, locale, viewerTimezone())}</span>
@@ -287,7 +288,8 @@ function QuestionRow({ q, sessions, onOpen }: { q: QuestionSummaryDto; sessions:
     <div className="flex flex-col gap-1.5 p-4 hover:bg-hover-bg">
       <StatusBadges q={q} />
       <button type="button" onClick={onOpen} className="text-start text-base font-semibold break-words text-primary hover:underline">
-        {q.title}
+        {/* Students write in either language: isolate the text so an English title reads right on the Arabic page. */}
+        <bdi>{q.title}</bdi>
       </button>
       <AuthorLine author={q.author} at={q.createdAt} />
       <span className="text-[0.8125rem] text-muted">
@@ -440,7 +442,7 @@ function Thread({ slug, id, sessions, onBack }: { slug: string; id: string; sess
       <header className="flex flex-col gap-2">
         <StatusBadges q={q} />
         <h2 id="qa-thread-title" ref={heading} tabIndex={-1} className="text-xl break-words">
-          {q.title}
+          <bdi>{q.title}</bdi>
         </h2>
         <AuthorLine author={q.author} at={q.createdAt} />
         {session && <p className="text-[0.8125rem] text-muted">{t('qa.aboutLesson', { lesson: sessionLabel(session, locale) })}</p>}
@@ -459,7 +461,9 @@ function Thread({ slug, id, sessions, onBack }: { slug: string; id: string; sess
         />
       ) : (
         <div className="break-words">
-          <Markdown untrusted>{q.body}</Markdown>
+          <div dir="auto">
+            <Markdown untrusted>{q.body}</Markdown>
+          </div>
           {q.edited && <p className="mt-1 text-xs text-muted">{t('qa.edited')}</p>}
         </div>
       )}
@@ -559,7 +563,9 @@ function Answer({
         </form>
       ) : (
         <div className="break-words">
-          <Markdown untrusted>{a.body}</Markdown>
+          <div dir="auto">
+            <Markdown untrusted>{a.body}</Markdown>
+          </div>
           {a.edited && <p className="mt-1 text-xs text-muted">{t('qa.edited')}</p>}
         </div>
       )}
