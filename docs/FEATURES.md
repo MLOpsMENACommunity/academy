@@ -625,9 +625,24 @@ Assessments):
 - **Quiz builder:** single choice, multiple choice (all-or-nothing) and true/false; each question has a
   weight, the correct answer(s) and an explanation. Settings: attempts (0 = unlimited), best or last
   attempt counts, reveal answers (never / after the last attempt / after the due date), time limit,
-  shuffle. Up to 200 questions.
+  shuffle. Up to 200 questions. Each question can have an optional **topic** (up to 60 characters);
+  the question list shows the topics with how many questions each has.
+- **Question bank and practice exams:** **Questions per attempt** (1–500; empty = every question) makes
+  the quiz a bank: each attempt draws that many questions at random, stored with the attempt, so a
+  reload or a resumed attempt shows the same ones and grading, the review and the admin's view use
+  exactly those (answers to any other question are ignored). **Balance the draw across topics** gives
+  each topic a share in proportion to its number of questions (at least one each when the count
+  allows). The count can't be more than the quiz's questions (a draft without questions yet may set
+  it). **Use the practice exam preset** sets unlimited attempts, answers after each attempt, best
+  attempt counts, Optional for the certificate, 20 questions per attempt (or all of a smaller bank)
+  balanced across topics and a 30-minute timer (mock-exam mode); the count and the timer stay
+  editable. The list shows "Draws N per attempt". Scores stay out of the quiz's max points: an attempt
+  scores the weights it got right ÷ the weights of the questions it drew × max points, so its percent
+  is its own, and the gradebook, CSV, points, leaderboards, pass marks and certificate rules (including
+  the self-paced 80% rule and the minimum total) all compare that.
 - **Upload a quiz from Excel or CSV**: download the template (.xlsx or .csv) with columns
-  `type, question, option1…option6, correct, weight, explanation`; `correct` accepts `2`, `1,3`, `B`,
+  `type, question, option1…option6, correct, weight, explanation, topic` (`topic` optional; sheets
+  without it still work); `correct` accepts `2`, `1,3`, `B`,
   `A,C` or `true/false`; `type` can be guessed. The preview lists each row's problem; **Add after the
   current questions** or **Replace** only when there are no errors. Nothing is saved until **Save**.
 - **Import quizzes from a file** (PR #81): one .xlsx or .csv creates several
@@ -654,7 +669,13 @@ Assessments):
 - Quiz player: one question per screen on phones, all on one page on wider screens; progress bar;
   countdown to the server's deadline that submits automatically at zero; a confirm step lists unanswered
   questions; answers survive a reload. Score screen (e.g. 15/20, 75 %, passed); answer review with
-  explanations once the reveal rule allows.
+  explanations once the reveal rule allows. With the review, a quiz with topics shows a **Score by
+  topic** table for that attempt (topic, points out of possible, percent with a bar, and the overall
+  row; questions without a topic are "General"); like the review, it follows the reveal rule. The
+  list of attempts shows each attempt's score and percent.
+- A quiz that draws from a bank says "Each attempt draws different questions from a bank" and counts
+  the questions of one attempt; when it doesn't count toward the certificate it carries a **Practice
+  exam** badge in the learn page's lists and on its page.
 - Labs and assignments, by submission type: **GitHub repo** (must be public, checked with GitHub;
   "Couldn't verify" if GitHub is unreachable), **Drive/Docs link** (drive.google.com or
   docs.google.com, with a sharing tick), **PDF** (5 MB) or **any https link**. Resubmit until the due
@@ -1210,6 +1231,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #PR | Assessments: **practice exams from a question bank**. A quiz can draw a set number of questions per attempt (optionally balanced across topics), stored with the attempt so reloads and grading use the same ones; questions get an optional **topic** (editor and the sheet's `topic` column); students see their **score by topic** after each attempt (with the review) and a **Practice exam** badge; the form has a one-click **practice exam preset**. Scores stay out of max points, so the percent of an attempt is its own and the gradebook, points and certificate rules compare it. Migration: `QuizQuestion.topic`, `Assessment.drawCount`, `Assessment.balanceByTopic`, `Submission.drawnQuestionIds` | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |

@@ -6,17 +6,20 @@ import {
   attemptsLeft,
   certificateTag,
   countedAttempt,
+  drawQuestions,
   githubRepoUrl,
   gradeQuiz,
   hasPassed,
   isDriveUrl,
   isLate,
+  isPracticeExam,
   parseGithubRepoUrl,
   percentOf,
   QUIZ_GRACE_SECONDS,
   quizClosedReason,
   seededShuffle,
   summarizeResults,
+  topicScores,
   workClosedReason,
   type AssessmentDetailDto,
   type AssessmentState,
@@ -31,6 +34,7 @@ import {
   type QuizReviewDto,
   type WorkSubmissionInput,
 } from '@academy/shared';
+import { randomUUID } from 'node:crypto';
 import { Prisma, type Assessment, type Course, type QuizOption, type QuizQuestion, type Submission } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
 import { courseKey, SignedInCache } from '../common/signed-in-cache';
@@ -71,18 +75,32 @@ export function toQuestionDto(q: QuestionWithOptions, shuffleSeed: string | null
     promptEn: q.promptEn,
     promptAr: q.promptAr,
     weight: q.weight,
+    topic: q.topic,
     // True/false keeps its order; other options shuffle per attempt when the quiz shuffles.
     options: shuffleSeed && q.kind !== 'TRUE_FALSE' ? seededShuffle(options, `${shuffleSeed}:${q.id}`) : options,
   };
 }
 
+/**
+ * The questions of one attempt: those it drew from the bank (stored when it started), in the
+ * quiz's order; every question when it drew none (no draw count, or attempts from before).
+ * Grading, the review and resuming all use this, so a reload never changes the questions.
+ */
+export function attemptQuestions(a: FullAssessment, s: Pick<Submission, 'drawnQuestionIds'>): QuestionWithOptions[] {
+  if (!s.drawnQuestionIds?.length) return a.questions;
+  const drawn = new Set(s.drawnQuestionIds);
+  return a.questions.filter((q) => drawn.has(q.id));
+}
+
 /** The answer key for one submitted attempt (only once the reveal rule allows it, or for admins). */
-export function buildReview(a: FullAssessment, s: Pick<Submission, 'attempt' | 'answers'>): QuizReviewDto {
+export function buildReview(a: FullAssessment, s: Pick<Submission, 'attempt' | 'answers' | 'drawnQuestionIds'>): QuizReviewDto {
   const answers = (s.answers ?? {}) as QuizAnswers;
-  const grade = gradeQuiz(a.questions, answers, a.maxPoints);
+  const questions = attemptQuestions(a, s);
+  const grade = gradeQuiz(questions, answers, a.maxPoints);
   return {
     attempt: s.attempt,
-    questions: a.questions.map((q) => {
+    topics: topicScores(questions, grade.correct),
+    questions: questions.map((q) => {
       const chosen = new Set(answers[q.id] ?? []);
       return {
         ...toQuestionDto(q, null),
@@ -251,7 +269,10 @@ export class AssessmentsService {
       submissionKind: a.submissionKind,
       attemptsAllowed: a.attemptsAllowed,
       timeLimitMin: a.timeLimitMin,
-      questionCount,
+      // A quiz drawing from its bank: the questions of one attempt.
+      questionCount: a.type === 'QUIZ' && a.drawCount !== null ? Math.min(a.drawCount, questionCount) : questionCount,
+      drawCount: a.type === 'QUIZ' ? a.drawCount : null,
+      practice: isPracticeExam(a),
       state,
       score,
       percent: percentOf(score, a.maxPoints),
@@ -312,7 +333,7 @@ export class AssessmentsService {
 
   private attemptDto(a: FullAssessment, s: Submission): QuizAttemptDto {
     const seed = a.shuffle ? s.id : null;
-    const questions = a.questions.map((q) => toQuestionDto(q, seed));
+    const questions = attemptQuestions(a, s).map((q) => toQuestionDto(q, seed));
     return {
       submissionId: s.id,
       attempt: s.attempt,
@@ -334,9 +355,13 @@ export class AssessmentsService {
     const reason = quizClosedReason({ ...a, started: subs.length, submitted: subs.length, now });
     if (reason) throw closed(reason);
     const attempt = (subs[subs.length - 1]?.attempt ?? 0) + 1;
+    // A question bank: this attempt's questions are drawn once, now, and stored with it.
+    const drawnQuestionIds =
+      a.drawCount !== null && a.drawCount < a.questions.length ? drawQuestions(a.questions, a.drawCount, randomUUID(), { balanceByTopic: a.balanceByTopic }).map((q) => q.id) : [];
     try {
       const s = await this.prisma.submission.create({
-        data: { assessmentId: a.id, userId: user.id, attempt, startedAt: now, maxScore: a.maxPoints },
+        // The score is always out of the quiz's max points (a share of the drawn questions' weight).
+        data: { assessmentId: a.id, userId: user.id, attempt, startedAt: now, maxScore: a.maxPoints, drawnQuestionIds },
       });
       return this.attemptDto(a, s);
     } catch (err) {
@@ -361,8 +386,10 @@ export class AssessmentsService {
       await this.closeExpired(a, [open], now);
       throw new ConflictException({ code: 'TIME_UP', message: 'The time for this attempt has passed' });
     }
-    const answers = sanitizeAnswers(a.questions, raw);
-    const grade = gradeQuiz(a.questions, answers, a.maxPoints);
+    // Only the questions this attempt drew: answers to any other question id are dropped.
+    const questions = attemptQuestions(a, open);
+    const answers = sanitizeAnswers(questions, raw);
+    const grade = gradeQuiz(questions, answers, a.maxPoints);
     const late = isLate(a.dueAt, now);
     const done = await this.prisma.submission.updateMany({
       where: { id: open.id, submittedAt: null },
@@ -384,7 +411,7 @@ export class AssessmentsService {
       passed: hasPassed(grade.score, a.maxPoints, a.passPercent),
       late,
       attemptsLeft: attemptsLeft(a.attemptsAllowed, started),
-      review: revealed ? buildReview(a, { attempt: open.attempt, answers }) : null,
+      review: revealed ? buildReview(a, { attempt: open.attempt, answers, drawnQuestionIds: open.drawnQuestionIds }) : null,
     };
   }
 

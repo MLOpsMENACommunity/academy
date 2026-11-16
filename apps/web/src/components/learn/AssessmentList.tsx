@@ -53,6 +53,7 @@ export function AssessmentList({
                 <span className="flex flex-wrap items-center gap-2">
                   <Badge tone={a.type === 'QUIZ' ? 'primary' : 'accent'}>{t(`assessments.type.${a.type}`)}</Badge>
                   {a.certificateTag && <Badge tone={a.certificateTag === 'REQUIRED' ? 'info' : 'neutral'}>{t(`assessments.forCertificate.${a.certificateTag}`)}</Badge>}
+                  {a.practice && <Badge tone="accent">{t('assessments.practice')}</Badge>}
                   <span dir={assessmentText(locale, a.titleEn, a.titleAr).dir} className="font-medium text-fg">
                     {assessmentText(locale, a.titleEn, a.titleAr).text}
                   </span>

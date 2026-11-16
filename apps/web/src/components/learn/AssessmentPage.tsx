@@ -1,6 +1,6 @@
 'use client';
 
-import type { AssessmentDetailDto, MySubmissionDto, QuizAttemptDto, QuizResultDto } from '@academy/shared';
+import { percentOf, type AssessmentDetailDto, type MySubmissionDto, type QuizAttemptDto, type QuizResultDto } from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +21,7 @@ import { assessmentError } from './assessment-errors';
 import { assessmentText } from './assessment-text';
 import { QuizPlayer } from './QuizPlayer';
 import { QuizReview } from './QuizReview';
+import { TopicScores } from './TopicScores';
 import { WorkSubmission } from './WorkSubmission';
 
 export function AssessmentPage() {
@@ -201,6 +202,8 @@ function Inner() {
   const quiz = detail.type === 'QUIZ';
   const preview = user?.role === 'ADMIN';
   const latest = detail.submissions[0] ?? null;
+  /** The answer key (and the score per topic) of the attempt just submitted, else of the latest one. */
+  const review = result?.review ?? detail.review;
 
   return (
     <Container className="flex max-w-3xl flex-col gap-6 py-6 sm:py-10">
@@ -211,6 +214,7 @@ function Inner() {
           <Badge tone={stateTone[detail.state]}>{t(`assessments.state.${detail.state}`)}</Badge>
           {detail.late && <Badge tone="warning">{t('assessments.late')}</Badge>}
           {detail.certificateTag && <Badge tone={detail.certificateTag === 'REQUIRED' ? 'info' : 'neutral'}>{t(`assessments.forCertificate.${detail.certificateTag}`)}</Badge>}
+          {detail.practice && <Badge tone="accent">{t('assessments.practice')}</Badge>}
         </p>
         <h1 dir={title.dir} className="text-2xl leading-snug sm:text-3xl">
           {title.text}
@@ -228,6 +232,7 @@ function Inner() {
           <li>{t('assessments.points', { count: detail.maxPoints })}</li>
           <li>{t('assessments.passMark', { percent: detail.passPercent })}</li>
           {quiz && <li>{t('assessments.questions', { count: detail.questionCount })}</li>}
+          {quiz && detail.drawCount !== null && <li>{t('assessments.drawnFromBank')}</li>}
           {quiz && detail.timeLimitMin && <li>{t('assessments.timeLimit', { minutes: detail.timeLimitMin })}</li>}
           {quiz && <li>{detail.attemptsAllowed === 0 ? t('assessments.unlimited') : t('assessments.attemptsAllowed', { count: detail.attemptsAllowed })}</li>}
         </ul>
@@ -256,6 +261,7 @@ function Inner() {
       ) : (
         <>
           {result && <ResultCard result={result} detail={detail} />}
+          {review && review.topics.some((x) => x.topic !== null) && <TopicScores topics={review.topics} attempt={review.attempt} />}
 
           {instructions.text.trim() && (
             <section aria-labelledby="instructions" className="flex flex-col gap-2">
@@ -342,7 +348,11 @@ function Inner() {
                     </span>
                     <span className="flex flex-wrap gap-2">
                       {s.late && <Badge tone="warning">{t('assessments.late')}</Badge>}
-                      {s.score !== null && <Badge tone="neutral">{scoreText(s.score, s.maxScore)}</Badge>}
+                      {s.score !== null && (
+                        <Badge tone="neutral">
+                          {scoreText(s.score, s.maxScore)} · {t('assessments.percent', { percent: percentOf(s.score, s.maxScore) ?? 0 })}
+                        </Badge>
+                      )}
                     </span>
                   </li>
                 ))}
@@ -350,7 +360,7 @@ function Inner() {
             </section>
           )}
 
-          {(result?.review ?? detail.review) && <QuizReview review={(result?.review ?? detail.review)!} />}
+          {review && <QuizReview review={review} />}
         </>
       )}
     </Container>

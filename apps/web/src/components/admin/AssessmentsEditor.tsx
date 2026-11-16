@@ -4,10 +4,13 @@ import {
   ASSESSMENT_STATUSES,
   ASSESSMENT_TYPES,
   assessmentInputSchema,
+  PRACTICE_EXAM_PRESET,
   QUIZ_QUESTION_KINDS,
   REVEAL_POLICIES,
   SCORING_POLICIES,
   SUBMISSION_KINDS,
+  TOPIC_MAX,
+  topicCounts,
   TRUE_FALSE_LABELS,
   type AdminAssessmentDto,
   type AdminAssessmentRow,
@@ -53,7 +56,7 @@ export interface AssessmentSessionOption {
  * which the list's arrows set). The server keeps any Arabic stored earlier.
  */
 type Option = { id?: string; labelEn: string; correct: boolean };
-type Question = { id?: string; kind: QuizQuestionKind; promptEn: string; weight: number; explanationEn: string | null; options: Option[] };
+type Question = { id?: string; kind: QuizQuestionKind; promptEn: string; weight: number; explanationEn: string | null; topic: string | null; options: Option[] };
 
 interface Draft {
   type: AssessmentType;
@@ -72,6 +75,8 @@ interface Draft {
   revealAnswers: RevealPolicy;
   timeLimitMin: number | null;
   shuffle: boolean;
+  drawCount: number | null;
+  balanceByTopic: boolean;
   questions: Question[];
 }
 
@@ -81,6 +86,7 @@ const emptyQuestion = (): Question => ({
   promptEn: '',
   weight: 1,
   explanationEn: null,
+  topic: null,
   options: [{ ...emptyOption(), correct: true }, emptyOption()],
 });
 /** True/false always stores "True" then "False"; students see them in their own language. */
@@ -93,6 +99,7 @@ const fromUpload = (q: QuizQuestionInput): Question => ({
   promptEn: q.promptEn,
   weight: q.weight,
   explanationEn: q.explanationEn,
+  topic: q.topic ?? null,
   options: q.options.map((o) => ({ labelEn: o.labelEn, correct: o.correct })),
 });
 
@@ -113,6 +120,8 @@ const EMPTY: Draft = {
   revealAnswers: 'AFTER_SUBMIT',
   timeLimitMin: null,
   shuffle: false,
+  drawCount: null,
+  balanceByTopic: false,
   questions: [],
 };
 
@@ -134,12 +143,15 @@ function toDraft(a: AdminAssessmentDto): Draft {
     revealAnswers: a.revealAnswers,
     timeLimitMin: a.timeLimitMin,
     shuffle: a.shuffle,
+    drawCount: a.drawCount,
+    balanceByTopic: a.balanceByTopic,
     questions: a.questions.map((q) => ({
       id: q.id,
       kind: q.kind,
       promptEn: q.promptEn,
       weight: q.weight,
       explanationEn: q.explanationEn,
+      topic: q.topic,
       options: q.options.map((o) => ({ id: o.id, labelEn: o.labelEn, correct: o.correct })),
     })),
   };
@@ -165,6 +177,7 @@ function draftErrors(issues: ZodIssue[], t: Translate): Record<string, string> {
     else if (i.message.startsWith('A true/false')) out[key] = e('twoOptions');
     else if (i.message.startsWith('Late work cannot')) out[key] = e('lateWithReveal');
     else if (i.message.startsWith('A practice quiz')) out[key] = e('practiceCertificate');
+    else if (i.message.startsWith('Draw at most')) out[key] = t('admin.assessments.form.errors.drawCount', { max: Number(/\d+/.exec(i.message)?.[0] ?? 0) });
   }
   return out;
 }
@@ -235,6 +248,15 @@ function QuestionEditor({
         />
         <TextField label={b('weight')} required type="number" min={1} max={100} value={String(q.weight)} onChange={(v) => onChange({ ...q, weight: Number(v || 0) })} error={err('weight')} />
       </div>
+      <TextField
+        label={b('topic')}
+        hint={b('topicHint')}
+        dir="ltr"
+        maxLength={TOPIC_MAX}
+        value={q.topic ?? ''}
+        onChange={(v) => onChange({ ...q, topic: v || null })}
+        error={err('topic')}
+      />
       <TextAreaField label={b('prompt')} required rows={2} dir="ltr" value={q.promptEn} onChange={(v) => onChange({ ...q, promptEn: v })} error={err('promptEn')} />
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold text-fg">{b('options')}</p>
@@ -359,6 +381,7 @@ function AssessmentForm({
   const [updatedBy, setUpdatedBy] = useState<string | null>(null);
   const [arabic, setArabic] = useState(false);
   const [uploaded, setUploaded] = useState<string | null>(null);
+  const [presetApplied, setPresetApplied] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -383,6 +406,15 @@ function AssessmentForm({
   const set = <K extends keyof Draft>(k: K) => (v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
   const quiz = draft.type === 'QUIZ';
   const totalWeight = draft.questions.reduce((n, q) => n + (Number(q.weight) || 0), 0);
+  const topics = topicCounts(draft.questions);
+  const hasTopics = topics.some((x) => x.topic !== null);
+  /** The practice exam preset; a bank smaller than its 20 questions draws all of them. */
+  const applyPractice = () => {
+    setDraft((d) =>
+      d ? { ...d, ...PRACTICE_EXAM_PRESET, drawCount: d.questions.length ? Math.min(PRACTICE_EXAM_PRESET.drawCount, d.questions.length) : PRACTICE_EXAM_PRESET.drawCount } : d,
+    );
+    setPresetApplied(true);
+  };
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -460,6 +492,19 @@ function AssessmentForm({
             <h3 id="quiz-settings" className="text-base">
               {f('quizSettings')}
             </h3>
+            <div className="flex flex-col gap-1.5 rounded-lg border border-line bg-page p-3">
+              <Button type="button" size="sm" variant="secondary" className="self-start" onClick={applyPractice} aria-describedby="practice-preset-hint">
+                {f('practicePreset')}
+              </Button>
+              <p id="practice-preset-hint" className="text-xs text-muted">
+                {f('practicePresetHint')}
+              </p>
+              {presetApplied && (
+                <p role="status" className="text-sm font-medium text-success">
+                  {f('practicePresetApplied')}
+                </p>
+              )}
+            </div>
             <div className="grid gap-3 sm:grid-cols-4">
               <TextField label={f('attempts')} hint={f('attemptsHint')} required type="number" min={0} max={20} value={String(draft.attemptsAllowed)} onChange={(v) => set('attemptsAllowed')(Number(v || 0))} error={errors.attemptsAllowed} />
               <SelectField label={f('scoring')} required value={draft.scoring} onChange={(v) => v && set('scoring')(v as ScoringPolicy)} options={SCORING_POLICIES.map((x) => ({ value: x, label: f(`scoringOpt.${x}`) }))} />
@@ -477,12 +522,43 @@ function AssessmentForm({
             </div>
             <p className="text-xs text-muted">{f('revealHint')}</p>
             <CheckboxField label={f('shuffle')} checked={draft.shuffle} onChange={set('shuffle')} />
+            <div className="grid gap-3 sm:grid-cols-4">
+              <TextField
+                label={f('drawCount')}
+                hint={f('drawCountHint')}
+                type="number"
+                min={1}
+                max={500}
+                value={draft.drawCount ? String(draft.drawCount) : ''}
+                onChange={(v) => set('drawCount')(v ? Number(v) : null)}
+                error={errors.drawCount}
+                className="sm:col-span-2"
+              />
+            </div>
+            {draft.drawCount !== null && <CheckboxField label={f('balanceByTopic')} checked={draft.balanceByTopic} onChange={set('balanceByTopic')} />}
 
             <div className="flex flex-col gap-3 border-t border-line pt-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-base">{t('admin.assessments.builder.title')}</h3>
                 <p className="text-xs text-muted">{t('admin.assessments.builder.totalWeight', { weight: totalWeight })}</p>
               </div>
+              {draft.drawCount !== null && draft.questions.length > 0 && (
+                <p className="text-sm text-body">{t('admin.assessments.builder.drawSummary', { draw: Math.min(draft.drawCount, draft.questions.length), total: draft.questions.length })}</p>
+              )}
+              {hasTopics && (
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-semibold text-fg">{t('admin.assessments.builder.topicsTitle')}</p>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {topics.map((x) => (
+                      <li key={x.topic ?? ''}>
+                        <Badge>
+                          <span dir="auto">{t('admin.assessments.builder.topicCount', { topic: x.topic ?? t('admin.assessments.builder.general'), count: x.count })}</span>
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <QuizUpload
                 current={draft.questions.length}
                 disabled={submissions > 0}
@@ -740,6 +816,7 @@ export function AssessmentsEditor({
                       <Badge tone={r.type === 'QUIZ' ? 'primary' : 'accent'}>{t(`assessments.type.${r.type}`)}</Badge>
                       <Badge tone={r.status === 'PUBLISHED' ? 'success' : 'warning'}>{a(`status.${r.status}`)}</Badge>
                       {r.type === 'QUIZ' ? <Badge>{t('assessments.questions', { count: r.questionCount })}</Badge> : r.submissionKind && <Badge>{t(`admin.assessments.form.kind.${r.submissionKind}`)}</Badge>}
+                      {r.type === 'QUIZ' && r.drawCount !== null && <Badge tone="info">{a('draws', { count: Math.min(r.drawCount, r.questionCount) })}</Badge>}
                       <Badge tone={r.countsForCertificate ? 'info' : 'neutral'}>{a(r.countsForCertificate ? 'mandatory' : 'optional')}</Badge>
                       <Badge>{a('submittedCount', { count: r.submitted })}</Badge>
                       {r.toGrade > 0 && <Badge tone="danger">{a('toGrade', { count: r.toGrade })}</Badge>}
