@@ -58,6 +58,8 @@ describe('admin permissions (e2e)', () => {
       ['/api/admin/courses/:course/certificates', ['ACADEMIC']],
       ['/api/admin/courses/:course/leaderboard', ['ACADEMIC']],
       ['/api/admin/courses/:course/feedback', ['ACADEMIC']],
+      ['/api/admin/courses/:course/testimonials', ['ACADEMIC']],
+      ['/api/admin/reviews', ['ACADEMIC']],
       ['/api/admin/courses/:course/invites', ['ADMISSIONS']],
       ['/api/admin/courses/:course/waitlist', ['ADMISSIONS']],
       ['/api/admin/badges', ['ACADEMIC']],

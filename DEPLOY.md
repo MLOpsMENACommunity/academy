@@ -9,7 +9,7 @@ academy.mlopsmena.com (production)      academy-staging.mlopsmena.com (staging)
    Worker mlops-academy                    Worker mlops-academy-staging
      ├── /api/*   → ApiContainer   (apps/api/Dockerfile, NestJS)
      ├── /*       → WebContainer   (apps/web/Dockerfile, Next.js)
-     └── cron     → POST /api/internal/jobs/tick (hourly)
+     └── cron     → POST /api/internal/jobs/tick (when due: see "Jobs schedule")
                        │
           Neon Postgres · private R2 bucket · Resend
 ```
@@ -18,7 +18,8 @@ Production runs one API container and up to three web containers (`standard-1`),
 staging one `basic` container of each; see [Capacity and caching](#capacity-and-caching).
 Containers sleep after 5 idle minutes in production and staging (`SLEEP_AFTER` in `wrangler.jsonc`). The first
 request after a sleep takes a few seconds while the container starts. Database migrations run when the API container starts. The seed is
-idempotent and also runs on start: it creates the admin, the settings and the
+idempotent and runs on the first start of each release (with the archive import; later starts
+of the same release skip both, `src/startup-tasks.ts`): it creates the admin, the settings and the
 placeholder courses.
 
 ## Environments
@@ -196,12 +197,13 @@ more often than every `SLEEP_AFTER`. What keeps them awake, from most to least:
   purge configured the Worker now keeps each feed for 30 minutes (`FEED_TTL` in
   `deploy/cloudflare/src/edge-cache.ts`), so most polls stop at the edge,
 - anonymous visitors and crawlers on pages missing the edge cache (30 s copies), and
-- the hourly jobs tick, which wakes the API for about `SLEEP_AFTER` each hour.
+- the jobs tick, which used to wake the API every hour (now only when something is due: see
+  "Jobs schedule").
 
 The same wake-ups keep the Neon compute from suspending, which is what uses up its free
 compute hours. `SLEEP_AFTER` is the main lever: every wake-up costs at least that long. At
-5 minutes, the hourly tick alone costs the API about 2 hours a day instead of 6, at the price
-of more cold starts (see "Cold starts" below).
+5 minutes, an hourly tick alone cost the API about 2 hours a day instead of 6, at the price
+of more cold starts (see "Cold starts" below); the jobs schedule below removes most of that too.
 
 ## Capacity and caching
 
@@ -237,7 +239,9 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   cached: requests with a session cookie (`access_token`, `has_session`), `/api/*`, non-GET,
   Next's client-navigation (RSC) requests, signed-in areas, and any response that sets a
   cookie, isn't a 200, is `private`/`no-store`, or is a stale ISR copy. Build assets
-  (`/_next/static`, immutable) are cached for everyone. Responses carry `x-edge-cache:
+  (`/_next/static`, immutable) are cached for everyone, and so are the site's fixed files from
+  `apps/web/public` (logo, favicons, speaker photos) for a day (`PUBLIC_FILE_TTL`): a replaced
+  one can take that long to show unless purged by URL in the dashboard. Responses carry `x-edge-cache:
   HIT|MISS|BYPASS`. Each data centre has its own cache.
 - **An admin edit shows publicly within seconds, and within 30 s at most** (details in
   [How fast an admin edit shows](#how-fast-an-admin-edit-shows)). Admins themselves are
@@ -273,7 +277,8 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
     5 s for it gets a 503 too.
   - **Fast restarts:** the API checks for pending migrations itself and starts the Prisma CLI
     only when one is pending; the seed and the archive import run in the background after it
-    listens (one container at a time, by advisory lock); the image ships a V8 compile cache.
+    listens (one container at a time, by advisory lock), and only on the first start of a
+    release (recorded in the `__startupTasksDone` setting once both succeed); the image ships a V8 compile cache.
     A start takes ~6–10 s instead of ~20 s (the container library gives up after 20 s, which
     is where "container is not listening" came from).
   - **Memory:** Node's heap is capped at 512 MB (`API_MAX_OLD_SPACE_MB`), leaving the rest of
@@ -290,7 +295,7 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
 - **Signed-in reads:** the API remembers each account's sign-in check (role, admin presets,
   token version) and courses by address for 15 s (`SIGNED_IN_CACHE_TTL_S`, 0 turns it off),
   for GET requests only. Every write request (and every jobs run) empties it once it has
-  committed, so revoking a session, deleting an account or removing an admin applies on the
+  committed (except the video player's position save, which writes only `LessonWatch`), so revoking a session, deleting an account or removing an admin applies on the
   next request; writes always read the database
   (`apps/api/src/common/signed-in-cache.ts`). A change made outside the API (psql, a script)
   shows within 15 s. This is one more reason to keep a single API instance.
@@ -376,17 +381,36 @@ container; calls are at least 5 s apart, so a bulk edit costs two re-renders per
 call and its follow-up), not hundreds. Measured locally with the `load` profile (100
 anonymous visitors, one web instance) and a revalidation every 5 s throughout, far more than
 admins ever edit: no errors, p50 unchanged (7 ms), p95 38 → 110 ms, p99 95 → 610 ms.
-Seat counts (registrations) and the hourly job tick only clear the API's cache and follow
+Seat counts (registrations) and the jobs tick only clear the API's cache and follow
 the 60 s windows: they are frequent and not worth re-rendering every page for. The home,
 speakers and learning-path pages went from 300 s to 60 s windows (one render a minute per
 container while someone visits them), and the edge keeps copies 30 s instead of 60 s (one
 request every 30 s per page and data centre reaches the container, which answers from
 Next's cache).
 
+### Jobs schedule
+
+Production's Cron Trigger fires every 15 minutes, but the trigger itself wakes nothing: the
+Worker calls the API's jobs tick (anonymisation, retention, reminders, feedback prompts,
+automation rules, Drive sharing, points, email retries) only when one of these holds
+(`shouldTick` in `deploy/cloudflare/src/jobs.ts`):
+
+- **something is due:** each tick answers `nextDueAt`, the next moment a reminder window opens
+  (course and live sessions and calls, 24 h and 1 h before; assessments 24 h before a deadline),
+  a feedback prompt falls due (30 minutes after a session ends) or an email waits to be retried
+  (`apps/api/src/jobs/next-due.ts`). The tick runs within 15 minutes of it, inside the windows;
+- **the API is awake anyway** (someone is using the site) and the last tick is an hour old;
+- **4 hours have passed** since the last tick, for the jobs that can wait.
+
+The Worker keeps the last tick time and `nextDueAt` in the API's Durable Object, which knows
+whether the container is running without starting it. A failed tick records nothing and is
+retried 15 minutes later; an API without `nextDueAt` (an older release) gets hourly ticks. On
+a quiet night the API and the database stay asleep except for the reminders that are due,
+instead of waking 24 times a day. Workers logs show each run as `jobs tick: <status> <counts>`.
+
 ### Jobs on staging
 
-Production's Cron Trigger runs the scheduled jobs (anonymisation, retention, reminders,
-profile reviews) hourly. Staging has none, so it costs nothing while nobody uses it. To run
+Staging has no Cron Trigger, so it costs nothing while nobody uses it. To run
 the jobs on staging by hand (e.g. to test reminders), with staging's `JOBS_TOKEN`:
 
 ```sh

@@ -154,6 +154,7 @@
     "errors": {
       "INVALID_CREDENTIALS": "That email and password don't match.",
       "EMAIL_TAKEN": "An account with this email already exists. Try logging in.",
+      "REVIEW_NOT_FINISHED": "You can rate this course once you have finished it.",
       "TOKEN_INVALID": "This link is invalid or has expired.",
       "WRONG_PASSWORD": "Your current password is incorrect.",
       "google_unavailable": "Google sign-in isn't available right now. Use email and password.",
@@ -447,7 +448,10 @@
     "details": "Details and how to apply",
     "detailsOnly": "Details",
     "applyBy": "Apply by {date}",
-    "notifyCta": "Get notified when it opens"
+    "rating": "{average} ★ ({count, plural, one {# rating} other {# ratings}})",
+    "ratingLabel": "Rated {average} out of 5 from {count, plural, one {# rating} other {# ratings}}",
+    "notifyCta": "Get notified when it opens",
+    "selfPaced": "Self-paced"
   },
   "course": {
     "fullInstant": "Seats are full: you'll join the waitlist.",
@@ -478,7 +482,8 @@
       "price": "Price",
       "format": "Format",
       "schedule": "Schedule",
-      "certificate": "Certificate"
+      "certificate": "Certificate",
+      "selfPaced": "{count, plural, one {# video lesson} other {# video lessons}} at your own pace"
     },
     "inc": {
       "liveSessions": "Live sessions on {platform}",
@@ -515,6 +520,7 @@
     "externalNote": "This cohort ran on {platform}.",
     "recordings": "Recordings",
     "recordingsNote": "Every lesson of this cohort, free to watch.",
+    "rated": "Rated {n} out of 5",
     "testimonials": "What students say",
     "noRecording": "No public recording for this lesson.",
     "lesson": "Lesson {n}",
@@ -639,6 +645,15 @@
       "save": "Import",
       "imported": "Imported: {created} new and {updated} changed, {linked} linked to accounts. {total} earlier certificates in total."
     },
+    "reviews": {
+      "title": "Reviews",
+      "intro": "Students' star ratings and reviews of every course. Nothing appears on the site until you approve it; a course shows its average once it has {min} approved ratings. If a student edits a review, it comes back here.",
+      "filter": "Show",
+      "empty": "Nothing here.",
+      "starsOnly": "Stars only, no words.",
+      "noRating": "No stars, words only.",
+      "limit": "Showing the first {count}."
+    },
     "title": "Admin",
     "nav": {
       "dashboard": "Dashboard",
@@ -654,6 +669,7 @@
       "speakers": "Speakers",
       "media": "Media",
       "team": "Team",
+      "reviews": "Reviews",
       "consultations": "Consultations"
     },
     "payments": {
@@ -999,7 +1015,7 @@
       },
       "feedback": "Feedback",
       "testimonials": "Testimonials",
-      "testimonialsHint": "Only approved testimonials appear on the public course page, with the student's name. If a student edits one, it comes back here for review.",
+      "testimonialsHint": "Only approved ratings and testimonials appear on the public course page, with the student's name, and only approved stars count in the course's average. If a student edits one, it comes back here for review.",
       "testimonialsEmpty": "No testimonials yet.",
       "testimonialApprove": "Approve and publish",
       "testimonialReject": "Don't publish",
@@ -1834,7 +1850,7 @@
       "fixErrors": "Fix the rows with errors in the file, then preview again.",
       "apply": "Import {count} rows ({points} points)",
       "imported": "Imported {count} rows ({points} points).",
-      "badgesHint": "Automatic badges are awarded by the hourly job and the course rules. Manual badges are awarded from a student's page. An inactive badge is no longer awarded or shown on leaderboards.",
+      "badgesHint": "Automatic badges are awarded by the scheduled jobs (hourly while the site is in use, at least every 4 hours) and the course rules. Manual badges are awarded from a student's page. An inactive badge is no longer awarded or shown on leaderboards.",
       "auto": "Automatic",
       "manual": "Manual",
       "awardedCount": "{count, plural, one {Awarded once} other {Awarded # times}}",
@@ -2207,7 +2223,8 @@
         "ENROL": "Enrol students",
         "ISSUE_CERTIFICATES": "Issue certificates",
         "VIEW_FEEDBACK": "See session feedback",
-        "MANAGE_RULES": "Manage automation rules"
+        "MANAGE_RULES": "Manage automation rules",
+        "ANSWER_QUESTIONS": "Answer questions"
       },
       "permHint": {
         "MANAGE_ASSESSMENTS": "Create, edit, publish and upload quizzes and assignments.",
@@ -2223,7 +2240,8 @@
         "ENROL": "Enrol by email and invites, and the waiting list.",
         "ISSUE_CERTIFICATES": "Issue, revoke and re-issue certificates, and the rule.",
         "VIEW_FEEDBACK": "Students’ feedback on each session.",
-        "MANAGE_RULES": "Rules that act on their own in this course."
+        "MANAGE_RULES": "Rules that act on their own in this course.",
+        "ANSWER_QUESTIONS": "The course Q&A: answer, pin, close and reopen, hide and unhide questions and answers."
       },
       "saveRole": "Save role",
       "createRole": "Create role",
@@ -2233,7 +2251,7 @@
     },
     "automation": {
       "title": "Automation rules",
-      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked every hour.",
+      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked hourly while the site is in use, and at least every 4 hours.",
       "safe": "Rules only send messages, alert the team, award points or flag students. They never remove a student or change an application.",
       "recommended": "Turn on the recommended set",
       "pause": "Pause all rules",
@@ -2293,7 +2311,8 @@
         "percent": "percent",
         "times": "times",
         "ratings": "ratings",
-        "stars": "stars"
+        "stars": "stars",
+        "items": "items"
       },
       "actions": {
         "message": "Message",
@@ -2321,7 +2340,8 @@
         "firstDays": "First reminder after",
         "secondDays": "Second reminder and team alert after",
         "telegramUrl": "Telegram group link",
-        "discordUrl": "Discord server link"
+        "discordUrl": "Discord server link",
+        "items": "Items behind"
       },
       "options": {
         "review": "Alert the team to review and issue",
@@ -2343,6 +2363,10 @@
         "FULL_ATTENDANCE_MIDWAY": {
           "title": "Perfect attendance at halfway",
           "desc": "When attendance for the first half of the sessions is recorded, gives bonus points and a message to students who attended all of them."
+        },
+        "STUDY_PLAN_BEHIND": {
+          "title": "Behind the study plan",
+          "desc": "Self-paced courses: nudges a student whose own study plan says they are behind by at least the set number of lessons and quizzes, at most once a week. Students without a plan get nothing."
         },
         "OFTEN_LATE": {
           "title": "Often joins late",
@@ -2447,20 +2471,68 @@
         "WEEKLY_SUMMARY": {
           "title": "Weekly points summary",
           "desc": "Each week while the course runs, tells students who earned points the week before how many and their rank."
+        },
+        "QUESTION_UNANSWERED": {
+          "title": "Question waiting for an answer",
+          "desc": "Alerts the team about questions in the course Q&A that nobody has answered after the set number of hours."
         }
       }
     }
   },
   "learn": {
+    "studyPlan": {
+      "title": "Study plan",
+      "pitch": "Pick the days and how long you can study. We spread the remaining lessons and quizzes over those days, show when you will finish and remind you on study days.",
+      "start": "Make a study plan",
+      "weekdays": "Study days",
+      "weekdaysHint": "Pick at least one day.",
+      "days": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "minutes": "Time per day",
+      "startDate": "Start date",
+      "reminder": "Reminder",
+      "reminderHint": "An email and a notification on each study day at this time ({zone} time).",
+      "zoneDefault": "Your profile has no time zone, so times use the academy's time zone ({zone}). You can set yours in your profile.",
+      "noReminder": "No reminder",
+      "save": "Save plan",
+      "cancel": "Cancel",
+      "edit": "Edit plan",
+      "delete": "Delete plan",
+      "saved": "Plan saved.",
+      "deleted": "Plan deleted.",
+      "nextDay": "Next study day: {date}",
+      "today": "today",
+      "finishBy": "Finish by {date}",
+      "onTrack": "On track",
+      "behind": "{count, plural, one {Behind by # item} other {Behind by # items}}",
+      "allDone": "You have finished every lesson and quiz in the plan. Well done!",
+      "quiz": "Quiz: {title}",
+      "part": "{title} (part {part} of {parts})",
+      "summary": "{days} · {minutes} a day",
+      "reminderAt": "Reminder at {time}",
+      "calendarNote": "Study days are in your calendar feed too:",
+      "errorDays": "Pick at least one study day.",
+      "errorDate": "Pick a start date."
+    },
     "testimonial": {
-      "title": "Would you recommend this course?",
-      "intro": "A few words from you help other engineers decide. This is optional and doesn't affect your certificate.",
-      "label": "Your testimonial",
-      "hint": "Between {min} and {max} characters.",
+      "title": "How would you rate this course?",
+      "intro": "Your stars and a few words help other engineers decide. This is optional and doesn't affect your certificate.",
+      "label": "Your review (optional)",
+      "hint": "Optional if you choose stars. Otherwise between {min} and {max} characters.",
       "consent": "I agree that MLOps MENA can publish this on the course page with my name. I can remove it at any time.",
-      "send": "Send testimonial",
+      "send": "Send review",
       "update": "Save changes",
-      "remove": "Remove my testimonial",
+      "remove": "Remove my review",
+      "ratingLegend": "Your rating",
+      "clearRating": "Clear stars",
+      "needOne": "Choose a star rating or write a few words.",
       "status": {
         "PENDING": "Thank you! The team will review it before it appears.",
         "APPROVED": "Published on the course page. If you change it, it is reviewed again.",
@@ -2547,7 +2619,11 @@
     "sessionNav": "Previous and next session",
     "nextSession": "Next: {n}. {title}",
     "confirmEmailFirst": "Were you added to this course by email? Confirm your email address first (we sent you a link) and you'll be enrolled automatically.",
-    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way."
+    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way.",
+    "stoppedAt": "You stopped at {time}. The video continues from there.",
+    "continueLesson": "Continue video {n} at {time}",
+    "continueSession": "Continue the recording of session {n} at {time}",
+    "qaTab": "Q&A"
   },
   "speakerAnnouncements": {
     "title": "My courses & sessions",
@@ -2950,7 +3026,8 @@
     "blog": "Blog on mlopsmena.com",
     "blogDesc": "Articles, guides and roadmaps",
     "courseCount": "{count, plural, one {# course} other {# courses}}",
-    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}"
+    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}",
+    "featuredSelfPaced": "Start any time · at your own pace"
   },
   "whatsNew": {
     "title": "What's new",
@@ -3207,7 +3284,8 @@
       "MANUAL_OTHER": "Other",
       "ADJUSTMENT": "Correction",
       "ATTENDANCE": "Attendance",
-      "AUTOMATION": "Automation bonus"
+      "AUTOMATION": "Automation bonus",
+      "QA_ANSWER": "Accepted answer in the Q&A"
     }
   },
   "badges": {
@@ -3476,6 +3554,97 @@
     "saveEdit": "Save the change",
     "confirmRemove": "Remove the points"
   },
+  "qa": {
+    "title": "Questions and answers",
+    "intro": "Ask the course team and your classmates about the course or one lesson, and help others with what you know. Be kind, and don't share private details or solutions to graded work.",
+    "introTeach": "Students' questions in this course. Answer them, accept the best answer, pin useful threads, close finished ones and hide what breaks the course rules. Hidden posts stay visible to their author.",
+    "ask": "Ask a question",
+    "askTitle": "Ask a question",
+    "filterLabel": "Show questions",
+    "filters": {
+      "all": "All",
+      "unanswered": "Unanswered",
+      "mine": "Mine",
+      "following": "Following",
+      "lesson": "This lesson"
+    },
+    "search": "Search questions",
+    "searchButton": "Search",
+    "count": "{count, plural, =0 {No questions} one {# question} other {# questions}}",
+    "empty": "No questions yet. Be the first to ask.",
+    "emptyFiltered": "No questions match.",
+    "pages": "Pages of questions",
+    "prev": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pages}",
+    "courseTeam": "Course team",
+    "formerStudent": "Former student",
+    "you": "you",
+    "pinned": "Pinned",
+    "status": {
+      "OPEN": "Unanswered",
+      "ANSWERED": "Answered",
+      "CLOSED": "Closed"
+    },
+    "acceptedBadge": "Has an accepted answer",
+    "hidden": "Hidden",
+    "answers": "{count, plural, =0 {No answers} one {# answer} other {# answers}}",
+    "votes": "{count, plural, =0 {Nobody else asked} one {# has this question too} other {# have this question too}}",
+    "questionTitle": "Your question",
+    "questionTitleHint": "One sentence, 5 to 150 characters.",
+    "details": "Details",
+    "markdownHint": "Markdown works: **bold**, `code`, ``` for code blocks, and links. Up to 5,000 characters.",
+    "lesson": "Lesson or session",
+    "wholeCourse": "The whole course",
+    "post": "Post the question",
+    "cancel": "Cancel",
+    "save": "Save",
+    "invalid": {
+      "title": "Write a question of 5 to 150 characters.",
+      "body": "Write up to 5,000 characters.",
+      "sessionId": "Choose a lesson from the list."
+    },
+    "notFound": "This question isn't available. It may have been hidden by the course team.",
+    "back": "All questions",
+    "aboutLesson": "About {lesson}",
+    "hiddenNote": "The course team hid this question: only you can still see it.",
+    "hiddenNoteStaff": "Hidden: only its author and the course team see it.",
+    "edited": "Edited",
+    "sameQuestion": "{count, plural, =0 {I have this question too} other {I have this question too (#)}}",
+    "follow": "Follow",
+    "unfollow": "Stop following",
+    "followHint": "You'll be told about new answers in the app and by email (course reminder emails).",
+    "edit": "Edit",
+    "moderation": "Course team",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "close": "Close the question",
+    "reopen": "Reopen",
+    "hideQuestion": "Hide the question",
+    "unhideQuestion": "Show the question",
+    "hideAnswer": "Hide",
+    "unhideAnswer": "Show",
+    "noAnswers": "No answers yet.",
+    "closedNote": "This question is closed: no new answers.",
+    "accepted": "Accepted answer",
+    "accept": "Accept this answer",
+    "unaccept": "Remove acceptance",
+    "answerTitle": "Your answer",
+    "yourAnswer": "Answer",
+    "postAnswer": "Post the answer",
+    "errors": {
+      "NOT_ENROLLED": "Questions are for the students enrolled in this course.",
+      "QUESTION_CLOSED": "This question is closed: no new answers.",
+      "EDIT_WINDOW_OVER": "Posts can be edited for 30 minutes after posting.",
+      "OWN_QUESTION": "This is your own question.",
+      "NOT_YOUR_POST": "Only its author can edit this.",
+      "NOT_YOUR_QUESTION": "Only the person who asked, or the course team, can accept an answer.",
+      "COURSE_PERMISSION": "Your role in this course doesn't include this.",
+      "QUESTION_NOT_FOUND": "This question isn't available.",
+      "ANSWER_NOT_FOUND": "This answer isn't available.",
+      "SESSION_NOT_FOUND": "That lesson isn't in this course."
+    }
+  },
   "teach": {
     "title": "Teaching",
     "intro": "The courses you help run. What you can do in each depends on your role there.",
@@ -3504,7 +3673,8 @@
       "applications": "Applications",
       "enrolment": "Enrolment",
       "certificates": "Certificates",
-      "automation": "Automation"
+      "automation": "Automation",
+      "qa": "Q&A"
     },
     "details": {
       "adminOnly": "The status, address, price and who teaches the course stay with the academy team."

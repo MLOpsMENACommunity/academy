@@ -1,5 +1,6 @@
 import {
   courseAvailability,
+  type CourseRatingDto,
   eventEnded,
   type CourseDetailDto,
   type CourseSummaryDto,
@@ -18,7 +19,7 @@ export type CourseWithRelations = Course & {
   instructors: { instructor: Instructor; order: number }[];
   sessions?: CourseSession[];
   screeningQuestions?: ScreeningQuestion[];
-  testimonials?: { id: string; body: string; user: { profile: { fullNameEn: string | null; fullNameAr: string | null } | null } }[];
+  testimonials?: { id: string; body: string; rating: number | null; user: { profile: { fullNameEn: string | null; fullNameAr: string | null } | null } }[];
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -54,7 +55,10 @@ export const NO_SEATS: SeatCount = { taken: 0, enrolled: 0 };
  * such as driveFolderUrl, liveUrl and recordingUrl can never leak by accident.
  * Enrolment is public only as a number (never who), and only when the course shows it.
  */
-export function toCourseSummary(c: CourseWithRelations, seats: SeatCount, now = new Date()): CourseSummaryDto {
+/**
+ * `rating` is the approved ratings' average (CoursesService.ratings): null until there are enough.
+ */
+export function toCourseSummary(c: CourseWithRelations, seats: SeatCount, now = new Date(), rating: CourseRatingDto | null = null): CourseSummaryDto {
   const instructors = [...c.instructors].sort((a, b) => a.order - b.order);
   const availability = courseAvailability(c, now);
   const seatsRemaining = c.capacity === null ? null : Math.max(0, c.capacity - seats.taken);
@@ -85,9 +89,11 @@ export function toCourseSummary(c: CourseWithRelations, seats: SeatCount, now = 
     instructorNames: instructors.map((x) => x.instructor.name),
     completed: c.status === 'COMPLETED',
     comingSoon: c.status === 'COMING_SOON',
+    selfPaced: c.selfPaced,
     cohortNumber: c.cohortNumber,
     endDate: iso(c.endDate),
     topics: c.topics,
+    rating,
   };
 }
 
@@ -105,9 +111,15 @@ export function publicRecording(
   return c.publicRecordings && !c.selfPaced && c.type === 'FREE' && s.recordingUrl && eventEnded(s.startsAt, s.durationMin, now) ? s.recordingUrl : null;
 }
 
-export function toCourseDetail(c: CourseWithRelations, seats: SeatCount, now = new Date(), staff: PublicStaffGroupDto[] = []): CourseDetailDto {
+export function toCourseDetail(
+  c: CourseWithRelations,
+  seats: SeatCount,
+  now = new Date(),
+  staff: PublicStaffGroupDto[] = [],
+  rating: CourseRatingDto | null = null,
+): CourseDetailDto {
   return {
-    ...toCourseSummary(c, seats, now),
+    ...toCourseSummary(c, seats, now, rating),
     longDescriptionEn: c.longDescriptionEn,
     longDescriptionAr: c.longDescriptionAr,
     requiresApproval: c.requiresApproval,
@@ -126,12 +138,11 @@ export function toCourseDetail(c: CourseWithRelations, seats: SeatCount, now = n
     externalPlatform: c.externalPlatform,
     externalUrl: c.externalUrl,
     publicRecordings: c.publicRecordings && !c.selfPaced && c.type === 'FREE',
-    selfPaced: c.selfPaced,
-    // Only the name and the words: no link to the student, and nothing without a name to show.
+    // Only the name, the stars and the words: no link to the student, and nothing without a name to show.
     testimonials: (c.testimonials ?? []).flatMap((x) => {
       const en = x.user.profile?.fullNameEn?.trim() || '';
       const ar = x.user.profile?.fullNameAr?.trim() || '';
-      return en || ar ? [{ id: x.id, name: en || ar, nameAr: ar || null, body: x.body }] : [];
+      return en || ar ? [{ id: x.id, name: en || ar, nameAr: ar || null, body: x.body, rating: x.rating }] : [];
     }),
     instructors: [...c.instructors].sort((a, b) => a.order - b.order).map((x) => toInstructorDto(x.instructor)),
     staff,

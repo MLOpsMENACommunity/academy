@@ -7,15 +7,24 @@ import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { StarRating } from './StarRating';
 
-/** Asks a student who gave feedback for a testimonial. Never required for the certificate. */
+/**
+ * Asks a student who finished the course for a review: 1–5 stars and/or a few words. Shown only
+ * when the API says they may (LearnCourseDto.canReview). Never required for the certificate.
+ * Saving always sends it back to the team for review (status PENDING).
+ */
 export function TestimonialForm({ slug, initial, onChanged }: { slug: string; initial: MyTestimonialDto | null; onChanged: () => void }) {
   const { t } = useI18n();
   const [body, setBody] = useState(initial?.body ?? '');
+  const [rating, setRating] = useState(initial?.rating ?? 0);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const valid = testimonialSchema.safeParse({ body, consent }).success;
+  const json = { body, rating: rating || null, consent };
+  const valid = testimonialSchema.safeParse(json).success;
+  // Neither stars nor words yet: say what's needed (once they've agreed, so it isn't shouted at first).
+  const needOne = consent && !rating && !body.trim();
 
   const run = async (call: Promise<unknown>) => {
     setBusy(true);
@@ -32,10 +41,11 @@ export function TestimonialForm({ slug, initial, onChanged }: { slug: string; in
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (valid) void run(api(`/learn/${slug}/testimonial`, { method: 'PUT', json: { body, consent } }));
+    if (valid) void run(api(`/learn/${slug}/testimonial`, { method: 'PUT', json }));
   };
   const remove = () => {
     setBody('');
+    setRating(0);
     void run(api(`/learn/${slug}/testimonial`, { method: 'DELETE' }));
   };
 
@@ -51,6 +61,14 @@ export function TestimonialForm({ slug, initial, onChanged }: { slug: string; in
         </p>
       )}
       <form onSubmit={submit} className="mt-4 space-y-3">
+        <div className="flex flex-wrap items-end gap-x-3">
+          <StarRating legend={t('learn.testimonial.ratingLegend')} value={rating} onChange={setRating} large />
+          {rating > 0 && (
+            <Button type="button" size="sm" variant="ghost" onClick={() => setRating(0)}>
+              {t('learn.testimonial.clearRating')}
+            </Button>
+          )}
+        </div>
         <TextAreaField
           label={t('learn.testimonial.label')}
           hint={t('learn.testimonial.hint', { min: TESTIMONIAL_MIN, max: TESTIMONIAL_MAX })}
@@ -58,9 +76,9 @@ export function TestimonialForm({ slug, initial, onChanged }: { slug: string; in
           onChange={setBody}
           rows={4}
           maxLength={TESTIMONIAL_MAX}
-          required
         />
         <CheckboxField label={t('learn.testimonial.consent')} checked={consent} onChange={setConsent} />
+        {needOne && <p className="text-sm text-muted">{t('learn.testimonial.needOne')}</p>}
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" size="sm" disabled={!valid} loading={busy}>
             {t(initial ? 'learn.testimonial.update' : 'learn.testimonial.send')}

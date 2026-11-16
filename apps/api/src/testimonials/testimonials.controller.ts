@@ -1,6 +1,15 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { testimonialReviewSchema, testimonialSchema, type AdminTestimonialDto, type TestimonialInput, type TestimonialReviewInput } from '@academy/shared';
+import {
+  adminReviewsQuerySchema,
+  testimonialReviewSchema,
+  testimonialSchema,
+  type AdminReviewDto,
+  type AdminReviewsQuery,
+  type AdminTestimonialDto,
+  type TestimonialInput,
+  type TestimonialReviewInput,
+} from '@academy/shared';
 import { AdminCan, CurrentUser, Roles, type AuthUser } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { TestimonialsService } from './testimonials.service';
@@ -46,5 +55,20 @@ export class AdminTestimonialsController {
     @Body(new ZodPipe(testimonialReviewSchema)) body: TestimonialReviewInput,
   ): Promise<void> {
     await this.testimonials.review(id, testimonialId, body, user.id);
+  }
+}
+
+/** Admin → Reviews: every course's reviews in one queue (approve/reject through the course route above). */
+@ApiTags('admin')
+@Controller('admin/reviews')
+@Roles('ADMIN')
+export class AdminReviewsController {
+  constructor(private readonly testimonials: TestimonialsService) {}
+
+  @Get()
+  @AdminCan('ACADEMIC')
+  @Header('Cache-Control', 'private, no-store')
+  list(@Query(new ZodPipe(adminReviewsQuerySchema)) q: AdminReviewsQuery): Promise<AdminReviewDto[]> {
+    return this.testimonials.listAll(q);
   }
 }

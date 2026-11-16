@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { CalendarFeedDto, Locale } from '@academy/shared';
+import { addDays, localIsoDate, STUDY_PLAN_CALENDAR_HOUR, STUDY_PLAN_CALENDAR_WEEKS, zonedTime, type CalendarFeedDto, type Locale } from '@academy/shared';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sha256 } from '../common/crypto';
 import { PublicRevalidator } from '../common/revalidate';
@@ -9,6 +9,7 @@ import { buildIcs, type IcsEvent } from '../learn/ics';
 import { liveEventIcsEvent } from '../events/event-calendar';
 import { courseSessionEvent } from '../learn/session-event';
 import { PrismaService } from '../prisma/prisma.service';
+import { loadStudyItems, planTimezone, scheduleOf } from '../study-plan/study-items';
 
 /** 32 bytes of HMAC-SHA256 in base64url. */
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
@@ -128,18 +129,20 @@ export class CalendarFeedService {
       owner.locale === 'ar'
         ? 'جلسات دوراتك والجلسات المباشرة في أكاديمية MLOps MENA. هذا الرابط خاص بك، فلا تشاركه.'
         : 'Your MLOps MENA Academy course sessions and live sessions. This link is private to you; please do not share it.';
-    return buildIcs(FEED_NAME, await this.collectEvents(owner), now, { refreshInterval: REFRESH_INTERVAL, description });
+    return buildIcs(FEED_NAME, await this.collectEvents(owner, now), now, { refreshInterval: REFRESH_INTERVAL, description });
   }
 
   /**
    * Every event in a student's feed. Each source returns its own events, with
    * UIDs that can't collide (course sessions use the session id, live sessions
-   * `event-<id>`), and they are merged here. Add new kinds of events as sources.
+   * `event-<id>`, study blocks `study-<plan>-<date>`), and they are merged here. Add new kinds
+   * of events as sources.
    */
-  async collectEvents(owner: FeedOwner): Promise<IcsEvent[]> {
+  async collectEvents(owner: FeedOwner, now = new Date()): Promise<IcsEvent[]> {
     const sources: Array<(o: FeedOwner) => Promise<IcsEvent[]>> = [
       (o) => this.courseSessionEvents(o),
       (o) => this.liveSessionEvents(o),
+      (o) => this.studyPlanEvents(o, now),
     ];
     const events = (await Promise.all(sources.map((source) => source(owner)))).flat();
     return events.sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -185,5 +188,60 @@ export class CalendarFeedService {
       },
     });
     return registrations.map((r) => liveEventIcsEvent(r.event, owner.locale, this.env.WEB_URL));
+  }
+
+  /**
+   * Study blocks from the student's study plans (self-paced courses they are enrolled in), for
+   * the next STUDY_PLAN_CALENDAR_WEEKS weeks: one event per study day, "Study: {course} — {first
+   * item}", at the reminder hour (STUDY_PLAN_CALENDAR_HOUR without one) in the student's time
+   * zone, minutesPerDay long. The schedule is recomputed on every render, so finished items drop
+   * out and the days move with the student's progress.
+   */
+  private async studyPlanEvents(owner: FeedOwner, now: Date): Promise<IcsEvent[]> {
+    const plans = await this.prisma.studyPlan.findMany({
+      where: { userId: owner.id, course: { selfPaced: true, status: { in: ['OPEN', 'CLOSED'] }, enrollments: { some: { userId: owner.id } } } },
+      select: {
+        id: true,
+        courseId: true,
+        weekdays: true,
+        minutesPerDay: true,
+        startDate: true,
+        reminderHour: true,
+        updatedAt: true,
+        course: { select: { slug: true, titleEn: true, titleAr: true } },
+        user: { select: { profile: { select: { timezone: true } } } },
+      },
+    });
+    const ar = owner.locale === 'ar';
+    const events: IcsEvent[] = [];
+    for (const p of plans) {
+      const timezone = planTimezone(p.user.profile?.timezone);
+      const today = localIsoDate(now, timezone);
+      const until = addDays(today, STUDY_PLAN_CALENDAR_WEEKS * 7);
+      const { byUser, titles } = await loadStudyItems(this.prisma, p.courseId, [owner.id]);
+      const { schedule } = scheduleOf(p, byUser.get(owner.id) ?? [], today);
+      const courseTitle = ar ? p.course.titleAr || p.course.titleEn : p.course.titleEn;
+      const url = `${this.env.WEB_URL}/${owner.locale}/learn/${p.course.slug}#study-plan`;
+      for (const day of schedule.days) {
+        if (day.date >= until) break;
+        const [year, month, d] = day.date.split('-').map(Number) as [number, number, number];
+        const hour = p.reminderHour ?? STUDY_PLAN_CALENDAR_HOUR;
+        const start = zonedTime({ year, month, day: d }, hour * 60, timezone) ?? zonedTime({ year, month, day: d }, hour * 60 + 60, timezone);
+        if (!start) continue;
+        const first = titles.get(day.items[0]!.id);
+        const firstTitle = (ar ? first?.titleAr : first?.titleEn) ?? '';
+        const list = day.items.map((i) => `- ${(ar ? titles.get(i.id)?.titleAr : titles.get(i.id)?.titleEn) ?? ''} (${i.minutes} ${ar ? 'دقيقة' : 'min'})`).join('\n');
+        events.push({
+          uid: `study-${p.id}-${day.date}`,
+          title: ar ? `دراسة: ${courseTitle} — ${firstTitle}` : `Study: ${courseTitle} — ${firstTitle}`,
+          description: ar ? `خطة الدراسة لهذا اليوم:\n${list}\n\n${url}` : `Your study plan for this day:\n${list}\n\n${url}`,
+          url,
+          start,
+          durationMin: p.minutesPerDay,
+          updatedAt: p.updatedAt,
+        });
+      }
+    }
+    return events;
   }
 }
