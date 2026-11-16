@@ -76,11 +76,11 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
 
-  // Scheduled jobs (anonymisation, retention, reminders, profile reviews).
-  // Hourly (staging has none, see env.staging): reminder windows are wide enough (jobs/reminders.jobs.ts), and a
-  // 15-minute tick would keep the API container from ever sleeping. Each tick wakes the API (and the
-  // database) for about SLEEP_AFTER.
-  "triggers": { "crons": ["0 * * * *"] },
+  // Scheduled jobs (anonymisation, retention, reminders, profile reviews). The trigger fires every
+  // 15 minutes but wakes nothing by itself: the API is called only when something is due, when it
+  // is awake anyway, or every 4 hours at most (shouldTick in src/jobs.ts). Each call wakes the API
+  // (and the database) for about SLEEP_AFTER. Staging has none, see env.staging.
+  "triggers": { "crons": ["*/15 * * * *"] },
 
   "env": {
     "staging": {

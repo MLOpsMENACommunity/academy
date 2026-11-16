@@ -85,6 +85,7 @@ export function toCourseSummary(c: CourseWithRelations, seats: SeatCount, now = 
     instructorNames: instructors.map((x) => x.instructor.name),
     completed: c.status === 'COMPLETED',
     comingSoon: c.status === 'COMING_SOON',
+    selfPaced: c.selfPaced,
     cohortNumber: c.cohortNumber,
     endDate: iso(c.endDate),
     topics: c.topics,
@@ -126,7 +127,6 @@ export function toCourseDetail(c: CourseWithRelations, seats: SeatCount, now = n
     externalPlatform: c.externalPlatform,
     externalUrl: c.externalUrl,
     publicRecordings: c.publicRecordings && !c.selfPaced && c.type === 'FREE',
-    selfPaced: c.selfPaced,
     // Only the name and the words: no link to the student, and nothing without a name to show.
     testimonials: (c.testimonials ?? []).flatMap((x) => {
       const en = x.user.profile?.fullNameEn?.trim() || '';

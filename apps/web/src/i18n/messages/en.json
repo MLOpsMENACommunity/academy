@@ -447,7 +447,8 @@
     "details": "Details and how to apply",
     "detailsOnly": "Details",
     "applyBy": "Apply by {date}",
-    "notifyCta": "Get notified when it opens"
+    "notifyCta": "Get notified when it opens",
+    "selfPaced": "Self-paced"
   },
   "course": {
     "fullInstant": "Seats are full: you'll join the waitlist.",
@@ -478,7 +479,8 @@
       "price": "Price",
       "format": "Format",
       "schedule": "Schedule",
-      "certificate": "Certificate"
+      "certificate": "Certificate",
+      "selfPaced": "{count, plural, one {# video lesson} other {# video lessons}} at your own pace"
     },
     "inc": {
       "liveSessions": "Live sessions on {platform}",
@@ -1820,7 +1822,7 @@
       "fixErrors": "Fix the rows with errors in the file, then preview again.",
       "apply": "Import {count} rows ({points} points)",
       "imported": "Imported {count} rows ({points} points).",
-      "badgesHint": "Automatic badges are awarded by the hourly job and the course rules. Manual badges are awarded from a student's page. An inactive badge is no longer awarded or shown on leaderboards.",
+      "badgesHint": "Automatic badges are awarded by the scheduled jobs (hourly while the site is in use, at least every 4 hours) and the course rules. Manual badges are awarded from a student's page. An inactive badge is no longer awarded or shown on leaderboards.",
       "auto": "Automatic",
       "manual": "Manual",
       "awardedCount": "{count, plural, one {Awarded once} other {Awarded # times}}",
@@ -2221,7 +2223,7 @@
     },
     "automation": {
       "title": "Automation rules",
-      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked every hour.",
+      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked hourly while the site is in use, and at least every 4 hours.",
       "safe": "Rules only send messages, alert the team, award points or flag students. They never remove a student or change an application.",
       "recommended": "Turn on the recommended set",
       "pause": "Pause all rules",
@@ -2943,7 +2945,8 @@
     "blog": "Blog on mlopsmena.com",
     "blogDesc": "Articles, guides and roadmaps",
     "courseCount": "{count, plural, one {# course} other {# courses}}",
-    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}"
+    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}",
+    "featuredSelfPaced": "Start any time · at your own pace"
   },
   "whatsNew": {
     "title": "What's new",
