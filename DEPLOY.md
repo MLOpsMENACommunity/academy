@@ -238,7 +238,9 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   cached: requests with a session cookie (`access_token`, `has_session`), `/api/*`, non-GET,
   Next's client-navigation (RSC) requests, signed-in areas, and any response that sets a
   cookie, isn't a 200, is `private`/`no-store`, or is a stale ISR copy. Build assets
-  (`/_next/static`, immutable) are cached for everyone. Responses carry `x-edge-cache:
+  (`/_next/static`, immutable) are cached for everyone, and so are the site's fixed files from
+  `apps/web/public` (logo, favicons, speaker photos) for a day (`PUBLIC_FILE_TTL`): a replaced
+  one can take that long to show unless purged by URL in the dashboard. Responses carry `x-edge-cache:
   HIT|MISS|BYPASS`. Each data centre has its own cache.
 - **An admin edit shows publicly within seconds, and within 30 s at most** (details in
   [How fast an admin edit shows](#how-fast-an-admin-edit-shows)). Admins themselves are
