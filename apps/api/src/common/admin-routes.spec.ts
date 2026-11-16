@@ -150,6 +150,12 @@ describe('admin routes', () => {
     for (const r of staff) expect(r.adminCan).toEqual(['ACADEMIC']);
   });
 
+  it('keeps reviews (ratings and testimonials) with the academic preset', () => {
+    expect(presets('GET', 'admin/reviews')).toEqual(['ACADEMIC']);
+    expect(presets('GET', 'admin/courses/:id/testimonials')).toEqual(['ACADEMIC']);
+    expect(presets('PUT', 'admin/courses/:id/testimonials/:testimonialId/review')).toEqual(['ACADEMIC']);
+  });
+
   it('serves uploaded images publicly, and only there', () => {
     const media = find('GET', 'media/:name');
     expect(media.isPublic).toBe(true);

@@ -107,8 +107,10 @@ export interface LearnCourseDto {
   emailReminders: boolean;
   progress: { completed: number; total: number; percent: number };
   courseFeedback: { rating: number; comment: string | null } | null;
-  /** Self-paced courses: the student's testimonial, once written. */
+  /** The student's review (stars and/or words), once written. */
   testimonial: MyTestimonialDto | null;
+  /** The student may rate and review this course (finished it: see canReviewCourse). False for admin previews. */
+  canReview: boolean;
   sessions: LearnSessionDto[];
   /** The latest LEARN_PAGE_ANNOUNCEMENTS announcements (all of them: GET /learn/:slug/announcements). */
   announcements: LearnAnnouncementDto[];

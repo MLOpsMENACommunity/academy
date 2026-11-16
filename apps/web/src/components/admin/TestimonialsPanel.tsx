@@ -5,13 +5,35 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Stars } from '@/components/ui/Stars';
 import { useI18n } from '@/i18n/client';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 
-const TONE = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'neutral' } as const;
+export const REVIEW_TONE = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'neutral' } as const;
 
-/** Review students' testimonials: only approved ones show on the public course page. */
+/** Review students' ratings and testimonials: only approved ones show (and count) on the public course page. */
+/** The stars and the words of one review (shared with Admin → Reviews). */
+export function ReviewContent({ review: r }: { review: AdminTestimonialDto }) {
+  const { t } = useI18n();
+  return (
+    <>
+      {r.rating !== null ? (
+        <Stars value={r.rating} label={t('course.rated', { n: r.rating })} className="mt-2" />
+      ) : (
+        <p className="mt-2 text-sm text-muted">{t('admin.reviews.noRating')}</p>
+      )}
+      {r.body ? (
+        <p dir="auto" className="mt-2 whitespace-pre-line text-body">
+          {r.body}
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-muted">{t('admin.reviews.starsOnly')}</p>
+      )}
+    </>
+  );
+}
+
 export function TestimonialsPanel({ courseId }: { courseId: string }) {
   const { t } = useI18n();
   const [rows, setRows] = useState<AdminTestimonialDto[] | null>(null);
@@ -51,11 +73,9 @@ export function TestimonialsPanel({ courseId }: { courseId: string }) {
               <p className="font-medium text-fg">
                 {r.name ?? r.email} <span dir="ltr" className="text-sm font-normal text-muted">{r.email}</span>
               </p>
-              <Badge tone={TONE[r.status]}>{t(`admin.courses.testimonialStatus.${r.status}`)}</Badge>
+              <Badge tone={REVIEW_TONE[r.status]}>{t(`admin.courses.testimonialStatus.${r.status}`)}</Badge>
             </div>
-            <p dir="auto" className="mt-2 whitespace-pre-line text-body">
-              {r.body}
-            </p>
+            <ReviewContent review={r} />
             <div className="mt-3 flex flex-wrap gap-2">
               {r.status !== 'APPROVED' && (
                 <Button type="button" size="sm" loading={busy === r.id} onClick={() => void review(r.id, 'APPROVED')}>

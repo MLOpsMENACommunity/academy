@@ -36,6 +36,7 @@ When a release reaches staging, change its "Merged" entries to "Staging"; when i
 4. [Applications and admissions](#4-applications-and-admissions)
    - [Applying](#41-applying) · [Statuses](#42-application-statuses) · [Reviewing applications](#43-reviewing-applications-admin) · [CVs](#44-cvs) · [Payments](#45-payments-paid-courses) · [Google Drive access](#46-google-drive-access-paid-courses) · [Enrol by email](#47-enrol-by-email) · [Waiting list](#48-waiting-list-notify-me)
 5. [The learn page](#5-the-learn-page)
+   - [Ratings and reviews](#51-ratings-and-reviews)
 6. [Assessments](#6-assessments-quizzes-labs-assignments)
 7. [Certificates](#7-certificates)
 8. [Points, badges and leaderboards](#8-points-badges-and-leaderboards)
@@ -69,6 +70,7 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Join a course waiting list | ✓ (account needed once #62 ships) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Apply to a course, pay, learn | | ✓ | ✓ | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ | ✓¹ |
 | Take quizzes, submit work, see own grades, points, certificates | | own | own | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
+| Rate and review a finished course (5.1) | | own | own | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
 | Preview any course's learn page and assessments | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Speaker application, slots, bookings | | | own | | | | | | |
 | Announce to enrolled students / session registrants | | staff³ | staff³ / own sessions | ✓ (courses) | ✓ (courses) | | | | |
@@ -80,6 +82,7 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Course details, sessions, applications, enrolment, certificates, roster of one course | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Live sessions: create, edit, publish, registrations | | | | ✓ | ✓ | covers only (S) | | | |
 | Certificates: rule, issue, revoke, re-issue | | | | ✓ | ✓ | | | | |
+| Reviews: approve or reject ratings and testimonials (Admin → Reviews, course Testimonials tab) | | | | ✓ | ✓ | | | | |
 | Points CSV import, badges, leaderboards (admin) | | | | ✓ | ✓ | | | | |
 | Applications: review, shortlist, accept, reject, notes | | | | ✓ | | | ✓ | | |
 | Students: list, profile, CV, notes, edit, add, delete | | | | ✓ | | | ✓ | | |
@@ -594,12 +597,43 @@ views count on our channel.
   completion wording.
 - **Enrolment required:** the videos aren't shown on the public course page or in the Recordings library,
   even with **Recordings are public** ticked.
-- **Testimonials:** once the course feedback is in or the certificate is issued, the student is asked for a testimonial (20 to 600
-  characters, with a tick agreeing to publication with their name). It's optional and never affects the
-  certificate. ACADEMIC admins review them in Admin → Courses → course → **Testimonials**; approved ones
-  appear on the public course page as the name and the text only. Editing sends it back to review and
-  takes it off the site; the student can remove it at any time; deleting the account deletes it.
+- **Testimonials:** once the course feedback is in or the certificate is issued, the student is asked for a review:
+  stars and/or a testimonial (20 to 600 characters), with a tick agreeing to publication with their name. It's
+  optional and never affects the certificate. This is now the same review every finished course
+  has: see [Ratings and reviews](#51-ratings-and-reviews).
 - Live courses are unchanged.
+
+### 5.1 Ratings and reviews
+
+**Status:** Pending (not merged yet). **Who:** enrolled students who finished the course; ACADEMIC admins
+approve. A student's rating appears publicly **only after an admin approves it**.
+
+- **Who can rate:** an enrolled student who has finished the course: they hold a valid (not revoked)
+  certificate for it, **or** the course is over (status Completed, or its end date has passed). On a
+  self-paced course any enrolled student can (it has no end), and the learn page asks once the course
+  feedback is in or the certificate is issued, as before. Admin previews can't. The rule is
+  `canReviewCourse` in `packages/shared/src/testimonials.ts`; the learn page shows the form only when the
+  API says `canReview`, and the API refuses the rest (409 `REVIEW_NOT_FINISHED`, 403 when not enrolled).
+- **The form** (learn page, **How would you rate this course?**): 1 to 5 stars (a radio group: arrow keys,
+  44 px targets, right to left in Arabic; **Clear stars**) plus optional words (20 to 600 characters if
+  written). Stars or words are needed, and the publication tick every time. Saving always sends it back to
+  review (**To review**) and, if it was published, takes it off the site until it is approved again. The
+  student can remove it at any time.
+- **What's public:** only **approved** reviews. The course page shows **4.7 ★ (38 ratings)** under the
+  title, and course cards the same line, once the course has **5 approved ratings** (`RATING_MIN_TO_SHOW`);
+  below that nothing is shown. The average has one decimal. Approved reviews with words are listed under
+  **What students say** with their stars ("Rated 4 out of 5" for screen readers) and the name; stars-only
+  reviews count in the average but aren't listed. The course page's structured data gets an
+  `aggregateRating` (ratingValue, ratingCount, bestRating 5) only when the average is shown. Pending and
+  rejected reviews never count, nor do accounts being deleted. The private session and course feedback
+  (5, feedback emails) is separate: never public and never counted.
+- **Moderation:** Admin → **Reviews** lists every course's reviews (**To review** first, oldest first; also
+  **Published** and **Not published**), with the course, stars and words; each course's **Testimonials** tab
+  shows the same for one course. Approve and reject use the same route
+  (`PUT /api/admin/courses/:id/testimonials/:testimonialId/review`), which writes an audit row
+  (`testimonial.reviewed`) and refreshes the public pages within seconds. ACADEMIC (and SUPER) only:
+  reviews carry students' names and emails. `GET /api/admin/reviews?status=PENDING|APPROVED|REJECTED`
+  (up to 200).
 
 ---
 
@@ -1007,6 +1041,7 @@ on their first section. The sections:
 | Talents | SUPER | What our students can do, for outsourcing (below) |
 | Points & badges | ACADEMIC | Badge catalog and points CSV import (8) |
 | Courses | ACADEMIC (edit), ADMISSIONS (read) | New course, duplicate, edit, archive/delete; tabs below |
+| Reviews | ACADEMIC | Every course's star ratings and testimonials: approve or reject (5.1) |
 | Sessions | ACADEMIC | Free live sessions (10) |
 | Speakers | SPEAKERS | Profiles (photo, bio, LinkedIn, assigned courses), Applications, Availability and bookings (9) |
 | Media | CONTENT | Upload images and set course and session covers, speaker photos, recording and playlist links; no student data |
@@ -1019,7 +1054,7 @@ on their first section. The sections:
 (ACADEMIC), Enrolled students (ADMISSIONS, ACADEMIC; Drive access, learn page access), Enrol by email
 (ADMISSIONS), Certificates (ACADEMIC), Announcements (ACADEMIC: message students by application
 status, in-app and email, with delivery counts; **Ask for Telegram usernames** (Merged, PR #90) sends a ready-made
-message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC), Automation (ACADEMIC; section 11.1).
+message to enrolled students with no Telegram username, opening their profile at Community), Waiting list (ADMISSIONS), Feedback (ACADEMIC), Testimonials (ACADEMIC: the course's ratings and reviews, 5.1), Automation (ACADEMIC; section 11.1).
 
 **Talents** (Admin → Talents, SUPER): analytics about the students, to know what we can staff
 on outsourcing projects. It takes the same filters as Students (country, experience, seniority, areas,
@@ -1173,6 +1208,9 @@ same email is never sent twice.
 
 - **Telegram and Discord usernames** are shown to the academy team only (never on public pages or
   leaderboards); they are in the data export and removed with the profile on anonymisation.
+- **Reviews** (stars and testimonials) are public only once approved, with the name the student gave and
+  their consent each time they save; the stars are in the data export with the words, and the review is
+  deleted on anonymisation (taking it out of the course's average).
 - **Data minimisation:** leaderboards show first name + last initial and only for students who opt in;
   speakers see counts, never recipients; certificates show the name the student gave.
 - **Private files** (CVs, payment screenshots, assessment PDFs, certificate PDFs) are in a private
@@ -1210,6 +1248,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #PR | **Star ratings and reviews** (5.1): students who finished any course (valid certificate, or the course is over; self-paced as before) rate it 1–5 stars with optional words on the learn page. Ratings are public **only after an admin approves them**: the course page and cards show "4.7 ★ (38 ratings)" from 5 approved ratings, approved reviews are listed with their stars, and the course page's structured data gets `aggregateRating`. New Admin → **Reviews** queue across courses (ACADEMIC; `GET /api/admin/reviews`), stars in each course's Testimonials tab; approve/reject audit-logged and refreshes the public pages. Migration: `Testimonial.rating` (nullable, CHECK 1–5) | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |

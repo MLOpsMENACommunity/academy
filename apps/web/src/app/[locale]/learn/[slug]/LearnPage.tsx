@@ -196,9 +196,12 @@ function Inner({ user }: { user: MeResponse }) {
   const ended = sessions.length > 0 && sessions.every((s) => s.phase === 'ended');
   const dueCount = assessments.filter((a) => a.due).length;
   const certificateIssued = certificate?.certificate?.status === 'VALID';
-  // Asked once the course feedback is in or the certificate is issued (then at the top of the page).
+  // Only once the student has finished the course (the API decides: canReview). A self-paced course
+  // has no end, so there it waits for the course feedback or the certificate (then at the top of the page).
   const testimonialForm =
-    course.selfPaced && course.canTrackProgress && (course.courseFeedback || certificateIssued) ? <TestimonialForm slug={course.slug} initial={course.testimonial} onChanged={load} /> : null;
+    course.canReview && (!course.selfPaced || course.courseFeedback || certificateIssued) ? (
+      <TestimonialForm slug={course.slug} initial={course.testimonial} onChanged={load} />
+    ) : null;
   const sessionTitle = (s: LearnSessionDto) => (locale === 'ar' ? s.titleAr : s.titleEn);
   const go = (s: LearnSessionDto) => {
     setSelected(s.order);

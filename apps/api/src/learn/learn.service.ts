@@ -24,6 +24,7 @@ import type { AuthUser } from '../common/decorators';
 import { courseKey, SignedInCache } from '../common/signed-in-cache';
 import { PrismaService } from '../prisma/prisma.service';
 import { PointsService } from '../points/points.service';
+import { reviewEligibility } from '../testimonials/eligibility';
 import { SettingsService } from '../settings/settings.service';
 import { buildIcs } from './ics';
 import { courseSessionEvent } from './session-event';
@@ -100,9 +101,13 @@ export class LearnService {
       ? await this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id }, source: { not: null } }, select: { sessionId: true, source: true } })
       : [];
     const lessonSource = new Map(lessons.map((l) => [l.sessionId, l.source]));
-    const testimonial = course.selfPaced
-      ? await this.prisma.testimonial.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } }, select: { body: true, status: true } })
-      : null;
+    // Their own review, and whether they may write one (enrolled and finished the course).
+    const [testimonial, eligibility] = enrollment
+      ? await Promise.all([
+          this.prisma.testimonial.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } }, select: { body: true, rating: true, status: true } }),
+          reviewEligibility(this.prisma, user.id, course, now),
+        ])
+      : [null, null];
     const isDone = (id: string) => (course.selfPaced ? lessonSource.has(id) : done.has(id));
     const counted = course.selfPaced ? sessions.filter(isRequiredLesson) : sessions;
     const completed = counted.filter((x) => isDone(x.id)).length;
@@ -125,6 +130,7 @@ export class LearnService {
       progress: { completed, total: counted.length, percent: counted.length ? Math.round((completed / counted.length) * 100) : 0 },
       courseFeedback: courseFb ? { rating: courseFb.rating, comment: courseFb.comment } : null,
       testimonial,
+      canReview: eligibility?.canReview ?? false,
       announcements,
       sessions: sessions.map((x) => {
         const visible = hasAdminPermission(user, ['ACADEMIC']) || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
