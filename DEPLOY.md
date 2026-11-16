@@ -18,7 +18,8 @@ Production runs one API container and up to three web containers (`standard-1`),
 staging one `basic` container of each; see [Capacity and caching](#capacity-and-caching).
 Containers sleep after 5 idle minutes in production and staging (`SLEEP_AFTER` in `wrangler.jsonc`). The first
 request after a sleep takes a few seconds while the container starts. Database migrations run when the API container starts. The seed is
-idempotent and also runs on start: it creates the admin, the settings and the
+idempotent and runs on the first start of each release (with the archive import; later starts
+of the same release skip both, `src/startup-tasks.ts`): it creates the admin, the settings and the
 placeholder courses.
 
 ## Environments
@@ -238,7 +239,9 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
   cached: requests with a session cookie (`access_token`, `has_session`), `/api/*`, non-GET,
   Next's client-navigation (RSC) requests, signed-in areas, and any response that sets a
   cookie, isn't a 200, is `private`/`no-store`, or is a stale ISR copy. Build assets
-  (`/_next/static`, immutable) are cached for everyone. Responses carry `x-edge-cache:
+  (`/_next/static`, immutable) are cached for everyone, and so are the site's fixed files from
+  `apps/web/public` (logo, favicons, speaker photos) for a day (`PUBLIC_FILE_TTL`): a replaced
+  one can take that long to show unless purged by URL in the dashboard. Responses carry `x-edge-cache:
   HIT|MISS|BYPASS`. Each data centre has its own cache.
 - **An admin edit shows publicly within seconds, and within 30 s at most** (details in
   [How fast an admin edit shows](#how-fast-an-admin-edit-shows)). Admins themselves are
@@ -274,7 +277,8 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
     5 s for it gets a 503 too.
   - **Fast restarts:** the API checks for pending migrations itself and starts the Prisma CLI
     only when one is pending; the seed and the archive import run in the background after it
-    listens (one container at a time, by advisory lock); the image ships a V8 compile cache.
+    listens (one container at a time, by advisory lock), and only on the first start of a
+    release (recorded in the `__startupTasksDone` setting once both succeed); the image ships a V8 compile cache.
     A start takes ~6–10 s instead of ~20 s (the container library gives up after 20 s, which
     is where "container is not listening" came from).
   - **Memory:** Node's heap is capped at 512 MB (`API_MAX_OLD_SPACE_MB`), leaving the rest of
