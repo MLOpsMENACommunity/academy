@@ -290,7 +290,7 @@ with 50 visitors and 30 s with 300, while the API's `/health` stayed at 0.4 s. S
 - **Signed-in reads:** the API remembers each account's sign-in check (role, admin presets,
   token version) and courses by address for 15 s (`SIGNED_IN_CACHE_TTL_S`, 0 turns it off),
   for GET requests only. Every write request (and every jobs run) empties it once it has
-  committed, so revoking a session, deleting an account or removing an admin applies on the
+  committed (except the video player's position save, which writes only `LessonWatch`), so revoking a session, deleting an account or removing an admin applies on the
   next request; writes always read the database
   (`apps/api/src/common/signed-in-cache.ts`). A change made outside the API (psql, a script)
   shows within 15 s. This is one more reason to keep a single API instance.

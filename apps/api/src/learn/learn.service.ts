@@ -4,7 +4,9 @@ import {
   isRequiredLesson,
   isVideoLesson,
   type LessonCompletionInput,
+  type LessonPositionInput,
   liveLinkVisible,
+  resumeStart,
   recordingKind,
   sessionPhase,
   youtubeId,
@@ -78,7 +80,7 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const { course, enrollment } = await this.accessWithEnrolment(user, slug);
-    const [sessions, feedback, pref, profile, s, announcements, attendance] = await Promise.all([
+    const [sessions, feedback, pref, profile, s, announcements, attendance, watches] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
@@ -87,6 +89,12 @@ export class LearnService {
       this.announcementsOf(user, course.id, LEARN_PAGE_ANNOUNCEMENTS),
       // Their own attendance only (from the Meet file or set by the team).
       this.prisma.sessionAttendance.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true, status: true, minutes: true, percent: true } }),
+      // Where they stopped in each video ("Continue at 42:10"), newest first: one read for the course.
+      this.prisma.lessonWatch.findMany({
+        where: { userId: user.id, session: { courseId: course.id } },
+        select: { sessionId: true, positionSec: true, durationSec: true },
+        orderBy: { updatedAt: 'desc' },
+      }),
     ]);
     const attended = new Map(attendance.map((a) => [a.sessionId, { status: a.status, minutes: a.minutes, percent: a.percent }]));
     // Progress is attendance (Present or Partial), plus sessions marked done before that box was retired.
@@ -104,6 +112,11 @@ export class LearnService {
       ? await this.prisma.testimonial.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } }, select: { body: true, status: true } })
       : null;
     const isDone = (id: string) => (course.selfPaced ? lessonSource.has(id) : done.has(id));
+    // Only a self-paced lesson's completion restarts its video: a live session's attendance says
+    // nothing about how much of the recording they have watched.
+    const resumeOf = (w: (typeof watches)[number]) => resumeStart(w.positionSec, w.durationSec, course.selfPaced && lessonSource.has(w.sessionId));
+    const watchBySession = new Map(watches.map((w) => [w.sessionId, w]));
+    const last = watches.find((w) => resumeOf(w) > 0) ?? null;
     const counted = course.selfPaced ? sessions.filter(isRequiredLesson) : sessions;
     const completed = counted.filter((x) => isDone(x.id)).length;
 
@@ -126,6 +139,7 @@ export class LearnService {
       courseFeedback: courseFb ? { rating: courseFb.rating, comment: courseFb.comment } : null,
       testimonial,
       announcements,
+      lastWatched: last ? { sessionId: last.sessionId, positionSec: last.positionSec } : null,
       sessions: sessions.map((x) => {
         const visible = hasAdminPermission(user, ['ACADEMIC']) || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
         const fb = fbBySession.get(x.id);
@@ -152,6 +166,7 @@ export class LearnService {
           lessonCompletion: lessonSource.get(x.id) ?? null,
           attendance: attended.get(x.id) ?? null,
           myFeedback: fb ? { rating: fb.rating, comment: fb.comment } : null,
+          resumeAt: watchBySession.has(x.id) ? resumeOf(watchBySession.get(x.id)!) : null,
         };
       }),
     };
@@ -216,6 +231,23 @@ export class LearnService {
     const source = existing?.source === 'WATCHED' ? 'WATCHED' : input.source;
     await this.prisma.sessionProgress.upsert({ where: key, update: { source }, create: { userId: user.id, sessionId: session.id, source } });
     await this.certificates.issueIfEarned(course.id, user.id);
+  }
+
+  /**
+   * Where the student stopped in a session's video (saved by the player every ~15 s while playing,
+   * on pause and on leaving the page). Only a position: completion keeps its own rules.
+   */
+  async setPosition(user: AuthUser, slug: string, sessionId: string, input: LessonPositionInput): Promise<void> {
+    const { session } = await this.sessionOf(user, slug, sessionId, 'write');
+    if (!isVideoLesson(session)) {
+      throw new ConflictException({ code: 'NO_VIDEO', message: 'This session has no video to resume' });
+    }
+    const data = { positionSec: input.positionSec, durationSec: input.durationSec ?? null };
+    await this.prisma.lessonWatch.upsert({
+      where: { userId_sessionId: { userId: user.id, sessionId: session.id } },
+      update: data,
+      create: { ...data, userId: user.id, sessionId: session.id },
+    });
   }
 
   async setFeedback(user: AuthUser, slug: string, input: FeedbackInput, now = new Date()): Promise<void> {

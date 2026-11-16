@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Header, HttpCode, Inject, Param, Put, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import {
   feedbackSchema,
   lessonCompletionSchema,
+  lessonPositionSchema,
+  type LessonPositionInput,
   reminderPreferenceSchema,
   type LessonCompletionInput,
   type FeedbackDueDto,
@@ -68,6 +71,22 @@ export class LearnController {
     @Body(new ZodPipe(lessonCompletionSchema)) body: LessonCompletionInput,
   ): Promise<void> {
     await this.learn.setLessonCompletion(user, slug, sessionId, body);
+  }
+
+  /**
+   * Where the student stopped in the session's video. The player saves about every 15 s while it
+   * plays, so the limit is generous; this write leaves the signed-in cache alone (signed-in-cache.ts).
+   */
+  @Put('learn/:slug/sessions/:sessionId/position')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async position(
+    @CurrentUser() user: AuthUser,
+    @Param('slug') slug: string,
+    @Param('sessionId') sessionId: string,
+    @Body(new ZodPipe(lessonPositionSchema)) body: LessonPositionInput,
+  ): Promise<void> {
+    await this.learn.setPosition(user, slug, sessionId, body);
   }
 
   @Put('learn/:slug/feedback')

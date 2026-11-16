@@ -2533,7 +2533,10 @@
     "sessionNav": "Previous and next session",
     "nextSession": "Next: {n}. {title}",
     "confirmEmailFirst": "Were you added to this course by email? Confirm your email address first (we sent you a link) and you'll be enrolled automatically.",
-    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way."
+    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way.",
+    "stoppedAt": "You stopped at {time}. The video continues from there.",
+    "continueLesson": "Continue video {n} at {time}",
+    "continueSession": "Continue the recording of session {n} at {time}"
   },
   "speakerAnnouncements": {
     "title": "My courses & sessions",

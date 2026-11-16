@@ -84,6 +84,11 @@ export interface LearnSessionDto {
   /** Their attendance from the Meet file (or set by the team); null until it is recorded. */
   attendance: { status: AttendanceStatus; minutes: number; percent: number } | null;
   myFeedback: { rating: number; comment: string | null } | null;
+  /**
+   * Where the video should start for this student, in seconds (resumeStart of the saved position);
+   * null when nothing is saved. 0 means from the beginning (finished, or barely started).
+   */
+  resumeAt: number | null;
 }
 
 export interface LearnCourseDto {
@@ -110,6 +115,8 @@ export interface LearnCourseDto {
   /** Self-paced courses: the student's testimonial, once written. */
   testimonial: MyTestimonialDto | null;
   sessions: LearnSessionDto[];
+  /** The video the student watched most recently and can resume (resumeAt above 0); null when none. */
+  lastWatched: { sessionId: string; positionSec: number } | null;
   /** The latest LEARN_PAGE_ANNOUNCEMENTS announcements (all of them: GET /learn/:slug/announcements). */
   announcements: LearnAnnouncementDto[];
 }

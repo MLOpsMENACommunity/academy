@@ -1,6 +1,16 @@
 'use client';
 
-import { isLearnerRole, parseSessionHash, type AssessmentSummaryDto, type LearnAnnouncementDto, type LearnCertificateDto, type LearnCourseDto, type LearnSessionDto, type MeResponse } from '@academy/shared';
+import {
+  isLearnerRole,
+  parseSessionHash,
+  type AssessmentSummaryDto,
+  type LearnAnnouncementDto,
+  type LearnCertificateDto,
+  type LearnCourseDto,
+  type LearnSessionDto,
+  type LessonPositionInput,
+  type MeResponse,
+} from '@academy/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
@@ -14,6 +24,7 @@ import { FeedbackForm } from '@/components/learn/FeedbackForm';
 import { CourseAnnouncements, markAnnouncementsSeen, useNewAnnouncements } from '@/components/learn/Announcements';
 import { DriveNote } from '@/components/learn/DriveNote';
 import { SessionCard } from '@/components/learn/SessionCard';
+import { TextWithTime } from '@/components/learn/VideoTime';
 import { TestimonialForm } from '@/components/learn/TestimonialForm';
 import { Leaderboard } from '@/components/points/Leaderboard';
 import { Alert } from '@/components/ui/Alert';
@@ -28,12 +39,17 @@ export function LearnPage() {
   return <RequireAuth>{(user) => <Inner user={user} />}</RequireAuth>;
 }
 
-/** Where a student lands: a live session, then one whose join link is open, then the first unwatched recording, then the next upcoming one. */
-function defaultSession(sessions: LearnSessionDto[]): number | null {
+/**
+ * Where a student lands: a live session, then one whose join link is open, then the video they
+ * were watching last ("Continue"), then the first unwatched recording, then the next upcoming one.
+ * (Self-paced lessons are never live or upcoming, so there the video they stopped in comes first.)
+ */
+function defaultSession(sessions: LearnSessionDto[], lastWatched: LearnCourseDto['lastWatched'] = null): number | null {
   const sorted = [...sessions].sort((a, b) => a.order - b.order);
   const pick =
     sorted.find((s) => s.phase === 'live') ??
     sorted.find((s) => s.phase === 'upcoming' && s.liveUrl) ??
+    sorted.find((s) => s.id === lastWatched?.sessionId) ??
     sorted.find((s) => s.phase === 'ended' && !s.completed) ??
     sorted.find((s) => s.phase === 'upcoming') ??
     sorted[sorted.length - 1];
@@ -80,6 +96,8 @@ function Inner({ user }: { user: MeResponse }) {
   // The Announcements panel loads its list the first time it opens, then stays mounted (hidden).
   const [announcementsOpened, setAnnouncementsOpened] = useState(false);
   const main = useRef<HTMLDivElement>(null);
+  // Video positions saved while this page is open (SessionCard), so going back to a lesson resumes there.
+  const savedPositions = useRef(new Map<string, LessonPositionInput>()).current;
   const latestAnnouncements = course?.announcements ?? NO_ANNOUNCEMENTS;
   const newAnnouncements = useNewAnnouncements(slug, latestAnnouncements, seenVersion);
 
@@ -132,7 +150,7 @@ function Inner({ user }: { user: MeResponse }) {
     if (!course || initialised.current) return;
     initialised.current = true;
     const fromHash = hashOrder();
-    setSelected(fromHash && course.sessions.some((s) => s.order === fromHash) ? fromHash : defaultSession(course.sessions));
+    setSelected(fromHash && course.sessions.some((s) => s.order === fromHash) ? fromHash : defaultSession(course.sessions, course.lastWatched));
     if (window.location.hash === ANNOUNCEMENTS_HASH) setTab('announcements');
     if (window.location.hash === '#reminders') requestAnimationFrame(() => document.getElementById('reminders')?.scrollIntoView({ block: 'start' }));
     scrollToFeedback();
@@ -189,7 +207,10 @@ function Inner({ user }: { user: MeResponse }) {
   const title = locale === 'ar' ? course.titleAr : course.titleEn;
   const sessions = [...course.sessions].sort((a, b) => a.order - b.order);
   // A stale or hand-edited #session-N that matches nothing falls back to the default session.
-  const current = sessions.find((s) => s.order === selected) ?? sessions.find((s) => s.order === defaultSession(sessions)) ?? null;
+  const current = sessions.find((s) => s.order === selected) ?? sessions.find((s) => s.order === defaultSession(sessions, course.lastWatched)) ?? null;
+  // "Continue video 3 at 42:10": the video they stopped in most recently, unless it is the one open.
+  const resume = course.lastWatched ? sessions.find((s) => s.id === course.lastWatched!.sessionId) : undefined;
+  const continueTo = resume && resume.order !== current?.order ? { session: resume, at: course.lastWatched!.positionSec } : null;
   const index = current ? sessions.indexOf(current) : -1;
   const prev = index > 0 ? sessions[index - 1] : null;
   const next = index >= 0 && index < sessions.length - 1 ? sessions[index + 1] : null;
@@ -246,6 +267,19 @@ function Inner({ user }: { user: MeResponse }) {
             </div>
             {t('learn.percentDone', { percent: course.progress.percent })}
           </div>
+          {continueTo && (
+            <a
+              href={`#session-${continueTo.session.order}`}
+              onClick={(e) => {
+                e.preventDefault();
+                go(continueTo.session);
+              }}
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <TextWithTime k={course.selfPaced ? 'learn.continueLesson' : 'learn.continueSession'} sec={continueTo.at} vars={{ n: continueTo.session.order }} />
+              <Arrow />
+            </a>
+          )}
           <Link href={`/${locale}/dashboard`} className={buttonClass('secondary', 'sm')}>
             {t('learn.exit')}
           </Link>
@@ -431,6 +465,7 @@ function Inner({ user }: { user: MeResponse }) {
               total={sessions.length}
               assessments={assessments.filter((a) => a.sessionId === current.id)}
               onLessonChange={load}
+              savedPositions={savedPositions}
             />
           ) : (
             <p className="text-muted">{t('learn.noSessions')}</p>
