@@ -283,6 +283,7 @@ export class ArchiveService {
           titleAr: c.titleAr || c.titleEn,
           availability: courseAvailability(c, now),
           completed: c.status === 'COMPLETED',
+          selfPaced: c.selfPaced,
           cohortNumber: c.cohortNumber,
           startDate: c.startDate?.toISOString() ?? null,
           endDate: c.endDate?.toISOString() ?? null,
