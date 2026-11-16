@@ -42,7 +42,17 @@ export function ChallengeCard({ c, locale, t, mine }: { c: PublicChallengeDto; l
       </p>
       <p className="mt-auto pt-3 text-sm text-muted">
         {t('challenges.finishers', { count: c.finishers })}
-        {c.finisherNames.length > 0 && <span className="block text-fg">{c.finisherNames.join(locale === 'ar' ? '، ' : ', ')}</span>}
+        {c.finisherNames.length > 0 && (
+          <span className="block text-fg">
+            {/* Names are in either language: isolate each so "Rana F." keeps its full stop on the Arabic page. */}
+            {c.finisherNames.map((name, i) => (
+              <span key={`${name}-${i}`}>
+                {i > 0 && (locale === 'ar' ? '، ' : ', ')}
+                <bdi>{name}</bdi>
+              </span>
+            ))}
+          </span>
+        )}
       </p>
     </article>
   );

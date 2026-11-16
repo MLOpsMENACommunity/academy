@@ -110,7 +110,7 @@ export function ChallengeDetail({ slug }: { slug: string }) {
           <ul className="mt-3 flex flex-wrap gap-2">
             {c.finisherNames.map((name, i) => (
               <li key={`${name}-${i}`} className="rounded-full border border-line px-3 py-1 text-sm">
-                {name}
+                <bdi>{name}</bdi>
               </li>
             ))}
           </ul>
