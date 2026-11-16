@@ -12,6 +12,7 @@ import { ReminderJobs } from './reminders.jobs';
 import { RetentionJobs } from './retention.jobs';
 import { JobsController } from './jobs.controller';
 import { JobsRegistry } from './jobs-registry';
+import { NextDue } from './next-due';
 
-@Module({ imports: [DiscoveryModule, UsersModule, PaymentsModule, AnnouncementsModule, AssessmentsModule, PointsModule, InvitesModule], controllers: [JobsController], providers: [AccountJobs, RetentionJobs, ReminderJobs, EventReminderJobs, JobsRegistry] })
+@Module({ imports: [DiscoveryModule, UsersModule, PaymentsModule, AnnouncementsModule, AssessmentsModule, PointsModule, InvitesModule], controllers: [JobsController], providers: [AccountJobs, RetentionJobs, ReminderJobs, EventReminderJobs, JobsRegistry, NextDue] })
 export class JobsModule {}
