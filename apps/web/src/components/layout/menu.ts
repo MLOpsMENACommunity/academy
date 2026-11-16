@@ -56,7 +56,11 @@ export function buildMenuData(
       return {
         href,
         title,
-        line: c.applicationDeadline ? t('menu.featuredOpenUntil', { date: formatDate(c.applicationDeadline, locale) }) : t('menu.featuredOpen'),
+        line: c.selfPaced
+          ? t('menu.featuredSelfPaced')
+          : c.applicationDeadline
+            ? t('menu.featuredOpenUntil', { date: formatDate(c.applicationDeadline, locale) })
+            : t('menu.featuredOpen'),
         tone: 'success',
       };
     });

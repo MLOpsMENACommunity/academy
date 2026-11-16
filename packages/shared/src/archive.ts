@@ -168,6 +168,8 @@ export interface SpeakerCourseDto {
   titleAr: string;
   availability: CourseAvailability;
   completed: boolean;
+  /** Video lessons at the student's own pace ("Start any time" while open). */
+  selfPaced: boolean;
   cohortNumber: number | null;
   startDate: string | null;
   endDate: string | null;

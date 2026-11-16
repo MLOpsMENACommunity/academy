@@ -16,7 +16,7 @@ export const PROMPT_AFTER_MS = 30 * MINUTE;
 /** …until 72 hours after: an hourly tick, or a deploy up to two days late, still asks. */
 export const PROMPT_UNTIL_MS = 72 * HOUR;
 /** The longest session there is (see nextSessions), to find sessions by start time. */
-const MAX_SESSION_MS = 10 * HOUR;
+export const MAX_SESSION_MS = 10 * HOUR;
 
 // The outbox row is the "already asked" marker, so it must outlive the window.
 if (KEEP_DONE_DAYS * 24 * HOUR <= PROMPT_UNTIL_MS) throw new Error('Outbox retention must outlast the feedback window');

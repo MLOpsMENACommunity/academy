@@ -119,3 +119,26 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   const type = res.headers.get('content-type') ?? '';
   return (type.includes('application/json') ? res.json() : res.text()) as Promise<T>;
 }
+
+/**
+ * A small JSON write that must outlive the page (sent from `pagehide` or a hidden tab): the same
+ * same-origin /api path, cookies and headers as api() (the browser adds Origin and Sec-Fetch-Site,
+ * which the API's CSRF check requires), with `keepalive` so the browser finishes it after the page
+ * is gone. It never refreshes the session: the page can't receive the rotated cookies, and a lost
+ * rotation looks like token theft to the API. So when the access token is known to have expired it
+ * isn't sent at all. Fire and forget: never throws.
+ */
+export function apiKeepalive(path: string, method: 'PUT' | 'POST', json: unknown): void {
+  if (!expiryUnreliable && accessTokenExpired()) return;
+  try {
+    void fetch(`/api${path}`, {
+      method,
+      credentials: 'same-origin',
+      keepalive: true,
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(json),
+    }).catch(() => undefined);
+  } catch {
+    // No fetch, or the browser refused the keepalive request: nothing to do.
+  }
+}

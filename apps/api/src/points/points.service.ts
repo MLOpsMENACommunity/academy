@@ -150,6 +150,16 @@ export class PointsService {
     return this.syncSource({ userId, courseId, sourceType: POINTS_SOURCES.AUTOMATION, sourceId: source, reason: 'AUTOMATION' }, points, now);
   }
 
+  /**
+   * Course Q&A: an accepted student answer is worth `points` (QA_ANSWER_POINTS); un-accepting it,
+   * or accepting another answer, sets it back to 0. Keyed by the answer, so repeating either never
+   * double-counts. A deleted account gains nothing, but can still lose what it got.
+   */
+  async syncQaAnswer(userId: string, courseId: string, answerId: string, points: number, now = new Date()): Promise<number> {
+    if (points > 0 && !(await this.active(userId))) return 0;
+    return this.syncSource({ userId, courseId, sourceType: POINTS_SOURCES.QA_ANSWER, sourceId: answerId, reason: 'QA_ANSWER' }, points, now);
+  }
+
   /** Deleted (or anonymised) accounts never gain points or badges again. */
   private async active(userId: string): Promise<boolean> {
     const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } });

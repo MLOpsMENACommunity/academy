@@ -1,5 +1,6 @@
 import {
   courseAvailabilityLabels,
+  courseAvailabilityText,
   courseLanguageLabels,
   courseLevelsText,
   type CourseSummaryDto,
@@ -34,8 +35,8 @@ function courseLook(c: CourseSummaryDto, locale: Locale): { bar: CardBar; tone: 
     return {
       bar: 'green',
       tone: 'success',
-      badge: courseAvailabilityLabels.OPEN[locale],
-      cta: c.applicationDeadline ? t('catalog.applyBy', { date: formatDate(c.applicationDeadline, locale) }) : t('catalog.details'),
+      badge: courseAvailabilityText(c, locale),
+      cta: c.applicationDeadline && !c.selfPaced ? t('catalog.applyBy', { date: formatDate(c.applicationDeadline, locale) }) : t('catalog.details'),
     };
   }
   if (c.availability === 'UPCOMING') return { bar: 'amber', tone: 'accent', badge: courseAvailabilityLabels.UPCOMING[locale], cta: t('catalog.notifyCta') };
@@ -76,7 +77,7 @@ export function ratingFacts(rating: CourseSummaryDto['rating'] | undefined, loca
 export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course: CourseSummaryDto; locale: Locale; headingLevel?: 'h2' | 'h3' }) {
   const t = createTranslator(locale);
   const look = courseLook(c, locale);
-  const when = c.startDate
+  const when = c.startDate && !c.selfPaced
     ? c.completed
       ? c.endDate
         ? t('course.range', { start: formatDate(c.startDate, locale), end: formatDate(c.endDate, locale) })
@@ -86,7 +87,8 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
   const { enrolled, seats } = enrolmentFacts(c, locale);
   const rating = ratingFacts(c.rating, locale);
   const meta = [
-    [courseLevelsText(c, locale), c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
+    // A self-paced course has no weeks: "Self-paced" instead.
+    [courseLevelsText(c, locale), c.selfPaced ? t('catalog.selfPaced') : c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
     // The language isn't decided while the course is coming soon.
     [c.comingSoon ? null : courseLanguageLabels[c.language][locale], priceLabel(c, locale)].filter(Boolean).join(' · '),
     when,
