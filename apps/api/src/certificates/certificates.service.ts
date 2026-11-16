@@ -1,9 +1,11 @@
-import { ConflictException, ForbiddenException, GoneException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, GoneException, Inject, Injectable, Logger, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import {
   certificateEligibility,
   certificateOffered,
   certificatePath,
+  formatCourseSerial,
   formatSerial,
+  isRequiredLesson,
   linkedInAddUrl,
   normalizeSerial,
   SERIAL_RANDOM_LENGTH,
@@ -26,7 +28,8 @@ import { Prisma, type Certificate, type Course } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { capRows } from '../admin/export';
 import type { Actor } from '../applications/workflow.service';
-import { completedSessionsBy } from '../attendance/completed-sessions';
+import { completedLessonsBy, completedSessionsBy } from '../attendance/completed-sessions';
+import { dateEn } from './dates';
 import { AssessmentsService } from '../assessments/assessments.service';
 import { AuditService } from '../audit/audit.service';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
@@ -38,6 +41,7 @@ import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PointsService } from '../points/points.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EarlierCertificatesService } from './earlier-certificates.service';
 import { StorageService } from '../storage/storage.service';
 
 /**
@@ -65,24 +69,34 @@ export function newSerial(now = new Date()): string {
   return formatSerial(now.getUTCFullYear(), randomBytes(SERIAL_RANDOM_LENGTH));
 }
 
+/** The year in Cairo, as printed in course-prefixed serials. */
+const cairoYear = (d: Date) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', year: 'numeric' }).format(d));
+
 type CertWithCourse = Certificate & {
-  enrollment: { userId: string; courseId: string; course: { slug: string }; user: { deletedAt: Date | null; anonymizedAt: Date | null } };
+  enrollment: { userId: string; courseId: string; course: { slug: string; shortDescriptionEn: string }; user: { deletedAt: Date | null; anonymizedAt: Date | null } };
 };
 
+/** Storage folder of rendered PDFs (template design); older cached files are ignored. */
+const PDF_CACHE = 'certificate-pdfs';
+
 const certInclude = {
-  enrollment: { select: { userId: true, courseId: true, course: { select: { slug: true } }, user: { select: { deletedAt: true, anonymizedAt: true } } } },
+  enrollment: { select: { userId: true, courseId: true, course: { select: { slug: true, shortDescriptionEn: true } }, user: { select: { deletedAt: true, anonymizedAt: true } } } },
 } as const;
 
-const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certRuleEn' | 'certRuleAr'>): CertificateRule => ({
-  minSessionsPercent: c.certMinSessionsPercent,
-  requireAssessments: c.certRequireAssessments,
+/** A self-paced course has one fixed rule: every required video, and every required assessment passed with 80% or more. */
+const ruleOf = (c: Pick<Course, 'certMinSessionsPercent' | 'certRequireAssessments' | 'certMinTotalPercent' | 'certCode' | 'certRuleEn' | 'certRuleAr' | 'selfPaced'>): CertificateRule => ({
+  minSessionsPercent: c.selfPaced ? 100 : c.certMinSessionsPercent,
+  requireAssessments: c.selfPaced || c.certRequireAssessments,
+  // Self-paced courses have their own fixed rule (80% on every required quiz).
+  minTotalPercent: c.selfPaced ? null : c.certMinTotalPercent,
+  codePrefix: c.certCode,
   textEn: c.certRuleEn,
   textAr: c.certRuleAr,
 });
 
 /** Completion certificates: issue and revoke (admin), the public verification page, and the PDF. */
 @Injectable()
-export class CertificatesService {
+export class CertificatesService implements OnModuleInit {
   private readonly logger = new Logger(CertificatesService.name);
   private readonly listeners: CertificateIssuedListener[] = [];
 
@@ -96,7 +110,12 @@ export class CertificatesService {
     private readonly points: PointsService,
     @Inject(ENV) private readonly env: Env,
     private readonly cache: SignedInCache,
+    private readonly earlier: EarlierCertificatesService,
   ) {}
+
+  onModuleInit(): void {
+    this.assessments.onResultChanged((courseId, userId) => this.issueIfEarned(courseId, userId));
+  }
 
   /** The hook for points and badges (PR D): called once per certificate issued or re-issued. */
   onIssued(listener: CertificateIssuedListener): void {
@@ -119,11 +138,20 @@ export class CertificatesService {
     return c;
   }
 
+  /** The ids of a self-paced course's required video lessons. */
+  private async requiredLessonIds(courseId: string): Promise<string[]> {
+    const rows = await this.prisma.courseSession.findMany({ where: { courseId, optional: false, recordingUrl: { not: null } }, select: { id: true, recordingUrl: true, optional: true } });
+    return rows.filter(isRequiredLesson).map((r) => r.id);
+  }
+
   /** Each student's eligibility under the course rule: sessions completed, required assessments, capstone. */
-  async eligibilityFor(course: Pick<Course, 'id' | 'certMinSessionsPercent' | 'certRequireAssessments'>, userIds: string[]): Promise<Map<string, Eligibility>> {
+  async eligibilityFor(course: Pick<Course, 'id' | 'certMinSessionsPercent' | 'certRequireAssessments' | 'certMinTotalPercent' | 'selfPaced'>, userIds: string[]): Promise<Map<string, Eligibility>> {
+    const lessonIds = course.selfPaced ? await this.requiredLessonIds(course.id) : null;
     const [total, progress, results, capstones] = await Promise.all([
-      this.prisma.courseSession.count({ where: { courseId: course.id } }),
-      userIds.length
+      lessonIds ? lessonIds.length : this.prisma.courseSession.count({ where: { courseId: course.id } }),
+      lessonIds
+        ? completedLessonsBy(this.prisma, lessonIds, userIds).then((m) => [...m].map(([userId, set]) => ({ userId, _count: { _all: set.size } })))
+        : userIds.length
         ? // Sessions attended (Present or Partial), plus any marked done before that box was retired.
           completedSessionsBy(this.prisma, course.id, userIds).then((m) => [...m].map(([userId, set]) => ({ userId, _count: { _all: set.size } })))
         : Promise.resolve([]),
@@ -135,10 +163,10 @@ export class CertificatesService {
       }),
     ]);
     const done = new Map(progress.map((p) => [p.userId, p._count._all]));
-    const rule = { minSessionsPercent: course.certMinSessionsPercent, requireAssessments: course.certRequireAssessments };
+    const rule = ruleOf({ ...course, certCode: null, certRuleEn: '', certRuleAr: '' });
     const capstoneIds = capstones.map((a) => a.id);
     return new Map(
-      userIds.map((id) => [id, certificateEligibility(rule, { sessions: { completed: done.get(id) ?? 0, total }, results: results.get(id)!, capstoneIds })]),
+      userIds.map((id) => [id, certificateEligibility(rule, { sessions: { completed: done.get(id) ?? 0, total }, results: results.get(id)!, capstoneIds, selfPaced: course.selfPaced })]),
     );
   }
 
@@ -192,14 +220,21 @@ export class CertificatesService {
     await this.course(courseId);
     const c = await this.prisma.course.update({
       where: { id: courseId },
-      data: { certMinSessionsPercent: input.minSessionsPercent, certRequireAssessments: input.requireAssessments, certRuleEn: input.textEn, certRuleAr: input.textAr },
+      data: {
+        certMinSessionsPercent: input.minSessionsPercent,
+        certRequireAssessments: input.requireAssessments,
+        certMinTotalPercent: input.minTotalPercent,
+        certCode: input.codePrefix,
+        certRuleEn: input.textEn,
+        certRuleAr: input.textAr,
+      },
     });
     await this.audit.log({
       actorId: admin.id,
       action: 'course.certificate_rule_updated',
       entityType: 'Course',
       entityId: courseId,
-      metadata: { minSessionsPercent: input.minSessionsPercent, requireAssessments: input.requireAssessments },
+      metadata: { minSessionsPercent: input.minSessionsPercent, requireAssessments: input.requireAssessments, minTotalPercent: input.minTotalPercent, codePrefix: input.codePrefix },
     });
     return ruleOf(c);
   }
@@ -246,16 +281,19 @@ export class CertificatesService {
         course: {
           select: {
             slug: true,
+            selfPaced: true,
+            certCode: true,
+            cohortNumber: true,
             titleEn: true,
             titleAr: true,
-            instructors: { orderBy: { order: 'asc' }, select: { instructor: { select: { name: true, nameAr: true } } } },
+            instructors: { orderBy: { order: 'asc' }, select: { instructor: { select: { name: true, nameAr: true, titleEn: true } } } },
           },
         },
       },
     });
     const en = e.user.profile?.fullNameEn?.trim() || '';
     const ar = e.user.profile?.fullNameAr?.trim() || '';
-    const instructors: InstructorName[] = e.course.instructors.map((i) => ({ name: i.instructor.name, nameAr: i.instructor.nameAr }));
+    const instructors: InstructorName[] = e.course.instructors.map((i) => ({ name: i.instructor.name, nameAr: i.instructor.nameAr, title: i.instructor.titleEn }));
     return {
       enrollment: e,
       data: {
@@ -270,6 +308,20 @@ export class CertificatesService {
   }
 
   /**
+   * The serial of a new certificate: random (MMA-…) unless the course has an ID prefix; then the
+   * prefix's next number, taken atomically outside the issue transaction, so a failed issue leaves
+   * a gap and a number is never given twice (like the generator the academy replaced).
+   */
+  private async nextSerial(course: { certCode: string | null; cohortNumber: number | null }, now = new Date()): Promise<string> {
+    if (!course.certCode) return newSerial(now);
+    const [row] = await this.prisma.$queryRaw<{ n: number }[]>`
+      INSERT INTO "CertificateSequence" ("code", "next") VALUES (${course.certCode}, 2)
+      ON CONFLICT ("code") DO UPDATE SET "next" = "CertificateSequence"."next" + 1
+      RETURNING "next" - 1 AS "n"`;
+    return formatCourseSerial(course.certCode, course.cohortNumber, cairoYear(now), Number(row!.n));
+  }
+
+  /**
    * Issues one enrolment's certificate (the single entry point; bulk issue calls it per student).
    * Idempotent: an enrolment that already has one (valid or revoked) gets it back with created=false.
    */
@@ -280,9 +332,10 @@ export class CertificatesService {
     if (!data.nameOnCertificate) throw new ConflictException({ code: 'NO_NAME', message: 'The student has no name on their profile' });
     for (let attempt = 0; ; attempt++) {
       try {
+        const serial = await this.nextSerial(enrollment.course);
         const certificate = await this.prisma.$transaction(async (tx) => {
           const c = await tx.certificate.create({
-            data: { enrollmentId, serial: newSerial(), issuedById: opts.issuedById, grade: opts.grade ?? null, ...data },
+            data: { enrollmentId, serial, issuedById: opts.issuedById, grade: opts.grade ?? null, kind: enrollment.course.selfPaced ? 'ATTENDANCE' : 'COMPLETION', ...data },
           });
           await this.audit.log(
             {
@@ -305,11 +358,30 @@ export class CertificatesService {
           if (target.includes('enrollmentId')) {
             return { certificate: await this.prisma.certificate.findUniqueOrThrow({ where: { enrollmentId } }), created: false };
           }
-          // A serial collision (1 in 2^40 per pair): draw again.
+          // A serial collision (1 in 2^40 per pair, or a prefix number already used): draw again.
           if (attempt < 3) continue;
         }
         throw err;
       }
+    }
+  }
+
+  /**
+   * Self-paced courses: issues the student's attendance certificate the moment they meet the rule.
+   * Safe to call any time. A missing name on the profile is retried when they next open the course.
+   */
+  async issueIfEarned(courseId: string, userId: string): Promise<void> {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course?.selfPaced) return;
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { courseId, userId, certificate: null, user: { deletedAt: null, role: LEARNER_ROLE_FILTER } },
+      select: { id: true },
+    });
+    if (!enrollment || !(await this.eligibilityFor(course, [userId])).get(userId)!.eligible) return;
+    try {
+      await this.issue(enrollment.id, { issuedById: null });
+    } catch (err) {
+      if (!(err instanceof ConflictException) || (err.getResponse() as { code?: string }).code !== 'NO_NAME') throw err;
     }
   }
 
@@ -417,7 +489,7 @@ export class CertificatesService {
   /** Email (bulk lane) and in-app notification to the student, then the onIssued listeners. */
   private async announce(
     c: Certificate,
-    e: { userId: string; courseId: string; user: { email: string; locale: Locale; deletedAt: Date | null }; course: { titleEn: string; titleAr: string } },
+    e: { userId: string; courseId: string; user: { email: string; locale: Locale; deletedAt: Date | null }; course: { slug: string; selfPaced: boolean; titleEn: string; titleAr: string } },
     reissued: boolean,
   ): Promise<void> {
     if (!e.user.deletedAt) {
@@ -432,17 +504,20 @@ export class CertificatesService {
           link: path,
         })
         .catch((err: unknown) => this.logger.error(`Certificate notification failed: ${(err as Error).name}`));
-      const ar = e.user.locale === 'ar';
-      const courseTitle = ar ? e.course.titleAr || e.course.titleEn : e.course.titleEn;
-      const verifyUrl = this.verifyUrl(e.user.locale, c.serial);
+      // The certificate email is English only, like the certificate, whatever the student's language.
+      const verifyUrl = this.verifyUrl('en', c.serial);
       void this.email.send(
         e.user.email,
-        e.user.locale,
+        'en',
         {
           name: 'certificateIssued',
-          courseTitle,
+          attendance: c.kind === 'ATTENDANCE',
+          holderName: c.nameOnCertificate,
+          courseTitle: c.courseTitleEn,
           serial: c.serial,
+          issuedOn: dateEn(c.issuedAt),
           verifyUrl,
+          ...(e.course.selfPaced ? { testimonialUrl: `${this.email.url('en', `/learn/${e.course.slug}`)}#testimonial` } : {}),
           downloadUrl: this.publicPdfUrl(c.serial),
           linkedInUrl: linkedInAddUrl({ courseTitle: c.courseTitleEn, issuedAt: c.issuedAt, verifyUrl: this.verifyUrl('en', c.serial), serial: c.serial }),
         },
@@ -485,6 +560,7 @@ export class CertificatesService {
       courseTitleEn: c.courseTitleEn,
       courseTitleAr: c.courseTitleAr,
       nameOnCertificate: c.nameOnCertificate,
+      pdf: !c.revokedAt,
     };
   }
 
@@ -495,7 +571,9 @@ export class CertificatesService {
       orderBy: { issuedAt: 'desc' },
       include: { enrollment: { select: { course: { select: { slug: true } } } } },
     });
-    return list.map((c) => this.toMine(c));
+    // Certificates issued before the academy, linked to this account by its verified email.
+    const earlier = await this.earlier.mine(userId);
+    return [...list.map((c) => this.toMine(c)), ...earlier].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
   }
 
   /** The learn page's card: the rule, my live status against it, and my certificate once issued. */
@@ -510,8 +588,14 @@ export class CertificatesService {
     if (!enrollment && !hasAdminPermission(user, ['ACADEMIC'])) throw new ForbiddenException({ code: 'NOT_ENROLLED', message: 'You are not enrolled in this course' });
     const rule = ruleOf(course);
     const eligibility = (await this.eligibilityFor(course, [user.id])).get(user.id)!;
-    const certificate = enrollment?.certificate ? this.toMine(enrollment.certificate) : null;
-    return { offered: certificateOffered(rule, course.included as { certificate?: boolean } | null, Boolean(certificate)), rule, eligibility, certificate };
+    let issued = enrollment?.certificate ?? null;
+    // Earned but not issued yet (say the name was missing then): issue it now.
+    if (enrollment && !issued && course.selfPaced && eligibility.eligible) {
+      await this.issueIfEarned(course.id, user.id);
+      issued = await this.prisma.certificate.findUnique({ where: { enrollmentId: enrollment.id }, include: { enrollment: { select: { course: { select: { slug: true } } } } } });
+    }
+    const certificate = issued ? this.toMine(issued) : null;
+    return { offered: certificateOffered(rule, course.included as { certificate?: boolean } | null, Boolean(certificate)), selfPaced: course.selfPaced, rule, eligibility, certificate };
   }
 
   // ------------------------------------------------------------------ public verification
@@ -524,11 +608,19 @@ export class CertificatesService {
   }
 
   async publicView(raw: string): Promise<PublicCertificateDto> {
-    const c = await this.bySerial(raw);
+    const serial = normalizeSerial(raw);
+    const c = serial ? await this.prisma.certificate.findUnique({ where: { serial }, include: certInclude }) : null;
+    if (!c) {
+      // Not issued by the academy: maybe one of the certificates issued before it.
+      const earlier = await this.earlier.publicView(raw);
+      if (!earlier) throw new NotFoundException('Certificate not found');
+      return earlier;
+    }
     // A deleted (or anonymised) account: the certificate stays on record but shows nothing personal.
     if (c.enrollment.user.deletedAt || c.enrollment.user.anonymizedAt) return { status: 'UNAVAILABLE', serial: c.serial };
     return {
       status: c.revokedAt ? 'REVOKED' : 'VALID',
+      kind: c.kind,
       serial: c.serial,
       name: c.nameOnCertificate,
       nameAr: c.nameOnCertificateAr,
@@ -539,6 +631,7 @@ export class CertificatesService {
       issuedAt: c.issuedAt.toISOString(),
       grade: c.grade,
       revokedAt: c.revokedAt?.toISOString() ?? null,
+      pdf: !c.revokedAt,
     };
   }
 
@@ -565,8 +658,9 @@ export class CertificatesService {
   }
 
   /** The cached PDF from the bucket, or a freshly rendered one (then cached under certificates/). */
-  private async pdf(c: Certificate): Promise<Buffer> {
-    if (c.pdfKey) {
+  private async pdf(c: CertWithCourse): Promise<Buffer> {
+    // PDFs cached before the template design are drawn again (and the old file deleted below).
+    if (c.pdfKey?.startsWith(`${PDF_CACHE}/`)) {
       try {
         const cached = await this.storage.get(c.pdfKey);
         if (cached) return cached;
@@ -576,19 +670,19 @@ export class CertificatesService {
     }
     // Loaded on first download, not at boot (PDFKit and fontkit add to the container's start time).
     const { renderCertificatePdf } = await import('./pdf');
+    // English only, on the community's design.
     const body = await renderCertificatePdf({
+      kind: c.kind,
       serial: c.serial,
       name: c.nameOnCertificate,
-      nameAr: c.nameOnCertificateAr,
-      courseTitleEn: c.courseTitleEn,
-      courseTitleAr: c.courseTitleAr,
+      courseTitle: c.courseTitleEn,
+      courseDescription: c.enrollment.course.shortDescriptionEn,
       instructors: (c.instructorNames as unknown as InstructorName[]) ?? [],
       issuedAt: c.issuedAt,
-      grade: c.grade,
       verifyUrl: this.verifyUrl('en', c.serial),
     });
     try {
-      const key = await this.storage.put('certificates', body, 'application/pdf');
+      const key = await this.storage.put(PDF_CACHE, body, 'application/pdf');
       // Only if nothing changed meanwhile (a revocation or re-issue clears pdfKey and must win).
       const r = await this.prisma.certificate.updateMany({ where: { id: c.id, pdfKey: c.pdfKey, revokedAt: null, updatedAt: c.updatedAt }, data: { pdfKey: key } });
       if (r.count !== 1) await this.safeDelete(key);

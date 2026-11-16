@@ -44,13 +44,16 @@ const csp = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+const PERMISSIONS_POLICY = 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()';
+const CAMERA_SELF_POLICY = PERMISSIONS_POLICY.replace('camera=()', 'camera=(self)');
+
 const securityHeaders = [
   { key: 'Content-Security-Policy', value: csp },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()' },
+  { key: 'Permissions-Policy', value: PERMISSIONS_POLICY },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
   // Staging and local builds: keep every page out of search engines.
   ...(indexable ? [] : [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }]),
@@ -59,7 +62,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   async headers() {
     // /api/* is proxied to the API, which sets its own (stricter) headers.
-    return [{ source: '/((?!api/).*)', headers: securityHeaders }];
+    return [
+      { source: '/((?!api/).*)', headers: securityHeaders },
+      // The certificate verifier scans QR codes: the camera is allowed on that page only, and
+      // only for the academy itself (a later rule with the same header wins in Next.js).
+      { source: '/:locale(en|ar)/verify-certificate', headers: [{ key: 'Permissions-Policy', value: CAMERA_SELF_POLICY }] },
+    ];
   },
   output: 'standalone',
   // Set per deploy (the git SHA, by deploy/cloudflare/configure-host.mjs through the image

@@ -34,6 +34,7 @@ use both sets of pages. `SUPER` can do everything.
 | Students | ✓ | | | ✓ | | |
 | Talents | ✓ | | | | | |
 | Points & badges | ✓ | ✓ | | | | |
+| Certificates (earlier certificates import) | ✓ | ✓ | | | | |
 | Courses | ✓ | ✓ | | ✓ (read) | | |
 | Sessions (live) | ✓ | ✓ | | | | |
 | Speakers | ✓ | | | | ✓ | |
@@ -46,7 +47,7 @@ use both sets of pages. `SUPER` can do everything.
 
 | Tab | Presets |
 |---|---|
-| Details, Staff, Questions, Sessions, Assessments, Leaderboard, Certificates, Announcements, Feedback, Automation | ACADEMIC |
+| Details, Staff, Questions, Sessions, Assessments, Leaderboard, Certificates, Announcements, Feedback, Testimonials, Automation | ACADEMIC |
 | Applications, Enrol by email, Waiting list | ADMISSIONS |
 | Enrolled students | ADMISSIONS, ACADEMIC |
 
@@ -280,6 +281,9 @@ is listed.
 | Certificates | GET | `/api/admin/courses/:id/certificates.csv` | ACADEMIC |
 | Certificates | POST | `/api/admin/certificates/:id/revoke` | ACADEMIC |
 | Certificates | POST | `/api/admin/certificates/:id/reissue` | ACADEMIC |
+| Certificates | POST | `/api/admin/certificates/earlier/import` | ACADEMIC |
+| Testimonials | GET | `/api/admin/courses/:id/testimonials` | ACADEMIC |
+| Testimonials | PUT | `/api/admin/courses/:id/testimonials/:testimonialId/review` | ACADEMIC |
 | Points, badges, leaderboards | GET | `/api/admin/students/:id/points` | ACADEMIC |
 | Points, badges, leaderboards | POST | `/api/admin/students/:id/points` | ACADEMIC |
 | Points, badges, leaderboards | POST | `/api/admin/students/:id/badges` | ACADEMIC |

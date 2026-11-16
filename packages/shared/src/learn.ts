@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import type { AttendanceStatus, CourseType, DeliveryPlatform, RecordingsPlatform } from './enums';
+import { LESSON_COMPLETION_SOURCES, type AttendanceStatus, type CourseType, type DeliveryPlatform, type LessonCompletionSource, type RecordingsPlatform } from './enums';
 import type { Material } from './course-content';
+import type { MyTestimonialDto } from './testimonials';
 import { googleCalendarLink } from './calendar';
 
 export type RecordingKind = 'youtube' | 'drive' | 'link';
@@ -30,6 +31,16 @@ export function recordingKind(url: string): RecordingKind {
     // fall through
   }
   return 'link';
+}
+
+/** A lesson of a self-paced course: a session with a YouTube video to watch. */
+export function isVideoLesson(s: { recordingUrl: string | null }): boolean {
+  return Boolean(s.recordingUrl && youtubeId(s.recordingUrl));
+}
+
+/** The lessons a self-paced course's certificate needs: every video not marked optional. */
+export function isRequiredLesson(s: { recordingUrl: string | null; optional: boolean }): boolean {
+  return isVideoLesson(s) && !s.optional;
 }
 
 export type SessionPhase = 'upcoming' | 'live' | 'ended';
@@ -66,6 +77,10 @@ export interface LearnSessionDto {
   materials: Material[];
   assignmentUrl: string | null;
   completed: boolean;
+  /** Self-paced courses: this video doesn't count toward the certificate. */
+  optional: boolean;
+  /** Self-paced courses: how the student completed this lesson; null until they do. */
+  lessonCompletion: LessonCompletionSource | null;
   /** Their attendance from the Meet file (or set by the team); null until it is recorded. */
   attendance: { status: AttendanceStatus; minutes: number; percent: number } | null;
   myFeedback: { rating: number; comment: string | null } | null;
@@ -76,6 +91,10 @@ export interface LearnCourseDto {
   titleEn: string;
   titleAr: string;
   type: CourseType;
+  /** Taken at the student's own pace: video lessons instead of a schedule. */
+  selfPaced: boolean;
+  /** False for an admin previewing a course they aren't enrolled in: lessons can't be completed. */
+  canTrackProgress: boolean;
   deliveryPlatform: DeliveryPlatform;
   recordingsPlatform: RecordingsPlatform;
   youtubePlaylistUrl: string | null;
@@ -88,6 +107,8 @@ export interface LearnCourseDto {
   emailReminders: boolean;
   progress: { completed: number; total: number; percent: number };
   courseFeedback: { rating: number; comment: string | null } | null;
+  /** Self-paced courses: the student's testimonial, once written. */
+  testimonial: MyTestimonialDto | null;
   sessions: LearnSessionDto[];
   /** The latest LEARN_PAGE_ANNOUNCEMENTS announcements (all of them: GET /learn/:slug/announcements). */
   announcements: LearnAnnouncementDto[];
@@ -153,6 +174,8 @@ export function isCarriedHash(hash: string): boolean {
 }
 
 export const progressSchema = z.object({ completed: z.boolean() });
+export const lessonCompletionSchema = z.object({ completed: z.boolean(), source: z.enum(LESSON_COMPLETION_SOURCES) });
+export type LessonCompletionInput = z.infer<typeof lessonCompletionSchema>;
 export const feedbackSchema = z.object({
   /** Null/absent for end-of-course feedback. */
   sessionId: z.string().min(1).max(40).nullish(),

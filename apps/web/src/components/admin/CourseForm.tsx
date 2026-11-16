@@ -94,6 +94,7 @@ export const EMPTY_COURSE: CourseFormValue = {
   externalPlatform: null,
   externalUrl: null,
   publicRecordings: false,
+  selfPaced: false,
   showEnrolledCount: true,
 };
 
@@ -243,6 +244,7 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
           </div>
         </div>
         <CheckboxField label={f('publicRecordings')} checked={v.publicRecordings} onChange={set('publicRecordings')} />
+        <CheckboxField label={f('selfPaced')} hint={f('selfPacedHint')} checked={v.selfPaced} onChange={set('selfPaced')} error={errors.selfPaced} />
       </Fieldset>
 
       <Fieldset title={t('admin.courses.delivery')}>

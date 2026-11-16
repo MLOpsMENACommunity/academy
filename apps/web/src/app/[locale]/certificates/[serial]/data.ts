@@ -1,5 +1,5 @@
 import 'server-only';
-import { normalizeSerial, type PublicCertificateDto } from '@academy/shared';
+import { normalizeCertificateCode, type PublicCertificateDto } from '@academy/shared';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 import { allowLookup } from '@/lib/lookup-limiter';
@@ -15,11 +15,12 @@ export const lookupCertificate = cache(async (raw: string): Promise<Lookup> => {
   } catch {
     // malformed escape: not a serial
   }
-  const serial = normalizeSerial(decoded);
+  // Academy serials and the codes of certificates issued before the academy.
+  const serial = normalizeCertificateCode(decoded);
   if (!serial) return { kind: 'missing' };
   if (!allowLookup(forwardedIp(await headers()))) return { kind: 'limited' };
   try {
-    const cert = await serverGetFresh<PublicCertificateDto>(`/certificates/${serial}`);
+    const cert = await serverGetFresh<PublicCertificateDto>(`/certificates/${encodeURIComponent(serial)}`);
     return cert ? { kind: 'found', cert } : { kind: 'missing' };
   } catch (err) {
     if (err instanceof RateLimitedError) return { kind: 'limited' };

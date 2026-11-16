@@ -160,6 +160,39 @@ describe('course automation rules (e2e)', () => {
     expect(await prisma.certificate.count({ where: { enrollment: { courseId: c.id, userId: s.id } } })).toBe(1);
   });
 
+  it('issues certificates after the course ends only to students at or above the total score threshold', async () => {
+    const c = await course({ enrolled: 3, sessions: [-48] });
+    const [a, b, exact] = [c.students[0]!, c.students[1]!, c.students[2]!];
+    const quiz = await prisma.assessment.create({ data: { courseId: c.id, type: 'QUIZ', status: 'PUBLISHED', titleEn: 'Q', titleAr: 'ق', maxPoints: 100, passPercent: 50 } });
+    const task = await prisma.assessment.create({
+      data: { courseId: c.id, type: 'ASSIGNMENT', status: 'PUBLISHED', titleEn: 'A', titleAr: 'ت', maxPoints: 100, passPercent: 50, submissionKind: 'LINK' },
+    });
+    const graded = (assessmentId: string, userId: string, score: number) =>
+      prisma.submission.create({ data: { assessmentId, userId, attempt: 1, submittedAt: new Date(NOON.getTime() - DAY), score, maxScore: 100, gradedAt: new Date(NOON.getTime() - DAY) } });
+    await graded(quiz.id, a.id, 95);
+    await graded(task.id, a.id, 50); // 72.5%
+    await graded(quiz.id, b.id, 100); // 50%: the assignment wasn't submitted, so it counts as 0
+    await graded(quiz.id, exact.id, 80);
+    await graded(task.id, exact.id, 60); // exactly 70%
+
+    const rule = await http()
+      .put(`/api/admin/courses/${c.id}/certificate-rule`)
+      .set('Cookie', c.admin.cookie)
+      .send({ minSessionsPercent: null, requireAssessments: false, minTotalPercent: 70 })
+      .expect(200);
+    expect(rule.body.minTotalPercent).toBe(70);
+    const roster = (await http().get(`/api/admin/courses/${c.id}/certificates`).set('Cookie', c.admin.cookie).expect(200)).body;
+    const totalOf = (id: string) => roster.rows.find((r: { userId: string }) => r.userId === id).eligibility.total;
+    expect(totalOf(a.id)).toEqual({ percent: 72.5, required: 70, ok: true });
+    expect(totalOf(b.id)).toEqual({ percent: 50, required: 70, ok: false });
+    expect(totalOf(exact.id)).toEqual({ percent: 70, required: 70, ok: true });
+
+    await turnOn(c.id, 'CERT_ELIGIBLE', { mode: 'issue' });
+    await automation.runAll(NOON);
+    const holders = await prisma.certificate.findMany({ where: { enrollment: { courseId: c.id } }, select: { enrollment: { select: { userId: true } } } });
+    expect(holders.map((h) => h.enrollment.userId).sort()).toEqual([a.id, exact.id].sort());
+  });
+
   it('alerts staff with the permission (not admins) about a session without a live link', async () => {
     const c = await course({ sessions: [1] });
     const staff = await createUser(app, prisma, { prefix: 'mgr' });
@@ -238,7 +271,7 @@ describe('course automation rules (e2e)', () => {
     const rules = await prisma.courseAutomationRule.findMany({ where: { courseId: c.id } });
     const certificates = app.get(CertificatesService);
     const data = new CourseData(prisma, await prisma.course.findUniqueOrThrow({ where: { id: c.id } }), NOON, (ids) =>
-      certificates.eligibilityFor({ id: c.id, certMinSessionsPercent: 50, certRequireAssessments: true }, ids),
+      certificates.eligibilityFor({ id: c.id, certMinSessionsPercent: 50, certRequireAssessments: true, certMinTotalPercent: null, selfPaced: false }, ids),
     );
     const acted = new Set<string>();
     for (const r of rules) if ((await automation.runRule(r, data)) > 0) acted.add(r.type);

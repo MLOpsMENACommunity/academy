@@ -197,3 +197,11 @@ test('assessments say whether they are mandatory or optional for the certificate
   await expect(page.getByRole('link', { name: /Capstone lab/ })).toBeVisible();
   await expect(page.getByText('Required for certificate')).toHaveCount(0);
 });
+
+test('the camera is allowed on the verify page only (QR scanning), for the site itself', async ({ request }) => {
+  const policy = async (path: string) => (await request.get(path)).headers()['permissions-policy'];
+  expect(await policy('/en/verify-certificate')).toContain('camera=(self)');
+  expect(await policy('/ar/verify-certificate')).toContain('camera=(self)');
+  expect(await policy('/en')).toContain('camera=()');
+  expect(await policy('/en/certificates/MLOPS-01-2026-00001')).toContain('camera=()');
+});
