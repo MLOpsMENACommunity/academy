@@ -8,12 +8,18 @@
  *   2. takes a Postgres advisory lock, so two containers (old and new during a rollout) never
  *      seed at once; if another one holds it, this one just skips,
  *   3. runs dist/prisma/seed.js, then dist/prisma/import-archive.js (unless ARCHIVE_IMPORT=false),
- *      each best effort, exactly as before.
+ *      each best effort, exactly as before,
+ *   4. once per release: when both succeed, it records the release (and the settings the seed
+ *      reads) under DONE_KEY, and later starts of the same release skip them. With 5-minute
+ *      sleeps a container starts many times a day, and each run spawned two Node processes on a
+ *      ¼ vCPU and queried the database for nothing (the seed and the import are idempotent, so
+ *      they only have work to do after a deploy). Without ACADEMY_RELEASE (locally) they always run.
  *
  * The lock is a session lock, so it uses the direct (unpooled) connection when there is one,
  * like migrations do: PgBouncer in transaction mode can't hold session locks.
  */
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isPooledHost } from './prisma/database-url';
@@ -25,6 +31,21 @@ const TASK_TIMEOUT_MS = 10 * 60_000;
 
 /** Written when the tasks are over (done, skipped or failed): the local compose healthcheck waits for it. */
 export const DONE_MARKER = '/tmp/academy-startup-tasks.done';
+
+/** Setting row (ignored by the settings API, like the seed's own markers) holding the last run's key. */
+export const DONE_KEY = '__startupTasksDone';
+
+/**
+ * What a completed run is recorded under: the release plus a hash of what the seed and the
+ * import read from the environment, so a new admin email or turning the import back on runs
+ * them again. Null without a release: then they run on every start, as before.
+ */
+export function runKey(env: NodeJS.ProcessEnv): string | null {
+  const release = env.ACADEMY_RELEASE?.trim();
+  if (!release) return null;
+  const inputs = [env.SEED_ADMIN_EMAIL ?? '', env.SEED_PLACEHOLDER_STATUS ?? '', env.ARCHIVE_IMPORT ?? 'true'].join('\n');
+  return `${release}:${createHash('sha256').update(inputs).digest('hex').slice(0, 16)}`;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -72,17 +93,26 @@ export function lockUrl(env: NodeJS.ProcessEnv): string | null {
   return url.toString();
 }
 
-async function runTasks(): Promise<void> {
+/** Runs both; true when neither failed (only then is the run recorded). */
+async function runTasks(): Promise<boolean> {
   const dir = join(__dirname, '..', 'prisma');
   const started = Date.now();
+  let ok = true;
   // Seeding is best effort: a seed failure (e.g. after a rollback) must not affect the API.
-  if (!(await run(join(dir, 'seed.js')))) console.warn('WARNING: seed failed; the API keeps running');
+  if (!(await run(join(dir, 'seed.js')))) {
+    ok = false;
+    console.warn('WARNING: seed failed; the API keeps running');
+  }
   // The archive (past courses, sessions, speakers from prisma/archive/*.json): idempotent, never
   // overwrites admin edits, and best effort like the seed. ARCHIVE_IMPORT=false turns it off.
   if ((process.env.ARCHIVE_IMPORT ?? 'true') !== 'false') {
-    if (!(await run(join(dir, 'import-archive.js')))) console.warn('WARNING: archive import failed; the API keeps running');
+    if (!(await run(join(dir, 'import-archive.js')))) {
+      ok = false;
+      console.warn('WARNING: archive import failed; the API keeps running');
+    }
   }
   console.log(`startup-tasks: done in ${Math.round((Date.now() - started) / 1000)}s`);
+  return ok;
 }
 
 async function main(): Promise<void> {
@@ -92,7 +122,8 @@ async function main(): Promise<void> {
   const url = lockUrl(process.env);
   if (!url) {
     console.log('startup-tasks: no direct database URL for the lock; running unlocked');
-    return runTasks();
+    await runTasks();
+    return;
   }
   // Loaded only now, so it doesn't compete with the API's own boot for the CPU.
   const { PrismaClient } = await import('@prisma/client');
@@ -103,7 +134,13 @@ async function main(): Promise<void> {
       console.log('startup-tasks: another instance is seeding; skipping');
       return;
     }
-    await runTasks();
+    const key = runKey(process.env);
+    const done = key ? await prisma.setting.findUnique({ where: { key: DONE_KEY } }) : null;
+    if (key && done?.value === key) {
+      console.log('startup-tasks: already done for this release; skipping');
+    } else if ((await runTasks()) && key) {
+      await prisma.setting.upsert({ where: { key: DONE_KEY }, create: { key: DONE_KEY, value: key }, update: { value: key } });
+    }
     await prisma.$queryRaw`SELECT pg_advisory_unlock(${STARTUP_LOCK_KEY})`;
   } finally {
     await prisma.$disconnect();
