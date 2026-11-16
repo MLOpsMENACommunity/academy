@@ -1,3 +1,4 @@
+import type { PublicTestimonialDto } from './testimonials';
 import { z } from 'zod';
 import {
   APPLICATION_STATUSES,
@@ -252,6 +253,10 @@ export interface CourseDetailDto extends CourseSummaryDto {
   externalPlatform: string | null;
   externalUrl: string | null;
   publicRecordings: boolean;
+  /** Video lessons at the student's own pace: no schedule or dates to show. */
+  selfPaced: boolean;
+  /** Approved by the team, newest first. */
+  testimonials: PublicTestimonialDto[];
   /** The course's instructors (Main and Co-instructor roles with a public speaker profile, SHOWN only). */
   instructors: InstructorDto[];
   /** Everyone in a SHOWN course role, grouped by role, Main instructor first. Never anonymous staff or emails. */

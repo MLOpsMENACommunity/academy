@@ -106,3 +106,19 @@ export function Arrow({ className = '' }: { className?: string }) {
     </span>
   );
 }
+
+export const IconQr = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
+  </Svg>
+);
+
+export const IconKeyboard = (p: P) => (
+  <Svg {...p}>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
+  </Svg>
+);

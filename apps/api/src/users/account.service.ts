@@ -123,6 +123,8 @@ export class AccountService {
         },
         sessionProgress: true,
         sessionFeedback: true,
+        testimonials: { select: { courseId: true, body: true, status: true, consentAt: true, createdAt: true } },
+        earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
         reminderPreferences: true,
         // The link itself is a credential: only whether it exists and when it was used.
         calendarFeed: { select: { createdAt: true, rotatedAt: true, lastFetchedAt: true } },
@@ -249,8 +251,20 @@ export class AccountService {
           revokeReason: c!.revokeReason,
           verify: this.email.url(user.locale, `/certificates/${c!.serial}`),
         })),
+      // Certificates issued before the academy, linked to this account by its email.
+      earlierCertificates: user.earlierCertificates.map((c) => ({
+        code: c.code,
+        name: c.holderName,
+        courseTitle: c.courseTitle,
+        issuedOn: c.issuedOn,
+        status: c.revokedAt ? 'revoked' : 'valid',
+        revokedAt: c.revokedAt,
+        revokeReason: c.revokeReason,
+        verify: this.email.url(user.locale, `/certificates/${c.code}`),
+      })),
       sessionProgress: user.sessionProgress,
       feedback: user.sessionFeedback,
+      testimonials: user.testimonials,
       reminderPreferences: user.reminderPreferences,
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
@@ -467,6 +481,7 @@ export class AccountService {
       // Every invite for the address goes, including the one they enrolled through (the audit log keeps ids only).
       this.prisma.courseInvite.deleteMany({ where: { OR: [{ enrolledUserId: userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
+      this.prisma.testimonial.deleteMany({ where: { userId } }),
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),
@@ -493,6 +508,8 @@ export class AccountService {
       // Certificates stay on record (serial, course, dates: the public page says "no longer
       // available"); the printed name and the PDF go.
       this.prisma.certificate.updateMany({ where: { enrollment: { userId } }, data: { nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null, revokeReason: null } }),
+      // The same for certificates issued before the academy and linked to this account; the email that linked them goes too.
+      this.prisma.externalCertificate.updateMany({ where: { userId }, data: { holderName: '', email: null, revokeReason: null } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {

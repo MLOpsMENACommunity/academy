@@ -1,6 +1,7 @@
 import { applicationStatusLabels, applicationStatusMessages, type ApplicationStatus, type Locale } from '@academy/shared';
 import { Link } from '@react-email/components';
 import type { ReactElement } from 'react';
+import { CertificateEmail } from './CertificateEmail';
 import { Layout } from './Layout';
 
 /** Every email the academy sends, with the data each one needs. */
@@ -156,7 +157,21 @@ export type EmailTemplate =
       courseUrl: string;
     }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
-  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
+  | {
+      name: 'certificateIssued';
+      attendance?: boolean;
+      /** The name printed on the certificate. */
+      holderName: string;
+      courseTitle: string;
+      serial: string;
+      /** Already formatted in the student's language. */
+      issuedOn: string;
+      verifyUrl: string;
+      downloadUrl: string;
+      linkedInUrl: string;
+      /** Self-paced courses: where the student can write a testimonial. */
+      testimonialUrl?: string;
+    }
   /** Consultations: the student's payment proof was received, approved (book a time) or rejected (why). */
   | {
       name: 'consultationPayment';
@@ -991,30 +1006,28 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
       };
     }
     case 'certificateIssued': {
-      const subject = ar ? `شهادتك في ${t.courseTitle} جاهزة` : `Your ${t.courseTitle} certificate is ready`;
+      const subject = t.attendance
+        ? ar
+          ? `أتممت ${t.courseTitle}: شهادتك جاهزة`
+          : `You've completed ${t.courseTitle}: your certificate is ready`
+        : ar
+          ? `شهادتك في ${t.courseTitle} جاهزة`
+          : `Your certificate for ${t.courseTitle} is ready`;
       return {
         subject,
         element: (
-          <Layout
+          <CertificateEmail
             {...base}
             preview={subject}
-            banner={{ text: ar ? 'مبروك!' : 'Congratulations!', tone: 'success' }}
-            heading={subject}
-            paragraphs={[
-              ar
-                ? `أصدر فريق الدورة شهادة إتمامك لدورة ${t.courseTitle}. رقمها التسلسلي ${t.serial}، ويمكن لأي شخص التحقق منها عبر الرابط العام.`
-                : `The course team has issued your certificate of completion for ${t.courseTitle}. Its serial number is ${t.serial}, and anyone can verify it at its public link.`,
-              <>
-                <Link href={t.downloadUrl} style={{ textDecoration: 'underline' }}>
-                  {ar ? 'نزّل الشهادة (PDF)' : 'Download the PDF'}
-                </Link>
-                {' · '}
-                <Link href={t.linkedInUrl} style={{ textDecoration: 'underline' }}>
-                  {ar ? 'أضفها إلى LinkedIn' : 'Add it to LinkedIn'}
-                </Link>
-              </>,
-            ]}
-            cta={{ label: ar ? 'اعرض الشهادة' : 'View your certificate', url: t.verifyUrl }}
+            attendance={Boolean(t.attendance)}
+            holderName={t.holderName}
+            courseTitle={t.courseTitle}
+            serial={t.serial}
+            issuedOn={t.issuedOn}
+            verifyUrl={t.verifyUrl}
+            downloadUrl={t.downloadUrl}
+            linkedInUrl={t.linkedInUrl}
+            testimonialUrl={t.testimonialUrl}
           />
         ),
       };

@@ -131,7 +131,7 @@ If you ever add a tool that sets non-essential cookies (marketing pixels, chat w
 
 | Where | Headers |
 |---|---|
-| Web pages (`next.config.ts`) | CSP (`default-src 'self'`, YouTube nocookie frames only, `frame-ancestors 'none'`, `form-action 'self'`), HSTS (2 years), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, mic, location, payment off), `COOP: same-origin` |
+| Web pages (`next.config.ts`) | CSP (`default-src 'self'`, YouTube nocookie frames only, `frame-ancestors 'none'`, `form-action 'self'`), HSTS (2 years), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, mic, location, payment off; the camera is allowed for the site itself on `/{en,ar}/verify-certificate` only, to scan certificate QR codes), `COOP: same-origin` |
 | API (`apps/api/src/setup.ts`, Helmet) | `default-src 'none'`, `frame-ancestors 'none'`, `CORP: same-origin`, HSTS, `nosniff` |
 
 - **CORS:** only `WEB_URL` and any origins listed in `CORS_ORIGINS`. The browser reaches the API same-origin through the web app's `/api` proxy, so in normal use no other origin is ever needed.

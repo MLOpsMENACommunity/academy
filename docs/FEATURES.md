@@ -215,11 +215,18 @@ calendar is on mlopsmena.com/sessions (website repository). The academy offers:
 
 **Status:** Live. **Who:** anyone (employers, recruiters). **Use:** proves a certificate is genuine.
 
-`/certificates/<serial>` (serial like `MMA-2026-XXXXXXXX`) shows the name (English and Arabic), the
-course, issue date, instructors, grade, serial, issuer and status (**Valid** or **Revoked**), with a
-public PDF download for valid ones. Unknown serials give "not found". The page is never cached, so a
-revocation shows at once; it is `noindex`. Limits: 30 lookups a minute per visitor; 10 PDF downloads
-a minute per IP.
+**Verify a certificate** (`/verify-certificate`, linked in the footer): type the certificate ID or
+scan the QR code with the camera. It opens the certificate's page. `?code=<ID>` opens it directly (the
+website's old verify tool redirects here). The scanner reads both the bare IDs printed on certificates
+issued before the academy and the links in the academy's own QR codes.
+
+`/certificates/<serial>` (serial like `MMA-2026-XXXXXXXX`, `MLOPS-01-2026-00023`, any case) shows the
+name (English and Arabic), the course, issue date, instructors, grade, serial, issuer and status
+(**Valid** or **Revoked**), with a public PDF download for valid ones and **Add to LinkedIn**.
+Certificates issued before the academy (imported, see §7) show the same, without a PDF or a course
+link. Unknown IDs show "No certificate with this ID" and a way to try another. The page is never
+cached, so a revocation shows at once; it is `noindex`. Limits: 30 lookups a minute per visitor; 10
+PDF downloads a minute per IP.
 
 ### 2.8 What's new, policies and contact
 
@@ -553,6 +560,47 @@ needs no sign-in.
   Feedback tab with names; course staff with **See session feedback** read it in /teach → Feedback without
   names, so students can be honest.
 
+### Self-paced free courses
+
+**Status:** Pending (not merged yet). **Who:** enrolled students; ACADEMIC admins set it up.
+
+A free course can run as video lessons taken at the student's own pace. The videos stay on YouTube, so
+views count on our channel.
+
+- **Set-up:** Admin → Courses → course: tick **Self-paced course**, type Free, approval off, status Open
+  (clear any application dates). Each lesson is a session with its normal YouTube link in **Recording
+  link**; tick **Optional video** where it applies. A new lesson's date isn't shown: use any past date.
+  Add the quizzes in Assessments as **Mandatory for the certificate**. In a self-paced course a pass mark
+  below 80% is raised to 80% when the quiz is saved (or imported); a higher one is kept.
+- **Student view:** `/learn/<slug>` shows the video list with no dates or calendar, YouTube's own player
+  (no autoplay, so the student presses YouTube's play button) and the lesson's quizzes. The Join link,
+  calendar and session dates are hidden.
+- **Completing a lesson:** automatically when the video reaches its end, or with **Mark as complete**
+  (which can be undone). Each completion stores how it happened (watched or marked). Optional videos
+  can be completed but don't count; a lesson with no YouTube link can't be completed and doesn't count.
+- **Progress** is required videos finished. Attendance, and sessions ticked before PR #87, don't count.
+- **Attendance certificate:** issued automatically, with an email and a notification, as soon as the
+  student has finished every required video and scored at least 80% on every mandatory assessment
+  (exactly 80% passes; a quiz with a higher pass mark needs that). The course feedback is optional and
+  doesn't affect it. The course needs at least one mandatory assessment, so watching alone never earns
+  it. A student with no name on their profile gets it the next time they open the course after adding
+  one. The course's Certificate rule form isn't used. A course switched to self-paced after its quizzes
+  were made still needs 80% for the certificate, even where the quiz shows a lower pass mark until it
+  is saved again.
+- **Certificate email:** subject "You've completed {course}: your certificate is ready". It shows a
+  certificate card (name, course, issue date, certificate ID), **Download your certificate** and **Add
+  it to LinkedIn** buttons, how to verify it (the QR code or the verification page), and an invitation
+  to share it on LinkedIn and write a testimonial. Live courses' certificates use the same design with
+  completion wording.
+- **Enrolment required:** the videos aren't shown on the public course page or in the Recordings library,
+  even with **Recordings are public** ticked.
+- **Testimonials:** once the course feedback is in or the certificate is issued, the student is asked for a testimonial (20 to 600
+  characters, with a tick agreeing to publication with their name). It's optional and never affects the
+  certificate. ACADEMIC admins review them in Admin → Courses → course → **Testimonials**; approved ones
+  appear on the public course page as the name and the text only. Editing sends it back to review and
+  takes it off the site; the student can remove it at any time; deleting the account deletes it.
+- Live courses are unchanged.
+
 ---
 
 ## 6. Assessments (quizzes, labs, assignments)
@@ -643,9 +691,15 @@ Assessments):
 
 1. Admin → Courses → course → **Certificates** → **Certificate rule**: minimum % of sessions completed
    (optional), "Students must pass every **mandatory** assessment" (assessments are marked mandatory or
-   optional in the Assessments tab), and optional wording in English and Arabic (otherwise generated).
+   optional in the Assessments tab), a **minimum total score** (optional: points earned ÷ points of every
+   published quiz, lab and assignment; work not submitted or not graded yet counts as 0; exactly the
+   minimum passes), and optional wording in English and Arabic (otherwise generated). Every requirement
+   that is set must be met. Students see each one with their own progress on the course page.
+   **Certificate ID prefix** (optional, e.g. `MLOPS`): IDs become `MLOPS-01-2026-00001` (prefix, cohort
+   number, year in Cairo, then a running number shared by every course with that prefix and never
+   reused). Without a prefix, IDs stay random (`MMA-2026-7KQ4XM2P`). Changing it affects only later certificates.
 2. The **roster** shows every enrolled student with sessions %, required assessments passed (and any
-   waiting to be graded), average %, capstone state and an **Eligible** badge. Filters: all, eligible,
+   waiting to be graded), average % (the total score), capstone state and an **Eligible** badge. Filters: all, eligible,
    not issued, issued, revoked.
 3. Select students → **Issue** (optional grade, e.g. "Distinction"; up to 500 at once). Issuing to a
    student who doesn't meet the rule needs an explicit confirmation. Issuing twice still gives one
@@ -653,12 +707,35 @@ Assessments):
 4. **Revoke** with a reason (the public page shows Revoked, the PDF stops); **Re-issue** keeps the same
    serial with a fresh snapshot of name, title and instructors.
 5. CSV export. All actions audited.
+6. **Automatic issue (live courses):** Automation tab → **Certificate earned** with **Issue**. After the
+   course ends, each automation run issues the certificate to every eligible student who has none yet,
+   so a grade given later (by an admin or course staff in /teach) is picked up on the next run.
+   **Almost there** messages students who are exactly one requirement short, including the total score.
 
 Students get the `certificateIssued` email and a notification; the dashboard's **My certificates** has
 **Download PDF**, **Add to LinkedIn** (prefilled with the MLOps MENA Community organisation, so the
-logo shows), **View** and **Copy link**. The PDF is a bilingual landscape A4 with the logo, serial and a
-QR code to the verification page. One certificate per enrolment. Issuing adds the certificate bonus
+logo shows), **View** and **Copy link**. The PDF uses the community's own designs (Certificate of
+Completion and Certificate of Attendance, the operations team's templates): the student's English name,
+the course name, the course's short description (two lines at most), a QR code to the verification
+page, the ID and the issue date. **Signatures:** the founder signs every certificate. When she teaches
+the course (or it lists no instructor) hers is the only signature; when someone else teaches, hers moves
+to the left and the instructor's signature (their name in a handwriting font), name and title go on the
+right (two other instructors share the right side). The MLOps MENA watermark is redrawn from the logo. Certificates, the certificate email and the **Certified** badge email are **English only**, whatever the
+student's language. One certificate per enrolment. Issuing adds the certificate bonus
 points and the **Certified** badge; revoking takes both back.
+
+Self-paced courses issue a **Certificate of Attendance** automatically: see [Self-paced free courses](#self-paced-free-courses).
+
+**Certificates issued before the academy** (the n8n workflow and its public verification sheet):
+Admin → **Certificates** → **Import earlier certificates** takes the sheet as CSV (`code, holder_name,
+course, issued_on`, optional `status`, `email`, `kind`). Check the file first; a file with any error
+saves nothing. Rows match on the code: new ones are added, known ones updated, nothing is deleted, and
+a code issued by the academy is refused. Each prefix's numbering then continues after the highest
+imported number (`MLOPS-01-2026-00208` → the next MLOps certificate is `…-00209`). An email links the
+certificate to the account with that **confirmed** address, at import or when the student signs up
+later; linked ones appear in **My certificates** (no PDF). Emails are never shown publicly. Deleting
+the account hides the certificate; anonymisation removes its name and email, and a re-import doesn't
+bring them back. Audited.
 
 ---
 
@@ -1133,6 +1210,11 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
+| #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
+| #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
+| #116 | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
+| #113 | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
 | #112 | Production `robots.txt` disallows SEO-tool crawlers (SemrushBot, AhrefsBot, MJ12bot, DotBot, DataForSeoBot, BLEXBot, ibou): they bring no visitors but wake the containers (hosting cost). Search engines (Google, Bing) and AI assistants are unaffected. No API change, no migration | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |
 | #108 | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |

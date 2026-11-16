@@ -53,6 +53,7 @@ export function Footer({ locale }: { locale: Locale }) {
         { href: l('/terms'), label: t('footer.terms') },
         { href: l('/refund-policy'), label: t('footer.refund') },
         { href: l('/code-of-conduct'), label: t('footer.conduct') },
+        { href: l('/verify-certificate'), label: t('footer.verify') },
         { href: l('/contact'), label: t('footer.contact') },
       ],
     },

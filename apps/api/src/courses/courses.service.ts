@@ -81,6 +81,12 @@ export class CoursesService {
         instructors: { include: { instructor: true } },
         sessions: true,
         screeningQuestions: true,
+        testimonials: {
+          where: { status: 'APPROVED', user: { deletedAt: null } },
+          orderBy: { reviewedAt: 'desc' },
+          take: 12,
+          select: { id: true, body: true, user: { select: { profile: { select: { fullNameEn: true, fullNameAr: true } } } } },
+        },
       },
     });
     if (!course) throw new NotFoundException('Course not found');

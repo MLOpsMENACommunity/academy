@@ -10,7 +10,7 @@ import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { absoluteUrl } from '@/lib/site';
 
-/** Download the PDF, open the public page, add to LinkedIn, copy the link. Valid certificates only. */
+/** Download the PDF (when there is one), open the public page, add to LinkedIn, copy the link. Valid certificates only. */
 export function CertificateActions({ cert, compact = false }: { cert: MyCertificateDto; compact?: boolean }) {
   const { locale, t } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -45,9 +45,11 @@ export function CertificateActions({ cert, compact = false }: { cert: MyCertific
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <Button size={size} onClick={download} loading={busy}>
-          {t('certificates.download')}
-        </Button>
+        {cert.pdf && (
+          <Button size={size} onClick={download} loading={busy}>
+            {t('certificates.download')}
+          </Button>
+        )}
         <a href={linkedIn} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary', size)}>
           {t('certificates.linkedin')} <span aria-hidden className="inline-block rtl:-scale-x-100">↗</span>
         </a>
