@@ -7,6 +7,9 @@
  *     cacheable (ISR/static: `s-maxage`, no `private`/`no-store`/`no-cache`), 200, HTML,
  *     no Set-Cookie, and not a stale ISR copy. Kept for at most PAGE_TTL seconds.
  *   - Build assets: /_next/static/* (content-hashed, `immutable`), for everyone.
+ *   - The site's own fixed files from apps/web/public (logo, favicons, speaker photos): for
+ *     everyone, kept PUBLIC_FILE_TTL. Next serves them with `max-age=0`, so without this every
+ *     first view of a page in a data centre woke the web container just for its logo.
  *   - Uploaded images: /api/media/<uuid>.<jpg|png|webp> (course and session covers, speaker
  *     photos). Public, never reused under the same name, served by the API as `immutable`:
  *     cached like build assets, for everyone (the image is the same whoever asks).
@@ -53,6 +56,12 @@
  * configured (or fails). Next revalidates on demand and every 60 s behind this.
  */
 export const PAGE_TTL = 30;
+/**
+ * Edge lifetime of the site's fixed files (PUBLIC_FILE). They change only with a deploy, so a
+ * replaced logo or speaker photo can take up to this long to show everywhere (or purge it by URL
+ * in the Cloudflare dashboard, Caching → Configuration → Custom Purge).
+ */
+export const PUBLIC_FILE_TTL = 86_400;
 /** Edge lifetime of a cached public API read (the API asks for s-maxage=60; the edge keeps less). */
 export const API_TTL = 30;
 /**
@@ -99,7 +108,10 @@ const NEXT_CLIENT_HEADERS = ['rsc', 'next-router-state-tree', 'next-router-prefe
 const PRIVATE_PAGE =
   /^\/(en|ar)\/(dashboard|profile|onboarding|admin|learn|verify-email|reset-password|waitlist)(\/|$)|^\/(en|ar)\/courses\/[^/]+\/apply(\/|$)/;
 
-export type CacheKind = 'page' | 'asset' | 'api' | 'feed';
+export type CacheKind = 'page' | 'asset' | 'api' | 'feed' | 'file';
+
+/** The site's own files in apps/web/public that pages load (never anything a visitor uploaded). */
+const PUBLIC_FILE = /^\/(favicon\.ico|favicon-32\.png|apple-touch-icon\.png|logo\.svg|logo-mark\.png|speakers\/[a-z0-9-]{1,100}\.webp)$/;
 
 export function cookieValue(request: Request, name: string): string | undefined {
   const header = request.headers.get('cookie');
@@ -141,6 +153,8 @@ export function cacheKind(request: Request): CacheKind | null {
   }
   if (NEXT_CLIENT_HEADERS.some((h) => request.headers.has(h)) || url.searchParams.has('_rsc')) return null;
   if (path.startsWith('/_next/static/')) return 'asset';
+  // The same bytes for everyone, signed in or not; no query string (it would only multiply entries).
+  if (PUBLIC_FILE.test(path)) return url.search ? null : 'file';
   if (hasSession(request)) return null;
   if (!pathLocale(path) || PRIVATE_PAGE.test(path) || path.includes('//')) return null;
   return 'page';
@@ -178,6 +192,11 @@ export function storableCacheControl(kind: CacheKind, response: Response, purge 
   // First-time visitors get the middleware's NEXT_LOCALE cookie on every page: that one alone
   // doesn't stop caching (storedCopy drops it), or a launch spike of new visitors would never hit.
   if (response.headers.has('set-cookie') && !(kind === 'page' && onlySetsLocaleCookie(response))) return null;
+  if (kind === 'file') {
+    // Only what the web container served from public/: an image, never an HTML error page.
+    const type = response.headers.get('content-type') ?? '';
+    return type.startsWith('image/') ? `public, max-age=0, s-maxage=${PUBLIC_FILE_TTL}` : null;
+  }
   const cc = parseCacheControl(response.headers.get('cache-control'));
   if (kind === 'feed') {
     // Before the `private` check below: the API marks the feed private for calendar apps and any
@@ -216,6 +235,8 @@ export function storableCacheControl(kind: CacheKind, response: Response, purge 
 export function browserCacheControl(kind: CacheKind, current: string | null): string | null {
   if (kind === 'asset') return current;
   if (kind === 'feed') return FEED_BROWSER_CACHE_CONTROL;
+  // A browser may keep the logo for an hour: it changes only with a deploy.
+  if (kind === 'file') return 'public, max-age=3600';
   return 'public, max-age=0, must-revalidate';
 }
 
@@ -255,7 +276,7 @@ export function storedCopy(response: Response, cacheControl: string, kind: Cache
   const out = new Response(response.body, response);
   out.headers.delete('set-cookie');
   out.headers.set('cache-control', cacheControl);
-  if (kind === 'asset') out.headers.delete('cache-tag');
+  if (kind === 'asset' || kind === 'file') out.headers.delete('cache-tag');
   else out.headers.set('cache-tag', EDGE_TAG);
   return out;
 }
