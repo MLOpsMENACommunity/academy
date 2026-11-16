@@ -156,6 +156,17 @@ export class AccountService {
           },
           orderBy: { startsAt: 'asc' },
         },
+        // Course Q&A: what they asked and answered (votes and follows are only markers).
+        questionsAsked: {
+          select: { title: true, body: true, status: true, createdAt: true, editedAt: true, hiddenAt: true, course: { select: { slug: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        answersWritten: {
+          select: { body: true, createdAt: true, editedAt: true, hiddenAt: true, acceptedFor: { select: { id: true } }, question: { select: { title: true, course: { select: { slug: true } } } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        questionVotes: { select: { createdAt: true, question: { select: { title: true } } } },
+        questionFollows: { select: { createdAt: true, question: { select: { title: true } } } },
         submissions: {
           select: {
             attempt: true,
@@ -272,6 +283,16 @@ export class AccountService {
       speakerApplication: user.speakerApplication,
       speakerProfile: user.speakerProfile,
       speakerBookings: user.speakingSlots,
+      courseQuestions: user.questionsAsked.map(({ course, hiddenAt, ...q }) => ({ course: course.slug, ...q, hiddenByTeam: Boolean(hiddenAt) })),
+      courseAnswers: user.answersWritten.map(({ question, acceptedFor, hiddenAt, ...a }) => ({
+        course: question.course.slug,
+        question: question.title,
+        ...a,
+        accepted: Boolean(acceptedFor),
+        hiddenByTeam: Boolean(hiddenAt),
+      })),
+      questionVotes: user.questionVotes.map((x) => ({ question: x.question.title, at: x.createdAt })),
+      questionsFollowed: user.questionFollows.map((x) => ({ question: x.question.title, at: x.createdAt })),
       consultations: user.consultationsBooked.map(({ consultant, ...c }) => ({ expert: consultant.instructor, ...c })),
       // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
       assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
@@ -444,7 +465,11 @@ export class AccountService {
     }
 
     const applicationIds = user.applications.map((a) => a.id);
+    // Course Q&A: their questions and answers stay (shown as "Former student"); votes and follows go.
+    const voted = await this.prisma.questionVote.findMany({ where: { userId }, select: { questionId: true } });
     await this.prisma.$transaction([
+      this.prisma.questionVote.deleteMany({ where: { userId } }),
+      this.prisma.questionFollow.deleteMany({ where: { userId } }),
       this.prisma.payment.updateMany({
         where: { applicationId: { in: applicationIds } },
         data: {
@@ -521,6 +546,11 @@ export class AccountService {
         },
       }),
     ]);
+    // The questions they had voted for count one vote fewer.
+    for (const { questionId } of voted) {
+      const voteCount = await this.prisma.questionVote.count({ where: { questionId } });
+      await this.prisma.courseQuestion.update({ where: { id: questionId }, data: { voteCount } });
+    }
     await this.audit.log({ actorId: null, action: 'account.anonymised', entityType: 'User', entityId: userId });
   }
 

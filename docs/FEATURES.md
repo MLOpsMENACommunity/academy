@@ -36,6 +36,7 @@ When a release reaches staging, change its "Merged" entries to "Staging"; when i
 4. [Applications and admissions](#4-applications-and-admissions)
    - [Applying](#41-applying) · [Statuses](#42-application-statuses) · [Reviewing applications](#43-reviewing-applications-admin) · [CVs](#44-cvs) · [Payments](#45-payments-paid-courses) · [Google Drive access](#46-google-drive-access-paid-courses) · [Enrol by email](#47-enrol-by-email) · [Waiting list](#48-waiting-list-notify-me)
 5. [The learn page](#5-the-learn-page)
+   - [Course Q&A](#51-course-qa)
 6. [Assessments](#6-assessments-quizzes-labs-assignments)
 7. [Certificates](#7-certificates)
 8. [Points, badges and leaderboards](#8-points-badges-and-leaderboards)
@@ -73,6 +74,8 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Speaker application, slots, bookings | | | own | | | | | | |
 | Announce to enrolled students / session registrants | | staff³ | staff³ / own sessions | ✓ (courses) | ✓ (courses) | | | | |
 | Create and grade assessments, gradebook | | staff³ | staff³ | ✓ | ✓ | | | | |
+| Course Q&A: ask, answer, vote, follow, accept an answer to own question | | enrolled | enrolled | ✓ | ✓ | enrolled¹ | enrolled¹ | enrolled¹ | enrolled¹ |
+| Course Q&A: answer as the course team, accept any answer, pin, close, hide (Q&A tab) | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Award or remove course points | | staff³ | staff³ | ✓ | ✓² | | | | |
 | Edit session materials (what we cover, recording, links) | | staff³ | staff³ | ✓ | ✓ | ✓ (media fields only, S) | | | |
 | Courses: create, edit, sessions, questions, status | | | | ✓ | ✓ | | read | | |
@@ -349,7 +352,7 @@ community (with consent).
 
 **Status:** Live. The bell in the header shows unread notifications (checked every 2 minutes while
 the tab is visible and in use; a tab left untouched for 10 minutes stops checking until someone
-moves the mouse, types or scrolls, then refreshes at once): application updates, announcements, grades, new assessments, badges, points,
+moves the mouse, types or scrolls, then refreshes at once): application updates, announcements, grades, new assessments, Q&A answers, badges, points,
 certificates, speaker reviews and bookings, admin alerts. **Mark all as read**. Each links to the
 relevant page. Times show in the viewer's own time zone; if the list can't load, the panel says so.
 
@@ -524,6 +527,7 @@ admins can preview any course; course staff can preview assessments.
   that browser). The in-app notification and the email open it directly (`/learn/<slug>#announcements`).
   Students see the announcements sent to enrolled students and any sent to them directly, never
   those for other statuses.
+- **Q&A tab** (after **Announcements**): the course's questions and answers, see [5.1](#51-course-qa).
 - **Assessments** list with how many are due, **Leaderboard**, **How to earn the certificate** card or
   the certificate banner.
 - Dashboard (`/dashboard`): my courses (all, in progress, completed), next live sessions, my
@@ -605,6 +609,47 @@ views count on our channel.
   appear on the public course page as the name and the text only. Editing sends it back to review and
   takes it off the site; the student can remove it at any time; deleting the account deletes it.
 - Live courses are unchanged.
+
+### 5.1 Course Q&A
+
+**Status:** Pending (PR #121).
+
+**Who:** students enrolled in the course ask, answer, vote and follow; course staff whose role has
+**Answer questions** (Main instructor, Co-instructor and Moderator by default) and SUPER/ACADEMIC admins
+answer as the course team and moderate. Anyone else gets "This page is for enrolled students"
+(`NOT_ENROLLED`).
+
+**Use:** learn page → **Q&A** tab (`/learn/<slug>#qa`; `?q=<question>` opens one thread), or for staff
+`/teach/courses/<id>?tab=qa` (opens on **Unanswered**).
+
+- **Ask:** a title (5–150 characters), details in Markdown (up to 5,000 characters; code blocks read left
+  to right) and optionally the lesson or session it is about (the one open on the page is preselected).
+  Asking follows the question.
+- **List:** pinned first, then the most recent activity; filters **All**, **Unanswered**, **Mine**,
+  **Following** and **This lesson** (the session open on the learn page); search in titles and details;
+  20 per page.
+- **Answer:** anyone who can see the question, unless it is closed. Answering follows the question.
+  Staff in a publicly shown role answer under their name and the role's name; staff in an anonymous
+  role, and admins outside the course staff, show only as "Course team", with no name. Students appear by first name and last initial; a deleted account shows as "Former student".
+- **I have this question too** (not on your own question) and **Follow / Stop following**.
+- **Edit:** only the author, within 30 minutes of posting (shown as "Edited"). Staff can't change
+  anyone's words; they hide instead.
+- **Accept:** the asker or the course team accepts one answer; it shows first. A student's accepted
+  answer earns **5 points** (`QA_ANSWER`) once; accepting another answer or removing the acceptance
+  takes them back. Staff answers, admins' answers and the asker's own answer never earn points.
+- **Moderation** (Answer questions): **Pin/Unpin**, **Close/Reopen** (a closed question takes no new
+  answers), **Hide/Show** a question or an answer. A hidden post stays visible to its author, marked
+  hidden, and to the staff; hiding an accepted answer removes the acceptance (and its points). Each
+  moderation action is in the audit log (ids only). Nothing ever removes a student or a post.
+- **Status:** Unanswered until a visible answer exists, then Answered; Closed until reopened.
+- **Notifications:** a new visible answer tells every follower but its author, in the app and by
+  email (`qaAnswer`, through the outbox; the course's reminder-emails switch turns the emails off).
+  A hidden question's answers reach only its asker.
+- **Automation:** the rule **Question waiting for an answer** (Community group, recommended) alerts
+  staff with Answer questions about visible questions nobody answered after N hours (6–168, default 48),
+  once per question (section 11.1).
+- **Limits:** 20 questions, answers or edits a minute per person; 60 votes, follows and moderation
+  actions a minute.
 
 ---
 
@@ -836,8 +881,8 @@ reach only the courses they are on.
 
 - **Roles:** each course starts with three editable built-in roles. *Main instructor* (every
   permission; can be renamed and changed, never deleted), *Co-instructor* (assessments, grading,
-  materials, roster, attendance, points, announcements, session feedback) and *Moderator* (roster,
-  attendance, points, announcements, session feedback; anonymous). Only the Main instructor manages
+  materials, roster, attendance, points, announcements, session feedback, answer questions) and *Moderator* (roster,
+  attendance, points, announcements, session feedback, answer questions; anonymous). Only the Main instructor manages
   automation rules by default. Add any role: an English and Arabic name, the permission checkboxes,
   **Shown** or **Anonymous**, and an order. A role can be deleted once nobody is in it.
 - **People:** add an existing account by email, or pick a public speaker profile; choose the role;
@@ -859,6 +904,7 @@ reach only the courses they are on.
 | Students and attendance | Upload attendance | Google Meet attendance files, marking by hand |
 | Students and attendance | Manage points | Add, edit and remove course points (within the speaker points cap) |
 | Communication | Send announcements | Messages to enrolled students, sent at once, "From" the sender |
+| Communication | Answer questions | The Q&A tab: answer as the course team, accept, pin, close and reopen, hide and unhide (section 5.1). Main instructor, Co-instructor and Moderator have it by default |
 | Communication | See session feedback | The Feedback tab: each session's and the course's average rating and comments, **without students' names** (admins see names) |
 | Course management | Edit the course | Course details (not status, address, type, price or who teaches) |
 | Course management | Manage sessions | Dates, Meet links, the session list |
@@ -869,7 +915,7 @@ reach only the courses they are on.
 
 **The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
 courses whose staff you are on, with your role. Each course shows only the tabs your role opens:
-Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Feedback, Details, Sessions,
+Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Q&A, Feedback, Details, Sessions,
 Applications, Enrolment, Certificates, Automation. They are the admin screens, limited to that course. The old
 `/speaker/courses/…` pages redirect there.
 
@@ -1107,6 +1153,7 @@ a student, change an application or release a seat. A unit test holds the code t
 | Community | Community links | Telegram and/or Discord invite links | Links |
 | Community | Telegram username missing | Asks enrolled students to add it | Days after enrolment (1) |
 | Community | Weekly summary | Last week's points and leaderboard place (only to students who earned points) | — |
+| Community | Question waiting for an answer ★ | Course Q&A questions nobody answered: alert to staff with Answer questions | Hours (48) |
 
 ★ in the recommended set.
 
@@ -1158,6 +1205,7 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | speakerBookingConfirmed | Speaker booked a slot | Transactional |
 | speakerBookingTeam | Booking or cancellation, to each session team address | Bulk |
 | speakerSessionPublished | The team published the speaker's session | Transactional |
+| qaAnswer | A new answer to a course Q&A question you asked or follow (through the outbox); per-course reminder opt-out | Bulk |
 | automationMessage | A course automation rule's message (section 11.1); per-course reminder or feedback opt-out, quiet hours, 3 a day | Bulk |
 | adminAlert | Drive access to remove, and similar team alerts | Transactional |
 | profileReview | Profile untouched for ~6 months | Transactional |
@@ -1166,7 +1214,7 @@ In-app notifications accompany most of these (see 3.7). Students turn off course
 on the learn page; marketing emails are opt-in. Feedback emails have their own per-course "stop" link
 that works without signing in (section 5).
 
-Feedback prompts and assessment publish notices go through the **durable outbox**: each
+Feedback prompts, assessment publish notices and Q&A answers go through the **durable outbox**: each
 email is a database row, sent in the background with retries, so a restart doesn't lose it and the
 same email is never sent twice.
 
@@ -1189,6 +1237,10 @@ same email is never sent twice.
 - **No tracking cookies:** only strictly necessary cookies; optional analytics are cookieless.
 - **Logs** contain no personal data (route patterns, not URLs); error reports strip user data.
 - **Audit log** records every admin action with ids only.
+- **Course Q&A** (5.1): questions and answers are visible to the course's students and staff only,
+  with students' first name and last initial, never an email. They are in the data export (with
+  votes and follows). On anonymisation the posts stay as "Former student" (other students' threads
+  depend on them) and votes and follows are deleted.
 - Egypt's PDPL (Law 151/2020) governs incidents: 72 hours to notify (see OPERATIONS.md).
 
 ---
@@ -1217,6 +1269,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #121 | **Course Q&A** (section 5.1): a Q&A tab on the learn page and in the Teaching area. Enrolled students ask (optionally about one lesson), answer, vote "I have this question too", follow and accept; staff with the new **Answer questions** permission (Main instructor, Co-instructor, Moderator by default) and SUPER/ACADEMIC admins pin, close, hide. New answers notify followers in the app and by email (`qaAnswer`, reminders opt-out). An accepted student answer earns 5 points. Automation rule **Question waiting for an answer**. Migration: CourseQuestion, CourseAnswer, QuestionVote, QuestionFollow tables; CoursePermission ANSWER_QUESTIONS; PointsReason QA_ANSWER | Pending |
 | #120 | Self-paced courses on public pages: **Start any time** instead of "Applications open", and **{n} video lessons at your own pace** instead of the duration in weeks, hours per week, start and apply-by dates (course page, cards, Learn menu, speaker pages). The course summary and speaker course list now carry `selfPaced`. No migration | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
