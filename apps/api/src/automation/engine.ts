@@ -3,6 +3,7 @@ import {
   countedAttempt,
   SEAT_HOLDING_STATUSES,
   type AutomationParams,
+  localIsoDate,
   type AutomationRuleType,
   type Eligibility,
 } from '@academy/shared';
@@ -10,6 +11,7 @@ import { formatDueAt } from '../assessments/due-format';
 import { formatStart } from '../applications/workflow.service';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
 import type { PrismaService } from '../prisma/prisma.service';
+import { loadStudyItems, planTimezone, scheduleOf } from '../study-plan/study-items';
 import { alertTexts, studentTexts, type AlertText, type CourseNames, type StudentText } from './texts';
 
 const MIN = 60_000;
@@ -370,6 +372,30 @@ export const RULES: Record<AutomationRuleType, Rule> = {
     const hits = students
       .filter((s) => (partial.get(s.userId) ?? 0) >= times)
       .map((s): Hit => ({ key: s.userId, userId: s.userId, label: s.label, message: msg(studentTexts.oftenLate(d.names), d.learn('#sessions')) }));
+    return { hits };
+  },
+
+  /** Self-paced courses: a student's own study plan says they are behind by at least `items` (once a week at most). */
+  async STUDY_PLAN_BEHIND(d, p) {
+    if (!d.course.selfPaced) return { hits: [] };
+    const need = n(p, 'items');
+    const students = await d.students();
+    const plans = await d.prisma.studyPlan.findMany({
+      where: { courseId: d.course.id, userId: { in: students.map((s) => s.userId) } },
+      select: { userId: true, weekdays: true, minutesPerDay: true, startDate: true },
+    });
+    if (!plans.length) return { hits: [] };
+    const { byUser } = await loadStudyItems(d.prisma, d.course.id, plans.map((x) => x.userId));
+    const byId = new Map(students.map((s) => [s.userId, s]));
+    const week = weekIndex(d.t);
+    const hits: Hit[] = [];
+    for (const plan of plans) {
+      const s = byId.get(plan.userId);
+      if (!s) continue;
+      const { schedule, behindBy } = scheduleOf(plan, byUser.get(plan.userId) ?? [], localIsoDate(d.now, planTimezone(s.timezone)));
+      if (!schedule.remainingItems || behindBy < need) continue;
+      hits.push({ key: `${s.userId}:w${week}`, userId: s.userId, label: s.label, message: msg(studentTexts.studyPlanBehind(d.names, behindBy), d.learn('#study-plan')) });
+    }
     return { hits };
   },
 
@@ -776,5 +802,19 @@ export const RULES: Record<AutomationRuleType, Rule> = {
       });
     });
     return { hits };
+  },
+
+  // ------------------------------------------------------------------ course Q&A
+  async QUESTION_UNANSWERED(d, p) {
+    const hours = n(p, 'hours');
+    // Visible, still OPEN (not closed, no visible answer) and asked more than `hours` ago.
+    const questions = await d.prisma.courseQuestion.findMany({
+      where: { courseId: d.course.id, status: 'OPEN', hiddenAt: null, answerCount: 0, createdAt: { lte: new Date(d.t - hours * HOUR) } },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+      select: { id: true, title: true },
+    });
+    const hits = questions.map((q): Hit => ({ key: q.id, userId: null, label: q.title, subject: q.title, alert: true }));
+    return { hits, alert: (c) => alertTexts.questionUnanswered(d.names, c, hours), link: { admin: `/teach/courses/${d.course.id}?tab=qa`, teach: 'qa' } };
   },
 };

@@ -1,10 +1,12 @@
 import {
   courseAvailabilityLabels,
+  courseAvailabilityText,
   courseLanguageLabels,
   courseLevelsText,
   type CourseSummaryDto,
   type Locale,
 } from '@academy/shared';
+import { intlLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { formatDate, formatMoney } from '@/lib/format';
 import { CatalogCard, type CardBar, type CardTone } from '../catalog/CatalogCard';
@@ -33,8 +35,8 @@ function courseLook(c: CourseSummaryDto, locale: Locale): { bar: CardBar; tone: 
     return {
       bar: 'green',
       tone: 'success',
-      badge: courseAvailabilityLabels.OPEN[locale],
-      cta: c.applicationDeadline ? t('catalog.applyBy', { date: formatDate(c.applicationDeadline, locale) }) : t('catalog.details'),
+      badge: courseAvailabilityText(c, locale),
+      cta: c.applicationDeadline && !c.selfPaced ? t('catalog.applyBy', { date: formatDate(c.applicationDeadline, locale) }) : t('catalog.details'),
     };
   }
   if (c.availability === 'UPCOMING') return { bar: 'amber', tone: 'accent', badge: courseAvailabilityLabels.UPCOMING[locale], cta: t('catalog.notifyCta') };
@@ -61,10 +63,21 @@ export function enrolmentFacts(
   };
 }
 
+/**
+ * "4.7 ★ (38 ratings)" and its spoken form, from the approved ratings (null until there are
+ * RATING_MIN_TO_SHOW of them, so nothing to show).
+ */
+export function ratingFacts(rating: CourseSummaryDto['rating'] | undefined, locale: Locale): { text: string; label: string } | null {
+  if (!rating) return null;
+  const t = createTranslator(locale);
+  const average = new Intl.NumberFormat(intlLocale(locale), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(rating.average);
+  return { text: t('catalog.rating', { average, count: rating.count }), label: t('catalog.ratingLabel', { average, count: rating.count }) };
+}
+
 export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course: CourseSummaryDto; locale: Locale; headingLevel?: 'h2' | 'h3' }) {
   const t = createTranslator(locale);
   const look = courseLook(c, locale);
-  const when = c.startDate
+  const when = c.startDate && !c.selfPaced
     ? c.completed
       ? c.endDate
         ? t('course.range', { start: formatDate(c.startDate, locale), end: formatDate(c.endDate, locale) })
@@ -72,12 +85,20 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
       : t('catalog.starts', { date: formatDate(c.startDate, locale) })
     : null;
   const { enrolled, seats } = enrolmentFacts(c, locale);
+  const rating = ratingFacts(c.rating, locale);
   const meta = [
-    [courseLevelsText(c, locale), c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
+    // A self-paced course has no weeks: "Self-paced" instead.
+    [courseLevelsText(c, locale), c.selfPaced ? t('catalog.selfPaced') : c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
     // The language isn't decided while the course is coming soon.
     [c.comingSoon ? null : courseLanguageLabels[c.language][locale], priceLabel(c, locale)].filter(Boolean).join(' · '),
     when,
     [enrolled, seats].filter(Boolean).join(' · '),
+    rating && (
+      <>
+        <span aria-hidden>{rating.text}</span>
+        <span className="sr-only">{rating.label}</span>
+      </>
+    ),
   ].filter(Boolean);
 
   return (

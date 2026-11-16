@@ -168,7 +168,7 @@ Major upgrades (Next 16, Nest 12, Prisma 7, TypeScript 7) are deliberate, separa
 - **Admissions:** `Application` (status, answers, profile snapshot, `ref`), `ApplicationStatusHistory`,
   `Payment`, `Enrollment`, `CourseInvite`, `CourseInterest` (waiting list), `AdminNote`, `SavedFilter`,
   `FunnelEventLog`.
-- **Learning:** `SessionProgress`, `SessionFeedback`, `ReminderPreference` (reminder and feedback-email
+- **Learning:** `SessionProgress`, `LessonWatch` (where a student stopped in each video), `SessionFeedback`, `ReminderPreference` (reminder and feedback-email
   opt-outs per course), `ReminderLog`, `Announcement`, `AnnouncementRecipient`, `Notification`.
 - **Assessments:** `Assessment`, `QuizQuestion`, `QuizOption`, `Submission`, `AssessmentReminderLog`.
 - **Certificates:** `Certificate` (one per enrolment; snapshots; `ON DELETE RESTRICT`).
@@ -257,6 +257,7 @@ hand. Each job is idempotent and isolated (one failing doesn't stop the others):
 | `feedbackPromptsQueued` | Registered. Feedback prompts for sessions that ended 30 min–72 h ago (outbox rows + notifications) |
 | `consultationRemindersQueued` / `consultationScreenshotsDeleted` | Registered. Queue the 24 h (22–24 h) and 1 h (10–75 min) reminders for booked consultations (outbox dedupe keys, with the call's time, make each send once), and delete consultation payment screenshots older than `screenshotRetentionDays` (never one waiting for review) |
 | `automationActions` | Registered. Course automation rules (`src/automation/`): each rule that is on in an active, unpaused course is evaluated (`engine.ts`), what it already did is dropped (`AutomationFiring`, unique per rule and occasion, is the log and the marker), then it enqueues student messages (outbox category `automation`, opt-out `reminders`; quiet hours; 3 a day), writes notifications, alerts the course team, syncs bonus points (source `AUTOMATION`) and issues certificates when set to. Never changes an application (a unit test checks the code) |
+| `studyPlanRemindersQueued` | Registered. Study-day reminders for self-paced study plans (`src/study-plan/`): for plans whose study day is today in the student's time zone and whose reminder hour passed less than 3 h ago, an outbox row (category `study-plan`, opt-out `reminders`, `notBefore` the reminder time, dedupe key `study-plan:<plan>:<local date>`) and a notification, in one transaction |
 | `outboxPending` / `outboxPurged` | Registered. Start sending the email outbox (after the response); delete old finished rows |
 
 **Jobs registry.** New jobs don't touch `jobs.controller.ts`: a provider decorated with

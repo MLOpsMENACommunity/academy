@@ -1,4 +1,4 @@
-import type { PublicTestimonialDto } from './testimonials';
+import type { CourseRatingDto, PublicTestimonialDto } from './testimonials';
 import { z } from 'zod';
 import {
   APPLICATION_STATUSES,
@@ -192,6 +192,8 @@ export interface CourseSummaryDto {
   /** Seats still free, only while applications are open and the course has a capacity (0 = full); otherwise null. */
   seatsLeft: number | null;
   instructorNames: string[];
+  /** Video lessons at the student's own pace: no schedule, dates or weeks to show; "Start any time" while open. */
+  selfPaced: boolean;
   /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
   completed: boolean;
   /**
@@ -202,6 +204,8 @@ export interface CourseSummaryDto {
   cohortNumber: number | null;
   endDate: string | null;
   topics: string[];
+  /** Average of the approved star ratings; null until RATING_MIN_TO_SHOW are approved. */
+  rating: CourseRatingDto | null;
 }
 
 /** Public schedule entry: never includes live links or materials. */
@@ -253,9 +257,7 @@ export interface CourseDetailDto extends CourseSummaryDto {
   externalPlatform: string | null;
   externalUrl: string | null;
   publicRecordings: boolean;
-  /** Video lessons at the student's own pace: no schedule or dates to show. */
-  selfPaced: boolean;
-  /** Approved by the team, newest first. */
+  /** Approved by the team and with words (rating-only reviews only count in `rating`), newest first. */
   testimonials: PublicTestimonialDto[];
   /** The course's instructors (Main and Co-instructor roles with a public speaker profile, SHOWN only). */
   instructors: InstructorDto[];

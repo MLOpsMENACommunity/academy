@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   courseAvailability,
+  courseRating,
+  type CourseRatingDto,
   matchesCatalog,
   SEAT_HOLDING_STATUSES,
   type CatalogQuery,
@@ -49,6 +51,21 @@ export class CoursesService {
     return out;
   }
 
+  /**
+   * Per course: the public rating from APPROVED ratings only (pending, rejected and private session
+   * feedback never count), in one query for any number of courses. Null below RATING_MIN_TO_SHOW.
+   */
+  async ratings(courseIds: string[]): Promise<Map<string, CourseRatingDto | null>> {
+    if (!courseIds.length) return new Map();
+    const rows = await this.prisma.testimonial.groupBy({
+      by: ['courseId'],
+      where: { courseId: { in: courseIds }, status: 'APPROVED', rating: { not: null }, user: { deletedAt: null } },
+      _count: { rating: true },
+      _sum: { rating: true },
+    });
+    return new Map(rows.map((r) => [r.courseId, courseRating(r._count.rating, r._sum.rating ?? 0)]));
+  }
+
   async listPublic(q: CatalogQuery): Promise<CourseSummaryDto[]> {
     // The catalog is a few dozen courses: filter in memory with the same matcher as the static
     // catalog page (English/Arabic include bilingual courses; "Paid" means a price is set).
@@ -61,10 +78,11 @@ export class CoursesService {
     const matching = courses.filter((c) =>
       matchesCatalog({ ...c, availability: courseAvailability(c, now) }, q),
     );
-    const seats = await this.seatCounts(matching.map((c) => c.id));
+    const ids = matching.map((c) => c.id);
+    const [seats, ratings] = await Promise.all([this.seatCounts(ids), this.ratings(ids)]);
     return (
       matching
-        .map((c) => toCourseSummary(c, seats.get(c.id) ?? NO_SEATS, now))
+        .map((c) => toCourseSummary(c, seats.get(c.id) ?? NO_SEATS, now, ratings.get(c.id) ?? null))
         // Open courses first, then upcoming, then closed.
         .sort(
           (a, b) =>
@@ -82,16 +100,17 @@ export class CoursesService {
         sessions: true,
         screeningQuestions: true,
         testimonials: {
-          where: { status: 'APPROVED', user: { deletedAt: null } },
+          // Reviews with words; a rating without words only counts in the average.
+          where: { status: 'APPROVED', body: { not: '' }, user: { deletedAt: null } },
           orderBy: { reviewedAt: 'desc' },
           take: 12,
-          select: { id: true, body: true, user: { select: { profile: { select: { fullNameEn: true, fullNameAr: true } } } } },
+          select: { id: true, body: true, rating: true, user: { select: { profile: { select: { fullNameEn: true, fullNameAr: true } } } } },
         },
       },
     });
     if (!course) throw new NotFoundException('Course not found');
-    const [seats, staff] = await Promise.all([this.seatCounts([course.id]), this.staff.publicGroups(course.id)]);
-    return toCourseDetail(course, seats.get(course.id) ?? NO_SEATS, new Date(), staff);
+    const [seats, staff, ratings] = await Promise.all([this.seatCounts([course.id]), this.staff.publicGroups(course.id), this.ratings([course.id])]);
+    return toCourseDetail(course, seats.get(course.id) ?? NO_SEATS, new Date(), staff, ratings.get(course.id) ?? null);
   }
 
   async myStatus(slug: string, userId: string): Promise<MyCourseStatusDto> {

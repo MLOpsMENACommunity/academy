@@ -150,6 +150,12 @@ describe('admin routes', () => {
     for (const r of staff) expect(r.adminCan).toEqual(['ACADEMIC']);
   });
 
+  it('keeps reviews (ratings and testimonials) with the academic preset', () => {
+    expect(presets('GET', 'admin/reviews')).toEqual(['ACADEMIC']);
+    expect(presets('GET', 'admin/courses/:id/testimonials')).toEqual(['ACADEMIC']);
+    expect(presets('PUT', 'admin/courses/:id/testimonials/:testimonialId/review')).toEqual(['ACADEMIC']);
+  });
+
   it('keeps challenges with the academic preset, like points and badges', () => {
     const challenges = routes.filter((r) => r.path.startsWith('admin/challenges'));
     expect(challenges.length).toBe(6);

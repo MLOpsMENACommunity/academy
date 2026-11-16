@@ -266,6 +266,143 @@ export function seededShuffle<T>(items: readonly T[], seed: string): T[] {
   return out;
 }
 
+// ------------------------------------------------------------------ question bank: topics, draws, per-topic scores
+
+/** Characters in a question's topic. */
+export const TOPIC_MAX = 60;
+/** Questions one attempt may draw from the bank. */
+export const MAX_DRAW_COUNT = 500;
+/** What students and staff see for questions without a topic. */
+export const GENERAL_TOPIC = { en: 'General', ar: 'عام' } as const;
+
+/** A topic as stored: trimmed, inner spaces collapsed, empty → null. */
+export function normalizeTopic(value: string | null | undefined): string | null {
+  const v = (value ?? '').trim().replace(/\s+/g, ' ');
+  return v ? v : null;
+}
+
+/** Topics are grouped regardless of case ("Pods" and "pods" are one topic); null = General. */
+const topicKey = (topic: string | null | undefined): string => normalizeTopic(topic)?.toLowerCase() ?? '';
+
+export interface DrawableQuestion {
+  id: string;
+  topic?: string | null;
+}
+
+/**
+ * The questions one attempt draws from the bank: `drawCount` of them, the same ones every time
+ * for the same seed (the API stores the result on the attempt, so a reload never draws again).
+ * Null or a count at least the bank's size → every question. With `balanceByTopic`, each topic
+ * gets a share in proportion to its size (largest remainder), and at least one question when the
+ * count allows; the questions inside each topic are drawn at random. Returned in the bank's order.
+ */
+export function drawQuestions<T extends DrawableQuestion>(questions: readonly T[], drawCount: number | null, seed: string, opts: { balanceByTopic?: boolean } = {}): T[] {
+  if (drawCount === null || drawCount >= questions.length) return [...questions];
+  const n = Math.max(0, Math.floor(drawCount));
+  const position = new Map(questions.map((q, i) => [q.id, i]));
+  let picked: T[];
+  if (!opts.balanceByTopic) {
+    picked = seededShuffle(questions, seed).slice(0, n);
+  } else {
+    const groups = new Map<string, T[]>();
+    for (const q of questions) {
+      const k = topicKey(q.topic);
+      const g = groups.get(k);
+      if (g) g.push(q);
+      else groups.set(k, [q]);
+    }
+    // A seeded topic order breaks ties, so no topic is always the one left short.
+    const keys = seededShuffle([...groups.keys()], `${seed}:topics`);
+    const exact = new Map(keys.map((k) => [k, (n * groups.get(k)!.length) / questions.length]));
+    const quota = new Map(keys.map((k) => [k, Math.floor(exact.get(k)!)]));
+    let left = n - keys.reduce((sum, k) => sum + quota.get(k)!, 0);
+    const byRemainder = [...keys].sort((a, b) => exact.get(b)! - quota.get(b)! - (exact.get(a)! - quota.get(a)!));
+    for (const k of byRemainder) {
+      if (left <= 0) break;
+      quota.set(k, quota.get(k)! + 1);
+      left--;
+    }
+    // Every topic at least once when there are enough draws: taken from the largest share.
+    if (n >= keys.length) {
+      for (const k of keys) {
+        if (quota.get(k)! > 0) continue;
+        const donor = keys.reduce((a, b) => (quota.get(b)! > quota.get(a)! ? b : a));
+        quota.set(donor, quota.get(donor)! - 1);
+        quota.set(k, 1);
+      }
+    }
+    picked = keys.flatMap((k) => seededShuffle(groups.get(k)!, `${seed}:${k}`).slice(0, quota.get(k)!));
+  }
+  return picked.sort((a, b) => position.get(a.id)! - position.get(b.id)!);
+}
+
+export interface TopicScore {
+  /** Null: questions without a topic (shown as GENERAL_TOPIC). */
+  topic: string | null;
+  /** Weights of the questions answered right / of all the attempt's questions in this topic. */
+  earned: number;
+  possible: number;
+  percent: number;
+}
+
+/**
+ * One attempt's score per topic, in weights: topics in the order they first appear, General
+ * last. `correct` is gradeQuiz's per-question result.
+ */
+export function topicScores(questions: readonly { id: string; weight: number; topic?: string | null }[], correct: Record<string, boolean>): TopicScore[] {
+  const rows = new Map<string, TopicScore>();
+  for (const q of questions) {
+    const k = topicKey(q.topic);
+    const row = rows.get(k) ?? { topic: normalizeTopic(q.topic), earned: 0, possible: 0, percent: 0 };
+    row.possible += q.weight;
+    if (correct[q.id]) row.earned += q.weight;
+    rows.set(k, row);
+  }
+  const out = [...rows.entries()].sort(([a], [b]) => Number(a === '') - Number(b === '')).map(([, r]) => r);
+  for (const r of out) r.percent = r.possible ? Math.round((r.earned / r.possible) * 1000) / 10 : 0;
+  return out;
+}
+
+/** Topics of a question list with how many questions each has (the editor's summary). */
+export function topicCounts(questions: readonly { topic?: string | null }[]): { topic: string | null; count: number }[] {
+  const rows = new Map<string, { topic: string | null; count: number }>();
+  for (const q of questions) {
+    const k = topicKey(q.topic);
+    const row = rows.get(k) ?? { topic: normalizeTopic(q.topic), count: 0 };
+    row.count++;
+    rows.set(k, row);
+  }
+  return [...rows.entries()].sort(([a], [b]) => Number(a === '') - Number(b === '')).map(([, r]) => r);
+}
+
+/**
+ * The "Practice exam" preset of the assessment form: unlimited attempts, the answers after each
+ * one, the best attempt counts, never toward the certificate; each attempt draws 20 questions
+ * balanced across topics, with a 30-minute timer (mock-exam mode). Count and timer stay editable.
+ */
+export const PRACTICE_EXAM_PRESET = {
+  attemptsAllowed: 0,
+  countsForCertificate: false,
+  scoring: 'BEST',
+  revealAnswers: 'AFTER_SUBMIT',
+  drawCount: 20,
+  balanceByTopic: true,
+  timeLimitMin: 30,
+} as const satisfies {
+  attemptsAllowed: number;
+  countsForCertificate: boolean;
+  scoring: ScoringPolicy;
+  revealAnswers: RevealPolicy;
+  drawCount: number;
+  balanceByTopic: boolean;
+  timeLimitMin: number;
+};
+
+/** Students see "Practice exam": a quiz that draws from a bank and doesn't count toward the certificate. */
+export function isPracticeExam(a: { type: AssessmentType; drawCount: number | null; countsForCertificate: boolean }): boolean {
+  return a.type === 'QUIZ' && a.drawCount !== null && !a.countsForCertificate;
+}
+
 // ------------------------------------------------------------------ results (shared with certificates and points)
 
 export interface ResultAssessment {
@@ -399,6 +536,13 @@ export const quizQuestionInputSchema = z
     weight: z.coerce.number().int().min(1).max(100),
     explanationEn: optionalText(2000),
     explanationAr: keptOptionalText(2000),
+    /** Absent keeps the stored topic (new rows: none); empty clears it. */
+    topic: z
+      .string()
+      .max(TOPIC_MAX * 2)
+      .nullish()
+      .transform((v) => (v === undefined ? undefined : normalizeTopic(v)))
+      .refine((v) => v === undefined || v === null || v.length <= TOPIC_MAX, { message: `At most ${TOPIC_MAX} characters` }),
     options: z.array(quizOptionInputSchema).min(2).max(MAX_OPTIONS),
   })
   .superRefine((q, ctx) => {
@@ -442,6 +586,9 @@ export const assessmentInputSchema = z
     revealAnswers: z.enum(REVEAL_POLICIES).default('AFTER_SUBMIT'),
     timeLimitMin: z.coerce.number().int().min(1).max(600).nullish().transform((v) => v ?? null),
     shuffle: z.boolean().default(false),
+    /** Quizzes: each attempt draws this many of the questions (null = all of them). */
+    drawCount: z.coerce.number().int().min(1).max(MAX_DRAW_COUNT).nullish().transform((v) => v ?? null),
+    balanceByTopic: z.boolean().default(false),
     questions: z.array(quizQuestionInputSchema).max(MAX_QUESTIONS).default([]),
   })
   .superRefine((a, ctx) => {
@@ -459,6 +606,10 @@ export const assessmentInputSchema = z
       // Unlimited attempts with the key after each one is practice: it can't count toward a certificate.
       if (a.attemptsAllowed === 0 && a.revealAnswers === 'AFTER_SUBMIT' && a.countsForCertificate) {
         ctx.addIssue({ code: 'custom', path: ['countsForCertificate'], message: 'A practice quiz (unlimited attempts, answers after each) cannot count toward the certificate' });
+      }
+      // A draft may set the count before its questions are added; once there are questions it must fit.
+      if (a.drawCount !== null && a.questions.length > 0 && a.drawCount > a.questions.length) {
+        ctx.addIssue({ code: 'custom', path: ['drawCount'], message: `Draw at most ${a.questions.length} questions: the quiz has ${a.questions.length}` });
       }
     } else if (!a.submissionKind) {
       ctx.addIssue({ code: 'custom', path: ['submissionKind'], message: 'Choose how students submit' });
@@ -528,7 +679,12 @@ export interface AssessmentSummaryDto {
   submissionKind: SubmissionKind | null;
   attemptsAllowed: number;
   timeLimitMin: number | null;
+  /** Questions in one attempt (a quiz that draws from a bank: the draw count). */
   questionCount: number;
+  /** Quizzes drawing from a bank: questions per attempt (null = every question). */
+  drawCount: number | null;
+  /** Draws from a bank and doesn't count toward the certificate: shown as "Practice exam". */
+  practice: boolean;
   state: AssessmentState;
   /** The counted score once graded. */
   score: number | null;
@@ -564,6 +720,7 @@ export interface QuizQuestionDto {
   promptEn: string;
   promptAr: string;
   weight: number;
+  topic: string | null;
   options: { id: string; labelEn: string; labelAr: string }[];
 }
 
@@ -581,6 +738,8 @@ export interface QuizAttemptDto {
 
 export interface QuizReviewDto {
   attempt: number;
+  /** The attempt's score per topic, in question weights (one row, General, when no question has a topic). */
+  topics: TopicScore[];
   questions: (Omit<QuizQuestionDto, 'options'> & {
     explanationEn: string | null;
     explanationAr: string | null;
@@ -631,6 +790,8 @@ export interface AdminAssessmentRow {
   countsForCertificate: boolean;
   submissionKind: SubmissionKind | null;
   questionCount: number;
+  /** Questions per attempt when the quiz draws from its bank. */
+  drawCount: number | null;
   /** Students with a submitted attempt / waiting to be graded. */
   submitted: number;
   toGrade: number;
@@ -646,10 +807,11 @@ export interface AdminAssessmentDto extends Omit<AssessmentInput, 'dueAt' | 'ord
   titleAr: string;
   instructionsAr: string;
   dueAt: string | null;
-  questions: (Omit<QuizQuestionInput, 'promptAr' | 'explanationAr' | 'options'> & {
+  questions: (Omit<QuizQuestionInput, 'promptAr' | 'explanationAr' | 'topic' | 'options'> & {
     id: string;
     promptAr: string;
     explanationAr: string | null;
+    topic: string | null;
     options: (Omit<QuizOptionInput, 'labelAr'> & { id: string; labelAr: string })[];
   })[];
   submissionCount: number;

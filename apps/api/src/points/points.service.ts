@@ -151,6 +151,16 @@ export class PointsService {
   }
 
   /**
+   * Course Q&A: an accepted student answer is worth `points` (QA_ANSWER_POINTS); un-accepting it,
+   * or accepting another answer, sets it back to 0. Keyed by the answer, so repeating either never
+   * double-counts. A deleted account gains nothing, but can still lose what it got.
+   */
+  async syncQaAnswer(userId: string, courseId: string, answerId: string, points: number, now = new Date()): Promise<number> {
+    if (points > 0 && !(await this.active(userId))) return 0;
+    return this.syncSource({ userId, courseId, sourceType: POINTS_SOURCES.QA_ANSWER, sourceId: answerId, reason: 'QA_ANSWER' }, points, now);
+  }
+
+  /**
    * A challenge's points for an approved entry (`points`), or 0 when the entry is rejected after
    * an approval. The source is the entry, so approving it twice never adds them twice.
    */

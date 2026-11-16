@@ -58,6 +58,15 @@ describe('SignedInCacheInterceptor', () => {
     expect(clearsSignedInCache({ method: 'GET', path: '/api/auth/Google/callback/' })).toBe(true);
   });
 
+  it("is left alone by the video player's position saves, and only by them", () => {
+    expect(clearsSignedInCache({ method: 'PUT', path: '/api/learn/mlops/sessions/abc123/position' })).toBe(false);
+    expect(clearsSignedInCache({ method: 'PUT', path: '/api/learn/mlops/sessions/abc123/Position/' })).toBe(false);
+    expect(clearsSignedInCache({ method: 'POST', path: '/api/learn/mlops/sessions/abc123/position' })).toBe(true);
+    expect(clearsSignedInCache({ method: 'PUT', path: '/api/learn/mlops/sessions/abc123/lesson-completion' })).toBe(true);
+    expect(clearsSignedInCache({ method: 'PUT', path: '/api/learn/mlops/sessions/abc123/position/x' })).toBe(true);
+    expect(clearsSignedInCache({ method: 'PUT', path: '/api/learn/mlops/position' })).toBe(true);
+  });
+
   it('leaves the cache alone on reads', async () => {
     const cache = filled();
     await lastValueFrom(new SignedInCacheInterceptor(cache).intercept(ctx('GET', '/api/learn/x'), { handle: () => of('ok') } as CallHandler));

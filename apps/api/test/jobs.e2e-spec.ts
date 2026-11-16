@@ -22,7 +22,10 @@ describe('internal jobs endpoint (e2e)', () => {
 
   it('runs every job once and reports counts', async () => {
     const res = await request(app.getHttpServer()).post('/api/internal/jobs/tick').set('x-jobs-token', token).expect(200);
-    expect(res.body).toEqual({
+    // When the next tick has time-critical work (an ISO time), or null when nothing is scheduled.
+    const { nextDueAt, ...counts } = res.body as Record<string, unknown>;
+    expect(nextDueAt === null || (typeof nextDueAt === 'string' && !Number.isNaN(Date.parse(nextDueAt)))).toBe(true);
+    expect(counts).toEqual({
       announcementEmailsPending: expect.any(Number),
       automationActions: expect.any(Number),
       driveShared: expect.any(Number),
@@ -39,6 +42,7 @@ describe('internal jobs endpoint (e2e)', () => {
       weeklyBadges: expect.any(Number),
       courseBadges: expect.any(Number),
       speakerBadges: expect.any(Number),
+      studyPlanRemindersQueued: expect.any(Number),
       submissionFilesDeleted: expect.any(Number),
       invitesDeleted: expect.any(Number),
       // Registered with @ScheduledJob (JobsRegistry).

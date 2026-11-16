@@ -8,6 +8,7 @@ import { AdminTeamModule } from './admin-team/admin-team.module';
 import { ArchiveModule } from './archive/archive.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
+import { StudyPlanModule } from './study-plan/study-plan.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuditModule } from './audit/audit.module';
@@ -42,6 +43,7 @@ import { DriveModule } from './drive/drive.module';
 import { PointsModule } from './points/points.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QaModule } from './qa/qa.module';
 import { SettingsModule } from './settings/settings.module';
 import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-announcements.module';
 import { SpeakerAccountsModule } from './speaker-accounts/speaker-accounts.module';
@@ -82,6 +84,8 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     LearnModule,
     AssessmentsModule,
     TestimonialsModule,
+    QaModule,
+    StudyPlanModule,
     PointsModule,
     ChallengesModule,
     BotModule,

@@ -84,6 +84,11 @@ export interface LearnSessionDto {
   /** Their attendance from the Meet file (or set by the team); null until it is recorded. */
   attendance: { status: AttendanceStatus; minutes: number; percent: number } | null;
   myFeedback: { rating: number; comment: string | null } | null;
+  /**
+   * Where the video should start for this student, in seconds (resumeStart of the saved position);
+   * null when nothing is saved. 0 means from the beginning (finished, or barely started).
+   */
+  resumeAt: number | null;
 }
 
 export interface LearnCourseDto {
@@ -107,11 +112,17 @@ export interface LearnCourseDto {
   emailReminders: boolean;
   progress: { completed: number; total: number; percent: number };
   courseFeedback: { rating: number; comment: string | null } | null;
-  /** Self-paced courses: the student's testimonial, once written. */
+  /** The student's review (stars and/or words), once written. */
   testimonial: MyTestimonialDto | null;
+  /** The student may rate and review this course (finished it: see canReviewCourse). False for admin previews. */
+  canReview: boolean;
   sessions: LearnSessionDto[];
+  /** The video the student watched most recently and can resume (resumeAt above 0); null when none. */
+  lastWatched: { sessionId: string; positionSec: number } | null;
   /** The latest LEARN_PAGE_ANNOUNCEMENTS announcements (all of them: GET /learn/:slug/announcements). */
   announcements: LearnAnnouncementDto[];
+  /** The viewer may moderate the course Q&A (pin, close, hide): course staff with ANSWER_QUESTIONS, or a SUPER/ACADEMIC admin. */
+  canModerateQA: boolean;
 }
 
 /**
