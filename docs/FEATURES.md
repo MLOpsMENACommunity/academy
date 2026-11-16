@@ -607,7 +607,7 @@ views count on our channel.
 
 ### 5.1 Course Q&A
 
-**Status:** Pending (PR #TBD).
+**Status:** Pending (PR #121).
 
 **Who:** students enrolled in the course ask, answer, vote and follow; course staff whose role has
 **Answer questions** (Main instructor, Co-instructor and Moderator by default) and SUPER/ACADEMIC admins
@@ -1262,7 +1262,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
-| #PR | **Course Q&A** (section 5.1): a Q&A tab on the learn page and in the Teaching area. Enrolled students ask (optionally about one lesson), answer, vote "I have this question too", follow and accept; staff with the new **Answer questions** permission (Main instructor, Co-instructor, Moderator by default) and SUPER/ACADEMIC admins pin, close, hide. New answers notify followers in the app and by email (`qaAnswer`, reminders opt-out). An accepted student answer earns 5 points. Automation rule **Question waiting for an answer**. Migration: CourseQuestion, CourseAnswer, QuestionVote, QuestionFollow tables; CoursePermission ANSWER_QUESTIONS; PointsReason QA_ANSWER | Pending |
+| #121 | **Course Q&A** (section 5.1): a Q&A tab on the learn page and in the Teaching area. Enrolled students ask (optionally about one lesson), answer, vote "I have this question too", follow and accept; staff with the new **Answer questions** permission (Main instructor, Co-instructor, Moderator by default) and SUPER/ACADEMIC admins pin, close, hide. New answers notify followers in the app and by email (`qaAnswer`, reminders opt-out). An accepted student answer earns 5 points. Automation rule **Question waiting for an answer**. Migration: CourseQuestion, CourseAnswer, QuestionVote, QuestionFollow tables; CoursePermission ANSWER_QUESTIONS; PointsReason QA_ANSWER | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
