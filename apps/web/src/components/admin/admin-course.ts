@@ -74,6 +74,7 @@ export function toForm(c: AdminCourse): CourseFormValue {
     externalPlatform: c.externalPlatform ?? null,
     externalUrl: c.externalUrl ?? null,
     publicRecordings: c.publicRecordings ?? false,
+    selfPaced: c.selfPaced ?? false,
     showEnrolledCount: c.showEnrolledCount ?? true,
   };
 }

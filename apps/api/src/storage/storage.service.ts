@@ -63,7 +63,7 @@ export class StorageService implements OnModuleInit {
   }
 
   /** Stores a file under `<prefix>/<random>.<ext>` and returns the key. */
-  async put(prefix: 'payments' | 'cvs' | 'submissions' | 'certificates' | 'media', body: Buffer, contentType: string): Promise<string> {
+  async put(prefix: 'payments' | 'cvs' | 'submissions' | 'certificates' | 'certificate-pdfs' | 'media', body: Buffer, contentType: string): Promise<string> {
     const key = `${prefix}/${randomUUID()}.${EXT[contentType] ?? 'bin'}`;
     await this.s3.send(
       new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }),

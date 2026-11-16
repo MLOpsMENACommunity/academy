@@ -1,6 +1,6 @@
 'use client';
 
-import { certificatePath, describeRule, MAX_BULK_CERTIFICATES, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
+import { CERT_CODE_PATTERN, certificatePath, describeRule, MAX_BULK_CERTIFICATES, type CertificateRosterDto, type CertificateRosterRow, type CertificateRule, type IssueResultDto } from '@academy/shared';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CheckboxField, TextAreaField, TextField } from '@/components/forms/fields';
 import { Alert } from '@/components/ui/Alert';
@@ -34,16 +34,20 @@ const matches = (r: CertificateRosterRow, f: Filter) =>
   (f === 'issued' && Boolean(r.certificate && !r.certificate.revokedAt)) ||
   (f === 'revoked' && Boolean(r.certificate?.revokedAt));
 
-/** The course's certificate rule: minimum sessions, required assessments, optional wording. */
+/** The course's certificate rule: minimum sessions, required assessments, minimum total score, optional wording. */
 function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: CertificateRule; onSaved: (rule: CertificateRule) => void }) {
   const { locale, t } = useI18n();
   const r = (k: string, v?: Record<string, string | number>) => t(`admin.certificates.rule.${k}`, v);
   const [min, setMin] = useState(rule.minSessionsPercent === null ? '' : String(rule.minSessionsPercent));
   const [requireAssessments, setRequire] = useState(rule.requireAssessments);
+  const [minTotal, setMinTotal] = useState(rule.minTotalPercent === null ? '' : String(rule.minTotalPercent));
+  const [prefix, setPrefix] = useState(rule.codePrefix ?? '');
+  const [prefixError, setPrefixError] = useState<string | undefined>();
   const [textEn, setTextEn] = useState(rule.textEn);
   const [textAr, setTextAr] = useState(rule.textAr);
   const [error, setError] = useState<string | null>(null);
   const [minError, setMinError] = useState<string | undefined>();
+  const [totalError, setTotalError] = useState<string | undefined>();
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -51,17 +55,22 @@ function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: Certi
     e.preventDefault();
     setSaved(false);
     setError(null);
-    const n = min.trim() === '' ? null : Number(min);
-    if (n !== null && (!Number.isInteger(n) || n < 1 || n > 100)) {
-      setMinError(t('forms.errors.invalid'));
-      return;
-    }
-    setMinError(undefined);
+    // Empty: no requirement. Otherwise a whole number from 1 to 100.
+    const percent = (v: string) => (v.trim() === '' ? null : Number(v));
+    const valid = (n: number | null) => n === null || (Number.isInteger(n) && n >= 1 && n <= 100);
+    const n = percent(min);
+    const total = percent(minTotal);
+    setMinError(valid(n) ? undefined : t('forms.errors.invalid'));
+    setTotalError(valid(total) ? undefined : t('forms.errors.invalid'));
+    const codePrefix = prefix.trim().toUpperCase() || null;
+    setPrefixError(codePrefix === null || CERT_CODE_PATTERN.test(codePrefix) ? undefined : r('codePrefixError'));
+    if (!valid(n) || !valid(total) || (codePrefix !== null && !CERT_CODE_PATTERN.test(codePrefix))) return;
     setBusy(true);
     try {
-      await api(`${courseApi}/certificate-rule`, { method: 'PUT', json: { minSessionsPercent: n, requireAssessments, textEn, textAr } });
+      const next = { minSessionsPercent: n, requireAssessments, minTotalPercent: total, codePrefix, textEn, textAr };
+      await api(`${courseApi}/certificate-rule`, { method: 'PUT', json: next });
       setSaved(true);
-      onSaved({ minSessionsPercent: n, requireAssessments, textEn, textAr });
+      onSaved(next);
     } catch (err) {
       setError(certError(err, t));
     } finally {
@@ -90,6 +99,30 @@ function RuleForm({ courseApi, rule, onSaved }: { courseApi: string; rule: Certi
           className="max-w-56"
         />
         <CheckboxField label={r('requireAssessments')} hint={r('requireAssessmentsHint')} checked={requireAssessments} onChange={setRequire} />
+        <TextField
+          label={r('minTotal')}
+          hint={r('minTotalHint')}
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={100}
+          value={minTotal}
+          onChange={setMinTotal}
+          error={totalError}
+          className="max-w-56"
+        />
+        <p className="text-sm text-muted">{r('autoIssueHint')}</p>
+        <TextField
+          label={r('codePrefix')}
+          hint={r('codePrefixHint')}
+          value={prefix}
+          onChange={(v) => setPrefix(v.toUpperCase())}
+          maxLength={10}
+          autoCapitalize="characters"
+          error={prefixError}
+          className="max-w-56"
+          dir="ltr"
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextAreaField label={r('textEn')} hint={r('textHint')} value={textEn} onChange={setTextEn} rows={2} maxLength={500} />
           <TextAreaField label={r('textAr')} value={textAr} onChange={setTextAr} rows={2} maxLength={500} dir="rtl" />
