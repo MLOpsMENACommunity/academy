@@ -1,5 +1,5 @@
 import {
-  courseAvailabilityLabels,
+  courseAvailabilityText,
   courseLanguageLabels,
   courseLevelsText,
   deliveryPlatformLabels,
@@ -143,8 +143,11 @@ export default async function CoursePage({ params }: Props) {
   const facts: [string, ReactNode][] = [
     ...(ran ? ([[t('course.ran'), ran]] as [string, ReactNode][]) : []),
     ...(c.startDate && !completed && !c.selfPaced ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
-    ...(c.durationWeeks ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
-    ...(c.hoursPerWeek ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
+    // Self-paced: video lessons whenever the student wants, so no weeks or hours per week (a
+    // converted cohort can still have them set from its live run).
+    ...(c.selfPaced ? ([[t('course.facts.format'), t('course.facts.selfPaced', { count: c.sessions.length })]] as [string, ReactNode][]) : []),
+    ...(c.durationWeeks && !c.selfPaced ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
+    ...(c.hoursPerWeek && !c.selfPaced ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
     [t('course.facts.level'), courseLevelsText(c, locale)],
     ...(comingSoon
       ? []
@@ -153,7 +156,7 @@ export default async function CoursePage({ params }: Props) {
           ReactNode,
         ][])),
     [t('course.facts.price'), price],
-    ...(c.applicationDeadline && !completed
+    ...(c.applicationDeadline && !completed && !c.selfPaced
       ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
         ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
@@ -207,19 +210,23 @@ export default async function CoursePage({ params }: Props) {
       },
       hasCourseInstance: {
         '@type': 'CourseInstance',
-        courseMode: 'online',
+        courseMode: c.selfPaced ? 'online, self-paced' : 'online',
         location: deliveryPlatformLabels[c.deliveryPlatform].en,
         ...(c.startDate ? { startDate: c.startDate } : {}),
         ...(c.endDate ? { endDate: c.endDate } : lastSession ? { endDate: lastSession.startsAt } : {}),
         // Total effort for the whole course.
-        ...(c.hoursPerWeek && c.durationWeeks ? { courseWorkload: `PT${c.hoursPerWeek * c.durationWeeks}H` } : {}),
-        courseSchedule: {
-          '@type': 'Schedule',
-          repeatFrequency: 'Weekly',
-          ...(c.sessions[0] ? { duration: `PT${c.sessions[0].durationMin}M` } : {}),
-          ...(c.durationWeeks ? { repeatCount: c.durationWeeks } : {}),
-          ...(c.startDate ? { startDate: c.startDate } : {}),
-        },
+        ...(c.selfPaced
+          ? { courseWorkload: `PT${c.sessions.reduce((n, s) => n + s.durationMin, 0)}M` }
+          : {
+              ...(c.hoursPerWeek && c.durationWeeks ? { courseWorkload: `PT${c.hoursPerWeek * c.durationWeeks}H` } : {}),
+              courseSchedule: {
+                '@type': 'Schedule',
+                repeatFrequency: 'Weekly',
+                ...(c.sessions[0] ? { duration: `PT${c.sessions[0].durationMin}M` } : {}),
+                ...(c.durationWeeks ? { repeatCount: c.durationWeeks } : {}),
+                ...(c.startDate ? { startDate: c.startDate } : {}),
+              },
+            }),
         instructor: c.instructors.map((i) => ({
           '@type': 'Person',
           name: i.name,
@@ -290,7 +297,7 @@ export default async function CoursePage({ params }: Props) {
           ) : (
             <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${availabilityStyle[c.availability].text}`}>
               <span aria-hidden className={`size-2 rounded-full ${availabilityStyle[c.availability].dot}`} />
-              {courseAvailabilityLabels[c.availability][locale]}
+              {courseAvailabilityText(c, locale)}
               <span aria-hidden>·</span>
               {price}
             </p>

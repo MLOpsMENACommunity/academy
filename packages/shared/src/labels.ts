@@ -242,6 +242,14 @@ export const courseAvailabilityLabels: LabelMap<CourseAvailability> = {
   CLOSED: { en: 'Applications closed', ar: 'التسجيل مغلق' },
 };
 
+/** An open self-paced course has no application window or start date: anyone can begin now. */
+export const selfPacedOpenLabel = { en: 'Start any time', ar: 'ابدأ في أي وقت' } as const;
+
+/** The status line for a course: "Start any time" for an open self-paced course, otherwise its availability. */
+export function courseAvailabilityText(c: { availability: CourseAvailability; selfPaced?: boolean }, locale: 'en' | 'ar'): string {
+  return c.availability === 'OPEN' && c.selfPaced ? selfPacedOpenLabel[locale] : courseAvailabilityLabels[c.availability][locale];
+}
+
 export const courseLevelLabels: LabelMap<CourseLevel> = {
   BEGINNER: { en: 'Beginner', ar: 'مبتدئ' },
   INTERMEDIATE: { en: 'Intermediate', ar: 'متوسط' },

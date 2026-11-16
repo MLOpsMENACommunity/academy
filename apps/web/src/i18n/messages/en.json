@@ -447,7 +447,8 @@
     "details": "Details and how to apply",
     "detailsOnly": "Details",
     "applyBy": "Apply by {date}",
-    "notifyCta": "Get notified when it opens"
+    "notifyCta": "Get notified when it opens",
+    "selfPaced": "Self-paced"
   },
   "course": {
     "fullInstant": "Seats are full: you'll join the waitlist.",
@@ -478,7 +479,8 @@
       "price": "Price",
       "format": "Format",
       "schedule": "Schedule",
-      "certificate": "Certificate"
+      "certificate": "Certificate",
+      "selfPaced": "{count, plural, one {# video lesson} other {# video lessons}} at your own pace"
     },
     "inc": {
       "liveSessions": "Live sessions on {platform}",
@@ -2936,7 +2938,8 @@
     "blog": "Blog on mlopsmena.com",
     "blogDesc": "Articles, guides and roadmaps",
     "courseCount": "{count, plural, one {# course} other {# courses}}",
-    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}"
+    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}",
+    "featuredSelfPaced": "Start any time · at your own pace"
   },
   "whatsNew": {
     "title": "What's new",

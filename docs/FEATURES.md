@@ -572,6 +572,11 @@ views count on our channel.
   link**; tick **Optional video** where it applies. A new lesson's date isn't shown: use any past date.
   Add the quizzes in Assessments as **Mandatory for the certificate**. In a self-paced course a pass mark
   below 80% is raised to 80% when the quiz is saved (or imported); a higher one is kept.
+- **Public pages:** while the course is open, its status reads **Start any time** (ابدأ في أي وقت) instead of
+  "Applications open", on the course page, course cards, the Learn menu and speaker pages. The facts row
+  shows **Format: 12 video lessons at your own pace** (the number of lessons) instead of the duration in
+  weeks, hours per week, start date or apply-by date, even when those are still filled in from a live run.
+  Cards say **Self-paced** instead of the weeks.
 - **Student view:** `/learn/<slug>` shows the video list with no dates or calendar, YouTube's own player
   (no autoplay, so the student presses YouTube's play button) and the lesson's quizzes. The Join link,
   calendar and session dates are hidden.
@@ -1212,6 +1217,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #120 | Self-paced courses on public pages: **Start any time** instead of "Applications open", and **{n} video lessons at your own pace** instead of the duration in weeks, hours per week, start and apply-by dates (course page, cards, Learn menu, speaker pages). The course summary and speaker course list now carry `selfPaced`. No migration | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
