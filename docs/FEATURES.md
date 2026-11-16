@@ -209,7 +209,7 @@ calendar is on mlopsmena.com/sessions (website repository). The academy offers:
   **Reset link** revokes the old URL at once. It never contains join links or your name.
   Cloudflare keeps each feed for up to 30 minutes (only when the edge purge is configured), so
   calendar polls don't wake the API and database; a schedule edit, a link reset or a deleted
-  account purges it within seconds, and so does saving or deleting a study plan. Other changes (a new enrolment, a session passing) can take
+  account purges it within seconds. Saving or deleting a study plan does not purge it (that would empty the whole edge cache): its study blocks catch up within 30 minutes. Other changes (a new enrolment, a session passing) can take
   up to 30 minutes to reach the feed, well inside how often calendar apps poll anyway.
 
 ### 2.7 Certificate verification

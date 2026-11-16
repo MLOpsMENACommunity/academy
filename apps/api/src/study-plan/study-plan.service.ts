@@ -2,7 +2,6 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException } 
 import { localIsoDate, type StudyPlanDto, type StudyPlanInput } from '@academy/shared';
 import type { StudyPlan } from '@prisma/client';
 import type { AuthUser } from '../common/decorators';
-import { PublicRevalidator } from '../common/revalidate';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadStudyItems, planStartDate, planTimezone, scheduleOf } from './study-items';
 
@@ -15,7 +14,6 @@ import { loadStudyItems, planStartDate, planTimezone, scheduleOf } from './study
 export class StudyPlanService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly revalidator: PublicRevalidator,
   ) {}
 
   private async course(user: AuthUser, slug: string): Promise<{ id: string; selfPaced: boolean }> {
@@ -47,24 +45,16 @@ export class StudyPlanService {
       update: data,
       create: { ...data, userId: user.id, courseId: course.id },
     });
-    await this.feedChanged(user.id);
     return this.dto(user.id, course.id, plan, now);
   }
 
   async remove(user: AuthUser, slug: string): Promise<void> {
     const course = await this.course(user, slug);
-    const { count } = await this.prisma.studyPlan.deleteMany({ where: { userId: user.id, courseId: course.id } });
-    if (count) await this.feedChanged(user.id);
+    // No edge purge: it would drop every cached public page (and wake the containers and the
+    // database for the next visitors). Study blocks in a calendar feed catch up within FEED_TTL.
+    await this.prisma.studyPlan.deleteMany({ where: { userId: user.id, courseId: course.id } });
   }
 
-  /**
-   * Study blocks are in the private calendar feed, which the edge keeps for FEED_TTL
-   * (deploy/cloudflare/src/edge-cache.ts): purge it as a reset link does, but only for a
-   * student who has a feed (most saves then cost nothing).
-   */
-  private async feedChanged(userId: string): Promise<void> {
-    if (await this.prisma.calendarFeed.count({ where: { userId } })) this.revalidator.changed();
-  }
 
   private async dto(userId: string, courseId: string, plan: StudyPlan | null, now: Date): Promise<StudyPlanDto> {
     const tz = await this.timezone(userId);

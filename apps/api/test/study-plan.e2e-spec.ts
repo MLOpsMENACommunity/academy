@@ -171,12 +171,12 @@ describe('study plans (e2e)', () => {
     });
   });
 
-  it('adds study blocks to the private calendar feed and purges its edge copy on change', async () => {
+  it('adds study blocks to the private calendar feed without purging the whole edge cache', async () => {
     const c = await setup();
     const feedUrl = (await http().post('/api/me/calendar-feed').set('Cookie', c.student.cookie).expect(200)).body.url as string;
     const changed = jest.spyOn(app.get(PublicRevalidator), 'changed');
     await put(c, { ...everyDay, reminderHour: 7, startDate: today() }).expect(200);
-    expect(changed).toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
     const plan = await prisma.studyPlan.findFirstOrThrow({ where: { userId: c.student.id } });
     const ics = (await http().get(new URL(feedUrl).pathname).expect(200)).text.replace(/\r\n /g, '');
     expect(ics).toContain(`UID:study-${plan.id}-${today()}`);
@@ -184,7 +184,7 @@ describe('study plans (e2e)', () => {
     expect(ics).toContain(`UID:study-${plan.id}-${addDays(today(), 1)}`);
     changed.mockClear();
     await http().delete(url(c)).set('Cookie', c.student.cookie).expect(204);
-    expect(changed).toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
     const after = (await http().get(new URL(feedUrl).pathname).expect(200)).text;
     expect(after).not.toContain('study-');
     changed.mockRestore();
