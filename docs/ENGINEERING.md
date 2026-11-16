@@ -168,7 +168,7 @@ Major upgrades (Next 16, Nest 12, Prisma 7, TypeScript 7) are deliberate, separa
 - **Admissions:** `Application` (status, answers, profile snapshot, `ref`), `ApplicationStatusHistory`,
   `Payment`, `Enrollment`, `CourseInvite`, `CourseInterest` (waiting list), `AdminNote`, `SavedFilter`,
   `FunnelEventLog`.
-- **Learning:** `SessionProgress`, `SessionFeedback`, `ReminderPreference` (reminder and feedback-email
+- **Learning:** `SessionProgress`, `LessonWatch` (where a student stopped in each video), `SessionFeedback`, `ReminderPreference` (reminder and feedback-email
   opt-outs per course), `ReminderLog`, `Announcement`, `AnnouncementRecipient`, `Notification`.
 - **Assessments:** `Assessment`, `QuizQuestion`, `QuizOption`, `Submission`, `AssessmentReminderLog`.
 - **Certificates:** `Certificate` (one per enrolment; snapshots; `ON DELETE RESTRICT`).

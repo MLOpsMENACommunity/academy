@@ -1,12 +1,12 @@
 'use client';
 
-import { googleCalendarLink, type AssessmentSummaryDto, type LearnCourseDto, type LearnSessionDto } from '@academy/shared';
+import { googleCalendarLink, resumeStart, stoppedAtFromResume, type AssessmentSummaryDto, type LearnCourseDto, type LessonPositionInput, type LearnSessionDto } from '@academy/shared';
 import { useCallback, useRef, useState } from 'react';
 import { LocalTime } from '@/components/course/LocalTime';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
 import { useI18n } from '@/i18n/client';
-import { api } from '@/lib/api';
+import { api, apiKeepalive } from '@/lib/api';
 import { downloadViaApi } from '@/lib/download';
 import { errorMessage } from '@/lib/errors';
 import { AssessmentList } from './AssessmentList';
@@ -14,6 +14,8 @@ import { DriveNote } from './DriveNote';
 import { FeedbackForm } from './FeedbackForm';
 import { LessonCompletion } from './LessonCompletion';
 import { LessonPlayer } from './LessonPlayer';
+import type { SavePosition } from './position-tracker';
+import { TextWithTime } from './VideoTime';
 import { YouTubeFacade } from './YouTubeFacade';
 
 const rowLink = 'flex min-h-14 items-center justify-between gap-4 px-5 py-3.5 hover:bg-hover-bg';
@@ -28,6 +30,7 @@ export function SessionCard({
   total,
   assessments = [],
   onLessonChange,
+  savedPositions,
 }: {
   course: LearnCourseDto;
   session: LearnSessionDto;
@@ -37,6 +40,11 @@ export function SessionCard({
   assessments?: AssessmentSummaryDto[];
   /** Self-paced courses: a lesson was completed or undone, so progress and the certificate may have changed. */
   onLessonChange?: () => void;
+  /**
+   * Positions saved since the learn page opened, by session id: coming back to a lesson without
+   * reloading resumes where they just were, not where the page load said.
+   */
+  savedPositions?: Map<string, LessonPositionInput>;
 }) {
   const { locale, t } = useI18n();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -51,6 +59,30 @@ export function SessionCard({
   const [lessonError, setLessonError] = useState<string | null>(null);
   // YouTube reports the end more than once.
   const endReported = useRef(false);
+
+  // Where the video starts: read once per opening of the lesson, so a refresh of the course
+  // while it plays never moves the player.
+  const [start] = useState(() => {
+    const local = savedPositions?.get(s.id);
+    return local ? resumeStart(local.positionSec, local.durationSec, course.selfPaced && Boolean(s.lessonCompletion)) : (s.resumeAt ?? 0);
+  });
+  const stoppedAt = start > 0 ? (savedPositions?.get(s.id)?.positionSec ?? stoppedAtFromResume(start)) : 0;
+  const positionPath = `/learn/${course.slug}/sessions/${s.id}/position`;
+  // Admins previewing a course aren't enrolled: nothing to save. A failed save is silent (the next one retries).
+  const savePosition = useCallback<SavePosition>(
+    (body, { keepalive }) => {
+      savedPositions?.set(s.id, body);
+      if (keepalive) apiKeepalive(positionPath, 'PUT', body);
+      else api(positionPath, { method: 'PUT', json: body }).catch(() => undefined);
+    },
+    [s.id, positionPath, savedPositions],
+  );
+  const onPosition = course.canTrackProgress ? savePosition : undefined;
+  const resumeNote = stoppedAt > 0 && (
+    <p className="text-sm text-muted">
+      <TextWithTime k="learn.stoppedAt" sec={stoppedAt} />
+    </p>
+  );
 
   const saveLesson = useCallback(
     (completed: boolean, source: 'WATCHED' | 'MANUAL') => {
@@ -75,13 +107,19 @@ export function SessionCard({
 
   return (
     <article id={`session-${s.order}`} className="flex scroll-mt-6 flex-col gap-6" aria-labelledby={`session-${s.id}-title`}>
-      {lessonVideoId && <LessonPlayer id={lessonVideoId} title={title} onEnded={onVideoEnded} />}
+      {lessonVideoId && (
+        <div className="flex flex-col gap-2">
+          <LessonPlayer id={lessonVideoId} title={title} start={start} onEnded={onVideoEnded} onPosition={onPosition} />
+          {resumeNote}
+        </div>
+      )}
       {!lessonVideoId && s.phase === 'ended' &&
         (!s.recording ? (
           <div className="grid aspect-video place-items-center rounded-xl bg-muted-bg p-6 text-center text-muted">{t('learn.noRecording')}</div>
         ) : s.recording.kind === 'youtube' && s.recording.youtubeId ? (
           <div className="flex flex-col gap-2">
-            <YouTubeFacade id={s.recording.youtubeId} title={title} />
+            <YouTubeFacade id={s.recording.youtubeId} title={title} start={start} onPosition={onPosition} />
+            {resumeNote}
             <a href={s.recording.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center self-start text-sm text-primary underline">
               {t('learn.watchOnYoutube')}
             </a>

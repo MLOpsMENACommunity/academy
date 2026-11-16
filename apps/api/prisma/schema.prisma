@@ -354,6 +354,7 @@ model User {
   emailVerificationTokens     EmailVerificationToken[]
   passwordResetTokens         PasswordResetToken[]
   sessionProgress             SessionProgress[]
+  lessonWatches               LessonWatch[]
   sessionFeedback             SessionFeedback[]
   testimonials                Testimonial[]              @relation("TestimonialAuthor")
   testimonialsReviewed        Testimonial[]              @relation("TestimonialReviewer")
@@ -775,6 +776,7 @@ model CourseSession {
   updatedAt     DateTime @updatedAt
 
   progress    SessionProgress[]
+  watches     LessonWatch[]
   feedback    SessionFeedback[]
   reminders   ReminderLog[]
   assessments Assessment[]
@@ -980,6 +982,24 @@ model SessionProgress {
   source      LessonCompletionSource?
 
   @@id([userId, sessionId])
+}
+
+/// Where a student stopped in a session's video on the learn page ("Continue at 42:10"). One row
+/// per student per session, saved by the player every ~15 s while playing and on pause. Personal
+/// data: in the data export, deleted on anonymisation, gone with the account. Never public.
+model LessonWatch {
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String
+  session     CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// Seconds into the video.
+  positionSec Int
+  /// The video's length in seconds, as the player reported it (null when it didn't).
+  durationSec Int?
+  updatedAt   DateTime      @updatedAt
+
+  @@id([userId, sessionId])
+  @@index([sessionId])
 }
 
 /// Who attended a live session, from the Google Meet attendance file (or set by hand). One row

@@ -17,7 +17,8 @@ import type { Env } from '../config/env';
  *     clears all of it when the handler finishes, i.e. after its transaction committed, and
  *     before the response goes out. In production the jobs run through the hourly tick, a
  *     POST, so they clear it too; so does JobsRegistry.runAll. (The in-process crons, local
- *     only with JOBS_ENABLED, don't change what is cached.)
+ *     only with JOBS_ENABLED, don't change what is cached.) The one exception is listed in
+ *     NON_CLEARING_WRITES: the video player's position save, which writes only LessonWatch.
  *   - A load that started before a clear is never stored after it (the entry holds the
  *     promise from the start, and clear() drops it).
  * A change made outside this process (a script, psql) shows within SIGNED_IN_CACHE_TTL_S.
@@ -73,10 +74,20 @@ export const READ_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTION
 /** GETs that write what SignedInCache holds: Google sign-in can claim an account and end its sessions. */
 const WRITING_GETS = new Set(['/api/auth/google/callback']);
 
+/**
+ * Writes that never touch what SignedInCache holds (accounts and Course rows), so they leave it
+ * alone. The video player's position save (LessonWatch only) comes every ~15 s from every student
+ * watching: clearing on each one would empty the cache for everybody several times a second. Its
+ * handler still reads the account and the course from the database (writes never use the cache).
+ */
+const NON_CLEARING_WRITES: ReadonlyArray<{ method: string; path: RegExp }> = [{ method: 'PUT', path: /^\/api\/learn\/[^/]+\/sessions\/[^/]+\/position$/ }];
+
 /** Whether a request may change what SignedInCache holds (so it clears it when done). */
 export function clearsSignedInCache(req: Pick<Request, 'method' | 'path'>): boolean {
   // Express matches routes ignoring case and a trailing slash: so does this.
-  return !READ_METHODS.has(req.method) || WRITING_GETS.has(req.path.toLowerCase().replace(/\/+$/, ''));
+  const path = req.path.toLowerCase().replace(/\/+$/, '');
+  if (READ_METHODS.has(req.method)) return WRITING_GETS.has(path);
+  return !NON_CLEARING_WRITES.some((w) => w.method === req.method && w.path.test(path));
 }
 
 /** Empties SignedInCache after every request that can write, once its handler finished. */

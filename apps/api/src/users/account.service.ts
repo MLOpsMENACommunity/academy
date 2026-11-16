@@ -122,6 +122,11 @@ export class AccountService {
           },
         },
         sessionProgress: true,
+        // Where they stopped in each video (the learn page's "Continue at 42:10").
+        lessonWatches: {
+          select: { positionSec: true, durationSec: true, updatedAt: true, session: { select: { order: true, titleEn: true, course: { select: { slug: true } } } } },
+          orderBy: { updatedAt: 'asc' },
+        },
         sessionFeedback: true,
         testimonials: { select: { courseId: true, body: true, status: true, consentAt: true, createdAt: true } },
         earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
@@ -274,6 +279,14 @@ export class AccountService {
         verify: this.email.url(user.locale, `/certificates/${c.code}`),
       })),
       sessionProgress: user.sessionProgress,
+      videoPositions: user.lessonWatches.map((w) => ({
+        course: w.session.course.slug,
+        session: w.session.order,
+        sessionTitle: w.session.titleEn,
+        positionSec: w.positionSec,
+        durationSec: w.durationSec,
+        savedAt: w.updatedAt,
+      })),
       feedback: user.sessionFeedback,
       testimonials: user.testimonials,
       reminderPreferences: user.reminderPreferences,
@@ -528,6 +541,8 @@ export class AccountService {
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
       // Attendance (minutes per session) is personal too; course counts never included deleted accounts.
       this.prisma.sessionAttendance.deleteMany({ where: { userId } }),
+      // Where they stopped in each video: personal, and of no use to anyone else.
+      this.prisma.lessonWatch.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
       // Certificates stay on record (serial, course, dates: the public page says "no longer

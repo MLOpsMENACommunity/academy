@@ -518,6 +518,15 @@ admins can preview any course; course staff can preview assessments.
   **Assignment** link, its **Assessments**, the student's **attendance** once recorded (students no
   longer mark sessions done themselves), and
   **Feedback** (1–5 stars and a comment, once the session has started).
+- **Resume at the exact second** (Pending): a YouTube recording played on the learn page remembers
+  where the student stopped and starts there next time, 3 seconds earlier so the sentence replays.
+  Under the player: "You stopped at 42:10". The header shows **Continue the recording of session 3
+  at 42:10** (self-paced: **Continue video 3 at 42:10**), linking to it, and the page opens on that
+  session unless one is live or its join link is open. Times are m:ss or h:mm:ss, left-to-right in
+  Arabic. The player saves the position at most every 15 s while it plays, on pause, at the end and
+  when the student leaves the page or the lesson; nothing is saved until they press play. A video
+  stopped within 10 s of its end or under 5 s in starts from the beginning. Attendance doesn't reset
+  a live course's recording. Admins previewing a course save nothing. Drive recordings aren't tracked.
 - **Course feedback** opens when the last session starts.
 - **Reminders:** a per-course switch for the 24 h/1 h session emails, assessment due reminders and
   publish notices.
@@ -584,6 +593,8 @@ views count on our channel.
 - **Student view:** `/learn/<slug>` shows the video list with no dates or calendar, YouTube's own player
   (no autoplay, so the student presses YouTube's play button) and the lesson's quizzes. The Join link,
   calendar and session dates are hidden.
+- **Resume:** each video starts where the student stopped (section 5, "Resume at the exact second");
+  a completed lesson starts from the beginning. Saving a position never completes a lesson.
 - **Completing a lesson:** automatically when the video reaches its end, or with **Mark as complete**
   (which can be undone). Each completion stores how it happened (watched or marked). Optional videos
   can be completed but don't count; a lesson with no YouTube link can't be completed and doesn't count.
@@ -1226,6 +1237,9 @@ same email is never sent twice.
 
 - **Telegram and Discord usernames** are shown to the academy team only (never on public pages or
   leaderboards); they are in the data export and removed with the profile on anonymisation.
+- **Video positions** (where a student stopped in each recording, for "Continue at 42:10") are seen by
+  that student only, never by the team or on any public page; they are in the data export
+  ("videoPositions") and deleted on anonymisation, and otherwise kept as long as the account.
 - **Data minimisation:** leaderboards show first name + last initial and only for students who opt in;
   speakers see counts, never recipients; certificates show the name the student gave.
 - **Private files** (CVs, payment screenshots, assessment PDFs, certificate PDFs) are in a private
@@ -1269,6 +1283,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #122 | **Resume at the exact second**: YouTube recordings and self-paced videos on the learn page start where the student stopped (3 s earlier), with "You stopped at 42:10" under the player, a **Continue video 3 at 42:10** link in the header and the page opening on that video. The player saves at most every 15 s while playing, on pause and on leaving (keepalive); completed or nearly finished videos start from the beginning. New `PUT /api/learn/:slug/sessions/:sessionId/position` (enrolled students, 30/min, leaves the signed-in cache alone); `resumeAt` per session and `lastWatched` on `GET /api/learn/:slug`. In the data export, deleted on anonymisation; privacy policy updated. Migration: `LessonWatch` table (additive) | Pending |
 | #121 | **Course Q&A** (section 5.1): a Q&A tab on the learn page and in the Teaching area. Enrolled students ask (optionally about one lesson), answer, vote "I have this question too", follow and accept; staff with the new **Answer questions** permission (Main instructor, Co-instructor, Moderator by default) and SUPER/ACADEMIC admins pin, close, hide. New answers notify followers in the app and by email (`qaAnswer`, reminders opt-out). An accepted student answer earns 5 points. Automation rule **Question waiting for an answer**. Migration: CourseQuestion, CourseAnswer, QuestionVote, QuestionFollow tables; CoursePermission ANSWER_QUESTIONS; PointsReason QA_ANSWER | Pending |
 | #120 | Self-paced courses on public pages: **Start any time** instead of "Applications open", and **{n} video lessons at your own pace** instead of the duration in weeks, hours per week, start and apply-by dates (course page, cards, Learn menu, speaker pages). The course summary and speaker course list now carry `selfPaced`. No migration | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
