@@ -42,6 +42,7 @@ import { AutomationModule } from './automation/automation.module';
 import { DriveModule } from './drive/drive.module';
 import { PointsModule } from './points/points.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QaModule } from './qa/qa.module';
 import { SettingsModule } from './settings/settings.module';
 import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-announcements.module';
 import { SpeakerAccountsModule } from './speaker-accounts/speaker-accounts.module';
@@ -82,6 +83,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     LearnModule,
     AssessmentsModule,
     TestimonialsModule,
+    QaModule,
     StudyPlanModule,
     PointsModule,
     BotModule,

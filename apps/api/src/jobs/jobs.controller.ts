@@ -11,13 +11,16 @@ import { PointsJobs } from '../points/points.jobs';
 import { AccountJobs } from './account.jobs';
 import { EventReminderJobs } from './event-reminders.jobs';
 import { JobsRegistry } from './jobs-registry';
+import { NextDue } from './next-due';
 import { ReminderJobs } from './reminders.jobs';
 import { RetentionJobs } from './retention.jobs';
 
 /**
  * Runs all scheduled jobs once. Used where in-process cron can't be relied on
- * (Cloudflare Containers sleep when idle): a Cron Trigger on the Worker calls
- * this every hour with a shared secret. Every job is idempotent.
+ * (Cloudflare Containers sleep when idle): the Worker's Cron Trigger calls this with a shared
+ * secret when something is due, or when the API is awake anyway (deploy/cloudflare/src/jobs.ts).
+ * Every job is idempotent. The answer includes `nextDueAt` (next-due.ts): when the next call
+ * will have time-critical work (ISO time, or null), so the Worker can let the API sleep until then.
  *
  * The jobs listed here run first, then every @ScheduledJob provider (JobsRegistry). New jobs
  * register themselves with the decorator instead of being added here, and only enqueue work
@@ -37,6 +40,7 @@ export class JobsController {
     private readonly announcements: AnnouncementDelivery,
     private readonly pointsJobs: PointsJobs,
     private readonly registry: JobsRegistry,
+    private readonly nextDue: NextDue,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -44,12 +48,12 @@ export class JobsController {
   @SkipThrottle()
   @Post('tick')
   @HttpCode(200)
-  async tick(@Headers('x-jobs-token') token: string | undefined): Promise<Record<string, number | string>> {
+  async tick(@Headers('x-jobs-token') token: string | undefined): Promise<Record<string, number | string | null>> {
     if (!this.env.JOBS_TOKEN) throw new NotFoundException();
     const a = Buffer.from(token ?? '');
     const b = Buffer.from(this.env.JOBS_TOKEN);
     if (a.length !== b.length || !timingSafeEqual(a, b)) throw new UnauthorizedException();
-    const results: Record<string, number | string> = {};
+    const results: Record<string, number | string | null> = {};
     // Each job is isolated: one failing job must not silently skip the others.
     const run = async (name: string, job: () => Promise<number | Record<string, number>>) => {
       try {
@@ -78,6 +82,12 @@ export class JobsController {
       return pending;
     });
     Object.assign(results, await this.registry.runAll());
+    // Never fails the tick: without it the Worker falls back to calling again within the hour.
+    try {
+      results.nextDueAt = (await this.nextDue.at())?.toISOString() ?? null;
+    } catch (err) {
+      this.logger.error(`nextDueAt failed: ${(err as Error).name}`);
+    }
     return results;
   }
 }

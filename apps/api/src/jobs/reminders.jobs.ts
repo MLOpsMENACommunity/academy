@@ -12,7 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
  * Windows are wide enough for an hourly trigger (Cloudflare cron); a
  * ReminderLog row per (session, user, kind) guarantees each is sent once.
  */
-const WINDOWS: Record<ReminderKind, { from: number; to: number; hours: 24 | 1 }> = {
+export const WINDOWS: Record<ReminderKind, { from: number; to: number; hours: 24 | 1 }> = {
   H24: { from: 22 * 60, to: 24 * 60, hours: 24 },
   H1: { from: 10, to: 75, hours: 1 },
 };

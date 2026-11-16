@@ -19,7 +19,7 @@ export const KEEP_DONE_DAYS = 7;
 export const KEEP_FAILED_DAYS = 30;
 
 /** Each category's per-course opt-out (ReminderPreference), re-checked just before sending. */
-const OPT_OUT: Record<string, OptOutKind> = { feedback: 'feedback', 'assessment-published': 'reminders', automation: 'reminders', 'study-plan': 'reminders' };
+const OPT_OUT: Record<string, OptOutKind> = { feedback: 'feedback', 'assessment-published': 'reminders', automation: 'reminders', qa: 'reminders', 'study-plan': 'reminders' };
 
 /** The columns the claim returns (raw SQL, so typed by hand). */
 interface ClaimedRow {

@@ -7,7 +7,7 @@ import { ADMIN_PERMISSIONS, LOCALES, type AdminPermission, type Role } from './e
  *
  *   SUPER       everything, including the team (admins and their presets), settings and the audit log
  *   ACADEMIC    courses and their sessions, live sessions, assessments and grading, points and
- *               badges, certificates, course announcements, feedback
+ *               badges, certificates, course announcements, feedback, reviews
  *   CONTENT     images, recordings and video links (course covers, session covers, speaker
  *               photos) through Admin → Media only: no student personal data
  *   ADMISSIONS  applications, students, enrolments, invites, waiting lists
@@ -43,6 +43,8 @@ export const ADMIN_NAV_ITEMS = [
   // Certificates issued before the academy (import); per-course issuing is in each course's tab.
   { key: 'certificates', permissions: ['ACADEMIC'] },
   { key: 'courses', permissions: ['ACADEMIC', 'ADMISSIONS'] },
+  // Students' ratings and reviews of every course, to approve before they're public.
+  { key: 'reviews', permissions: ['ACADEMIC'] },
   { key: 'sessions', permissions: ['ACADEMIC'] },
   { key: 'speakers', permissions: ['SPEAKERS'] },
   { key: 'consultations', permissions: ['SPEAKERS', 'FINANCE'] },

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { localIsoDate, STUDY_PLAN_REMINDER_WINDOW_HOURS, weekdayOf, zonedTime, type Locale, type StudyDay } from '@academy/shared';
+import { addDays, localIsoDate, STUDY_PLAN_REMINDER_WINDOW_HOURS, weekdayOf, zonedTime, type Locale, type StudyDay } from '@academy/shared';
 import { LEARNER_ROLE_FILTER } from '../common/learners';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
@@ -19,6 +19,27 @@ const HOUR = 3_600_000;
 export function reminderAt(date: string, hour: number, timezone: string): Date {
   const [year, month, day] = date.split('-').map(Number) as [number, number, number];
   return zonedTime({ year, month, day }, hour * 60, timezone) ?? zonedTime({ year, month, day }, hour * 60 + 60, timezone)!;
+}
+
+/**
+ * The next reminder moment strictly after `now` for one plan: the first study day (on or after its
+ * start, in the student's zone, within the coming 8 days) whose reminder time is still ahead. The jobs
+ * tick reports the earliest one as part of `nextDueAt` (jobs/next-due.ts), so the Worker wakes the API
+ * in time: a reminder is dropped when it would be more than STUDY_PLAN_REMINDER_WINDOW_HOURS late.
+ */
+export function nextReminderAfter(
+  plan: { weekdays: readonly number[]; reminderHour: number; startDate: string },
+  timezone: string,
+  now: Date,
+): Date | null {
+  let day = localIsoDate(now, timezone);
+  if (day < plan.startDate) day = plan.startDate;
+  for (let i = 0; i < 8; i++, day = addDays(day, 1)) {
+    if (!plan.weekdays.includes(weekdayOf(day))) continue;
+    const at = reminderAt(day, plan.reminderHour, timezone);
+    if (at.getTime() > now.getTime()) return at;
+  }
+  return null;
 }
 
 /** "Video 3 (part 2 of 3) · 45 min" / "Quiz: Week 1 · 20 min", in the student's language. */
