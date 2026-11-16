@@ -757,9 +757,24 @@ Assessments):
 - **Quiz builder:** single choice, multiple choice (all-or-nothing) and true/false; each question has a
   weight, the correct answer(s) and an explanation. Settings: attempts (0 = unlimited), best or last
   attempt counts, reveal answers (never / after the last attempt / after the due date), time limit,
-  shuffle. Up to 200 questions.
+  shuffle. Up to 200 questions. Each question can have an optional **topic** (up to 60 characters);
+  the question list shows the topics with how many questions each has.
+- **Question bank and practice exams:** **Questions per attempt** (1–500; empty = every question) makes
+  the quiz a bank: each attempt draws that many questions at random, stored with the attempt, so a
+  reload or a resumed attempt shows the same ones and grading, the review and the admin's view use
+  exactly those (answers to any other question are ignored). **Balance the draw across topics** gives
+  each topic a share in proportion to its number of questions (at least one each when the count
+  allows). The count can't be more than the quiz's questions (a draft without questions yet may set
+  it). **Use the practice exam preset** sets unlimited attempts, answers after each attempt, best
+  attempt counts, Optional for the certificate, 20 questions per attempt (or all of a smaller bank)
+  balanced across topics and a 30-minute timer (mock-exam mode); the count and the timer stay
+  editable. The list shows "Draws N per attempt". Scores stay out of the quiz's max points: an attempt
+  scores the weights it got right ÷ the weights of the questions it drew × max points, so its percent
+  is its own, and the gradebook, CSV, points, leaderboards, pass marks and certificate rules (including
+  the self-paced 80% rule and the minimum total) all compare that.
 - **Upload a quiz from Excel or CSV**: download the template (.xlsx or .csv) with columns
-  `type, question, option1…option6, correct, weight, explanation`; `correct` accepts `2`, `1,3`, `B`,
+  `type, question, option1…option6, correct, weight, explanation, topic` (`topic` optional; sheets
+  without it still work); `correct` accepts `2`, `1,3`, `B`,
   `A,C` or `true/false`; `type` can be guessed. The preview lists each row's problem; **Add after the
   current questions** or **Replace** only when there are no errors. Nothing is saved until **Save**.
 - **Import quizzes from a file** (PR #81): one .xlsx or .csv creates several
@@ -786,7 +801,13 @@ Assessments):
 - Quiz player: one question per screen on phones, all on one page on wider screens; progress bar;
   countdown to the server's deadline that submits automatically at zero; a confirm step lists unanswered
   questions; answers survive a reload. Score screen (e.g. 15/20, 75 %, passed); answer review with
-  explanations once the reveal rule allows.
+  explanations once the reveal rule allows. With the review, a quiz with topics shows a **Score by
+  topic** table for that attempt (topic, points out of possible, percent with a bar, and the overall
+  row; questions without a topic are "General"); like the review, it follows the reveal rule. The
+  list of attempts shows each attempt's score and percent.
+- A quiz that draws from a bank says "Each attempt draws different questions from a bank" and counts
+  the questions of one attempt; when it doesn't count toward the certificate it carries a **Practice
+  exam** badge in the learn page's lists and on its page.
 - Labs and assignments, by submission type: **GitHub repo** (must be public, checked with GitHub;
   "Couldn't verify" if GitHub is unreachable), **Drive/Docs link** (drive.google.com or
   docs.google.com, with a sharing tick), **PDF** (5 MB) or **any https link**. Resubmit until the due
@@ -1362,6 +1383,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #125 | Assessments: **practice exams from a question bank**. A quiz can draw a set number of questions per attempt (optionally balanced across topics), stored with the attempt so reloads and grading use the same ones; questions get an optional **topic** (editor and the sheet's `topic` column); students see their **score by topic** after each attempt (with the review) and a **Practice exam** badge; the form has a one-click **practice exam preset**. Scores stay out of max points, so the percent of an attempt is its own and the gradebook, points and certificate rules compare it. Migration: `QuizQuestion.topic`, `Assessment.drawCount`, `Assessment.balanceByTopic`, `Submission.drawnQuestionIds` | Pending |
 | #124 | **Study plan** for self-paced courses: the student picks study days, time per day, a start date and a reminder time; the learn page shows the next study day and its lessons and quizzes, a finish date and On track / Behind by N; study days go into the private calendar feed (8 weeks); a study-day reminder (in-app and the new `studyPlanReminder` email, once per day, per-course reminder opt-out) from the hourly tick; new automation rule **Behind the study plan** (nudge, at most weekly). New `GET`/`PUT`/`DELETE /api/learn/:slug/study-plan`. Data export and anonymisation include it; privacy policy updated. Migration: StudyPlan table (en/ar) | Pending |
 | #123 | **Star ratings and reviews** (5.2): students who finished any course (valid certificate, or the course is over; self-paced as before) rate it 1–5 stars with optional words on the learn page. Ratings are public **only after an admin approves them**: the course page and cards show "4.7 ★ (38 ratings)" from 5 approved ratings, approved reviews are listed with their stars, and the course page's structured data gets `aggregateRating`. New Admin → **Reviews** queue across courses (ACADEMIC; `GET /api/admin/reviews`), stars in each course's Testimonials tab; approve/reject audit-logged and refreshes the public pages. Migration: `Testimonial.rating` (nullable, CHECK 1–5) | Pending |
 | #122 | **Resume at the exact second**: YouTube recordings and self-paced videos on the learn page start where the student stopped (3 s earlier), with "You stopped at 42:10" under the player, a **Continue video 3 at 42:10** link in the header and the page opening on that video. The player saves at most every 15 s while playing, on pause and on leaving (keepalive); completed or nearly finished videos start from the beginning. New `PUT /api/learn/:slug/sessions/:sessionId/position` (enrolled students, 30/min, leaves the signed-in cache alone); `resumeAt` per session and `lastWatched` on `GET /api/learn/:slug`. In the data export, deleted on anonymisation; privacy policy updated. Migration: `LessonWatch` table (additive) | Pending |

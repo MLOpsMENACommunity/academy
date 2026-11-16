@@ -1619,12 +1619,19 @@
           "someCorrect": "Mark at least one correct answer.",
           "twoOptions": "A true/false question has exactly two options.",
           "lateWithReveal": "Answers shown after the due date need late work turned off.",
-          "practiceCertificate": "A practice quiz (unlimited attempts, answers after each) can't count toward the certificate."
+          "practiceCertificate": "A practice quiz (unlimited attempts, answers after each) can't count toward the certificate.",
+          "drawCount": "Draw at most {max} questions: that is how many this quiz has."
         },
         "title": "Title",
         "instructions": "Instructions (Markdown)",
         "englishOnly": "Assessments are written in English only. Students using the Arabic site see the same English text.",
-        "hasArabic": "This assessment also has Arabic text written earlier. Students using Arabic still see that text; your edits here change the English only."
+        "hasArabic": "This assessment also has Arabic text written earlier. Students using Arabic still see that text; your edits here change the English only.",
+        "practicePreset": "Use the practice exam preset",
+        "practicePresetHint": "Unlimited attempts, answers after each attempt, best attempt counts, not for the certificate; each attempt draws 20 questions balanced across topics, with a 30-minute timer. You can change the count and the timer afterwards.",
+        "practicePresetApplied": "Practice exam settings applied. Check the draw count and the time limit, then save.",
+        "drawCount": "Questions per attempt",
+        "drawCountHint": "Empty = every question. Otherwise each attempt draws this many from the questions below (a question bank).",
+        "balanceByTopic": "Balance the draw across topics (each topic in proportion to its number of questions)"
       },
       "builder": {
         "title": "Questions",
@@ -1655,7 +1662,13 @@
         "prompt": "Question",
         "option": "Option {n}",
         "explanation": "Explanation (optional, shown with the answers)",
-        "tfHint": "Students see True and False in their own language."
+        "tfHint": "Students see True and False in their own language.",
+        "topic": "Topic (optional)",
+        "topicHint": "Up to 60 characters, e.g. \"Networking\". Students see their score per topic.",
+        "topicsTitle": "Topics",
+        "topicCount": "{topic}: {count, plural, one {# question} other {# questions}}",
+        "general": "General",
+        "drawSummary": "Each attempt draws {draw} of {total} questions."
       },
       "book": {
         "title": "Gradebook",
@@ -1716,7 +1729,7 @@
       "upload": {
         "title": "Upload questions from Excel or CSV",
         "intro": "One question per row. Download the template, fill it in Excel, Google Sheets or Numbers, then upload it here (.xlsx or .csv, up to {max} questions).",
-        "columns": "Columns: type (single, multiple or true_false), question, option1 to option6, correct (an option number such as 2, several such as 1,3, letters such as B, or true/false), weight (the question’s points, a whole number from 1 to 100; 1 if empty. A question with weight 2 counts twice as much as one with weight 1) and explanation (optional).",
+        "columns": "Columns: type (single, multiple or true_false), question, option1 to option6, correct (an option number such as 2, several such as 1,3, letters such as B, or true/false), weight (the question’s points, a whole number from 1 to 100; 1 if empty. A question with weight 2 counts twice as much as one with weight 1), explanation (optional) and topic (optional, up to 60 characters, for the score by topic and balanced draws).",
         "templateXlsx": "Download the template (.xlsx)",
         "templateCsv": "Template (.csv)",
         "choose": "Choose a file",
@@ -1815,7 +1828,8 @@
         }
       },
       "lastEditedBy": "Last edited by {name}",
-      "preview": "Preview"
+      "preview": "Preview",
+      "draws": "Draws {count} per attempt"
     },
     "points": {
       "nav": "Points & badges",
@@ -3186,7 +3200,14 @@
       "explanation": "Why",
       "attempt": "Attempt {n}",
       "history": "Your attempts",
-      "counted": "Counts"
+      "counted": "Counts",
+      "topicsCaption": "Score by topic, attempt {n}",
+      "topic": "Topic",
+      "topicScore": "Points",
+      "topicPercent": "Score",
+      "general": "General",
+      "overall": "Overall",
+      "weightOf": "{earned} of {possible}"
     },
     "work": {
       "yourSubmission": "Your submission",
@@ -3230,7 +3251,9 @@
       "url": "Enter a full link starting with https://"
     },
     "true": "True",
-    "false": "False"
+    "false": "False",
+    "practice": "Practice exam",
+    "drawnFromBank": "Each attempt draws different questions from a bank."
   },
   "points": {
     "title": "Points & badges",

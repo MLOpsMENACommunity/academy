@@ -1673,6 +1673,10 @@ model Assessment {
   revealAnswers        RevealPolicy     @default(AFTER_SUBMIT)
   timeLimitMin         Int?
   shuffle              Boolean          @default(false)
+  /// Quizzes only: each attempt draws this many questions from the bank (null = every question).
+  drawCount            Int?
+  /// With drawCount: the draw takes questions from every topic, in proportion to its size.
+  balanceByTopic       Boolean          @default(false)
   /// Set once, the first time it is published: enrolled students were told (in-app and by email).
   publishedNotifiedAt  DateTime?
   /// Who saved it last (an admin or a teaching speaker): admins see "by {name}".
@@ -1701,6 +1705,8 @@ model QuizQuestion {
   weight        Int              @default(1)
   explanationEn String?
   explanationAr String?
+  /// A short label (≤60 characters) for per-topic scores and balanced draws; null = "General".
+  topic         String?
   options       QuizOption[]
 
   @@index([assessmentId, order])
@@ -1719,37 +1725,40 @@ model QuizOption {
 }
 
 model Submission {
-  id            String     @id @default(cuid())
-  assessmentId  String
-  assessment    Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  userId        String
-  user          User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade)
+  id               String     @id @default(cuid())
+  assessmentId     String
+  assessment       Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade)
   /// 1, 2, 3… per student. Labs and assignments keep one row that resubmissions update.
-  attempt       Int        @default(1)
+  attempt          Int        @default(1)
   /// Quiz answers: { [questionId]: optionId[] }.
-  answers       Json?
-  url           String?
-  fileKey       String?
-  fileName      String?
-  fileDeletedAt DateTime?
-  note          String?
+  answers          Json?
+  /// Quizzes with a draw count: the questions this attempt drew (graded, reviewed and resumed
+  /// with exactly these). Empty = every question of the quiz.
+  drawnQuestionIds String[]   @default([])
+  url              String?
+  fileKey          String?
+  fileName         String?
+  fileDeletedAt    DateTime?
+  note             String?
   /// The student ticked "My repository is public" / "Anyone with the link can view".
-  attested      Boolean    @default(false)
-  repoCheck     RepoCheck?
+  attested         Boolean    @default(false)
+  repoCheck        RepoCheck?
   /// Quizzes: when the attempt was opened (the time limit runs from here).
-  startedAt     DateTime   @default(now())
+  startedAt        DateTime   @default(now())
   /// Null while a quiz attempt is in progress.
-  submittedAt   DateTime?
-  late          Boolean    @default(false)
-  score         Float?
-  maxScore      Int
-  gradedAt      DateTime?
-  gradedById    String?
-  gradedBy      User?      @relation("SubmissionGrader", fields: [gradedById], references: [id], onDelete: SetNull)
-  feedback      String?
-  rubricNotes   String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  submittedAt      DateTime?
+  late             Boolean    @default(false)
+  score            Float?
+  maxScore         Int
+  gradedAt         DateTime?
+  gradedById       String?
+  gradedBy         User?      @relation("SubmissionGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+  feedback         String?
+  rubricNotes      String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@unique([assessmentId, userId, attempt])
   @@index([userId])

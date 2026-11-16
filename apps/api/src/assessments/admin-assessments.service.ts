@@ -90,6 +90,8 @@ function fields(input: AssessmentInput, selfPaced: boolean) {
     revealAnswers: input.revealAnswers,
     timeLimitMin: quiz ? input.timeLimitMin : null,
     shuffle: quiz ? input.shuffle : false,
+    drawCount: quiz ? input.drawCount : null,
+    balanceByTopic: quiz ? input.balanceByTopic : false,
   };
 }
 
@@ -171,6 +173,7 @@ export class AdminAssessmentsService {
       countsForCertificate: a.countsForCertificate,
       submissionKind: a.submissionKind,
       questionCount: a._count.questions,
+      drawCount: a.type === 'QUIZ' ? a.drawCount : null,
       submitted: counts.filter((c) => c.assessmentId === a.id).length,
       toGrade: pending.find((p) => p.assessmentId === a.id)?._count._all ?? 0,
       updatedBy: staffName(a.updatedBy, staffEmails),
@@ -197,6 +200,7 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr,
+        topic: q.topic,
         options: q.options.map((o) => ({ id: o.id, labelEn: o.labelEn, labelAr: o.labelAr, correct: o.correct })),
       })),
     };
@@ -344,6 +348,7 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr,
+        topic: q.topic,
       });
       if (changed(old, data)) await tx.quizQuestion.update({ where: { id: old.id }, data });
       const oldOptions = new Map(old.options.map((o) => [o.id, o]));
@@ -371,6 +376,7 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr ?? null,
+        topic: q.topic ?? null,
       })),
       select: { id: true, order: true },
     });

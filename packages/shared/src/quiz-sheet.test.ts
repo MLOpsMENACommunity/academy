@@ -4,10 +4,35 @@ import { parseCsv } from './csv';
 import { parseQuizSheet, QUIZ_SHEET_COLUMNS, QUIZ_SHEET_EXAMPLE, sheetCellsToText } from './quiz-sheet';
 import { writeXlsx, zipStored } from './xlsx';
 
-const H = ['type', 'question', 'option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'correct', 'weight', 'explanation'];
+const H = ['type', 'question', 'option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'correct', 'weight', 'explanation', 'topic'];
 const row = (o: Partial<Record<(typeof H)[number], string>>) => H.map((h) => o[h] ?? '');
 
 describe('parseQuizSheet', () => {
+  it('reads an optional topic column (aliases, trimmed, empty = none, at most 60 characters)', () => {
+    const rows = [
+      ['question', 'option1', 'option2', 'correct', 'Category'],
+      ['Q1', 'a', 'b', '1', '  Pods   and  nodes '],
+      ['Q2', 'a', 'b', '2', ''],
+    ];
+    const r = parseQuizSheet(rows);
+    expect(r.errors).toEqual([]);
+    expect(r.questions.map((q) => q.topic)).toEqual(['Pods and nodes', null]);
+    const long = parseQuizSheet([['question', 'option1', 'option2', 'correct', 'topic'], ['Q', 'a', 'b', '1', 'x'.repeat(61)]]);
+    expect(long.errors).toMatchObject([{ row: 2, code: 'TOO_LONG', params: { column: 'topic', max: 60 } }]);
+    expect(parseQuizSheet([['question', 'option1', 'option2', 'correct', 'topic'], ['Q', 'a', 'b', '1', 'x'.repeat(60)]]).errors).toEqual([]);
+  });
+
+  it('still reads sheets without a topic column, exactly as before (no topic key)', () => {
+    const old = [
+      ['type', 'question', 'option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'correct', 'weight', 'explanation'],
+      ['single', 'Which tool tracks ML experiments?', 'Nginx', 'MLflow', '', '', '', '', '2', '1', ''],
+    ];
+    const r = parseQuizSheet(old);
+    expect(r.errors).toEqual([]);
+    expect(r.questions[0]).not.toHaveProperty('topic');
+    expect(r.questions[0]).toMatchObject({ kind: 'SINGLE', promptEn: 'Which tool tracks ML experiments?' });
+  });
+
   it('reads the template example: one question of each type', () => {
     const r = parseQuizSheet(QUIZ_SHEET_EXAMPLE);
     expect(r.errors).toEqual([]);
@@ -19,6 +44,7 @@ describe('parseQuizSheet', () => {
         weight: 1,
         explanationEn: 'MLflow logs parameters, metrics and artifacts for each run.',
         explanationAr: undefined,
+        topic: 'Experiment tracking',
         options: [
           { labelEn: 'Nginx', correct: false },
           { labelEn: 'MLflow', correct: true },
@@ -31,6 +57,7 @@ describe('parseQuizSheet', () => {
         weight: 2,
         explanationEn: null,
         explanationAr: undefined,
+        topic: 'Feature stores',
         options: [
           { labelEn: 'Feast', correct: true },
           { labelEn: 'Grafana', correct: false },
@@ -43,6 +70,7 @@ describe('parseQuizSheet', () => {
         weight: 1,
         explanationEn: null,
         explanationAr: undefined,
+        topic: 'Kubernetes',
         options: [
           { labelEn: 'True', correct: true },
           { labelEn: 'False', correct: false },

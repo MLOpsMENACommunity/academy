@@ -15,6 +15,7 @@ Who may do what is in [COURSE-STAFF.md](COURSE-STAFF.md) and [ADMIN-ROLES.md](..
 1. [Who can set up quizzes](#1-who-can-set-up-quizzes)
 2. [Create a quiz by hand](#2-create-a-quiz-by-hand)
 3. [Questions, weights and scoring](#3-questions-weights-and-scoring)
+   - [Topics, question banks and practice exams](#31-topics-question-banks-and-practice-exams)
 4. [Upload one quiz's questions from a file](#4-upload-one-quizs-questions-from-a-file)
 5. [Import many quizzes for many sessions from one file](#5-import-many-quizzes-for-many-sessions-from-one-file)
 6. [Column reference](#6-column-reference)
@@ -70,6 +71,10 @@ Other admin presets (CONTENT, ADMISSIONS, FINANCE, SPEAKERS) can't open assessme
     - **Time limit (minutes):** empty for none, up to 600. The server enforces it; the student sees a
       countdown, and the attempt is submitted automatically at zero.
     - **Shuffle questions and options for each attempt:** each attempt gets its own order.
+    - **Questions per attempt:** empty for every question. A number turns the quiz into a question
+      bank: each attempt draws that many questions
+      ([section 3.1](#31-topics-question-banks-and-practice-exams)).
+    - **Use the practice exam preset:** one click fills in the practice exam settings (section 3.1).
 14. **Questions:** press **+ Add question** for each one (next section), or upload them from a file
     ([section 4](#4-upload-one-quizs-questions-from-a-file)).
 15. Press **Save assessment**. The quiz appears in the list with its session, due date, points and
@@ -112,7 +117,64 @@ rounded to two decimals.
 attempt is open.
 
 Limits: 200 questions per quiz, 10 options per question, 2,000 characters per question or
-explanation, 500 per option.
+explanation, 500 per option, 60 per topic.
+
+### 3.1 Topics, question banks and practice exams
+
+Use these for exam preparation (for example the CKA): a large set of questions, a different selection
+for each attempt, and a score per topic so students see what to study next.
+
+**Topics.** Each question has an optional **Topic (optional)** field, up to 60 characters, for example
+`Networking` or `Storage` (from a file: the `topic` column, [section 6.1](#61-question-columns)).
+"Pods" and "pods" are the same topic. Questions without one are grouped as **General**. Under
+**Questions** the editor lists the topics with how many questions each has, e.g. "Pods: 30
+questions · Networking: 20 questions · General: 5 questions".
+
+**Questions per attempt (the question bank).** Write how many questions one attempt takes, for
+example 20 out of 120. When a student starts an attempt, the academy draws that many at random and
+stores them with the attempt: reloading the page, continuing later and the review always show those
+same questions, and answers to any other question are ignored. The next attempt draws again. The
+number can't be more than the quiz's questions ("Draw at most 12 questions: that is how many this
+quiz has"); a draft with no questions yet may already set it. Students see the number of questions in
+one attempt and "Each attempt draws different questions from a bank".
+
+**Balance the draw across topics** (shown once a number is set): each topic gets a share of the draw
+in proportion to its number of questions, and at least one question when the number allows. With 60
+Pods, 40 Networking and 20 General questions and 12 per attempt: 6 Pods, 4 Networking, 2 General.
+
+**Scoring a drawn attempt.** The same formula as above, over the questions the attempt drew:
+
+```
+score = (weights answered right ÷ weights of the drawn questions) × max points
+```
+
+So the score is always out of **Max points** and its percent is that attempt's own. The pass mark,
+best/last attempt, the gradebook and its CSV, points and leaderboards, and the certificate rules (a
+mandatory quiz's pass mark, the self-paced 80 % rule and the minimum total) all use it unchanged.
+
+**The practice exam preset.** **Use the practice exam preset** in **Quiz settings** sets:
+
+| Setting | Value |
+|---|---|
+| Attempts allowed | 0 (unlimited) |
+| Certificate | Optional |
+| Which attempt counts | Best attempt |
+| Show the answers | After the student's last attempt (with unlimited attempts: after every attempt) |
+| Questions per attempt | 20 (or every question of a smaller bank) |
+| Balance the draw across topics | On |
+| Time limit (minutes) | 30: the countdown makes it a mock exam |
+
+Change the number of questions and the time limit if you like (empty time limit = no timer), then
+save. Students see a **Practice exam** badge on every quiz that draws from a bank and isn't mandatory
+for the certificate. A practice exam with unlimited attempts can't be made mandatory (see section 2);
+to have a drawn quiz count, limit the attempts or reveal the answers later, and its pass mark is
+compared with each attempt's own percent.
+
+**Score by topic.** After each attempt, when the answers are shown (the **Show the answers** rule),
+students get a **Score by topic** table above the review: each topic with points earned out of
+possible (question weights), the percent with a bar, and an **Overall** row. It follows the same rule
+as the review, so a quiz whose answers are never shown doesn't show it either. The list of attempts
+shows each attempt's score and percent.
 
 ## 4. Upload one quiz's questions from a file
 
@@ -199,6 +261,7 @@ Used by both the single-quiz upload and the import.
 | `correct` | `answer`, `answers`, `correct answer`, `key` | Yes | Option numbers or letters; several separated by commas. True/false: `true` or `false` (also yes/no, صح/خطأ) | `2`, `1,3`, `B`, `A,C`, `true` |
 | `weight` | `points`, `marks`, `score` | No | The question's points: a whole number 1–100. Empty = 1 | `1`, `2`, `3` |
 | `explanation` | `explain`, `why`, `rationale`, `feedback` | No | Shown with the answers | `MLflow logs runs.` |
+| `topic` | `topics`, `category`, `domain`, `subject`, `tag`, `area` | No | Up to 60 characters, for per-topic scores and balanced draws ([section 3.1](#31-topics-question-banks-and-practice-exams)). Empty = General. Files without this column still work | `Networking` |
 
 ### 6.2 Quiz settings columns
 
@@ -219,7 +282,8 @@ Import only. Read from each quiz's first row.
 | `instructions` | `description`, `intro` | Empty | Markdown shown above the questions | `Two attempts; the best counts.` |
 
 Not in the file (set them by hand after importing if you need them): **Which attempt counts** (best),
-**Accept late work** (on, except with `reveal` = `after_due`), **Shuffle** (off).
+**Accept late work** (on, except with `reveal` = `after_due`), **Shuffle** (off), **Questions per
+attempt** and **Balance the draw across topics** (every question).
 
 ## 7. The templates
 
@@ -239,13 +303,13 @@ From **Import quizzes from a file → Download the template**. As a table (empty
 The same file as CSV (you can paste this into a `.csv` file):
 
 ```csv
-"quiz","session","type","question","option1","option2","option3","option4","option5","option6","correct","weight","explanation","pass_percent","due","attempts","time_limit_min","reveal","mandatory","status","max_points","instructions"
-"Session 1 check-in","1","single","Which tool tracks ML experiments?","Nginx","MLflow","Excel","","","","2","1","MLflow logs parameters, metrics and artifacts for each run.","70","2027-03-01 20:00","2","15","after_submit","yes","draft","10","Answer every question. You have two attempts; the best one counts."
-"Session 1 check-in","1","multiple","Which of these are feature stores?","Feast","Grafana","Tecton","","","","1,3","2","Feast and Tecton serve features; Grafana draws dashboards.","","","","","","","","",""
-"Session 1 check-in","1","true_false","A model registry stores versioned models.","","","","","","","true","1","","","","","","","","","",""
-"Session 2 review","2","single","Which Kubernetes object runs a batch task to completion?","Deployment","Job","Service","","","","B","2","","60","","1","","never","no","draft","",""
-"Session 2 review","2","multiple","Which are common ways to serve a model?","A REST API","Batch scoring","A printed report","","","","A,B","3","","","","","","","","","",""
-"Session 2 review","2","true_false","Data drift means the input data changes over time.","","","","","","","true","1","Drift is a change in the data the model sees after training.","","","","","","","","",""
+"quiz","session","type","question","option1","option2","option3","option4","option5","option6","correct","weight","explanation","topic","pass_percent","due","attempts","time_limit_min","reveal","mandatory","status","max_points","instructions"
+"Session 1 check-in","1","single","Which tool tracks ML experiments?","Nginx","MLflow","Excel","","","","2","1","MLflow logs parameters, metrics and artifacts for each run.","","70","2027-03-01 20:00","2","15","after_submit","yes","draft","10","Answer every question. You have two attempts; the best one counts."
+"Session 1 check-in","1","multiple","Which of these are feature stores?","Feast","Grafana","Tecton","","","","1,3","2","Feast and Tecton serve features; Grafana draws dashboards.","","","","","","","","","",""
+"Session 1 check-in","1","true_false","A model registry stores versioned models.","","","","","","","true","1","","","","","","","","","","",""
+"Session 2 review","2","single","Which Kubernetes object runs a batch task to completion?","Deployment","Job","Service","","","","B","2","","","60","","1","","never","no","draft","",""
+"Session 2 review","2","multiple","Which are common ways to serve a model?","A REST API","Batch scoring","A printed report","","","","A,B","3","","","","","","","","","","",""
+"Session 2 review","2","true_false","Data drift means the input data changes over time.","","","","","","","true","1","Drift is a change in the data the model sees after training.","","","","","","","","","",""
 ```
 
 What it creates: two draft quizzes. "Session 1 check-in" on session 1: total weight 4, max 10 points,
@@ -258,13 +322,14 @@ shown, optional.
 From the quiz editor's **Upload questions from Excel or CSV → Download the template**:
 
 ```csv
-"type","question","option1","option2","option3","option4","option5","option6","correct","weight","explanation"
-"single","Which tool tracks ML experiments?","Nginx","MLflow","Excel","","","","2","1","MLflow logs parameters, metrics and artifacts for each run."
-"multiple","Which of these are feature stores?","Feast","Grafana","Tecton","","","","1,3","2",""
-"true_false","Kubernetes schedules containers onto nodes.","","","","","","","true","1",""
+"type","question","option1","option2","option3","option4","option5","option6","correct","weight","explanation","topic"
+"single","Which tool tracks ML experiments?","Nginx","MLflow","Excel","","","","2","1","MLflow logs parameters, metrics and artifacts for each run.","Experiment tracking"
+"multiple","Which of these are feature stores?","Feast","Grafana","Tecton","","","","1,3","2","","Feature stores"
+"true_false","Kubernetes schedules containers onto nodes.","","","","","","","true","1","","Kubernetes"
 ```
 
-The `weight` column is each question's points (here 1, 2 and 1).
+The `weight` column is each question's points (here 1, 2 and 1); `topic` is optional (here
+"Experiment tracking", "Feature stores" and "Kubernetes").
 
 ## 8. Common errors and how to fix them
 
@@ -282,6 +347,8 @@ The preview names the sheet row (row 1 is the header) and, for the import, the q
 | A true/false answer must be true or false | `correct` isn't true/false | Write `true` or `false` |
 | Give at least two options | A single or multiple question has fewer than two options | Add options, or use `true_false` |
 | The weight "0" must be a whole number from 1 to 100 | Weight out of range or with decimals | Use 1–100 |
+| The topic is too long (60 characters max) | A `topic` cell has more than 60 characters | Shorten it |
+| Draw at most 12 questions: that is how many this quiz has | **Questions per attempt** is more than the quiz's questions | Lower the number, or add questions |
 | "31/12/2026" isn't a date | The `due` cell isn't in a known format | Write `2026-12-31 18:00` (Cairo time), or format the cell as a date |
 | Answers shown after the due date need a due date | `reveal` is `after_due` with no `due` | Add a due date, or choose another reveal |
 | Unlimited attempts with answers after each one is a practice quiz: it can't be mandatory | `attempts` 0 + `reveal` `after_submit` + `mandatory` yes | Make it optional, limit attempts, or reveal after the due date |
@@ -318,9 +385,10 @@ Once anyone has submitted, the list and the editor say how many students have, a
 |---|---|
 | The type | Wording: title, instructions, question text, options, explanations |
 | Max points | The order of questions and options |
-| Which questions exist, their types, their weights and the answer key | Due date, pass mark, attempts, reveal rule, time limit, shuffle, mandatory/optional, session, status |
+| Which questions exist, their types, their weights and the answer key | Due date, pass mark, attempts, reveal rule, time limit, shuffle, questions per attempt, balance by topic, topics, mandatory/optional, session, status |
 
-Changing wording doesn't regrade earlier attempts. To change the questions or the key, create a new
+Changing wording doesn't regrade earlier attempts. Changing **Questions per attempt** applies to new
+attempts; attempts already started keep the questions they drew. To change the questions or the key, create a new
 quiz (for example duplicate it by importing a file with a new title) and unpublish the old one.
 
 An assessment with submissions can't be deleted: set it to **Draft** instead. Unpublishing takes its

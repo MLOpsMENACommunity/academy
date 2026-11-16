@@ -1,4 +1,4 @@
-import { MAX_QUESTIONS, quizQuestionInputSchema, type QuizQuestionInput } from './assessments';
+import { MAX_QUESTIONS, normalizeTopic, quizQuestionInputSchema, TOPIC_MAX, type QuizQuestionInput } from './assessments';
 import type { QuizQuestionKind } from './enums';
 
 /**
@@ -13,6 +13,8 @@ import type { QuizQuestionKind } from './enums';
  *   correct      option numbers or letters: 2, "1,3", B, "A,C"; true/false: true or false
  *   weight       optional, a whole number 1–100 (default 1)
  *   explanation  optional, shown with the answers
+ *   topic        optional, up to 60 characters: per-topic scores and balanced draws
+ *                (sheets without it still work; their questions are "General")
  */
 
 export const QUIZ_SHEET_MAX_OPTIONS = 6;
@@ -26,14 +28,15 @@ export const QUIZ_SHEET_COLUMNS = [
   'correct',
   'weight',
   'explanation',
+  'topic',
 ] as const;
 
 /** The template: the header and one example of each type. */
 export const QUIZ_SHEET_EXAMPLE: string[][] = [
   [...QUIZ_SHEET_COLUMNS],
-  ['single', 'Which tool tracks ML experiments?', 'Nginx', 'MLflow', 'Excel', '', '', '', '2', '1', 'MLflow logs parameters, metrics and artifacts for each run.'],
-  ['multiple', 'Which of these are feature stores?', 'Feast', 'Grafana', 'Tecton', '', '', '', '1,3', '2', ''],
-  ['true_false', 'Kubernetes schedules containers onto nodes.', '', '', '', '', '', '', 'true', '1', ''],
+  ['single', 'Which tool tracks ML experiments?', 'Nginx', 'MLflow', 'Excel', '', '', '', '2', '1', 'MLflow logs parameters, metrics and artifacts for each run.', 'Experiment tracking'],
+  ['multiple', 'Which of these are feature stores?', 'Feast', 'Grafana', 'Tecton', '', '', '', '1,3', '2', '', 'Feature stores'],
+  ['true_false', 'Kubernetes schedules containers onto nodes.', '', '', '', '', '', '', 'true', '1', '', 'Kubernetes'],
 ];
 
 export type QuizSheetErrorCode =
@@ -83,6 +86,7 @@ function columnKey(header: string): string | null {
   if (['correct', 'answer', 'answers', 'correctanswer', 'correctanswers', 'correctoption', 'correctoptions', 'key'].includes(h)) return 'correct';
   if (['weight', 'points', 'marks', 'score'].includes(h)) return 'weight';
   if (['explanation', 'explain', 'why', 'rationale', 'feedback'].includes(h)) return 'explanation';
+  if (['topic', 'topics', 'category', 'domain', 'subject', 'tag', 'area'].includes(h)) return 'topic';
   const m = /^(?:option|opt|choice)([1-9]|[a-f])$/.exec(h);
   if (m) {
     const n = /\d/.test(m[1]!) ? Number(m[1]) : OPTION_LETTERS.indexOf(m[1]!) + 1;
@@ -210,7 +214,7 @@ export function parseQuizSheet(rows: string[][]): QuizSheetResult {
       else kind = asNumbers && asNumbers.length > 1 ? 'MULTIPLE' : 'SINGLE';
     }
 
-    let draft: { kind: QuizQuestionKind; promptEn: string; weight: unknown; explanationEn: string | null; options: { labelEn: string; correct: boolean }[] };
+    let draft: { kind: QuizQuestionKind; promptEn: string; weight: unknown; explanationEn: string | null; topic?: string | null; options: { labelEn: string; correct: boolean }[] };
     const weightRaw = cell(row, col.weight);
     const weight = weightRaw === '' ? 1 : /^\d+(?:\.0+)?$/.test(weightRaw) ? Number(weightRaw) : NaN;
     if (!Number.isInteger(weight) || weight < 1 || weight > 100) {
@@ -218,6 +222,11 @@ export function parseQuizSheet(rows: string[][]): QuizSheetResult {
       continue;
     }
     const explanation = cell(row, col.explanation) || null;
+    const topic = normalizeTopic(cell(row, col.topic));
+    if (topic && topic.length > TOPIC_MAX) {
+      errors.push(err(line, 'TOO_LONG', 'The topic is too long', { column: 'topic', max: TOPIC_MAX }));
+      continue;
+    }
 
     if (kind === 'TRUE_FALSE') {
       const isTrue = TRUE_WORDS.has(tf);
@@ -248,6 +257,8 @@ export function parseQuizSheet(rows: string[][]): QuizSheetResult {
       draft = { kind, promptEn: prompt, weight, explanationEn: explanation, options: options.map((o) => ({ labelEn: o.label, correct: picked.includes(o.n) })) };
     }
 
+    // Only a sheet with a topic column sets topics, so the output of older sheets is unchanged.
+    if (col.topic !== undefined) draft.topic = topic;
     const parsed = quizQuestionInputSchema.safeParse(draft);
     if (!parsed.success) {
       const issue = parsed.error.issues[0]!;
