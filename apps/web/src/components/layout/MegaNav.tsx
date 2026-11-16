@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useI18n } from '@/i18n/client';
-import { Arrow, IconArticle, IconCalendar, IconChat, IconChevron, IconCourses, IconExternal, IconMap, IconPath, IconPlay, IconUsers } from '../ui/Icons';
+import { Arrow, IconArticle, IconCalendar, IconChat, IconChevron, IconCourses, IconExternal, IconFlag, IconMap, IconPath, IconPlay, IconUsers } from '../ui/Icons';
 import type { MenuData } from './menu';
 import { menuSections, type MenuColumn, type MenuIcon, type MenuLink, type MenuSection, type MenuTint } from './sections';
 import { ConsultationsLink } from './ConsultationsLink';
@@ -19,6 +19,7 @@ const icons: Record<MenuIcon, (p: { size?: number }) => ReactNode> = {
   users: IconUsers,
   chat: IconChat,
   article: IconArticle,
+  flag: IconFlag,
 };
 /** Tile background + icon colour (AA-safe ink on each tint). */
 export const tintClass: Record<MenuTint, string> = {

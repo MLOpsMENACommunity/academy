@@ -4,6 +4,7 @@ import { RequestMethod } from '@nestjs/common';
 import { COURSE_PERMISSIONS } from '@academy/shared';
 import { ROLES_KEY } from '../common/decorators';
 import { ANY_STAFF, COURSE_CAN_KEY, CoursePermissionGuard } from '../course-access/course-permission.guard';
+import { TeachChallengesController } from '../challenges/teach-challenges.controller';
 import { TeachManageController } from './teach-manage.controller';
 import { TeachingController } from './teaching.controller';
 
@@ -32,6 +33,7 @@ function routesOf(cls: { prototype: object }) {
 
 const teaching = routesOf(TeachingController);
 const manage = routesOf(TeachManageController);
+const challenges = routesOf(TeachChallengesController);
 const tag = (routes: ReturnType<typeof routesOf>, method: keyof typeof RequestMethod, path: string) =>
   routes.find((r) => r.method === RequestMethod[method] && r.path === path)?.can;
 
@@ -39,11 +41,12 @@ describe('Teaching routes', () => {
   it('serve /teach/courses (and the old /speaker/courses for the teaching ones), guarded, for any account role', () => {
     expect(Reflect.getMetadata(PATH_METADATA, TeachingController)).toEqual(['teach/courses', 'speaker/courses']);
     expect(Reflect.getMetadata(PATH_METADATA, TeachManageController)).toBe('teach/courses');
-    for (const cls of [TeachingController, TeachManageController]) {
+    expect(Reflect.getMetadata(PATH_METADATA, TeachChallengesController)).toBe('teach/courses');
+    for (const cls of [TeachingController, TeachManageController, TeachChallengesController]) {
       expect(Reflect.getMetadata(ROLES_KEY, cls)).toBeUndefined();
       expect(Reflect.getMetadata(GUARDS_METADATA, cls)).toContain(CoursePermissionGuard);
     }
-    for (const r of [...teaching, ...manage]) {
+    for (const r of [...teaching, ...manage, ...challenges]) {
       expect(r.roles).toBeUndefined();
       expect(r.guards).toBeUndefined();
     }
@@ -52,7 +55,8 @@ describe('Teaching routes', () => {
   it('puts every route but the course list under :courseId, with known permissions', () => {
     expect(teaching.length).toBeGreaterThan(20);
     expect(manage.length).toBeGreaterThan(20);
-    for (const r of [...teaching, ...manage]) {
+    expect(challenges.length).toBe(5);
+    for (const r of [...teaching, ...manage, ...challenges]) {
       if (r.key === 'courses') {
         expect(r.path).toBe('/');
         expect(r.can).toBeUndefined();
@@ -65,7 +69,7 @@ describe('Teaching routes', () => {
   });
 
   it('opens only the course overview to any staff member', () => {
-    const any = [...teaching, ...manage].filter((r) => r.can?.includes(ANY_STAFF)).map((r) => r.path);
+    const any = [...teaching, ...manage, ...challenges].filter((r) => r.can?.includes(ANY_STAFF)).map((r) => r.path);
     expect(any).toEqual([':courseId']);
   });
 
@@ -86,5 +90,10 @@ describe('Teaching routes', () => {
     expect(tag(manage, 'POST', ':courseId/invites')).toEqual(['ENROL']);
     expect(tag(manage, 'DELETE', ':courseId/waitlist/:entryId')).toEqual(['ENROL']);
     expect(tag(manage, 'POST', ':courseId/certificates/:certificateId/revoke')).toEqual(['ISSUE_CERTIFICATES']);
+    expect(tag(challenges, 'GET', ':courseId/challenges')).toEqual(['MANAGE_ASSESSMENTS', 'GRADE']);
+    expect(tag(challenges, 'POST', ':courseId/challenges')).toEqual(['MANAGE_ASSESSMENTS']);
+    expect(tag(challenges, 'PUT', ':courseId/challenges/:id')).toEqual(['MANAGE_ASSESSMENTS']);
+    expect(tag(challenges, 'GET', ':courseId/challenges/:id/entries')).toEqual(['MANAGE_ASSESSMENTS', 'GRADE']);
+    expect(tag(challenges, 'POST', ':courseId/challenges/:id/entries/:entryId/review')).toEqual(['GRADE']);
   });
 });

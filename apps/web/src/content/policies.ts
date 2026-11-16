@@ -28,9 +28,9 @@ interface Policy {
 
 const UPDATED_EN = 'Last updated: 10 October 2026';
 const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
-/** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates). */
-const PRIVACY_UPDATED_EN = 'Last updated: 24 October 2026';
-const PRIVACY_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
+/** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates; challenges). */
+const PRIVACY_UPDATED_EN = 'Last updated: 16 November 2026';
+const PRIVACY_UPDATED_AR = 'آخر تحديث: 16 نوفمبر 2026';
 /** The refund policy changed later (consultations). */
 const REFUND_UPDATED_EN = 'Last updated: 24 October 2026';
 const REFUND_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
@@ -81,6 +81,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             "Each course has a leaderboard. You only appear on it if you choose \"Show me on the leaderboard\", and you can hide yourself again at any time. When you appear, other students in that course see only your first name, the first letter of your last name, your points and your badges, never your email or full name. If you don't opt in, you are counted in the number of participants but not named, and only you can see where you would rank.",
             'Leaderboard badges (such as "Top of the week") are given to the top students whether or not they opted in. They stay private to you unless you choose to appear on the leaderboard.',
             'Your points, badges and leaderboard choices are included in your data download and are deleted when your account is anonymised after deletion. A deleted account disappears from leaderboards straight away.',
+            'Challenges: when you enter one, we keep the link and note you send and the team\'s review. The academy team and the course staff who review challenges see them. The public challenges page shows how many people finished each challenge, and your first name and the first letter of your last name only if you tick "Show my name on the public challenges page" (off by default; you can untick it at any time). Your entries are in your data download and are deleted when your account is anonymised.',
           ],
         },
         {
@@ -188,6 +189,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
             'لكل دورة لوحة صدارة، ولا تظهر فيها إلا إذا اخترت «أظهرني في لوحة الصدارة»، ويمكنك إخفاء نفسك مرة أخرى في أي وقت. وعند ظهورك لا يرى طلاب الدورة الآخرون إلا اسمك الأول والحرف الأول من اسم العائلة ونقاطك وشاراتك، ولا يرون بريدك الإلكتروني أو اسمك الكامل أبدًا. وإن لم تختر الظهور فإنك تُحتسب ضمن عدد المشاركين دون ذكر اسمك، ولا يرى ترتيبك المحتمل غيرك.',
             'تُمنح شارات لوحة الصدارة (مثل «الأفضل هذا الأسبوع») لأصحاب أعلى النقاط سواء اختاروا الظهور أم لا، وتبقى خاصة بك ما لم تختر الظهور في اللوحة.',
             'تُضمَّن نقاطك وشاراتك واختياراتك للوحات الصدارة في ملف بياناتك عند تنزيله، وتُحذف عند تجهيل بيانات حسابك بعد حذفه. ويختفي الحساب المحذوف من لوحات الصدارة فورًا.',
+            'التحدّيات: عندما تشارك في تحدٍّ نحتفظ بالرابط والملاحظة اللذين ترسلهما وبمراجعة الفريق. يراها فريق الأكاديمية وفريق الدورة الذي يراجع التحدّيات. وتعرض صفحة التحدّيات العامة عدد من أنجزوا كل تحدٍّ، ولا تعرض اسمك الأول والحرف الأول من اسم العائلة إلا إذا اخترت «أظهر اسمي في صفحة التحدّيات العامة» (غير مفعّل افتراضيًا، ويمكنك إلغاؤه في أي وقت). تُضمَّن مشاركاتك في ملف بياناتك عند تنزيله، وتُحذف عند تجهيل بيانات حسابك.',
           ],
         },
         {

@@ -371,6 +371,9 @@ model User {
   badges                      UserBadge[]                @relation("BadgeHolder")
   badgesAwarded               UserBadge[]                @relation("BadgeAwarder")
   leaderboardOptIns           LeaderboardOptIn[]
+  challengesCreated           Challenge[]                @relation("ChallengeCreator")
+  challengeEntries            ChallengeEntry[]           @relation("ChallengeEntrant")
+  challengeEntriesReviewed    ChallengeEntry[]           @relation("ChallengeReviewer")
   certificatesIssued          Certificate[]              @relation("CertificateIssuer")
   earlierCertificates         ExternalCertificate[]      @relation("ExternalCertificateHolder")
   earlierCertificatesImported ExternalCertificate[]      @relation("ExternalCertificateImporter")
@@ -707,6 +710,7 @@ model Course {
   /// The speaker booking this course was drafted from, if any.
   speakingSlot        SpeakingSlot?
   automationRules     CourseAutomationRule[]
+  challenges          Challenge[]
 
   @@index([status])
 }
@@ -1728,6 +1732,7 @@ enum PointsReason {
   ADJUSTMENT
   ATTENDANCE
   AUTOMATION
+  CHALLENGE
 }
 
 enum BadgeKind {
@@ -1783,7 +1788,9 @@ model Badge {
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
 
-  awards UserBadge[]
+  awards     UserBadge[]
+  /// The challenge this badge was created for (its approvals award it).
+  challenges Challenge[]
 }
 
 model UserBadge {
@@ -1807,6 +1814,65 @@ model UserBadge {
   @@unique([userId, badgeId, scopeKey])
   @@index([courseId])
   @@index([userId, awardedAt])
+}
+
+/// A time-boxed challenge ("Deploy a model in a week"): students submit a link, staff review it,
+/// and an approval awards the challenge's badge and points (packages/shared/src/challenges.ts).
+model Challenge {
+  id            String           @id @default(cuid())
+  /// Null: open to every signed-in member; otherwise to the enrolled students of this course.
+  courseId      String?
+  course        Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  slug          String           @unique
+  titleEn       String
+  titleAr       String
+  /// Markdown.
+  descriptionEn String
+  descriptionAr String
+  startsAt      DateTime
+  endsAt        DateTime
+  /// 0–500, given on approval (a PointsEntry with source CHALLENGE + the entry id).
+  points        Int              @default(0)
+  /// Created with the challenge (kind AUTO): approvals award it, a later rejection takes it back.
+  badgeId       String
+  badge         Badge            @relation(fields: [badgeId], references: [id], onDelete: Restrict)
+  /// DRAFT, PUBLISHED or ARCHIVED (text with a CHECK constraint, not an enum).
+  status        String           @default("DRAFT")
+  createdById   String?
+  createdBy     User?            @relation("ChallengeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  entries       ChallengeEntry[]
+
+  @@index([status, startsAt])
+  @@index([courseId])
+}
+
+/// One student's entry to a challenge: a link and a note, resubmittable until approved. Personal
+/// data: in the export, and deleted when the account is anonymised.
+model ChallengeEntry {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation("ChallengeEntrant", fields: [userId], references: [id], onDelete: Cascade)
+  /// https only, at most 500 characters.
+  url         String
+  note        String    @default("")
+  /// The student chose to show their name (first name + last initial) on the public challenges page.
+  showName    Boolean   @default(false)
+  /// PENDING, APPROVED or REJECTED (text with a CHECK constraint, not an enum).
+  status      String    @default("PENDING")
+  reviewerId  String?
+  reviewer    User?     @relation("ChallengeReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewedAt  DateTime?
+  feedback    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, status])
+  @@index([userId])
 }
 
 /// A student chose to appear (by first name + last initial) on a course leaderboard. Off by default.

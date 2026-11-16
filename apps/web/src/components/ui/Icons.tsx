@@ -65,6 +65,13 @@ export const IconArticle = (p: P) => (
     <path d="M9 10h6M9 14h6M9 18h4" />
   </Svg>
 );
+/** A flag on a pole: cohort challenges. */
+export const IconFlag = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 21V4" />
+    <path d="M5 4h11l-2 4 2 4H5" />
+  </Svg>
+);
 /** A folded map: the open-source roadmaps. */
 export const IconMap = (p: P) => (
   <Svg {...p}>

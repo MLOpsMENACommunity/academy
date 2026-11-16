@@ -172,7 +172,8 @@ Major upgrades (Next 16, Nest 12, Prisma 7, TypeScript 7) are deliberate, separa
   opt-outs per course), `ReminderLog`, `Announcement`, `AnnouncementRecipient`, `Notification`.
 - **Assessments:** `Assessment`, `QuizQuestion`, `QuizOption`, `Submission`, `AssessmentReminderLog`.
 - **Certificates:** `Certificate` (one per enrolment; snapshots; `ON DELETE RESTRICT`).
-- **Points:** `PointsEntry` (append-only ledger), `Badge`, `UserBadge`, `LeaderboardOptIn`.
+- **Points:** `PointsEntry` (append-only ledger), `Badge`, `UserBadge`, `LeaderboardOptIn`;
+  `Challenge` (with its own automatic `Badge`) and `ChallengeEntry` (statuses as text + CHECK).
 - **Live sessions and speakers:** `LiveEvent`, `LiveEventSpeaker`, `EventRegistration`,
   `EventReminderLog`, `EventConfirmation`, `SpeakerApplication`, `SpeakingSlot`.
 - **Platform:** `Setting` (key → JSON), `AuditLog`, `OutboundEmail` (the email outbox, section 9).

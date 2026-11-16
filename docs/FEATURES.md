@@ -39,6 +39,7 @@ When a release reaches staging, change its "Merged" entries to "Staging"; when i
 6. [Assessments](#6-assessments-quizzes-labs-assignments)
 7. [Certificates](#7-certificates)
 8. [Points, badges and leaderboards](#8-points-badges-and-leaderboards)
+   - [Cohort challenges](#81-cohort-challenges)
 9. [The speaker portal](#9-the-speaker-portal)
    - [Consultations](#95-consultations-paid-11-calls)
 10. [Live sessions (admin side)](#10-live-sessions-admin-side)
@@ -74,6 +75,10 @@ on, when their role there has the permission (see [9.4](#94-course-staff-and-the
 | Announce to enrolled students / session registrants | | staff³ | staff³ / own sessions | ✓ (courses) | ✓ (courses) | | | | |
 | Create and grade assessments, gradebook | | staff³ | staff³ | ✓ | ✓ | | | | |
 | Award or remove course points | | staff³ | staff³ | ✓ | ✓² | | | | |
+| See challenges, finisher counts and opted-in finisher names | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Enter a challenge (open to all members, or of an enrolled course) | | own | own | own¹ | own¹ | own¹ | own¹ | own¹ | own¹ |
+| Course challenges: create and edit (Manage assessments), review entries (Grade) | | staff³ | staff³ | ✓ | ✓ | | | | |
+| Admin → Challenges: any challenge, review queue | | | | ✓ | ✓ | | | | |
 | Edit session materials (what we cover, recording, links) | | staff³ | staff³ | ✓ | ✓ | ✓ (media fields only, S) | | | |
 | Courses: create, edit, sessions, questions, status | | | | ✓ | ✓ | | read | | |
 | Course staff and roles (Staff tab) | | | | ✓ | ✓ | | | | |
@@ -746,8 +751,9 @@ bring them back. Audited.
 for the two courses are in [POINTS.md](POINTS.md).
 
 - **Students earn points** automatically for assessments (the counted score, rounded), for marking a
-  session done (5 by default) and for a certificate (50 by default); the team adds or removes points
-  by hand (community help, other, correction) or by CSV import.
+  session done (5 by default), for a certificate (50 by default) and for an approved challenge entry
+  (the challenge's points, 0–500, section 8.1); the team adds or removes points by hand (community
+  help, other, correction) or by CSV import.
 - **Where students see them:** dashboard points card, Profile → Points (full history, per-course
   totals, badges).
 - **Leaderboards** (learn page → Leaderboard): **This week** and **Whole course**, top 10, opt-in
@@ -756,8 +762,9 @@ for the two courses are in [POINTS.md](POINTS.md).
   rank. After the course ends the board becomes **Best of the course**.
 - **Badges:** automatic *Top of the week*, *Top of the course* (ranks 1–3), *Perfect score* (100 % on a
   quiz), *Finisher* (attended every session), *Certified*; manual *Top performer*, *Community
-  helper*, *Speaker* (also automatic when a speaker's first published session ends). Badge awards send
-  an in-app notification and the `badgeAwarded` email.
+  helper*, *Speaker* (also automatic when a speaker's first published session ends); and one automatic
+  badge per **challenge** (8.1), awarded when an entry is approved. Badge awards send an in-app
+  notification and the `badgeAwarded` email.
 - **Admin** (ACADEMIC): Admin → Points & badges (badge catalog, add manual badges, activate/deactivate,
   points CSV import with a dry-run preview); Admin → Students → student → **Award or adjust points** and
   award/revoke manual badges; Admin → Courses → course → **Leaderboard** (everyone ranked, hidden ones
@@ -765,6 +772,69 @@ for the two courses are in [POINTS.md](POINTS.md).
   the usernames).
 - **Speakers**: My courses → course → **Points**: give or take away course points for an
   enrolled student with a reason and a note.
+
+---
+
+### 8.1 Cohort challenges
+
+**Status:** Pending (this PR).
+
+**What:** time-boxed challenges such as "Deploy a model in a week". A student sends a link to their
+work (a repository or a live demo) and a note; the team reviews it; an approved entry earns the
+challenge's **badge** and its **points**.
+
+**Who can enter:** a challenge is either **open to every signed-in member** or tied to **one course**,
+and then only that course's enrolled students can enter (others get "This challenge is for the
+students of its course").
+
+**For everyone** (no account needed): **/challenges** (Community menu → Take part → Challenges) lists
+the published challenges in three groups, **Open now**, **Coming up** and **Past challenges**, with
+dates, the reward, who it is for, how many people finished it (approved entries of accounts that still
+exist) and the names of the finishers **who chose to be shown**. Each challenge has its own page
+(`/challenges/{address}`) with the brief (Markdown).
+
+**Students:**
+
+1. Open the challenge (from /challenges, or the **Challenges** card on a course's learn page for that
+   course's challenges).
+2. While it is open (between its start and end), fill in **Link to your work** (https only, up to 500
+   characters), an optional **Note for the reviewers** (up to 1,000 characters) and, if you like, tick
+   **Show my name on the public challenges page** (off by default; first name + last initial, only
+   once approved).
+3. The entry waits for review. Until it is approved you can change it and send it again while the
+   challenge is open; a rejected entry ("Needs changes") shows the team's feedback and goes back to
+   "Waiting for review" when you send it again. Before the start or after the end, sending is refused.
+4. Once approved the entry is final; the name choice can still be changed at any time.
+
+**Staff:**
+
+- **Admin → Challenges** (ACADEMIC, like points and badges): every challenge. **New challenge**: the
+  course (empty = every member; can't be changed later), the address (can't be changed later), English
+  and Arabic title and brief, start and end, points (0–500), the badge icon (an emoji) and the status
+  (**Draft**, **Published**, **Archived**). The challenge's badge is created with it, named after its
+  title (kind automatic). Only published challenges are visible; archiving hides one from every list
+  and keeps entries, badges and points.
+- **Entries**: pending first, with the student, the link, the note and the last review. **Approve**
+  (optional feedback) or **Ask for changes** (feedback required; the student sees it).
+- **Teaching → {course} → Challenges** (course staff): the same for that course's challenges only.
+  Creating and editing needs **Manage assessments**; reviewing needs **Grade** (either opens the tab).
+
+**Rules:**
+
+- Approving gives the badge **once per challenge** and the points through an automatic ledger entry
+  tied to the entry (`CHALLENGE`), so approving again, or two reviewers at once, never adds them twice.
+  A course challenge's points and badge count toward that course (its leaderboard); a challenge open
+  to all counts toward the overall total only.
+- **Asking for changes on an approved entry takes the points back (to 0) and removes the badge**, the
+  way revoking a certificate takes back its bonus and the *Certified* badge. Challenge badges are
+  automatic, so they can't be awarded or revoked by hand (the review is the only switch). Approving
+  again gives them back once.
+- Points are the challenge's value at the time of approval; changing a challenge's points later
+  doesn't change entries already approved (approving one again updates it).
+- The student is told in-app (in their language) on approval and when changes are asked for; an
+  approval also sends the `badgeAwarded` email (bulk lane, same opt-outs as every badge).
+- Nothing here ever removes a student from a course.
+- Limits: 10 entry or name-choice changes a minute per student; staff writes 30 a minute.
 
 ---
 
@@ -864,7 +934,7 @@ reach only the courses they are on.
 
 **The Teaching area** at **/teach** (linked from the dashboard and the speaker portal) lists the
 courses whose staff you are on, with your role. Each course shows only the tabs your role opens:
-Assessments, Gradebook, Materials, Attendance, Points, Roster, Announcements, Feedback, Details, Sessions,
+Assessments, Gradebook, Challenges, Materials, Attendance, Points, Roster, Announcements, Feedback, Details, Sessions,
 Applications, Enrolment, Certificates, Automation. They are the admin screens, limited to that course. The old
 `/speaker/courses/…` pages redirect there.
 
@@ -1006,6 +1076,7 @@ on their first section. The sections:
 | Students | ADMISSIONS | Search and filter students (and speakers who applied to or enrolled in a course, with a Speaker badge); profile, CV, applications, notes; **Edit profile** step by step; **Add student**; **Delete account**; switch to speaker. ACADEMIC also needed for the points box |
 | Talents | SUPER | What our students can do, for outsourcing (below) |
 | Points & badges | ACADEMIC | Badge catalog and points CSV import (8) |
+| Challenges | ACADEMIC | Cohort challenges (every member or one course) and their review queue (8.1) |
 | Courses | ACADEMIC (edit), ADMISSIONS (read) | New course, duplicate, edit, archive/delete; tabs below |
 | Sessions | ACADEMIC | Free live sessions (10) |
 | Speakers | SPEAKERS | Profiles (photo, bio, LinkedIn, assigned courses), Applications, Availability and bookings (9) |
@@ -1145,7 +1216,7 @@ Sent from `MLOps MENA Academy <academy@mlopsmena.com>` through Resend, in the re
 | feedbackPrompt | 30 min–72 h after each course session, once per student; combined with the course rating at the last session | Bulk |
 | assessmentDue | 24 h before due, not yet submitted | Bulk |
 | assessmentGraded | Work graded | Bulk |
-| badgeAwarded | Badge awarded | Bulk |
+| badgeAwarded | Badge awarded (also when a challenge entry is approved) | Bulk |
 | certificateIssued | Certificate issued | Bulk |
 | waitlistJoined / waitlistOpen | Joined the waiting list / the course opened | Bulk |
 | waitlistOpenGuest | Course opened, guest entry without an account (#62) | Bulk |
@@ -1175,6 +1246,13 @@ same email is never sent twice.
   leaderboards); they are in the data export and removed with the profile on anonymisation.
 - **Data minimisation:** leaderboards show first name + last initial and only for students who opt in;
   speakers see counts, never recipients; certificates show the name the student gave.
+- **Challenge entries** (link, note, review feedback, the public-name choice) are personal data: only
+  the student, the academic team and the course's staff with Manage assessments or Grade see them
+  (staff see the name, the email only when there is no name). The public challenges page shows counts
+  and, only for finishers who ticked "Show my name", first name + last initial; it is never cached,
+  so unticking or deleting the account takes effect at once. Entries are in the data export and are
+  **deleted on anonymisation** with the points and badges they earned (finisher counts never include
+  deleted accounts).
 - **Private files** (CVs, payment screenshots, assessment PDFs, certificate PDFs) are in a private
   bucket under random names, opened only through 5-minute links; views are audited.
 - **Retention:** CVs, payment screenshots and assessment files are deleted after 180 days (Settings);
@@ -1210,6 +1288,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #PR | **Cohort challenges with a badge** (8.1): time-boxed challenges ("Deploy a model in a week"), open to every member or to one course's enrolled students. Public **/challenges** page (Community menu; open, upcoming and past; finisher counts; names only of finishers who chose to be shown), a page per challenge with the submit form (https link, note), the entry's status and feedback, and a **Challenges** card on the course's learn page. **Admin → Challenges** (ACADEMIC) and **Teaching → Challenges** (Manage assessments to create and edit, Grade to review). Approving awards the challenge's badge and points once; asking for changes on an approved entry takes both back. In the data export; deleted on anonymisation. Migration: Challenge, ChallengeEntry tables; PointsReason CHALLENGE | Pending |
 | #119 | Certificates: the PDF is drawn on the community's own **Certificate of Completion** and **Certificate of Attendance** designs (Montserrat; name, course, short description, QR code, ID and date; a clearer MLOps MENA watermark; the founder's signature always, with the instructor's on the right when someone else teaches). Certificates, the certificate email, the **Certified** badge email and the public certificate page's details (name, course, instructors) are now English only. PDFs cached with the old design are drawn again on the next download. No migration | Pending |
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |

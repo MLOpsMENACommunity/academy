@@ -40,6 +40,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AutomationModule } from './automation/automation.module';
 import { DriveModule } from './drive/drive.module';
 import { PointsModule } from './points/points.module';
+import { ChallengesModule } from './challenges/challenges.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SettingsModule } from './settings/settings.module';
 import { SpeakerAnnouncementsModule } from './speaker-announcements/speaker-announcements.module';
@@ -82,6 +83,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     AssessmentsModule,
     TestimonialsModule,
     PointsModule,
+    ChallengesModule,
     BotModule,
     AttendanceModule,
     CertificatesModule,

@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { CertificateBanner, CertificateRuleCard } from '@/components/certificates/LearnCertificate';
+import { CourseChallengesCard } from '@/components/challenges/CourseChallengesCard';
 import { LocalTime } from '@/components/course/LocalTime';
 import { CheckboxField } from '@/components/forms/fields';
 import { AssessmentList } from '@/components/learn/AssessmentList';
@@ -474,6 +475,8 @@ function Inner({ user }: { user: MeResponse }) {
           )}
 
           <CertificateRuleCard data={certificate} progress={course.progress} />
+
+          <CourseChallengesCard courseSlug={course.slug} />
 
           <div id="leaderboard" className="scroll-mt-6">
             <Leaderboard slug={course.slug} />

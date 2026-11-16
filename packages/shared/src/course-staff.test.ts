@@ -20,7 +20,8 @@ describe('course staff', () => {
   it('shows the tabs a role’s permissions open, in order', () => {
     expect(teachTabsFor([])).toEqual([]);
     expect(teachTabsFor(['ANNOUNCE'])).toEqual(['announcements']);
-    expect(teachTabsFor(['VIEW_ROSTER', 'GRADE'])).toEqual(['gradebook', 'roster']);
+    expect(teachTabsFor(['VIEW_ROSTER', 'GRADE'])).toEqual(['gradebook', 'challenges', 'roster']);
+    expect(teachTabsFor(['MANAGE_ASSESSMENTS'])).toEqual(['assessments', 'challenges']);
   });
 
   it('stores permissions once each, in the canonical order, and needs a name', () => {

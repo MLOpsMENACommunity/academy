@@ -124,6 +124,9 @@ export class AccountService {
         sessionProgress: true,
         sessionFeedback: true,
         testimonials: { select: { courseId: true, body: true, status: true, consentAt: true, createdAt: true } },
+        challengeEntries: {
+          select: { url: true, note: true, showName: true, status: true, feedback: true, reviewedAt: true, createdAt: true, updatedAt: true, challenge: { select: { slug: true, titleEn: true } } },
+        },
         earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
         reminderPreferences: true,
         // The link itself is a credential: only whether it exists and when it was used.
@@ -265,6 +268,8 @@ export class AccountService {
       sessionProgress: user.sessionProgress,
       feedback: user.sessionFeedback,
       testimonials: user.testimonials,
+      // Links, notes, the review's outcome and feedback (the reviewer stays the team).
+      challengeEntries: user.challengeEntries.map(({ challenge, ...e }) => ({ challenge, ...e })),
       reminderPreferences: user.reminderPreferences,
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
@@ -505,6 +510,8 @@ export class AccountService {
       this.prisma.sessionAttendance.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
+      // Challenge entries (links, notes, feedback) go with the points and badges they earned; finisher counts never included deleted accounts.
+      this.prisma.challengeEntry.deleteMany({ where: { userId } }),
       // Certificates stay on record (serial, course, dates: the public page says "no longer
       // available"); the printed name and the PDF go.
       this.prisma.certificate.updateMany({ where: { enrollment: { userId } }, data: { nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null, revokeReason: null } }),

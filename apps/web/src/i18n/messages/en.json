@@ -228,7 +228,11 @@
       "ALREADY_REVIEWED": "This payment has already been reviewed.",
       "PROFILE_HAS_ACCOUNT": "This speaker profile already has an account. Unlink it first.",
       "ACCOUNT_HAS_PROFILE": "This account is already linked to another speaker profile.",
-      "PROFILE_CHANGED": "This speaker profile or account just changed. Reload and try again."
+      "PROFILE_CHANGED": "This speaker profile or account just changed. Reload and try again.",
+      "CHALLENGE_NOT_STARTED": "This challenge hasn't started yet.",
+      "CHALLENGE_CLOSED": "This challenge has ended.",
+      "CHALLENGE_APPROVED": "Your entry is already approved.",
+      "CHALLENGE_NOT_ELIGIBLE": "This challenge is for the students of its course."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -654,7 +658,8 @@
       "speakers": "Speakers",
       "media": "Media",
       "team": "Team",
-      "consultations": "Consultations"
+      "consultations": "Consultations",
+      "challenges": "Challenges"
     },
     "payments": {
       "title": "Payment review",
@@ -2936,7 +2941,10 @@
     "blog": "Blog on mlopsmena.com",
     "blogDesc": "Articles, guides and roadmaps",
     "courseCount": "{count, plural, one {# course} other {# courses}}",
-    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}"
+    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}",
+    "takePart": "Take part",
+    "challenges": "Challenges",
+    "challengesDesc": "Build something in a week, earn a badge"
   },
   "whatsNew": {
     "title": "What's new",
@@ -3174,7 +3182,9 @@
       "sessionUndone": "Session unmarked: {title}",
       "certificate": "Certificate: {course}",
       "attendance": "Attendance: {title}",
-      "attendanceUpdated": "Attendance updated: {title}"
+      "attendanceUpdated": "Attendance updated: {title}",
+      "challenge": "Challenge: {title}",
+      "challengeUndone": "Challenge points taken back: {title}"
     },
     "reasons": {
       "ASSESSMENT": "Assessment",
@@ -3184,7 +3194,8 @@
       "MANUAL_OTHER": "Other",
       "ADJUSTMENT": "Correction",
       "ATTENDANCE": "Attendance",
-      "AUTOMATION": "Automation bonus"
+      "AUTOMATION": "Automation bonus",
+      "CHALLENGE": "Challenge"
     }
   },
   "badges": {
@@ -3481,7 +3492,8 @@
       "applications": "Applications",
       "enrolment": "Enrolment",
       "certificates": "Certificates",
-      "automation": "Automation"
+      "automation": "Automation",
+      "challenges": "Challenges"
     },
     "details": {
       "adminOnly": "The status, address, price and who teaches the course stay with the academy team."
@@ -3697,6 +3709,116 @@
         "permissions": "Google Calendar wasn't connected: please allow both calendar permissions on Google's page.",
         "failed": "Google Calendar couldn't be connected. Try again."
       }
+    }
+  },
+  "challenges": {
+    "title": "Challenges",
+    "detailTitle": "Challenge",
+    "intro": "Time-boxed challenges from the community, like deploying a model in a week. Send a link to your work; the team reviews it, and an approved entry earns a badge and points.",
+    "empty": "No challenges yet. Check back soon.",
+    "notFound": "This challenge doesn't exist or isn't published.",
+    "all": "All challenges",
+    "groups": {
+      "active": "Open now",
+      "upcoming": "Coming up",
+      "past": "Past challenges"
+    },
+    "phase": {
+      "open": "Open",
+      "upcoming": "Coming up",
+      "closed": "Ended"
+    },
+    "forCourse": "Students of {course}",
+    "forEveryone": "Open to every member",
+    "reward": "Earn {points} points and the {badge} badge",
+    "rewardBadge": "Earn the {badge} badge",
+    "finishers": "{count, plural, =0 {No finishers yet} one {# finisher} other {# finishers}}",
+    "finishersTitle": "Finishers",
+    "starts": "Starts",
+    "ends": "Ends",
+    "brief": "What to do",
+    "signInToEnter": "Sign in to send your entry.",
+    "signIn": "Sign in",
+    "myEntry": "Your entry",
+    "submittedAt": "Sent {date}",
+    "entryStatus": {
+      "PENDING": "Waiting for review",
+      "APPROVED": "Approved",
+      "REJECTED": "Needs changes"
+    },
+    "entryHelp": {
+      "PENDING": "The team will review your entry. You can still change it while the challenge is open.",
+      "APPROVED": "Well done: the badge and the points are yours.",
+      "REJECTED": "Read the feedback, fix your work and send it again while the challenge is open."
+    },
+    "feedback": "Feedback from the team",
+    "url": "Link to your work",
+    "urlHint": "A repository or a live demo. It must start with https://",
+    "note": "Note for the reviewers",
+    "noteHint": "What you built, how to run it, anything the team should know (up to 1,000 characters).",
+    "showName": "Show my name on the public challenges page",
+    "showNameHint": "Only your first name and last initial, and only once your entry is approved. You can change this any time.",
+    "submit": "Send my entry",
+    "resubmit": "Send it again",
+    "sent": "Sent. The team will review it.",
+    "visibilitySaved": "Saved.",
+    "httpsOnly": "Use a link that starts with https://",
+    "blocked": {
+      "NOT_ELIGIBLE": "This challenge is for the students of its course.",
+      "NOT_STARTED": "This challenge hasn't started yet.",
+      "CLOSED": "This challenge has ended.",
+      "NOT_PUBLISHED": "This challenge isn't open."
+    },
+    "seeCourse": "See the course",
+    "manage": {
+      "pageTitle": "Challenges",
+      "pageIntro": "Time-boxed challenges, open to every member or to one course's students. Approving an entry gives the student the challenge's badge and points; rejecting an approved entry takes both back.",
+      "pendingTotal": "{count, plural, one {# entry to review} other {# entries to review}}",
+      "nothingPending": "Nothing to review.",
+      "new": "New challenge",
+      "empty": "No challenges yet.",
+      "pointsValue": "{points} points",
+      "status": {
+        "DRAFT": "Draft",
+        "PUBLISHED": "Published",
+        "ARCHIVED": "Archived"
+      },
+      "pendingCount": "{count} to review",
+      "approvedCount": "{count} approved",
+      "entries": "Entries",
+      "newTitle": "New challenge",
+      "editTitle": "Edit challenge",
+      "formIntro": "Its badge is created with it, named after the title. Students can send entries while it is published and between its start and end.",
+      "course": "Course",
+      "courseHint": "Leave empty to open it to every signed-in member. Can't be changed later.",
+      "slug": "Address",
+      "slugHint": "Lowercase letters, numbers and dashes, e.g. deploy-a-model. Can't be changed later.",
+      "slugFixed": "The address can't be changed.",
+      "slugTaken": "A challenge or badge with this address exists.",
+      "titleEn": "Title (English)",
+      "titleAr": "Title (Arabic)",
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "points": "Points",
+      "pointsHint": "0 to 500, given when an entry is approved.",
+      "icon": "Badge icon",
+      "iconHint": "An emoji, e.g. 🚀",
+      "statusLabel": "Status",
+      "descriptionEn": "What to do (English, Markdown)",
+      "descriptionAr": "What to do (Arabic, Markdown)",
+      "back": "Back to challenges",
+      "entriesTitle": "Entries: {title}",
+      "noEntries": "No entries yet.",
+      "feedback": "Feedback for the student",
+      "feedbackHint": "Required to ask for changes. The student sees it.",
+      "feedbackNeeded": "Say what to change before you ask for changes.",
+      "updated": "Last sent {date}",
+      "reviewed": "reviewed {date} by {who}",
+      "theTeam": "the team",
+      "approve": "Approve",
+      "approveAgain": "Save feedback",
+      "reject": "Ask for changes",
+      "rejectAfterApprove": "Asking for changes now takes back the badge and the points."
     }
   }
 }

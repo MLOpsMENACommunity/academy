@@ -27,6 +27,7 @@ Profile → Points.
 | `MANUAL_COMMUNITY` | By hand: "Community help" | Any whole number −10,000…10,000 except 0 |
 | `MANUAL_OTHER` | By hand: "Other" | Same |
 | `ADJUSTMENT` | By hand: "Correction" | Same |
+| `CHALLENGE` | Automatic, per approved challenge entry (source `CHALLENGE` + entry id) | The challenge's points (0–500); back to 0 if the entry is later rejected |
 
 Automatic entries are idempotent: each has a source (`ASSESSMENT`/`SESSION`/`CERTIFICATE` + id) and a
 sequence number, unique per student. A sync computes the target, compares it with what the ledger
@@ -91,6 +92,7 @@ course board.
 | 🎓 Certified | Auto | A certificate issued (removed on revoke) | Per course |
 | ⭐ Top performer | Manual | Awarded by the team | Once per course, or once overall |
 | 🤝 Community helper | Manual | Awarded by the team | Once per course, or once overall |
+| (per challenge) | Auto | A challenge entry approved by the team; removed if the entry is later rejected (FEATURES.md 8.1) | Once per challenge |
 | 🎤 Speaker | Manual + auto | Automatic when a speaker account's published live session ends (within 2 days); or by hand | Overall |
 
 - Top-3 badges go to the best students **whether or not they opted in** to the public board; a badge
