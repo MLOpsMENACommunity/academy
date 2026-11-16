@@ -1,7 +1,7 @@
 import { Container } from '@cloudflare/containers';
 import { fetchContainer, timeoutFor } from './container-fetch';
 import { browserCacheControl, cacheKind, EDGE_TAG, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
-import { isInternalApiPath, isManualJobsTick, tokenMatches } from './jobs';
+import { isInternalApiPath, isManualJobsTick, shouldTick, stateAfterTick, tokenMatches, type TickState } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 import { isRevalidateRequest, purgeRequest, REVALIDATE_HEADER, REVALIDATE_PATH, revalidateToken, WEB_REVALIDATE_URL } from './revalidate';
 import { disallowAllRobots, isProduction, withNoindex } from './robots';
@@ -166,7 +166,23 @@ export class ApiContainer extends Container<Env> {
       await restartIfConfigChanged(this, ctx);
     });
   }
+
+  /**
+   * The jobs' schedule and whether the container is running, for the Cron Trigger (jobs.ts).
+   * An RPC to the Durable Object: it never starts the container, so a quiet night stays quiet.
+   */
+  async tickState(): Promise<{ state: TickState; running: boolean }> {
+    const state = (await this.ctx.storage.get<TickState>(TICK_STATE_KEY)) ?? { lastTickAt: 0, nextDueAt: null };
+    return { state, running: Boolean(this.ctx.container?.running) };
+  }
+
+  async saveTickState(state: TickState): Promise<void> {
+    await this.ctx.storage.put(TICK_STATE_KEY, state);
+  }
 }
+
+/** Where the API's Durable Object keeps the jobs' TickState (jobs.ts). */
+const TICK_STATE_KEY = 'jobsTick';
 
 /** Adds REVALIDATE_TOKEN to a container's environment (async: it may be derived with Web Crypto). */
 async function withRevalidateToken(container: Container<Env>, env: Env): Promise<void> {
@@ -325,6 +341,29 @@ async function jobsTick(env: Env): Promise<Response> {
 }
 
 /**
+ * The Cron Trigger: runs the jobs only when shouldTick says so (jobs.ts), and records when they
+ * are next due. A failed tick records nothing, so the next trigger (15 minutes later) retries.
+ */
+async function scheduledJobs(env: Env): Promise<void> {
+  const api = env.API.getByName(INSTANCE);
+  const { state, running } = await api.tickState();
+  const now = Date.now();
+  if (!shouldTick(state, now, running)) return;
+  const res = await jobsTick(env);
+  const text = await res.text();
+  // eslint-disable-next-line no-console -- Workers logs are the record of each tick
+  console.log(`jobs tick: ${res.status} ${text}`);
+  if (!res.ok) return;
+  let body: unknown = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // not JSON: stateAfterTick falls back to hourly
+  }
+  await api.saveTickState(stateAfterTick(body, now));
+}
+
+/**
  * POST /_internal/revalidate from the API after an admin edit (revalidate.ts): every running web
  * container drops its cached pages, then the edge copies are purged, in that order (purging
  * first could let a visitor put a page from a not-yet-revalidated container back at the edge).
@@ -405,11 +444,6 @@ export default {
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(
-      jobsTick(env)
-        // eslint-disable-next-line no-console -- Workers logs are the record of each tick
-        .then(async (res) => console.log(`jobs tick: ${res.status} ${await res.text()}`))
-        .catch((err: unknown) => console.error(`jobs tick failed: ${(err as Error).message}`)),
-    );
+    ctx.waitUntil(scheduledJobs(env).catch((err: unknown) => console.error(`jobs tick failed: ${(err as Error).message}`)));
   },
 } satisfies ExportedHandler<Env>;

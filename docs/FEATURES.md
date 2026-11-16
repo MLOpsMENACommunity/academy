@@ -449,7 +449,7 @@ with the address to remove, then click **Removed**.
 **Automatic sharing** (Pending; on once the `GOOGLE_DRIVE_SERVICE_ACCOUNT` secret is set, DEPLOY.md):
 - Applies to paid courses with recordings on Google Drive and a folder link, once the folder is shared
   with the academy's service account as **Editor**.
-- Every hour (the jobs tick, `driveShared`) the academy gives each enrolled student's Google email
+- On every jobs tick (`driveShared`: hourly while the site is in use, at least every 4 hours) the academy gives each enrolled student's Google email
   **Viewer** access (no email from Google) and ticks **Drive access granted**. It first removes old
   addresses: a changed Google email, or a deleted account. It only ever removes Viewers and Commenters,
   never the team's Editors.
@@ -537,8 +537,8 @@ didn't turn reminders off.
 **Status:** Live (PR #73). **Who:** enrolled students; the per-course opt-out link
 needs no sign-in.
 
-- **When:** from 30 minutes to 72 hours after each course session ends, at the next hourly jobs tick
-  (so usually within the hour). The wide window means a late deploy still asks about a session.
+- **When:** from 30 minutes to 72 hours after each course session ends, at the next jobs tick, which
+  runs when a prompt falls due (so usually within 15 minutes). The wide window means a late deploy still asks about a session.
 - **Who is asked:** every student (role Student) who was enrolled before the session ended, whose
   account isn't deleted, and who hasn't rated that session yet. Courses that are Open, Closed or
   Completed; it goes by the session's time, not the course status.
@@ -920,7 +920,7 @@ checked by hand until Paymob arrives. **Pay first, then book.**
    to another open time, up to 24 hours before (both sides told; reminders follow). The expert or a
    FINANCE admin can cancel a paid call (booked or not): the student is told they'll be refunded
    (by hand) and the booking shows "refund due". The Refund Policy says so.
-7. **Reminders and retention** (hourly job): 24 hours and 1 hour before a booked call, to both
+7. **Reminders and retention** (jobs tick, when due): 24 hours and 1 hour before a booked call, to both
    sides (no "tomorrow" email within 2 hours of booking); payment screenshots are deleted after the
    retention period (Settings, 180 days), never while waiting for review; the record stays.
 8. **Google Calendar (optional, per expert):** on `/consultations/expert` the expert connects their
@@ -1110,7 +1110,7 @@ a student, change an application or release a seat. A unit test holds the code t
 
 ★ in the recommended set.
 
-**How it runs:** an hourly job (the Worker's Cron Trigger in production; every 10 minutes locally),
+**How it runs:** on the jobs tick (in production hourly while the site is in use, and whenever a reminder or retry is due, at least every 4 hours; every 10 minutes locally),
 only for Open and Closed courses and Completed ones within 30 days of their end, never while the
 course is **paused**. Each rule acts once per occasion (a student and a session, an assessment, a
 week…), recorded in the activity log. Team alerts are one notification per rule and run, counting what
@@ -1202,6 +1202,8 @@ same email is never sent twice.
 | Data | Real | Separate database and storage; test data only |
 | Email | Real recipients | Everyone not on the allowlist is redirected to one team inbox, with the original recipient in the subject |
 | Search engines | Indexed | `noindex`, `robots.txt` disallows everything |
+| Scheduled jobs | When due (reminders, prompts, email retries), hourly while the site is in use, at least every 4 hours (retention, points, anonymisation) | None by default; run by hand when testing |
+| Search engines | Indexed; SEO-tool crawlers (Semrush, Ahrefs, ibou and similar) are disallowed in `robots.txt` | `noindex`, `robots.txt` disallows everything |
 | Scheduled jobs | Hourly (reminders, retention, points, anonymisation) | None by default; run by hand when testing |
 | Version now | `v2026.10.24-1` (PRs up to #85) | `v2026.10.26-1` (PRs up to #88) |
 
@@ -1220,7 +1222,11 @@ One entry per pull request in the academy repository. Newest first.
 | #118 | Certificates: public **Verify a certificate** page (`/verify-certificate`: type the ID or scan the QR code, `?code=` opens the result; footer link), **Add to LinkedIn** on the result, a friendly "not found". Admin → **Certificates** imports the certificates issued before the academy from the old verification sheet (CSV, check first, all or nothing), so their codes verify here and link to students' accounts by confirmed email. Migration: `ExternalCertificate` table | Pending |
 | #117 | Certificates: a course can set a **certificate ID prefix** (e.g. `MLOPS`), so its IDs follow the format of the certificates issued before the academy, `MLOPS-01-2026-00209` (prefix, cohort, year, a running number per prefix). Courses without one keep random `MMA-` IDs; the verification page accepts both. Migration: `Course.certCode` (nullable) and the `CertificateSequence` table | Pending |
 | #116 | Certificates: the course's certificate rule can require a **minimum total score** (points earned ÷ points of every published assessment, unsubmitted or ungraded work counting as 0). The roster, the student's certificate card, the automatic **Certificate earned → Issue** rule and **Almost there** all use it. Migration: `Course.certMinTotalPercent` (nullable) | Pending |
+| #115 | The scheduled jobs no longer wake the API and the database every hour. The Worker checks every 15 minutes and calls the jobs tick only when something is due (the tick now answers `nextDueAt`: the next reminder window, feedback prompt or email retry), when the API is awake anyway (at most hourly), or every 4 hours at most. Reminders keep their 24-hour and 1-hour timing. Automation rules, Drive sharing and points run hourly while the site is in use and at least every 4 hours. No migration (hosting cost) | Pending |
 | #113 | **Self-paced free courses**: YouTube video lessons with automatic or manual completion, optional videos, enrolment required to watch, an automatic Certificate of Attendance at 80% on every required quiz (no feedback needed) with a new certificate email, and reviewed testimonials on the course page | Pending |
+| #112 | Production `robots.txt` disallows SEO-tool crawlers (SemrushBot, AhrefsBot, MJ12bot, DotBot, DataForSeoBot, BLEXBot, ibou): they bring no visitors but wake the containers (hosting cost). Search engines (Google, Bing) and AI assistants are unaffected. No API change, no migration | Pending |
+| #111 | The seed and the archive import run on the first API start of each release (and again if `SEED_ADMIN_EMAIL`, `SEED_PLACEHOLDER_STATUS` or `ARCHIVE_IMPORT` change), not on every wake from sleep: less CPU and database time per cold start (hosting cost). The run is recorded in the `__startupTasksDone` setting row; locally (no `ACADEMY_RELEASE`) they still run on every start. No migration | Pending |
+| #110 | The site's fixed files (logo, favicons, speaker photos in `apps/web/public`) are cached at Cloudflare's edge for a day, for everyone, instead of waking the web container on every first view; browsers keep them an hour. A replaced file can take up to a day to show unless purged by URL. No API change, no migration | Pending |
 | #109 | Private calendar feeds (`/api/calendar/<token>.ics`) are kept at the Cloudflare edge for 30 minutes when the edge purge is configured, so calendar apps polling them no longer wake the API and the Neon database (compute hours). Resetting a link or deleting an account purges the copy at once; a feed can lag other changes by up to 30 minutes. No API change, no migration | Pending |
 | #108 | Community bot feed: `GET /api/bot/v1/activity` gives the Telegram community bot quiz submissions, practical tasks (with the next-session deadline) and attendance, so it can report the weekly leaderboard to the team. Off until `BOT_API_TOKEN` is set. No migration, no change for students | Merged |
 | #105 | Speaker accounts: Admin → Speakers → {speaker} → **Sign-in account** invites a new address (speaker account, `speakerInvited` email) or links an existing confirmed account (a student becomes a speaker) to the public profile, so the speaker teaches the profile's courses under /teach; **Unlink**; **Invite speaker** on the speakers list. No migration | Pending |
