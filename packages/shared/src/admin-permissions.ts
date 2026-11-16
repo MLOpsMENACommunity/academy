@@ -40,6 +40,8 @@ export const ADMIN_NAV_ITEMS = [
   // Student analytics for outsourcing: super admins only.
   { key: 'talents', permissions: [] },
   { key: 'points', permissions: ['ACADEMIC'] },
+  // Certificates issued before the academy (import); per-course issuing is in each course's tab.
+  { key: 'certificates', permissions: ['ACADEMIC'] },
   { key: 'courses', permissions: ['ACADEMIC', 'ADMISSIONS'] },
   { key: 'sessions', permissions: ['ACADEMIC'] },
   { key: 'speakers', permissions: ['SPEAKERS'] },
@@ -79,6 +81,7 @@ export const COURSE_TAB_PERMISSIONS = {
   announcements: ['ACADEMIC'],
   waitlist: ['ADMISSIONS'],
   feedback: ['ACADEMIC'],
+  testimonials: ['ACADEMIC'],
   automation: ['ACADEMIC'],
 } as const satisfies Record<string, readonly AdminPermission[]>;
 

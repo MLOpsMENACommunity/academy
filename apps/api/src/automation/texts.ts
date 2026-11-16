@@ -177,7 +177,7 @@ export const studentTexts = {
         cta: 'افتح الدورة',
       },
     ),
-  certAlmost: (c: CourseNames, missing: { sessions?: { required: number; percent: number }; assessments?: number }) =>
+  certAlmost: (c: CourseNames, missing: { sessions?: { required: number; percent: number }; assessments?: number; total?: { required: number; percent: number } }) =>
     both(
       {
         title: `One step from your ${c.en} certificate`,
@@ -185,7 +185,9 @@ export const studentTexts = {
           'The course ends soon and you are close to the certificate.',
           missing.sessions
             ? `Attendance: you need ${missing.sessions.required}% of the sessions and you're at ${missing.sessions.percent}%. Attend the remaining sessions.`
-            : `Assessments: ${missing.assessments} required ${plural(missing.assessments ?? 0, 'assessment is', 'assessments are')} not passed yet.`,
+            : missing.total
+              ? `Total score: you need ${missing.total.required}% of the course's points and you're at ${missing.total.percent}%. Submit the remaining quizzes and assignments.`
+              : `Assessments: ${missing.assessments} required ${plural(missing.assessments ?? 0, 'assessment is', 'assessments are')} not passed yet.`,
         ],
         cta: 'See what is left',
       },
@@ -195,7 +197,9 @@ export const studentTexts = {
           'تقترب الدورة من نهايتها وأنت قريب من الشهادة.',
           missing.sessions
             ? `الحضور: تحتاج إلى ${missing.sessions.required}٪ من الجلسات وأنت عند ${missing.sessions.percent}٪. احضر الجلسات المتبقية.`
-            : `التقييمات: ${arCount(missing.assessments ?? 0, 'تقييم مطلوب واحد', 'تقييمان مطلوبان', 'تقييمات مطلوبة', 'تقييمًا مطلوبًا')} لم تجتزه بعد.`,
+            : missing.total
+              ? `مجموع الدرجات: تحتاج إلى ${missing.total.required}٪ من درجات الدورة وأنت عند ${missing.total.percent}٪. سلّم الاختبارات والتكليفات المتبقية.`
+              : `التقييمات: ${arCount(missing.assessments ?? 0, 'تقييم مطلوب واحد', 'تقييمان مطلوبان', 'تقييمات مطلوبة', 'تقييمًا مطلوبًا')} لم تجتزه بعد.`,
         ],
         cta: 'اعرض ما تبقى',
       },
