@@ -160,6 +160,15 @@ export class PointsService {
     return this.syncSource({ userId, courseId, sourceType: POINTS_SOURCES.QA_ANSWER, sourceId: answerId, reason: 'QA_ANSWER' }, points, now);
   }
 
+  /**
+   * A challenge's points for an approved entry (`points`), or 0 when the entry is rejected after
+   * an approval. The source is the entry, so approving it twice never adds them twice.
+   */
+  async syncChallenge(userId: string, courseId: string | null, entryId: string, points: number, now = new Date()): Promise<number> {
+    if (points > 0 && !(await this.active(userId))) return 0;
+    return this.syncSource({ userId, courseId, sourceType: POINTS_SOURCES.CHALLENGE, sourceId: entryId, reason: 'CHALLENGE' }, points, now);
+  }
+
   /** Deleted (or anonymised) accounts never gain points or badges again. */
   private async active(userId: string): Promise<boolean> {
     const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } });
@@ -283,7 +292,16 @@ export class PointsService {
   async awardBadge(
     codeOrBadge: string | Badge,
     userId: string,
-    opts: { courseId?: string | null; period?: number | null; awardedById?: string | null; reason?: string | null; now?: Date; notify?: boolean } = {},
+    opts: {
+      courseId?: string | null;
+      period?: number | null;
+      awardedById?: string | null;
+      reason?: string | null;
+      now?: Date;
+      notify?: boolean;
+      /** Overrides the course/week scope (a challenge's badge is once per challenge). */
+      scopeKey?: string;
+    } = {},
   ): Promise<UserBadge | null> {
     const badge = typeof codeOrBadge === 'string' ? await this.prisma.badge.findUnique({ where: { code: codeOrBadge } }) : codeOrBadge;
     if (!badge?.active || !(await this.active(userId))) return null;
@@ -296,7 +314,7 @@ export class PointsService {
           badgeId: badge.id,
           courseId,
           period: opts.period ?? null,
-          scopeKey: badgeScopeKey(courseId, opts.period ?? null),
+          scopeKey: opts.scopeKey ?? badgeScopeKey(courseId, opts.period ?? null),
           awardedById: opts.awardedById ?? null,
           reason: opts.reason ?? null,
           ...(opts.now ? { awardedAt: opts.now } : {}),
@@ -310,24 +328,26 @@ export class PointsService {
     return award;
   }
 
-  /** In-app + email for an award (fire and forget). */
-  notify(badge: Badge, award: UserBadge): void {
-    void this.tellBadge(badge, award).catch((err: unknown) => this.logger.error(`Badge notification failed: ${(err as Error).name}`));
+  /** In-app + email for an award (fire and forget). `inApp: false`: the email only (the caller tells the student in-app itself). */
+  notify(badge: Badge, award: UserBadge, opts: { inApp?: boolean } = {}): void {
+    void this.tellBadge(badge, award, opts.inApp !== false).catch((err: unknown) => this.logger.error(`Badge notification failed: ${(err as Error).name}`));
   }
 
-  private async tellBadge(badge: Badge, award: UserBadge): Promise<void> {
+  private async tellBadge(badge: Badge, award: UserBadge, inApp: boolean): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: award.userId }, select: { email: true, locale: true, deletedAt: true } });
     if (!user || user.deletedAt) return;
     const course = award.courseId ? await this.prisma.course.findUnique({ where: { id: award.courseId }, ...courseRef }) : null;
     const week = award.period ? { en: ` (week ${award.period})`, ar: ` (الأسبوع ${award.period})` } : { en: '', ar: '' };
-    await this.notifications.create(award.userId, {
-      type: 'badge.awarded',
-      titleEn: `New badge: ${badge.icon} ${badge.nameEn}${week.en}`,
-      titleAr: `شارة جديدة: ${badge.icon} ${badge.nameAr}${week.ar}`,
-      bodyEn: course ? `${badge.descriptionEn} ${course.titleEn}.`.trim() : badge.descriptionEn,
-      bodyAr: course ? `${badge.descriptionAr} ${course.titleAr}.`.trim() : badge.descriptionAr,
-      link: '/dashboard#points',
-    });
+    if (inApp) {
+      await this.notifications.create(award.userId, {
+        type: 'badge.awarded',
+        titleEn: `New badge: ${badge.icon} ${badge.nameEn}${week.en}`,
+        titleAr: `شارة جديدة: ${badge.icon} ${badge.nameAr}${week.ar}`,
+        bodyEn: course ? `${badge.descriptionEn} ${course.titleEn}.`.trim() : badge.descriptionEn,
+        bodyAr: course ? `${badge.descriptionAr} ${course.titleAr}.`.trim() : badge.descriptionAr,
+        link: '/dashboard#points',
+      });
+    }
     // The "Certified" badge comes with the certificate, which is English only: so is its email.
     const locale = badge.code === BADGE_CODES.CERTIFIED ? 'en' : user.locale;
     const ar = locale === 'ar';
@@ -453,16 +473,18 @@ export class PointsService {
   /** Labels for automatic entries come from their source (assessment, session or course title). */
   private async entryDtos(entries: (PointsEntry & { course: CourseRef | null })[]): Promise<PointsEntryDto[]> {
     const ids = (type: string) => [...new Set(entries.filter((e) => e.sourceType === type && e.sourceId).map((e) => e.sourceId!))];
-    const [assessments, sessions] = await Promise.all([
+    const [assessments, sessions, challengeEntries] = await Promise.all([
       this.prisma.assessment.findMany({ where: { id: { in: ids(POINTS_SOURCES.ASSESSMENT) } }, select: { id: true, titleEn: true, titleAr: true } }),
       this.prisma.courseSession.findMany({
         where: { id: { in: [...ids(POINTS_SOURCES.SESSION), ...ids(POINTS_SOURCES.ATTENDANCE)] } },
         select: { id: true, titleEn: true, titleAr: true, order: true },
       }),
+      this.prisma.challengeEntry.findMany({ where: { id: { in: ids(POINTS_SOURCES.CHALLENGE) } }, select: { id: true, challenge: { select: { titleEn: true, titleAr: true } } } }),
     ]);
     const titles = new Map<string, { en: string; ar: string }>([
       ...assessments.map((a) => [a.id, { en: a.titleEn, ar: a.titleAr || a.titleEn }] as const),
       ...sessions.map((s) => [s.id, { en: `${s.order}. ${s.titleEn}`, ar: `${s.order}. ${s.titleAr || s.titleEn}` }] as const),
+      ...challengeEntries.map((e) => [e.id, { en: e.challenge.titleEn, ar: e.challenge.titleAr || e.challenge.titleEn }] as const),
     ]);
     return entries.map((e) => {
       const title = e.sourceId ? titles.get(e.sourceId) : undefined;

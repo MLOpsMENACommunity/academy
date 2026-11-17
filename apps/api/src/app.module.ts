@@ -41,6 +41,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AutomationModule } from './automation/automation.module';
 import { DriveModule } from './drive/drive.module';
 import { PointsModule } from './points/points.module';
+import { ChallengesModule } from './challenges/challenges.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QaModule } from './qa/qa.module';
 import { SettingsModule } from './settings/settings.module';
@@ -86,6 +87,7 @@ import { WaitlistModule } from './waitlist/waitlist.module';
     QaModule,
     StudyPlanModule,
     PointsModule,
+    ChallengesModule,
     BotModule,
     AttendanceModule,
     CertificatesModule,

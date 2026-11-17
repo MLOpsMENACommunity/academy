@@ -42,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // (see roadmaps/[slug]/page.tsx), and a sitemap lists canonical URLs only.
     ...entry('/roadmaps', undefined, 0.6),
     ...entry('/speakers', undefined, 0.5),
+    ...entry('/challenges', undefined, 0.4),
     ...entry('/whats-new', undefined, 0.3),
     ...pastPaths.flatMap((p) => entry(p, undefined, 0.4)),
     ...speakers.flatMap((s) => entry(`/speakers/${s.slug}`, s.updatedAt, 0.4)),

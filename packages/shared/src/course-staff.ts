@@ -168,6 +168,8 @@ export interface PublicStaffGroupDto {
 export const TEACH_TAB_PERMISSIONS = {
   assessments: ['MANAGE_ASSESSMENTS'],
   gradebook: ['GRADE'],
+  // Course challenges: creating and editing them is like managing assessments, reviewing entries like grading.
+  challenges: ['MANAGE_ASSESSMENTS', 'GRADE'],
   materials: ['MANAGE_MATERIALS'],
   attendance: ['UPLOAD_ATTENDANCE'],
   points: ['MANAGE_POINTS'],

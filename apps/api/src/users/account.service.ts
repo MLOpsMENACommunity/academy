@@ -129,6 +129,9 @@ export class AccountService {
         },
         sessionFeedback: true,
         testimonials: { select: { courseId: true, body: true, rating: true, status: true, consentAt: true, createdAt: true } },
+        challengeEntries: {
+          select: { url: true, note: true, showName: true, status: true, feedback: true, reviewedAt: true, createdAt: true, updatedAt: true, challenge: { select: { slug: true, titleEn: true } } },
+        },
         earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
         reminderPreferences: true,
         studyPlans: { select: { weekdays: true, minutesPerDay: true, startDate: true, reminderHour: true, createdAt: true, updatedAt: true, course: { select: { slug: true, titleEn: true } } } },
@@ -290,6 +293,8 @@ export class AccountService {
       })),
       feedback: user.sessionFeedback,
       testimonials: user.testimonials,
+      // Links, notes, the review's outcome and feedback (the reviewer stays the team).
+      challengeEntries: user.challengeEntries.map(({ challenge, ...e }) => ({ challenge, ...e })),
       reminderPreferences: user.reminderPreferences,
       studyPlans: user.studyPlans.map(({ startDate, ...p }) => ({ ...p, startDate: startDate.toISOString().slice(0, 10) })),
       calendarFeed: user.calendarFeed,
@@ -548,6 +553,8 @@ export class AccountService {
       this.prisma.lessonWatch.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
+      // Challenge entries (links, notes, feedback) go with the points and badges they earned; finisher counts never included deleted accounts.
+      this.prisma.challengeEntry.deleteMany({ where: { userId } }),
       // Certificates stay on record (serial, course, dates: the public page says "no longer
       // available"); the printed name and the PDF go.
       this.prisma.certificate.updateMany({ where: { enrollment: { userId } }, data: { nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null, revokeReason: null } }),

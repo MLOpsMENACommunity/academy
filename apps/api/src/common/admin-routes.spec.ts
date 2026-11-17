@@ -156,6 +156,12 @@ describe('admin routes', () => {
     expect(presets('PUT', 'admin/courses/:id/testimonials/:testimonialId/review')).toEqual(['ACADEMIC']);
   });
 
+  it('keeps challenges with the academic preset, like points and badges', () => {
+    const challenges = routes.filter((r) => r.path.startsWith('admin/challenges'));
+    expect(challenges.length).toBe(6);
+    for (const r of challenges) expect(r.adminCan).toEqual(['ACADEMIC']);
+  });
+
   it('serves uploaded images publicly, and only there', () => {
     const media = find('GET', 'media/:name');
     expect(media.isPublic).toBe(true);

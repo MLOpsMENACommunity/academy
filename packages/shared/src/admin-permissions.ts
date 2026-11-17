@@ -40,6 +40,8 @@ export const ADMIN_NAV_ITEMS = [
   // Student analytics for outsourcing: super admins only.
   { key: 'talents', permissions: [] },
   { key: 'points', permissions: ['ACADEMIC'] },
+  // Cohort challenges and their review queue (they award badges and points).
+  { key: 'challenges', permissions: ['ACADEMIC'] },
   // Certificates issued before the academy (import); per-course issuing is in each course's tab.
   { key: 'certificates', permissions: ['ACADEMIC'] },
   { key: 'courses', permissions: ['ACADEMIC', 'ADMISSIONS'] },

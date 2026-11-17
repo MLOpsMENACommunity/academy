@@ -34,6 +34,7 @@ use both sets of pages. `SUPER` can do everything.
 | Students | ✓ | | | ✓ | | |
 | Talents | ✓ | | | | | |
 | Points & badges | ✓ | ✓ | | | | |
+| Challenges | ✓ | ✓ | | | | |
 | Certificates (earlier certificates import) | ✓ | ✓ | | | | |
 | Courses | ✓ | ✓ | | ✓ (read) | | |
 | Reviews (ratings and testimonials) | ✓ | ✓ | | | | |
@@ -188,7 +189,9 @@ Generated from the controllers (`@Roles('ADMIN')` + `@AdminCan(...)`), the same 
 route test uses. SUPER may use every route. Speaker-portal routes (`/api/speaker/*`) are for SPEAKER
 accounts, and the Teaching routes (`/api/teach/courses/:courseId/*`, also `/api/speaker/courses/*`)
 are for course staff by course permission (`@CourseCan`, checked by `teaching-routes.spec.ts`); neither
-is listed.
+is listed. (Course challenges there: `GET|POST /api/teach/courses/:courseId/challenges`, `PUT …/challenges/:id`
+and `GET …/challenges/:id/entries` need Manage assessments (the reads also Grade); `POST
+…/challenges/:id/entries/:entryId/review` needs Grade.)
 
 | Area | Method | Route | Presets allowed (SUPER always) |
 |---|---|---|---|
@@ -296,6 +299,12 @@ is listed.
 | Points, badges, leaderboards | PATCH | `/api/admin/badges/:id` | ACADEMIC |
 | Points, badges, leaderboards | GET | `/api/admin/courses/:id/leaderboard` | ACADEMIC |
 | Points, badges, leaderboards | GET | `/api/admin/courses/:id/leaderboard.csv` | ACADEMIC |
+| Challenges | GET | `/api/admin/challenges` | ACADEMIC |
+| Challenges | POST | `/api/admin/challenges` | ACADEMIC |
+| Challenges | GET | `/api/admin/challenges/:id` | ACADEMIC |
+| Challenges | PUT | `/api/admin/challenges/:id` | ACADEMIC |
+| Challenges | GET | `/api/admin/challenges/:id/entries` | ACADEMIC |
+| Challenges | POST | `/api/admin/challenges/:id/entries/:entryId/review` | ACADEMIC |
 | Enrol by email | GET | `/api/admin/courses/:id/invites` | ADMISSIONS |
 | Enrol by email | GET | `/api/admin/courses/:id/invites/export.csv` | ADMISSIONS |
 | Enrol by email | POST | `/api/admin/courses/:id/invites/preview` | ADMISSIONS |

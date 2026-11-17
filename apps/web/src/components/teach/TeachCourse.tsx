@@ -14,6 +14,7 @@ import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
 import { Waitlist } from '@/components/admin/Waitlist';
 import { AttendancePanel } from '@/components/attendance/AttendancePanel';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { ChallengesManager } from '@/components/challenges/ChallengesManager';
 import { CourseQA } from '@/components/learn/CourseQA';
 import { TeachingGradebook } from '@/components/speakers/teaching/TeachingGradebook';
 import { TeachingMaterials } from '@/components/speakers/teaching/TeachingMaterials';
@@ -142,6 +143,9 @@ function Course({ courseId }: { courseId: string }) {
               />
             )}
             {tab === 'gradebook' && <TeachingGradebook courseId={course.id} endpoints={endpoints} />}
+            {tab === 'challenges' && (
+              <ChallengesManager apiBase={`${base}/challenges`} canManage={course.permissions.includes('MANAGE_ASSESSMENTS')} canReview={course.permissions.includes('GRADE')} />
+            )}
             {tab === 'materials' && <TeachingMaterials courseId={course.id} sessions={course.sessions} onChange={updateSession} />}
             {tab === 'attendance' && (
               <AttendancePanel
