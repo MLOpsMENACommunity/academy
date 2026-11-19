@@ -4,14 +4,11 @@ import type { Locale } from '@academy/shared';
  * The business details shown on the Contact and About pages (payment providers such as Paymob
  * require an email address, a phone number and the business location on the site). One place
  * to edit them.
- *
- * TODO: `phone` is a placeholder. Replace it with the academy's real phone number and set
- * `phoneIsPlaceholder` to false.
  */
 export const BUSINESS_DETAILS = {
-  email: 'academy@mlopsmena.com',
-  phone: '+20 100 000 0000',
-  phoneIsPlaceholder: true,
+  email: 'hello@mlopsmena.com',
+  phone: '+20 128 814 9179',
+  phoneIsPlaceholder: false,
   location: { en: 'Cairo, Egypt', ar: 'القاهرة، مصر' } satisfies Record<Locale, string>,
   legalName: 'MLOps MENA Community',
 } as const;
