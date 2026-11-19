@@ -49,12 +49,14 @@ export function Footer({ locale }: { locale: Locale }) {
       id: 'academy',
       heading: t('footer.academy'),
       links: [
+        { href: l('/about'), label: t('footer.aboutUs') },
+        { href: l('/contact'), label: t('footer.contact') },
         { href: l('/privacy'), label: t('footer.privacy') },
         { href: l('/terms'), label: t('footer.terms') },
         { href: l('/refund-policy'), label: t('footer.refund') },
+        { href: l('/delivery-policy'), label: t('footer.delivery') },
         { href: l('/code-of-conduct'), label: t('footer.conduct') },
         { href: l('/verify-certificate'), label: t('footer.verify') },
-        { href: l('/contact'), label: t('footer.contact') },
       ],
     },
   ];

@@ -670,6 +670,9 @@ model Course {
   selfPaced                Boolean            @default(false)
   /// The course page and cards show "N students enrolled" (only the number, never names).
   showEnrolledCount        Boolean            @default(true)
+  /// Private course: only signed-in accounts whose confirmed email is listed (lower-cased) see it; empty = public.
+  /// Admin-only data: never in a public DTO.
+  visibleToEmails          String[]           @default([])
   /// "import" when created by prisma/import-archive.ts.
   source                   String?
   importHash               String?

@@ -15,6 +15,7 @@ import type { Prisma } from '@prisma/client';
 import { CourseStaffService } from '../course-staff/course-staff.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NO_SEATS, toCourseDetail, toCourseSummary, type SeatCount } from './course.mapper';
+import { PUBLIC_LISTING, viewerEmail, visibleToWhere } from './course-visibility';
 
 /** Rows of accounts that aren't deleted: a deleted account holds no seat and isn't enrolled any more. */
 const LIVE_ACCOUNT = { user: { deletedAt: null } } satisfies Prisma.ApplicationWhereInput & Prisma.EnrollmentWhereInput;
@@ -70,7 +71,8 @@ export class CoursesService {
     // The catalog is a few dozen courses: filter in memory with the same matcher as the static
     // catalog page (English/Arabic include bilingual courses; "Paid" means a price is set).
     const courses = await this.prisma.course.findMany({
-      where: { status: { in: [...PUBLIC_COURSE_STATUSES] } },
+      // Private courses never appear in the catalog (it is the same for everyone and cached).
+      where: { status: { in: [...PUBLIC_COURSE_STATUSES] }, ...PUBLIC_LISTING },
       include: { instructors: { include: { instructor: true } } },
       orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
     });
@@ -92,9 +94,14 @@ export class CoursesService {
     );
   }
 
-  async getPublic(slug: string): Promise<CourseDetailDto> {
+  /**
+   * A course page's data. A private course is a 404 unless the viewer's confirmed email is on
+   * its list; `private` tells the controller to mark the answer never cacheable.
+   */
+  async getPublic(slug: string, userId?: string | null): Promise<{ course: CourseDetailDto; private: boolean }> {
+    const email = await viewerEmail(this.prisma, userId);
     const course = await this.prisma.course.findFirst({
-      where: { slug, status: { in: [...PUBLIC_COURSE_STATUSES] } },
+      where: { slug, status: { in: [...PUBLIC_COURSE_STATUSES] }, ...visibleToWhere(email) },
       include: {
         instructors: { include: { instructor: true } },
         sessions: true,
@@ -110,7 +117,34 @@ export class CoursesService {
     });
     if (!course) throw new NotFoundException('Course not found');
     const [seats, staff, ratings] = await Promise.all([this.seatCounts([course.id]), this.staff.publicGroups(course.id), this.ratings([course.id])]);
-    return toCourseDetail(course, seats.get(course.id) ?? NO_SEATS, new Date(), staff, ratings.get(course.id) ?? null);
+    return {
+      course: toCourseDetail(course, seats.get(course.id) ?? NO_SEATS, new Date(), staff, ratings.get(course.id) ?? null),
+      private: course.visibleToEmails.length > 0,
+    };
+  }
+
+  /** Whether a private course lives at this address (so the page can say "sign in" instead of "not found"). Nothing else. */
+  async isPrivate(slug: string): Promise<boolean> {
+    const c = await this.prisma.course.findFirst({
+      where: { slug, status: { in: [...PUBLIC_COURSE_STATUSES] }, NOT: PUBLIC_LISTING },
+      select: { id: true },
+    });
+    return Boolean(c);
+  }
+
+  /** The private courses shared with this account (dashboard "Courses for you"). */
+  async privateFor(userId: string): Promise<CourseSummaryDto[]> {
+    const email = await viewerEmail(this.prisma, userId);
+    if (!email) return [];
+    const courses = await this.prisma.course.findMany({
+      where: { status: { in: [...PUBLIC_COURSE_STATUSES] }, visibleToEmails: { has: email } },
+      include: { instructors: { include: { instructor: true } } },
+      orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
+    });
+    const ids = courses.map((c) => c.id);
+    const [seats, ratings] = await Promise.all([this.seatCounts(ids), this.ratings(ids)]);
+    const now = new Date();
+    return courses.map((c) => toCourseSummary(c, seats.get(c.id) ?? NO_SEATS, now, ratings.get(c.id) ?? null));
   }
 
   async myStatus(slug: string, userId: string): Promise<MyCourseStatusDto> {
@@ -132,7 +166,7 @@ export class CoursesService {
 
   async publicSlugs(): Promise<{ slug: string; updatedAt: Date }[]> {
     return this.prisma.course.findMany({
-      where: { status: { in: [...PUBLIC_COURSE_STATUSES] } },
+      where: { status: { in: [...PUBLIC_COURSE_STATUSES] }, ...PUBLIC_LISTING },
       select: { slug: true, updatedAt: true },
     });
   }

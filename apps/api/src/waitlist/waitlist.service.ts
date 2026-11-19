@@ -18,6 +18,7 @@ import type { AuthUser } from '../common/decorators';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { capRows, EXPORT_LIMIT } from '../admin/export';
+import { assertCourseVisible } from '../courses/course-visibility';
 
 const CONFIRMATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -51,12 +52,14 @@ export class WaitlistService {
 
   // ------------------------------------------------------------------ public
 
-  private async publicCourse(slug: string) {
+  /** A course a student can see: public, or private with their confirmed email on its list. */
+  private async publicCourse(slug: string, userId: string) {
     const course = await this.prisma.course.findFirst({
       where: { slug, status: { in: [...PUBLIC_COURSE_STATUSES] } },
-      select: { id: true, slug: true, titleEn: true, titleAr: true },
+      select: { id: true, slug: true, titleEn: true, titleAr: true, visibleToEmails: true },
     });
     if (!course) throw new NotFoundException('Course not found');
+    await assertCourseVisible(this.prisma, course, userId);
     return course;
   }
 
@@ -69,7 +72,7 @@ export class WaitlistService {
     if (!user.emailVerifiedAt) {
       throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED', message: 'Confirm your email address before joining the waiting list' });
     }
-    const course = await this.publicCourse(slug);
+    const course = await this.publicCourse(slug, session.id);
     const email = user.email.toLowerCase();
     const userId = session.id;
     const locale: Locale = input.locale ?? user.locale;

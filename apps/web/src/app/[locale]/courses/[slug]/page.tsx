@@ -17,6 +17,7 @@ import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { ApplyCta } from '@/components/course/ApplyCta';
 import { availabilityStyle, enrolmentFacts, priceLabel, ratingFacts } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
+import { PrivateCourse } from '@/components/course/PrivateCourse';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { Alert } from '@/components/ui/Alert';
@@ -27,7 +28,7 @@ import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
 import { alternates, notFoundMetadata } from '@/lib/seo';
-import { serverGet, staticSlugs } from '@/lib/server-api';
+import { serverGet, serverGetOr, staticSlugs } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -41,13 +42,26 @@ async function load(slug: string): Promise<CourseDetailDto | null> {
   return serverGet<CourseDetailDto>(`/courses/${slug}`);
 }
 
+/**
+ * A course the anonymous fetch can't see may be private (shared with specific accounts): the API
+ * says only that one exists here. Its content is fetched in the browser with the visitor's session.
+ */
+async function isPrivate(slug: string): Promise<boolean> {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return false;
+  return Boolean(await serverGetOr<{ private: true } | null>(`/courses/${slug}/private`, null));
+}
+
 const pick = (locale: Locale, en: string, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   if (!isLocale(locale)) return {};
   const c = await load(slug);
-  if (!c) return notFoundMetadata(locale);
+  if (!c) {
+    // Private: no title or description (they are for the listed accounts only), never indexed.
+    if (await isPrivate(slug)) return { title: createTranslator(locale)('privateCourse.metaTitle'), robots: { index: false, follow: false } };
+    return notFoundMetadata(locale);
+  }
   const title = pick(locale, c.titleEn, c.titleAr);
   const description = pick(locale, c.shortDescriptionEn, c.shortDescriptionAr);
   return {
@@ -89,7 +103,10 @@ export default async function CoursePage({ params }: Props) {
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
   const c = await load(slug);
-  if (!c) notFound();
+  if (!c) {
+    if (await isPrivate(slug)) return <PrivateCourse slug={slug} />;
+    notFound();
+  }
   const t = createTranslator(locale);
   const title = pick(locale, c.titleEn, c.titleAr);
   const price = priceLabel(c, locale);

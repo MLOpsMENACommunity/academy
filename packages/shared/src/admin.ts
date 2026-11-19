@@ -164,6 +164,23 @@ const optionalImage = z
   .nullish()
   .or(z.literal('').transform(() => null));
 
+/** A private course is shown only to these accounts: at most this many addresses. */
+export const MAX_COURSE_VISIBLE_EMAILS = 50;
+
+/**
+ * "Visible only to these accounts" (Course.visibleToEmails): email addresses, trimmed,
+ * lower-cased and de-duplicated. Empty means a normal public course. The form sends one
+ * address per line; the list may come as an array or as that text.
+ */
+export const courseVisibleEmailsSchema = z
+  .union([z.array(z.string().max(320)).max(500), z.string().max(50_000)])
+  .transform((v) => [...new Set((typeof v === 'string' ? v.split(/[\s,;]+/) : v).map((e) => e.trim().toLowerCase()).filter(Boolean))])
+  .pipe(
+    z
+      .array(z.string().email('Not an email address').max(254))
+      .max(MAX_COURSE_VISIBLE_EMAILS, `At most ${MAX_COURSE_VISIBLE_EMAILS} addresses`),
+  );
+
 export const courseInputSchema = z
   .object({
     slug,
@@ -220,6 +237,8 @@ export const courseInputSchema = z
     selfPaced: z.boolean().default(false),
     /** Course page and cards show "N students enrolled" (the number only). */
     showEnrolledCount: z.boolean().default(true),
+    /** Private course: only these accounts see it (admin-only data, never in public DTOs). Empty: public. */
+    visibleToEmails: courseVisibleEmailsSchema.default([]),
   })
   .superRefine((c, ctx) => {
     if (c.status !== 'DRAFT' && c.status !== 'ARCHIVED') {

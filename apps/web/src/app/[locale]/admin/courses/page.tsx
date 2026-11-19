@@ -27,6 +27,8 @@ interface Row {
   enrolledCount: number;
   sessions: number;
   applications: Record<ApplicationStatus, number>;
+  /** Visible only to listed accounts. */
+  private?: boolean;
 }
 
 export default function AdminCourses() {
@@ -91,6 +93,11 @@ export default function AdminCourses() {
                     <Badge tone={c.status === 'OPEN' ? 'success' : c.status === 'DRAFT' ? 'warning' : c.status === 'COMING_SOON' ? 'info' : 'neutral'}>
                       {courseStatusLabels[c.status][locale]}
                     </Badge>
+                    {c.private && (
+                      <span className="ms-1.5">
+                        <Badge tone="accent">{t('admin.courses.fields.private')}</Badge>
+                      </span>
+                    )}
                     {c.source === 'import' && (
                       <span className="ms-1.5">
                         <Badge tone="info">{t('admin.common.imported')}</Badge>
