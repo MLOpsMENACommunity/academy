@@ -33,7 +33,11 @@ const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
 /** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates; where you stopped in each video; study plans; challenges). */
 const PRIVACY_UPDATED_EN = 'Last updated: 16 November 2026';
 const PRIVACY_UPDATED_AR = 'آخر تحديث: 16 نوفمبر 2026';
-/** The refund policy changed later (consultations; cancellation). */
+/** The refund policy changed later (consultations; cancellation; full refunds within 7 days of the start). */
+/** Full refund within this many days after a paid course's first session (self-paced: after enrolment). */
+const REFUND_DAYS = 7;
+/** Refunds are sent within this many days of the request. */
+const REFUND_PAYOUT_DAYS = 14;
 const REFUND_UPDATED_EN = 'Last updated: 19 November 2026';
 const REFUND_UPDATED_AR = 'آخر تحديث: 19 نوفمبر 2026';
 /** About us and the delivery policy were added for the payment provider's checklist. */
@@ -381,7 +385,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Payments',
           body: [
-            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application. Your seat is confirmed only after an administrator verifies the payment. Refunds follow the Refund Policy.',
+            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application. Your seat is confirmed only after an administrator verifies the payment. Refunds and cancellations follow the Refund & Cancellation Policy (full refund before a course starts and within 7 days after it starts).',
           ],
         },
         {
@@ -443,7 +447,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'المدفوعات',
           body: [
-            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. ويخضع الاسترداد لسياسة الاسترداد.',
+            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. ويخضع الاسترداد والإلغاء لسياسة الاسترداد والإلغاء (استرداد كامل قبل بدء الدورة وخلال 7 أيام بعد بدئها).',
           ],
         },
         {
@@ -471,89 +475,107 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
   'refund-policy': {
     en: {
       title: 'Refund & Cancellation Policy',
-      description: 'How to cancel an application, enrolment or consultation, and when and how payments are refunded.',
+      description: 'Full refunds before a course starts and within 7 days after it starts, how to cancel, and how refunds are paid.',
       updated: REFUND_UPDATED_EN,
       sections: [
         {
+          heading: 'Our promise: full refunds',
+          body: [
+            `You can get a full refund of what you paid for a course: any time before the course starts, and within ${REFUND_DAYS} days after its first session (for a self-paced course, within ${REFUND_DAYS} days of your enrolment), as long as no certificate has been issued to you for that course. No questions asked and no fees deducted.`,
+          ],
+        },
+        {
           heading: 'Free courses',
-          body: ['Free courses involve no payment, so there is nothing to refund. If you can no longer attend, withdraw so your seat can go to someone on the waitlist.'],
+          body: ['Free courses involve no payment, so there is nothing to refund. If you can no longer attend, withdraw so your seat can go to someone on the waiting list.'],
         },
         {
           heading: 'Before a paid course starts',
-          body: ['Full refund if you withdraw at least 7 days before the first session.'],
+          body: ['Cancel any time before the first session and you receive a full refund.'],
         },
         {
           heading: 'After a paid course starts',
-          body: ["Partial or no refund after the first session, at the academy's discretion."],
+          body: [
+            `Cancel within ${REFUND_DAYS} days after the first session (self-paced courses: within ${REFUND_DAYS} days of enrolment) and you receive a full refund, unless a certificate has already been issued to you for the course. After that period, payments are not refunded.`,
+          ],
         },
         {
           heading: 'How to cancel',
           body: [
-            'You can cancel an application or an enrolment at any time: open the application from your dashboard and withdraw, or write to us through {contact}. Withdrawing frees your seat for someone on the waiting list.',
+            'Open the application from your dashboard and withdraw, or write to us through {contact} with your name, the course and the email of your academy account. Withdrawing frees your seat for someone on the waiting list.',
             'If you cancel before paying, nothing is charged.',
-            'If you cancel a paid course at least 7 days before its first session, you receive a full refund. If you cancel later, or after the course has started, the refund is partial or none, at the academy\'s discretion (see above).',
+            'We confirm your cancellation and your refund by email.',
           ],
         },
         {
-          heading: 'If we cancel',
-          body: ['If the academy cancels a course, you receive a full refund.'],
+          heading: 'If we cancel or change a course',
+          body: ['If the academy cancels a course, or moves its start by more than 14 days and the new date does not suit you, you receive a full refund.'],
         },
         {
           heading: 'Consultations',
           body: [
             'You pay for a consultation first and book its time once the academy has confirmed your payment. If we can\'t confirm a payment, we tell you why.',
-            'Paid consultations are not refunded if you change your mind or miss the call. Instead, you can move a booked call to another open time of the same expert once, up to 24 hours before it starts.',
+            'Cancel a booked call at least 24 hours before it starts and you receive a full refund, or you can move it once to another open time of the same expert. Calls cancelled later or missed are not refunded.',
             'If the expert or the academy cancels a paid call, you receive a full refund.',
           ],
         },
         {
           heading: 'How refunds are paid',
           body: [
-            `Refunds are sent back by the same method used to pay (InstaPay or a mobile wallet such as Vodafone Cash) within 14 days. Contact us through {contact} to request one.`,
+            `Refunds go back to the method you paid with: to the same card for card payments, or to the same InstaPay account or mobile wallet (such as Vodafone Cash). We send the refund within ${REFUND_PAYOUT_DAYS} days of your request; card refunds can take a few more business days to appear, depending on your bank. To request a refund, contact us through {contact}.`,
           ],
         },
       ],
     },
     ar: {
       title: 'سياسة الاسترداد والإلغاء',
-      description: 'كيف تلغي طلبًا أو تسجيلًا أو استشارة، ومتى وكيف تُرد المدفوعات.',
+      description: 'استرداد كامل قبل بدء الدورة وخلال 7 أيام بعد بدئها، وكيف تلغي، وكيف يُرد المبلغ.',
       updated: REFUND_UPDATED_AR,
       sections: [
+        {
+          heading: 'التزامنا: استرداد كامل',
+          body: [
+            `يمكنك استرداد كامل ما دفعته مقابل دورة: في أي وقت قبل بدء الدورة، وخلال ${REFUND_DAYS} أيام بعد جلستها الأولى (وفي الدورات الذاتية خلال ${REFUND_DAYS} أيام من تسجيلك)، ما دامت لم تُصدر لك شهادة لهذه الدورة. دون أسئلة ودون خصم أي رسوم.`,
+          ],
+        },
         {
           heading: 'الدورات المجانية',
           body: ['لا تتطلب الدورات المجانية أي دفع، لذا لا يوجد ما يُسترد. إذا لم يعد بإمكانك الحضور، فانسحب ليذهب مقعدك إلى أحد المنتظرين.'],
         },
         {
           heading: 'قبل بدء الدورة المدفوعة',
-          body: ['استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل.'],
+          body: ['ألغِ في أي وقت قبل الجلسة الأولى وتحصل على استرداد كامل.'],
         },
         {
           heading: 'بعد بدء الدورة المدفوعة',
-          body: ['استرداد جزئي أو عدم استرداد بعد الجلسة الأولى، وفقًا لتقدير الأكاديمية.'],
+          body: [
+            `ألغِ خلال ${REFUND_DAYS} أيام بعد الجلسة الأولى (الدورات الذاتية: خلال ${REFUND_DAYS} أيام من التسجيل) وتحصل على استرداد كامل، ما لم تكن قد صدرت لك شهادة الدورة. وبعد هذه المدة لا تُسترد المدفوعات.`,
+          ],
         },
         {
           heading: 'كيف تلغي',
           body: [
-            'يمكنك إلغاء طلب أو تسجيل في أي وقت: افتح الطلب من لوحة التحكم الخاصة بك وانسحب، أو راسلنا عبر {contact}. انسحابك يتيح مقعدك لأحد المنتظرين.',
+            'افتح الطلب من لوحة التحكم الخاصة بك وانسحب، أو راسلنا عبر {contact} باسمك واسم الدورة والبريد الإلكتروني لحسابك في الأكاديمية. انسحابك يتيح مقعدك لأحد المنتظرين.',
             'إذا ألغيت قبل الدفع، فلن يُخصم منك أي مبلغ.',
-            'إذا ألغيت دورة مدفوعة قبل جلستها الأولى بسبعة أيام على الأقل، تحصل على استرداد كامل. وإذا ألغيت بعد ذلك، أو بعد بدء الدورة، فالاسترداد جزئي أو لا يوجد، وفقًا لتقدير الأكاديمية (انظر أعلاه).',
+            'نؤكد لك الإلغاء والاسترداد بالبريد الإلكتروني.',
           ],
         },
         {
-          heading: 'إذا ألغينا الدورة',
-          body: ['إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
+          heading: 'إذا ألغينا الدورة أو غيّرناها',
+          body: ['إذا ألغت الأكاديمية دورة، أو أجّلت بدءها أكثر من 14 يومًا ولم يناسبك الموعد الجديد، تحصل على استرداد كامل.'],
         },
         {
           heading: 'الاستشارات',
           body: [
             'تدفع مقابل الاستشارة أولًا، ثم تحجز موعدها بعد أن تؤكد الأكاديمية الدفع. وإذا لم نتمكن من تأكيد الدفع نخبرك بالسبب.',
-            'لا تُسترد قيمة الاستشارة المدفوعة إذا غيّرت رأيك أو لم تحضر. بدلًا من ذلك يمكنك نقل المكالمة المحجوزة مرة واحدة إلى موعد متاح آخر مع نفس الخبير، حتى 24 ساعة قبل بدئها.',
+            'ألغِ المكالمة المحجوزة قبل بدئها بـ 24 ساعة على الأقل وتحصل على استرداد كامل، أو يمكنك نقلها مرة واحدة إلى موعد متاح آخر مع نفس الخبير. المكالمات التي تُلغى بعد ذلك أو لا تحضرها لا تُسترد قيمتها.',
             'إذا ألغى الخبير أو الأكاديمية مكالمة مدفوعة، تحصل على استرداد كامل.',
           ],
         },
         {
           heading: 'كيف يُرد المبلغ',
-          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay أو محفظة إلكترونية مثل فودافون كاش) خلال 14 يومًا. تواصل معنا عبر {contact} لطلب الاسترداد.`],
+          body: [
+            `يُرد المبلغ بنفس طريقة الدفع: إلى نفس البطاقة في الدفع بالبطاقة، أو إلى نفس حساب InstaPay أو المحفظة الإلكترونية (مثل فودافون كاش). نرسل المبلغ خلال ${REFUND_PAYOUT_DAYS} يومًا من طلبك، وقد يستغرق ظهور المبلغ المسترد على البطاقة بضعة أيام عمل إضافية بحسب البنك. لطلب الاسترداد تواصل معنا عبر {contact}.`,
+          ],
         },
       ],
     },
