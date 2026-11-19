@@ -3,7 +3,7 @@ import { toLocalInput, type CourseFormValue } from './CourseForm';
 import type { QuestionRow, SessionRow } from './CourseTabs';
 
 /** A course as GET /admin/courses/:id (and /teach/courses/:id/details) returns it, and the editor's value from it. */
-export interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate'> {
+export interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'notFor' | 'preparation' | 'learningOutcomes' | 'prerequisites' | 'outline' | 'faq' | 'included' | 'endDate' | 'visibleToEmails'> {
   id: string;
   status: CourseStatus;
   /** The old single level (derived); `levels` is what the form edits. */
@@ -27,6 +27,9 @@ export interface AdminCourse extends Omit<CourseFormValue, 'targetAudience' | 'n
   seatsLeft: number | null;
   /** The certificate rule requires passing every mandatory assessment (set in the Certificates tab). */
   certRequireAssessments: boolean;
+  /** Private course: who sees it (admins only; absent from Teaching → Details, which gets `private`). */
+  visibleToEmails?: string[];
+  private?: boolean;
 }
 
 export function toForm(c: AdminCourse): CourseFormValue {
@@ -76,6 +79,8 @@ export function toForm(c: AdminCourse): CourseFormValue {
     publicRecordings: c.publicRecordings ?? false,
     selfPaced: c.selfPaced ?? false,
     showEnrolledCount: c.showEnrolledCount ?? true,
+    // Admins only: the staff editor's data leaves it out (the API keeps the stored list).
+    visibleToEmails: c.visibleToEmails ?? [],
   };
 }
 

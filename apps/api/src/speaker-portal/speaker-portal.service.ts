@@ -43,6 +43,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ensureBuiltinRoles, linkProfileStaffToAccount, setCourseInstructors } from '../course-staff/staff-sync';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { PUBLIC_LISTING } from '../courses/course-visibility';
 
 /**
  * The booking transaction: a few queries, but each is a round trip to a remote database
@@ -166,7 +167,7 @@ export class SpeakerPortalService {
               slug: true,
               events: { where: { status: { in: ['PUBLISHED', 'CANCELLED'] } }, select: { id: true }, take: 1 },
               coSpeaking: { where: { event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } }, select: { eventId: true }, take: 1 },
-              courses: { where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } }, select: { courseId: true }, take: 1 },
+              courses: { where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] }, ...PUBLIC_LISTING } }, select: { courseId: true }, take: 1 },
             },
           },
         },

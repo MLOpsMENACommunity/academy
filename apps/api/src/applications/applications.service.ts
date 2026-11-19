@@ -24,6 +24,7 @@ import { FunnelService } from '../funnel/funnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toProfileDto } from '../users/profile.service';
 import { ApplicationWorkflow, type Actor } from './workflow.service';
+import { assertCourseVisible } from '../courses/course-visibility';
 
 type AppWithCourse = Application & {
   course: Pick<Course, 'slug' | 'titleEn' | 'titleAr' | 'type' | 'price' | 'currency' | 'startDate'>;
@@ -111,6 +112,8 @@ export class ApplicationsService {
     }
 
     if (!course || course.status === 'DRAFT' || course.status === 'ARCHIVED') throw new NotFoundException('Course not found');
+    // A private course is "not found" for anyone not on its list.
+    await assertCourseVisible(this.prisma, course, userId);
     if (courseAvailability(course) !== 'OPEN') {
       throw new ConflictException({ code: 'COURSE_CLOSED', message: 'Applications for this course are closed' });
     }

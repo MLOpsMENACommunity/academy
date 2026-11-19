@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
+import { BUSINESS_DETAILS, telHref } from '@/content/business-details';
 import { policies, type PolicySlug } from '@/content/policies';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
@@ -64,6 +65,32 @@ function withContact(text: string, contact: PublicContactDto, slug: PolicySlug, 
   );
 }
 
+/** Email, phone and location (content/business-details.ts). Email and phone stay left-to-right inside Arabic text. */
+function BusinessDetails({ locale }: { locale: Locale }) {
+  const t = createTranslator(locale);
+  const d = BUSINESS_DETAILS;
+  return (
+    <dl className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-[auto_1fr]">
+      <dt className="font-medium text-fg">{t('policy.businessName')}</dt>
+      <dd>{d.legalName}</dd>
+      <dt className="font-medium text-fg">{t('policy.businessEmail')}</dt>
+      <dd>
+        <a href={`mailto:${d.email}`} dir="ltr" className={`ltr-embed ${linkClass}`}>
+          {d.email}
+        </a>
+      </dd>
+      <dt className="font-medium text-fg">{t('policy.businessPhone')}</dt>
+      <dd>
+        <a href={telHref(d.phone)} dir="ltr" className={`ltr-embed ${linkClass}`}>
+          {d.phone}
+        </a>
+      </dd>
+      <dt className="font-medium text-fg">{t('policy.businessLocation')}</dt>
+      <dd>{d.location[locale]}</dd>
+    </dl>
+  );
+}
+
 export function policyPage(slug: PolicySlug) {
   return async function PolicyPage({ params }: Props) {
     const { locale } = await params;
@@ -92,6 +119,7 @@ export function policyPage(slug: PolicySlug) {
               {s.body.map((para) => (
                 <p key={para}>{withContact(para, contact, slug, locale)}</p>
               ))}
+              {s.businessDetails && <BusinessDetails locale={locale} />}
               {s.communityLinks && (
                 <ul>
                   {COMMUNITY_LINKS.map(([name, href]) => (

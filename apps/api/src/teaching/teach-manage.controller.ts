@@ -87,7 +87,7 @@ export class TeachManageController {
   @CourseCan('EDIT_COURSE')
   @Header('Cache-Control', 'private, no-store')
   details(@Param('courseId') courseId: string) {
-    return this.courses.get(courseId);
+    return this.courses.getForStaff(courseId);
   }
 
   /** Status, address, price and who teaches stay as they are (AdminCoursesService.updateAsStaff). */

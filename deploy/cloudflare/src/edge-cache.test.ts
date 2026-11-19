@@ -166,6 +166,9 @@ test('the API is never cached for a session, a cross-origin caller, or anything 
     '/api/me/events',
     '/api/me/applications',
     '/api/courses/llmops/my-status',
+    // Private courses: the existence check and my list are never kept at the edge.
+    '/api/courses/llmops/private',
+    '/api/me/private-courses',
     '/api/events/x/calendar.ics',
     '/api/learn/llmops',
     '/api/admin/courses',

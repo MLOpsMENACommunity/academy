@@ -8,7 +8,7 @@ import type { Locale } from '@academy/shared';
  * "[PLACEHOLDER]" shows a "pending review" banner, so never ship any.
  */
 
-export const POLICY_SLUGS = ['privacy', 'terms', 'refund-policy', 'code-of-conduct', 'contact'] as const;
+export const POLICY_SLUGS = ['about', 'privacy', 'terms', 'refund-policy', 'delivery-policy', 'code-of-conduct', 'contact'] as const;
 export type PolicySlug = (typeof POLICY_SLUGS)[number];
 
 interface Section {
@@ -18,6 +18,8 @@ interface Section {
   needsEmail?: boolean;
   /** Followed by links to the community channels (Discord, Telegram, LinkedIn, YouTube). */
   communityLinks?: boolean;
+  /** Followed by the business email, phone and location (content/business-details.ts). */
+  businessDetails?: boolean;
 }
 interface Policy {
   title: string;
@@ -31,11 +33,99 @@ const UPDATED_AR = 'آخر تحديث: 10 أكتوبر 2026';
 /** The privacy policy changed later (course invitations; waiting lists need an account; Telegram and Discord usernames; assessments, attendance and certificates; where you stopped in each video; study plans; challenges). */
 const PRIVACY_UPDATED_EN = 'Last updated: 16 November 2026';
 const PRIVACY_UPDATED_AR = 'آخر تحديث: 16 نوفمبر 2026';
-/** The refund policy changed later (consultations). */
-const REFUND_UPDATED_EN = 'Last updated: 24 October 2026';
-const REFUND_UPDATED_AR = 'آخر تحديث: 24 أكتوبر 2026';
+/** The refund policy changed later (consultations; cancellation; full refunds within 7 days of the start). */
+/** Full refund within this many days after a paid course's first session (self-paced: after enrolment). */
+const REFUND_DAYS = 7;
+/** Refunds are sent within this many days of the request. */
+const REFUND_PAYOUT_DAYS = 14;
+const REFUND_UPDATED_EN = 'Last updated: 19 November 2026';
+const REFUND_UPDATED_AR = 'آخر تحديث: 19 نوفمبر 2026';
+/** About us and the delivery policy were added for the payment provider's checklist. */
+const ABOUT_UPDATED_EN = 'Last updated: 19 November 2026';
+const ABOUT_UPDATED_AR = 'آخر تحديث: 19 نوفمبر 2026';
+
+/**
+ * How long it normally takes, after a payment is verified, for access to show in the student's
+ * account (business days). Shown in the delivery policy and About us: edit it here.
+ */
+export const ACCESS_DELIVERY_BUSINESS_DAYS = { min: 1, max: 2 } as const;
+const DAYS_EN = `${ACCESS_DELIVERY_BUSINESS_DAYS.min}–${ACCESS_DELIVERY_BUSINESS_DAYS.max} business days`;
+const DAYS_AR = `${ACCESS_DELIVERY_BUSINESS_DAYS.min} إلى ${ACCESS_DELIVERY_BUSINESS_DAYS.max} يوم عمل`;
 
 export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
+  about: {
+    en: {
+      title: 'About us',
+      description: 'Who runs MLOps MENA Academy, what it offers and how paid courses work.',
+      updated: ABOUT_UPDATED_EN,
+      sections: [
+        {
+          heading: 'Who we are',
+          body: [
+            'MLOps MENA Academy (academy.mlopsmena.com) is the course platform of MLOps MENA Community, a community for ML, MLOps and AI engineers across the Middle East and North Africa, based in Cairo, Egypt.',
+            'Our courses are taught in English, in Arabic or in both, by practitioners from the region, and focus on building and running ML and AI systems in production.',
+          ],
+        },
+        {
+          heading: 'What we offer',
+          body: [
+            'Free and paid courses, with live sessions on Google Meet and recordings for enrolled students.',
+            'Assignments, quizzes and projects, and a digital certificate for students who meet a course\'s certificate rule. Every certificate can be checked on its public verification page.',
+            'Free community live sessions, and paid one-to-one consultations with experts.',
+          ],
+        },
+        {
+          heading: 'How paid courses work',
+          body: [
+            'Each paid course shows its price in Egyptian pounds (EGP) on its course page. You apply from that page; some courses review applications first.',
+            `Once you are accepted, you pay by one of the methods shown on the payment page and upload the payment proof. The academy team verifies the payment, normally within ${DAYS_EN}, and then enrols you: the course appears in your academy account with its live-session links and recordings.`,
+            'Refunds and cancellations follow our Refund & Cancellation Policy, and how access is delivered is described in our Delivery & Shipping Policy.',
+          ],
+        },
+        {
+          heading: 'Contact us',
+          businessDetails: true,
+          body: ['Questions about a course, a payment or your account? Write to us through {contact}, or use the details below.'],
+        },
+      ],
+    },
+    ar: {
+      title: 'من نحن',
+      description: 'من يدير أكاديمية MLOps MENA، وما الذي تقدمه، وكيف تعمل الدورات المدفوعة.',
+      updated: ABOUT_UPDATED_AR,
+      sections: [
+        {
+          heading: 'من نحن',
+          body: [
+            'أكاديمية MLOps MENA (academy.mlopsmena.com) هي منصة الدورات التابعة لمجتمع MLOps MENA، وهو مجتمع لمهندسي تعلم الآلة وMLOps والذكاء الاصطناعي في الشرق الأوسط وشمال أفريقيا، مقره القاهرة، مصر.',
+            'تُقدَّم دوراتنا بالإنجليزية أو بالعربية أو باللغتين، على يد ممارسين من المنطقة، وتركز على بناء أنظمة تعلم الآلة والذكاء الاصطناعي وتشغيلها في بيئة الإنتاج.',
+          ],
+        },
+        {
+          heading: 'ما الذي نقدمه',
+          body: [
+            'دورات مجانية ومدفوعة، بجلسات مباشرة على Google Meet وتسجيلات للطلاب المسجلين.',
+            'تكليفات واختبارات ومشروعات، وشهادة رقمية للطلاب الذين يستوفون شروط الشهادة في الدورة. ويمكن التحقق من كل شهادة عبر صفحة التحقق العامة الخاصة بها.',
+            'جلسات مجتمعية مباشرة مجانية، واستشارات فردية مدفوعة مع خبراء.',
+          ],
+        },
+        {
+          heading: 'كيف تعمل الدورات المدفوعة',
+          body: [
+            'تعرض كل دورة مدفوعة سعرها بالجنيه المصري (EGP) في صفحتها. تقدّم من تلك الصفحة، وبعض الدورات تراجع الطلبات أولًا.',
+            `بعد قبولك، تدفع بإحدى الطرق المعروضة في صفحة الدفع وترفع إثبات الدفع. يتحقق فريق الأكاديمية من الدفع، عادةً خلال ${DAYS_AR}، ثم يسجّلك في الدورة: تظهر الدورة في حسابك على الأكاديمية مع روابط الجلسات المباشرة والتسجيلات.`,
+            'يخضع الاسترداد والإلغاء لسياسة الاسترداد والإلغاء، وتشرح سياسة التسليم والشحن كيف تصلك الخدمة.',
+          ],
+        },
+        {
+          heading: 'تواصل معنا',
+          businessDetails: true,
+          body: ['لديك سؤال عن دورة أو عملية دفع أو حسابك؟ راسلنا عبر {contact}، أو استخدم البيانات التالية.'],
+        },
+      ],
+    },
+  },
+
   privacy: {
     en: {
       title: 'Privacy Policy',
@@ -295,7 +385,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'Payments',
           body: [
-            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application. Your seat is confirmed only after an administrator verifies the payment. Refunds follow the Refund Policy.',
+            'Paid courses are paid by InstaPay or Vodafone Cash using the details shown in your application. Your seat is confirmed only after an administrator verifies the payment. Refunds and cancellations follow the Refund & Cancellation Policy (full refund before a course starts and within 7 days after it starts).',
           ],
         },
         {
@@ -357,7 +447,7 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
         {
           heading: 'المدفوعات',
           body: [
-            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. ويخضع الاسترداد لسياسة الاسترداد.',
+            'تُدفع الدورات المدفوعة عبر InstaPay أو فودافون كاش باستخدام البيانات المعروضة في طلبك. لا يُؤكَّد مقعدك إلا بعد تحقق أحد المسؤولين من الدفع. ويخضع الاسترداد والإلغاء لسياسة الاسترداد والإلغاء (استرداد كامل قبل بدء الدورة وخلال 7 أيام بعد بدئها).',
           ],
         },
         {
@@ -384,74 +474,185 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
 
   'refund-policy': {
     en: {
-      title: 'Refund Policy',
-      description: 'When and how payments for paid courses and consultations can be refunded.',
+      title: 'Refund & Cancellation Policy',
+      description: 'Full refunds before a course starts and within 7 days after it starts, how to cancel, and how refunds are paid.',
       updated: REFUND_UPDATED_EN,
       sections: [
         {
+          heading: 'Our promise: full refunds',
+          body: [
+            `You can get a full refund of what you paid for a course: any time before the course starts, and within ${REFUND_DAYS} days after its first session (for a self-paced course, within ${REFUND_DAYS} days of your enrolment), as long as no certificate has been issued to you for that course. No questions asked and no fees deducted.`,
+          ],
+        },
+        {
           heading: 'Free courses',
-          body: ['Free courses involve no payment, so there is nothing to refund. If you can no longer attend, withdraw so your seat can go to someone on the waitlist.'],
+          body: ['Free courses involve no payment, so there is nothing to refund. If you can no longer attend, withdraw so your seat can go to someone on the waiting list.'],
         },
         {
           heading: 'Before a paid course starts',
-          body: ['Full refund if you withdraw at least 7 days before the first session.'],
+          body: ['Cancel any time before the first session and you receive a full refund.'],
         },
         {
           heading: 'After a paid course starts',
-          body: ["Partial or no refund after the first session, at the academy's discretion."],
+          body: [
+            `Cancel within ${REFUND_DAYS} days after the first session (self-paced courses: within ${REFUND_DAYS} days of enrolment) and you receive a full refund, unless a certificate has already been issued to you for the course. After that period, payments are not refunded.`,
+          ],
         },
         {
-          heading: 'If we cancel',
-          body: ['If the academy cancels a course, you receive a full refund.'],
+          heading: 'How to cancel',
+          body: [
+            'Open the application from your dashboard and withdraw, or write to us through {contact} with your name, the course and the email of your academy account. Withdrawing frees your seat for someone on the waiting list.',
+            'If you cancel before paying, nothing is charged.',
+            'We confirm your cancellation and your refund by email.',
+          ],
+        },
+        {
+          heading: 'If we cancel or change a course',
+          body: ['If the academy cancels a course, or moves its start by more than 14 days and the new date does not suit you, you receive a full refund.'],
         },
         {
           heading: 'Consultations',
           body: [
             'You pay for a consultation first and book its time once the academy has confirmed your payment. If we can\'t confirm a payment, we tell you why.',
-            'Paid consultations are not refunded if you change your mind or miss the call. Instead, you can move a booked call to another open time of the same expert once, up to 24 hours before it starts.',
+            'Cancel a booked call at least 24 hours before it starts and you receive a full refund, or you can move it once to another open time of the same expert. Calls cancelled later or missed are not refunded.',
             'If the expert or the academy cancels a paid call, you receive a full refund.',
           ],
         },
         {
           heading: 'How refunds are paid',
           body: [
-            `Refunds are sent back by the same method used to pay (InstaPay or a mobile wallet such as Vodafone Cash) within 14 days. Contact us through {contact} to request one.`,
+            `Refunds go back to the method you paid with: to the same card for card payments, or to the same InstaPay account or mobile wallet (such as Vodafone Cash). We send the refund within ${REFUND_PAYOUT_DAYS} days of your request; card refunds can take a few more business days to appear, depending on your bank. To request a refund, contact us through {contact}.`,
           ],
         },
       ],
     },
     ar: {
-      title: 'سياسة الاسترداد',
-      description: 'متى وكيف يمكن استرداد مدفوعات الدورات المدفوعة والاستشارات.',
+      title: 'سياسة الاسترداد والإلغاء',
+      description: 'استرداد كامل قبل بدء الدورة وخلال 7 أيام بعد بدئها، وكيف تلغي، وكيف يُرد المبلغ.',
       updated: REFUND_UPDATED_AR,
       sections: [
+        {
+          heading: 'التزامنا: استرداد كامل',
+          body: [
+            `يمكنك استرداد كامل ما دفعته مقابل دورة: في أي وقت قبل بدء الدورة، وخلال ${REFUND_DAYS} أيام بعد جلستها الأولى (وفي الدورات الذاتية خلال ${REFUND_DAYS} أيام من تسجيلك)، ما دامت لم تُصدر لك شهادة لهذه الدورة. دون أسئلة ودون خصم أي رسوم.`,
+          ],
+        },
         {
           heading: 'الدورات المجانية',
           body: ['لا تتطلب الدورات المجانية أي دفع، لذا لا يوجد ما يُسترد. إذا لم يعد بإمكانك الحضور، فانسحب ليذهب مقعدك إلى أحد المنتظرين.'],
         },
         {
           heading: 'قبل بدء الدورة المدفوعة',
-          body: ['استرداد كامل إذا انسحبت قبل الجلسة الأولى بسبعة أيام على الأقل.'],
+          body: ['ألغِ في أي وقت قبل الجلسة الأولى وتحصل على استرداد كامل.'],
         },
         {
           heading: 'بعد بدء الدورة المدفوعة',
-          body: ['استرداد جزئي أو عدم استرداد بعد الجلسة الأولى، وفقًا لتقدير الأكاديمية.'],
+          body: [
+            `ألغِ خلال ${REFUND_DAYS} أيام بعد الجلسة الأولى (الدورات الذاتية: خلال ${REFUND_DAYS} أيام من التسجيل) وتحصل على استرداد كامل، ما لم تكن قد صدرت لك شهادة الدورة. وبعد هذه المدة لا تُسترد المدفوعات.`,
+          ],
         },
         {
-          heading: 'إذا ألغينا الدورة',
-          body: ['إذا ألغت الأكاديمية دورة، تحصل على استرداد كامل.'],
+          heading: 'كيف تلغي',
+          body: [
+            'افتح الطلب من لوحة التحكم الخاصة بك وانسحب، أو راسلنا عبر {contact} باسمك واسم الدورة والبريد الإلكتروني لحسابك في الأكاديمية. انسحابك يتيح مقعدك لأحد المنتظرين.',
+            'إذا ألغيت قبل الدفع، فلن يُخصم منك أي مبلغ.',
+            'نؤكد لك الإلغاء والاسترداد بالبريد الإلكتروني.',
+          ],
+        },
+        {
+          heading: 'إذا ألغينا الدورة أو غيّرناها',
+          body: ['إذا ألغت الأكاديمية دورة، أو أجّلت بدءها أكثر من 14 يومًا ولم يناسبك الموعد الجديد، تحصل على استرداد كامل.'],
         },
         {
           heading: 'الاستشارات',
           body: [
             'تدفع مقابل الاستشارة أولًا، ثم تحجز موعدها بعد أن تؤكد الأكاديمية الدفع. وإذا لم نتمكن من تأكيد الدفع نخبرك بالسبب.',
-            'لا تُسترد قيمة الاستشارة المدفوعة إذا غيّرت رأيك أو لم تحضر. بدلًا من ذلك يمكنك نقل المكالمة المحجوزة مرة واحدة إلى موعد متاح آخر مع نفس الخبير، حتى 24 ساعة قبل بدئها.',
+            'ألغِ المكالمة المحجوزة قبل بدئها بـ 24 ساعة على الأقل وتحصل على استرداد كامل، أو يمكنك نقلها مرة واحدة إلى موعد متاح آخر مع نفس الخبير. المكالمات التي تُلغى بعد ذلك أو لا تحضرها لا تُسترد قيمتها.',
             'إذا ألغى الخبير أو الأكاديمية مكالمة مدفوعة، تحصل على استرداد كامل.',
           ],
         },
         {
           heading: 'كيف يُرد المبلغ',
-          body: [`يُرد المبلغ بنفس طريقة الدفع (InstaPay أو محفظة إلكترونية مثل فودافون كاش) خلال 14 يومًا. تواصل معنا عبر {contact} لطلب الاسترداد.`],
+          body: [
+            `يُرد المبلغ بنفس طريقة الدفع: إلى نفس البطاقة في الدفع بالبطاقة، أو إلى نفس حساب InstaPay أو المحفظة الإلكترونية (مثل فودافون كاش). نرسل المبلغ خلال ${REFUND_PAYOUT_DAYS} يومًا من طلبك، وقد يستغرق ظهور المبلغ المسترد على البطاقة بضعة أيام عمل إضافية بحسب البنك. لطلب الاسترداد تواصل معنا عبر {contact}.`,
+          ],
+        },
+      ],
+    },
+  },
+
+  'delivery-policy': {
+    en: {
+      title: 'Delivery & Shipping Policy',
+      description: 'How access to courses, recordings, certificates and consultations is delivered. Everything is digital; nothing is shipped.',
+      updated: ABOUT_UPDATED_EN,
+      sections: [
+        {
+          heading: 'Digital services only',
+          body: [
+            'Everything sold on MLOps MENA Academy is a digital service: courses (live online sessions and their recordings), certificates and consultations. Nothing is shipped to a physical address, and there are no shipping fees.',
+          ],
+        },
+        {
+          heading: 'How you receive access',
+          body: [
+            `Access is delivered online to your academy account. After you pay, the academy team verifies the payment, normally within ${DAYS_EN}, and enrols you in the course.`,
+            'The course then appears in your dashboard. Live-session links (Google Meet) and recordings are available there to enrolled students, and course emails go to your account\'s email address.',
+            'Free courses involve no payment: you get access as soon as you are enrolled or accepted.',
+          ],
+        },
+        {
+          heading: 'Consultations',
+          body: [
+            'Once your consultation payment is confirmed, you book the call\'s time in your account. The call happens online; its details are shown in your account and sent by email.',
+          ],
+        },
+        {
+          heading: 'Certificates',
+          body: [
+            'Certificates are digital PDF files. You download yours from your account, and each one has a public verification page. No printed copies are shipped.',
+          ],
+        },
+        {
+          heading: "If you don't receive access",
+          body: [
+            `If more than ${DAYS_EN} have passed since you paid and the course is not in your account, contact us through {contact} with the course name and your transaction reference. We will fix it or refund you under our Refund & Cancellation Policy.`,
+          ],
+        },
+      ],
+    },
+    ar: {
+      title: 'سياسة التسليم والشحن',
+      description: 'كيف تصلك الدورات والتسجيلات والشهادات والاستشارات. كل خدماتنا رقمية، ولا يُشحن أي شيء.',
+      updated: ABOUT_UPDATED_AR,
+      sections: [
+        {
+          heading: 'خدمات رقمية فقط',
+          body: [
+            'كل ما يُباع على أكاديمية MLOps MENA خدمات رقمية: الدورات (جلسات مباشرة عبر الإنترنت وتسجيلاتها)، والشهادات، والاستشارات. لا يُشحن أي شيء إلى عنوان فعلي، ولا توجد رسوم شحن.',
+          ],
+        },
+        {
+          heading: 'كيف تحصل على الخدمة',
+          body: [
+            `تصلك الخدمة عبر الإنترنت في حسابك على الأكاديمية. بعد الدفع، يتحقق فريق الأكاديمية من الدفع، عادةً خلال ${DAYS_AR}، ثم يسجّلك في الدورة.`,
+            'بعدها تظهر الدورة في لوحة التحكم الخاصة بك. وتتوفر هناك للطلاب المسجلين روابط الجلسات المباشرة (Google Meet) والتسجيلات، وتُرسل رسائل الدورة إلى البريد الإلكتروني لحسابك.',
+            'الدورات المجانية لا تتطلب دفعًا: تحصل على الخدمة فور تسجيلك أو قبولك.',
+          ],
+        },
+        {
+          heading: 'الاستشارات',
+          body: ['بعد تأكيد دفع الاستشارة، تحجز موعد المكالمة من حسابك. تتم المكالمة عبر الإنترنت، وتظهر تفاصيلها في حسابك وتُرسل إليك بالبريد الإلكتروني.'],
+        },
+        {
+          heading: 'الشهادات',
+          body: ['الشهادات ملفات PDF رقمية. تنزّل شهادتك من حسابك، ولكل شهادة صفحة تحقق عامة. لا تُشحن أي نسخ مطبوعة.'],
+        },
+        {
+          heading: 'إذا لم تصلك الخدمة',
+          body: [
+            `إذا مرّ أكثر من ${DAYS_AR} على الدفع ولم تظهر الدورة في حسابك، تواصل معنا عبر {contact} مع اسم الدورة والرقم المرجعي للعملية. سنحل المشكلة أو نرد المبلغ وفق سياسة الاسترداد والإلغاء.`,
+          ],
         },
       ],
     },
@@ -553,6 +754,11 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
       updated: '',
       sections: [
         {
+          heading: 'Business details',
+          businessDetails: true,
+          body: ['MLOps MENA Academy is run by MLOps MENA Community. You can reach us by email or phone:'],
+        },
+        {
           heading: 'Email',
           needsEmail: true,
           body: [`{contact}. We usually reply within 2 working days.`],
@@ -585,6 +791,11 @@ export const policies: Record<PolicySlug, Record<Locale, Policy>> = {
       description: 'كيف تتواصل مع فريق أكاديمية MLOps MENA.',
       updated: '',
       sections: [
+        {
+          heading: 'بيانات التواصل',
+          businessDetails: true,
+          body: ['تدير أكاديمية MLOps MENA مجتمعُ MLOps MENA. يمكنك التواصل معنا بالبريد الإلكتروني أو الهاتف:'],
+        },
         {
           heading: 'البريد الإلكتروني',
           needsEmail: true,

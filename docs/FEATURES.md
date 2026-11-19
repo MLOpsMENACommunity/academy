@@ -157,6 +157,20 @@ each course card here (`/courses/<slug>?ref=main-site`, see [INTEGRATION.md](../
 | Completed | Yes | A past cohort: syllabus, instructors and recordings stay public, no applications |
 | Archived | No | Hidden; kept for records once anyone has applied |
 
+- **Private courses (visible to specific accounts only):** Admin → Courses → {course} → Schedule →
+  **Visible only to these accounts** (one email per line, at most 50; empty = a normal public course).
+  A private course never appears in the catalog, home, Learn menu, learning paths, speaker pages,
+  recordings or the sitemap, for anyone. Its page (`/courses/<slug>`) shows the course (title,
+  description, the price in EGP, what you'll learn, syllabus, instructors, Apply / Pay) only to a
+  signed-in account whose **confirmed** email is on the list; anyone else sees "sign in" or "This
+  course isn't available to your account", and the page is never indexed. Applying and the waiting
+  list refuse non-listed accounts (404), so they can't apply or pay. Listed students find it on their
+  dashboard under **Courses for you**. Admin → Courses shows a **Private** badge; the list itself is
+  admin-only (never in a public API answer, not shown to course staff in Teaching → Details, who
+  can't change it). API: `GET /api/courses/:slug/private` (`{ private: true }` or 404, uncached: says
+  only that a private course exists), `GET /api/me/private-courses`; a private course's
+  `GET /api/courses/:slug` answer is `private, no-store`.
+- **Prices** show in Egyptian pounds unambiguously: "EGP 5,000" in English, "5,000 جنيه مصري" in Arabic.
 - **Tracking:** `ref` and UTM parameters are kept through sign-up and stored on the application.
 - **Current courses:** *AI Architecture Design* (free, Open, 6 live sessions on Sundays from 18 Oct
   2026) and *Kubernetes Mastery* (paid, Coming soon).
@@ -244,8 +258,15 @@ PDF downloads a minute per IP.
 ### 2.8 What's new, policies and contact
 
 **Status:** Live. `/whats-new` is a short changelog for users (the header shows a dot until you open
-it). Policies: `/privacy`, `/terms`, `/refund-policy`, `/code-of-conduct`, `/contact` in both
-languages; contact details come from Settings (support email and WhatsApp; empty means not shown).
+it). Pages: `/about` (About us), `/contact`, `/privacy`, `/terms`, `/refund-policy` (Refund &
+Cancellation Policy, with a "How to cancel" section), `/delivery-policy` (Delivery & Shipping Policy:
+everything is digital, access is delivered to the student's account normally within 1–2 business days
+after the payment is verified; the number is `ACCESS_DELIVERY_BUSINESS_DAYS` in
+`apps/web/src/content/policies.ts`) and `/code-of-conduct`, in both languages, all linked from the
+footer's Academy column and listed in the sitemap. The Contact and About pages always show the
+business email, phone and location from `apps/web/src/content/business-details.ts` (the phone is a
+placeholder until replaced there); the support email and WhatsApp from Settings are shown too when
+set (empty means not shown). These cover the payment provider's (Paymob) website checklist.
 
 ---
 
@@ -1433,6 +1454,9 @@ same email is never sent twice.
   with students' first name and last initial, never an email. They are in the data export (with
   votes and follows). On anonymisation the posts stay as "Former student" (other students' threads
   depend on them) and votes and follows are deleted.
+- **Private course lists** (`Course.visibleToEmails`) hold email addresses: admin-only, never in a
+  public answer; deleting an account doesn't remove its address from a course's list (an admin edits
+  the list).
 - Egypt's PDPL (Law 151/2020) governs incidents: 72 hours to notify (see OPERATIONS.md).
 
 ---
@@ -1461,6 +1485,7 @@ One entry per pull request in the academy repository. Newest first.
 
 | PR | Change | Status |
 |---|---|---|
+| #127 | **Paymob website checklist and private courses.** New **About us** (`/about`) and **Delivery & Shipping Policy** (`/delivery-policy`) pages; the refund policy is now the **Refund & Cancellation Policy**: full refund any time before a paid course starts and within 7 days after its first session (self-paced: 7 days from enrolment) unless a certificate was issued, full refund when the academy cancels, consultations refunded when cancelled 24 h ahead, refunds to the original method (card included) within 14 days, and a "How to cancel" section (updated 19 November 2026); Contact and About show the business email, phone and location (hello@mlopsmena.com, +20 128 814 9179, Cairo, Egypt); footer and sitemap list them; Arabic prices say "جنيه مصري". **Private courses**: Admin → Courses → **Visible only to these accounts** (up to 50 emails); such a course is hidden from every public listing, its page and Apply / Pay work only for listed signed-in accounts with a confirmed email, listed students see it under **Courses for you** on the dashboard, Admin shows a **Private** badge. New `GET /api/courses/:slug/private` and `GET /api/me/private-courses`. Migration: Course.visibleToEmails | Pending |
 | #126 | **Cohort challenges with a badge** (8.1): time-boxed challenges ("Deploy a model in a week"), open to every member or to one course's enrolled students. Public **/challenges** page (Community menu; open, upcoming and past; finisher counts; names only of finishers who chose to be shown), a page per challenge with the submit form (https link, note), the entry's status and feedback, and a **Challenges** card on the course's learn page. **Admin → Challenges** (ACADEMIC) and **Teaching → Challenges** (Manage assessments to create and edit, Grade to review). Approving awards the challenge's badge and points once; asking for changes on an approved entry takes both back. In the data export; deleted on anonymisation. Migration: Challenge, ChallengeEntry tables; PointsReason CHALLENGE | Pending |
 | #125 | Assessments: **practice exams from a question bank**. A quiz can draw a set number of questions per attempt (optionally balanced across topics), stored with the attempt so reloads and grading use the same ones; questions get an optional **topic** (editor and the sheet's `topic` column); students see their **score by topic** after each attempt (with the review) and a **Practice exam** badge; the form has a one-click **practice exam preset**. Scores stay out of max points, so the percent of an attempt is its own and the gradebook, points and certificate rules compare it. Migration: `QuizQuestion.topic`, `Assessment.drawCount`, `Assessment.balanceByTopic`, `Submission.drawnQuestionIds` | Pending |
 | #124 | **Study plan** for self-paced courses: the student picks study days, time per day, a start date and a reminder time; the learn page shows the next study day and its lessons and quizzes, a finish date and On track / Behind by N; study days go into the private calendar feed (8 weeks); a study-day reminder (in-app and the new `studyPlanReminder` email, once per day, per-course reminder opt-out) from the hourly tick; new automation rule **Behind the study plan** (nudge, at most weekly). New `GET`/`PUT`/`DELETE /api/learn/:slug/study-plan`. Data export and anonymisation include it; privacy policy updated. Migration: StudyPlan table (en/ar) | Pending |

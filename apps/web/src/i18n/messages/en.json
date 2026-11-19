@@ -51,7 +51,9 @@
     "policies": "Policies",
     "privacy": "Privacy Policy",
     "terms": "Terms of Use",
-    "refund": "Refund Policy",
+    "refund": "Refund & Cancellation Policy",
+    "delivery": "Delivery & Shipping Policy",
+    "aboutUs": "About us",
     "conduct": "Code of Conduct",
     "contact": "Contact & support",
     "verify": "Verify a certificate",
@@ -385,6 +387,8 @@
     }
   },
   "dashboard": {
+    "coursesForYou": "Courses for you",
+    "coursesForYouHint": "Shared with your account only.",
     "title": "Dashboard",
     "hello": "Hi {name}",
     "helloAnon": "Welcome",
@@ -1100,6 +1104,10 @@
         "selfPacedHint": "Students enrol instantly, watch the YouTube videos at their own pace, and get an attendance certificate automatically after every required video, every required quiz passed with 80% or more. Quizzes in this course get a pass mark of at least 80% when saved. The videos are shown to enrolled students only. Needs a free course with no approval step and status Open. The certificate rule below is not used.",
         "showEnrolledCount": "Show enrolled count publicly",
         "showEnrolledCountHint": "The course page and its cards say how many students are enrolled (the number only, never names).",
+        "visibleToEmails": "Visible only to these accounts",
+        "visibleToEmailsHint": "One email address per line (at most {max}). Only signed-in accounts with a confirmed email on this list see the course; it never appears in the catalog. Leave empty for a public course.",
+        "visibleToEmailsError": "Enter one valid email address per line, at most {max}.",
+        "private": "Private",
         "sessionTags": "Tags (Recordings filter)"
       },
       "driveWarning": "Share this folder ONLY with enrolled students' Google accounts. Never use \"Anyone with the link\": one student could forward it to everyone.",
@@ -2972,9 +2980,27 @@
     }
   },
   "policy": {
+    "businessEmail": "Email",
+    "businessPhone": "Phone",
+    "businessLocation": "Location",
+    "businessName": "Run by",
     "contactPage": "our contact page",
     "communityBelow": "the community channels below",
     "whatsapp": "For payment questions:"
+  },
+  "privateCourse": {
+    "badge": "Private course",
+    "loading": "Loading the course…",
+    "signInTitle": "This course is private",
+    "signInBody": "It is shared with specific accounts only. Sign in with the email address it was shared with to see it.",
+    "signIn": "Sign in",
+    "notAvailableTitle": "This course isn't available to your account",
+    "notAvailableBody": "It is shared with specific accounts only. If it was shared with you, sign in with that email address and make sure it is confirmed, or contact us.",
+    "contact": "Contact us",
+    "error": "We couldn't load this course. Try again in a moment.",
+    "price": "Price",
+    "about": "About this course",
+    "metaTitle": "Private course"
   },
   "waitlist": {
     "cta": "Notify me when it opens",
