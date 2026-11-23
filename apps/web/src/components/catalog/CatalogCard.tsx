@@ -36,6 +36,7 @@ export function CatalogCard({
   headingLevel = 'h3',
   media,
   external,
+  tag,
 }: {
   href: string;
   title: string;
@@ -48,6 +49,8 @@ export function CatalogCard({
   /** Optional block above the text (e.g. a date tile). */
   media?: ReactNode;
   external?: boolean;
+  /** Optional eye-catching tag on the status chip's row (e.g. the price), at the end side. */
+  tag?: ReactNode;
 }) {
   const H = headingLevel;
   const linkClass =
@@ -57,7 +60,12 @@ export function CatalogCard({
       <div aria-hidden className={`h-1.5 ${bars[bar]}`} />
       <div className="flex flex-1 flex-col gap-3 px-5 pt-5 pb-6 sm:px-6">
         {media}
-        {badge && <span className={`self-start rounded-md px-2.5 py-0.5 text-[0.8125rem] font-medium ${toneClass[badge.tone]}`}>{badge.label}</span>}
+        {(badge || tag) && (
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            {badge && <span className={`rounded-md px-2.5 py-0.5 text-[0.8125rem] font-medium ${toneClass[badge.tone]}`}>{badge.label}</span>}
+            {tag && <span className="ms-auto">{tag}</span>}
+          </div>
+        )}
         <H className="text-[1.1875rem] leading-snug">
           {external ? (
             <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>

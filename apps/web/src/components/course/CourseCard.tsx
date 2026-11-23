@@ -74,7 +74,18 @@ export function ratingFacts(rating: CourseSummaryDto['rating'] | undefined, loca
   return { text: t('catalog.rating', { average, count: rating.count }), label: t('catalog.ratingLabel', { average, count: rating.count }) };
 }
 
-export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course: CourseSummaryDto; locale: Locale; headingLevel?: 'h2' | 'h3' }) {
+export function CourseCard({
+  course: c,
+  locale,
+  headingLevel = 'h2',
+  priceTag = false,
+}: {
+  course: CourseSummaryDto;
+  locale: Locale;
+  headingLevel?: 'h2' | 'h3';
+  /** Show the price as a large tag at the top of the card (instead of in the details line). */
+  priceTag?: boolean;
+}) {
   const t = createTranslator(locale);
   const look = courseLook(c, locale);
   const when = c.startDate && !c.selfPaced
@@ -90,7 +101,7 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
     // A self-paced course has no weeks: "Self-paced" instead.
     [courseLevelsText(c, locale), c.selfPaced ? t('catalog.selfPaced') : c.durationWeeks ? t('catalog.weeks', { count: c.durationWeeks }) : null].filter(Boolean).join(' · '),
     // The language isn't decided while the course is coming soon.
-    [c.comingSoon ? null : courseLanguageLabels[c.language][locale], priceLabel(c, locale)].filter(Boolean).join(' · '),
+    [c.comingSoon ? null : courseLanguageLabels[c.language][locale], priceTag ? null : priceLabel(c, locale)].filter(Boolean).join(' · '),
     when,
     [enrolled, seats].filter(Boolean).join(' · '),
     rating && (
@@ -111,6 +122,11 @@ export function CourseCard({ course: c, locale, headingLevel = 'h2' }: { course:
       description={locale === 'ar' ? c.shortDescriptionAr : c.shortDescriptionEn}
       meta={meta}
       cta={look.cta}
+      tag={
+        priceTag ? (
+          <span className="inline-block rounded-full bg-cta px-3.5 py-1 text-[0.9375rem] font-bold whitespace-nowrap text-cta-text shadow-sm">{priceLabel(c, locale)}</span>
+        ) : undefined
+      }
     />
   );
 }
