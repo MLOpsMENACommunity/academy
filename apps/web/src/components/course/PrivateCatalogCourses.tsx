@@ -43,7 +43,7 @@ export function PrivateCatalogCourses() {
       <ul className="mt-5 grid gap-5 sm:gap-7 md:grid-cols-2">
         {list.map((c) => (
           <li key={c.id} className="flex">
-            <CourseCard course={c} locale={locale} />
+            <CourseCard course={c} locale={locale} priceTag />
           </li>
         ))}
       </ul>
