@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { formatDueAt } from './due-format';
 
 /** Due in 22–24 hours: wide enough for the hourly trigger, narrow enough to send once. */
-const WINDOW = { from: 22 * 60, to: 24 * 60 };
+export const WINDOW = { from: 22 * 60, to: 24 * 60 };
 
 /**
  * "Due in 24 hours" emails for published assessments, to enrolled students who

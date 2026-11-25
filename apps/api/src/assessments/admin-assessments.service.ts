@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   countedAttempt,
+  SELF_PACED_PASS_PERCENT,
   toCsv,
   type AdminAssessmentDto,
   type AdminAssessmentRow,
@@ -64,8 +65,12 @@ function defined<T extends Record<string, unknown>>(o: T): { [K in keyof T]: Exc
  * The assessment's own fields (everything but the questions). The admin editor is
  * English-only: Arabic wording and the order are absent unless sent, and absent
  * fields keep their stored values (create() fills in '' and the next position).
+ *
+ * Self-paced courses: the Certificate of Attendance needs SELF_PACED_PASS_PERCENT on every required
+ * assessment, so a lower pass mark is raised to it on save and the quiz's "Passed" agrees with the
+ * certificate. A higher one is kept.
  */
-function fields(input: AssessmentInput) {
+function fields(input: AssessmentInput, selfPaced: boolean) {
   const quiz = input.type === 'QUIZ';
   return {
     ...defined({ order: input.order, titleAr: input.titleAr, instructionsAr: input.instructionsAr }),
@@ -77,7 +82,7 @@ function fields(input: AssessmentInput) {
     dueAt: input.dueAt,
     allowLate: input.allowLate,
     maxPoints: input.maxPoints,
-    passPercent: input.passPercent,
+    passPercent: selfPaced ? Math.max(input.passPercent, SELF_PACED_PASS_PERCENT) : input.passPercent,
     countsForCertificate: input.countsForCertificate,
     submissionKind: quiz ? null : input.submissionKind,
     attemptsAllowed: quiz ? input.attemptsAllowed : 1,
@@ -85,6 +90,8 @@ function fields(input: AssessmentInput) {
     revealAnswers: input.revealAnswers,
     timeLimitMin: quiz ? input.timeLimitMin : null,
     shuffle: quiz ? input.shuffle : false,
+    drawCount: quiz ? input.drawCount : null,
+    balanceByTopic: quiz ? input.balanceByTopic : false,
   };
 }
 
@@ -105,7 +112,7 @@ export class AdminAssessmentsService {
   ) {}
 
   private async course(courseId: string) {
-    const c = await this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, slug: true, titleEn: true, titleAr: true } });
+    const c = await this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true, slug: true, titleEn: true, titleAr: true, selfPaced: true } });
     if (!c) throw new NotFoundException('Course not found');
     return c;
   }
@@ -166,6 +173,7 @@ export class AdminAssessmentsService {
       countsForCertificate: a.countsForCertificate,
       submissionKind: a.submissionKind,
       questionCount: a._count.questions,
+      drawCount: a.type === 'QUIZ' ? a.drawCount : null,
       submitted: counts.filter((c) => c.assessmentId === a.id).length,
       toGrade: pending.find((p) => p.assessmentId === a.id)?._count._all ?? 0,
       updatedBy: staffName(a.updatedBy, staffEmails),
@@ -192,6 +200,7 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr,
+        topic: q.topic,
         options: q.options.map((o) => ({ id: o.id, labelEn: o.labelEn, labelAr: o.labelAr, correct: o.correct })),
       })),
     };
@@ -219,7 +228,7 @@ export class AdminAssessmentsService {
   }
 
   async create(courseId: string, input: AssessmentInput, admin: Actor, staffEmails = true): Promise<AdminAssessmentDto> {
-    await this.course(courseId);
+    const { selfPaced } = await this.course(courseId);
     await this.checkSession(courseId, input.sessionId);
     const published = input.status === 'PUBLISHED';
     const a = await this.prisma.$transaction(
@@ -228,7 +237,7 @@ export class AdminAssessmentsService {
         const last = input.order === undefined ? await tx.assessment.aggregate({ where: { courseId }, _max: { order: true } }) : null;
         const created = await tx.assessment.create({
           data: {
-            ...fields(input),
+            ...fields(input, selfPaced),
             titleAr: input.titleAr ?? '',
             instructionsAr: input.instructionsAr ?? '',
             order: input.order ?? Math.min((last?._max.order ?? -1) + 1, 999),
@@ -253,6 +262,7 @@ export class AdminAssessmentsService {
   async update(id: string, input: AssessmentInput, admin: Actor, staffEmails = true): Promise<AdminAssessmentDto> {
     const current = await this.prisma.assessment.findUnique({ where: { id }, include: { ...questionsInclude, _count: { select: { submissions: true } } } });
     if (!current) throw new NotFoundException('Assessment not found');
+    const { selfPaced } = await this.course(current.courseId);
     if (current._count.submissions > 0) {
       const locked = this.lockedChange(current, input);
       if (locked) {
@@ -266,7 +276,7 @@ export class AdminAssessmentsService {
     await this.checkSession(current.courseId, input.sessionId);
     const firstPublish = await this.prisma.$transaction(
       async (tx) => {
-        await tx.assessment.update({ where: { id }, data: { ...fields(input), updatedById: admin.id } });
+        await tx.assessment.update({ where: { id }, data: { ...fields(input, selfPaced), updatedById: admin.id } });
         if (input.type === 'QUIZ') await this.saveQuestions(tx, id, input.questions);
         else await tx.quizQuestion.deleteMany({ where: { assessmentId: id } });
         await this.audit.log(
@@ -338,6 +348,7 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr,
+        topic: q.topic,
       });
       if (changed(old, data)) await tx.quizQuestion.update({ where: { id: old.id }, data });
       const oldOptions = new Map(old.options.map((o) => [o.id, o]));
@@ -365,6 +376,7 @@ export class AdminAssessmentsService {
         weight: q.weight,
         explanationEn: q.explanationEn,
         explanationAr: q.explanationAr ?? null,
+        topic: q.topic ?? null,
       })),
       select: { id: true, order: true },
     });
@@ -392,7 +404,7 @@ export class AdminAssessmentsService {
     actor: Actor,
     opts: { staffEmails?: boolean; quota?: (newQuizzes: number) => Promise<void> } = {},
   ): Promise<QuizImportResult & { rows: AdminAssessmentRow[] }> {
-    await this.course(courseId);
+    const { selfPaced } = await this.course(courseId);
     const sessions = await this.prisma.courseSession.findMany({ where: { courseId }, orderBy: [{ order: 'asc' }, { startsAt: 'asc' }], select: { id: true, order: true } });
     const sessionByNumber = new Map<number, string>();
     for (const s of sessions) if (!sessionByNumber.has(s.order)) sessionByNumber.set(s.order, s.id);
@@ -432,7 +444,7 @@ export class AdminAssessmentsService {
         const notify: string[] = [];
         for (const p of plan) {
           if (p.action === 'skip') continue;
-          const data = { ...fields(p.q.assessment), sessionId: p.sessionId };
+          const data = { ...fields(p.q.assessment, selfPaced), sessionId: p.sessionId };
           const publish = p.q.assessment.status === 'PUBLISHED';
           if (p.action === 'create') {
             const created = await tx.assessment.create({
@@ -649,6 +661,7 @@ export class AdminAssessmentsService {
     });
     // Points follow the counted score: a regrade appends the difference.
     await this.points.syncAssessmentSafe(s.assessmentId, s.userId);
+    await this.assessments.resultChanged(s.assessment.courseId, s.userId);
     if (!s.user.deletedAt) this.tellStudent(s, input.score);
     return this.submission(id, staffEmails);
   }

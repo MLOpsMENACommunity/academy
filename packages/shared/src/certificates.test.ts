@@ -7,6 +7,7 @@ import {
   certificateRuleSchema,
   certificateTag,
   describeRule,
+  formatCourseSerial,
   formatSerial,
   issueCertificatesSchema,
   linkedInAddUrl,
@@ -109,8 +110,32 @@ function results(rows: [ResultAssessment, ResultSubmission[]][]) {
   return summarizeResults('u', 'c', rows.map(([a, s]) => assessmentResult(a, s)));
 }
 
+describe('course-prefixed serials', () => {
+  it('formats prefix, cohort (01 by default), year and a 5-digit number', () => {
+    expect(formatCourseSerial('MLOPS', 1, 2026, 209)).toBe('MLOPS-01-2026-00209');
+    expect(formatCourseSerial('K8S', null, 2027, 1)).toBe('K8S-01-2027-00001');
+    expect(formatCourseSerial('MLOPS', 12, 2026, 123456)).toBe('MLOPS-12-2026-123456');
+  });
+
+  it('normalizes both serial formats as typed, and rejects anything else', () => {
+    expect(normalizeSerial(' mlops-01-2026-00023 ')).toBe('MLOPS-01-2026-00023');
+    expect(normalizeSerial('MMA-2026-7KQ4XM2P')).toBe('MMA-2026-7KQ4XM2P');
+    expect(normalizeSerial('MLOPS-1-2026-00023')).toBeNull();
+    expect(normalizeSerial('1MLOPS-01-2026-00023')).toBeNull();
+    expect(normalizeSerial('MLM-2026-AB12CD')).toBeNull();
+  });
+
+  it('accepts a prefix in any case, empty as none, and rejects bad ones', () => {
+    const base = { minSessionsPercent: null, requireAssessments: true };
+    expect(certificateRuleSchema.parse({ ...base, codePrefix: ' mlops ' }).codePrefix).toBe('MLOPS');
+    expect(certificateRuleSchema.parse({ ...base, codePrefix: '' }).codePrefix).toBeNull();
+    expect(certificateRuleSchema.parse(base).codePrefix).toBeNull();
+    for (const bad of ['M', '9K', 'ML-OPS', 'TOOLONGPREF1']) expect(certificateRuleSchema.safeParse({ ...base, codePrefix: bad }).success).toBe(false);
+  });
+});
+
 describe('certificateEligibility', () => {
-  const rule = { minSessionsPercent: 80, requireAssessments: true };
+  const rule = { minSessionsPercent: 80, requireAssessments: true, minTotalPercent: null };
 
   it('is eligible with enough sessions and every required assessment passed', () => {
     const r = results([
@@ -123,6 +148,79 @@ describe('certificateEligibility', () => {
     expect(e.assessments).toMatchObject({ required: 1, passed: 1, ok: true, pending: 0 });
     expect(e.averagePercent).toBe(40);
     expect(e.capstone).toBeNull();
+  });
+
+  describe('self-paced (Certificate of Attendance)', () => {
+    const selfPaced = { minSessionsPercent: 100, requireAssessments: true, minTotalPercent: null };
+    const all = { completed: 5, total: 5 };
+
+    it('needs 80% on every required assessment, even when the quiz pass mark is lower', () => {
+      const r = results([
+        [assessment('q1', true, 100, 70), [sub(80)]],
+        [assessment('q2', true, 100, 70), [sub(75)]],
+      ]);
+      const e = certificateEligibility(selfPaced, { sessions: all, results: r, selfPaced: true });
+      expect(e.eligible).toBe(false);
+      expect(e.assessments).toMatchObject({ required: 2, passed: 1, ok: false });
+      // The same scores meet a live course's rule (pass mark 70).
+      expect(certificateEligibility(selfPaced, { sessions: all, results: r }).eligible).toBe(true);
+    });
+
+    it('is eligible at exactly 80%, with no course feedback needed', () => {
+      const r = results([[assessment('q1', true, 10, 70), [sub(8)]]]);
+      const e = certificateEligibility(selfPaced, { sessions: all, results: r, selfPaced: true });
+      expect(e.eligible).toBe(true);
+      expect(e).not.toHaveProperty('feedback');
+    });
+
+    it('keeps a higher pass mark set on the quiz', () => {
+      const r = results([[assessment('q1', true, 100, 90), [sub(85)]]]);
+      expect(certificateEligibility(selfPaced, { sessions: all, results: r, selfPaced: true }).eligible).toBe(false);
+    });
+
+    it('needs every required video and at least one required assessment', () => {
+      const r = results([[assessment('q1', true), [sub(100)]]]);
+      expect(certificateEligibility(selfPaced, { sessions: { completed: 4, total: 5 }, results: r, selfPaced: true }).eligible).toBe(false);
+      const none = results([[assessment('practice', false), [sub(100)]]]);
+      expect(certificateEligibility(selfPaced, { sessions: all, results: none, selfPaced: true }).eligible).toBe(false);
+    });
+  });
+
+  describe('total score threshold', () => {
+    const totalRule = { minSessionsPercent: null, requireAssessments: false, minTotalPercent: 70 };
+    const sessions = { completed: 0, total: 10 };
+
+    it('counts every published assessment, with unsubmitted work as 0, and passes at exactly the threshold', () => {
+      // 60 + 10 of 100 points = 70%: the missing assignment counts as 0.
+      const r = results([
+        [assessment('quiz', false, 60), [sub(60)]],
+        [assessment('lab', false, 30), [sub(10)]],
+        [assessment('assignment', false, 10), []],
+      ]);
+      const e = certificateEligibility(totalRule, { sessions, results: r });
+      expect(e.total).toEqual({ percent: 70, required: 70, ok: true });
+      expect(e.eligible).toBe(true);
+    });
+
+    it('is not eligible below it, nor with no published assessment', () => {
+      const low = results([[assessment('quiz', false, 100), [sub(69)]]]);
+      expect(certificateEligibility(totalRule, { sessions, results: low })).toMatchObject({ eligible: false, total: { percent: 69, ok: false } });
+      const none = results([]);
+      expect(certificateEligibility(totalRule, { sessions, results: none })).toMatchObject({ eligible: false, total: { percent: null, ok: false } });
+    });
+
+    it('adds up with the other requirements', () => {
+      const r = results([[assessment('quiz', true, 100, 50), [sub(60)]]]);
+      // Passes the quiz (50) but not the total (70).
+      expect(certificateEligibility({ ...totalRule, requireAssessments: true }, { sessions, results: r }).eligible).toBe(false);
+      expect(certificateEligibility({ ...totalRule, requireAssessments: true, minTotalPercent: 60 }, { sessions, results: r }).eligible).toBe(true);
+    });
+
+    it('is optional in the schema (older clients) and described to students', () => {
+      expect(certificateRuleSchema.parse({ minSessionsPercent: null, requireAssessments: true }).minTotalPercent).toBeNull();
+      expect(certificateRuleSchema.safeParse({ minSessionsPercent: null, requireAssessments: true, minTotalPercent: 0 }).success).toBe(false);
+      expect(describeRule({ ...DEFAULT_CERTIFICATE_RULE, requireAssessments: false, minTotalPercent: 70 }, 'en')).toBe("To earn the certificate, score at least 70% of the course's total points.");
+    });
   });
 
   it('is not eligible below the sessions threshold', () => {
@@ -144,9 +242,9 @@ describe('certificateEligibility', () => {
 
   it('ignores assessments when the rule does not require them, and sessions when no minimum is set', () => {
     const failed = results([[assessment('quiz', true), [sub(10)]]]);
-    expect(certificateEligibility({ minSessionsPercent: 80, requireAssessments: false }, { sessions: { completed: 9, total: 10 }, results: failed }).eligible).toBe(true);
+    expect(certificateEligibility({ minSessionsPercent: 80, requireAssessments: false, minTotalPercent: null }, { sessions: { completed: 9, total: 10 }, results: failed }).eligible).toBe(true);
     const passed = results([[assessment('quiz', true), [sub(90)]]]);
-    expect(certificateEligibility({ minSessionsPercent: null, requireAssessments: true }, { sessions: { completed: 0, total: 10 }, results: passed }).eligible).toBe(true);
+    expect(certificateEligibility({ minSessionsPercent: null, requireAssessments: true, minTotalPercent: null }, { sessions: { completed: 0, total: 10 }, results: passed }).eligible).toBe(true);
   });
 
   it('a minimum with no sessions at all is never met; no rule at all is always met', () => {

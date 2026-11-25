@@ -18,13 +18,14 @@ import {
 import type { Prisma } from '@prisma/client';
 import { speakerRefSelect, toCoSpeakers, toSpeakerRef } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUBLIC_LISTING } from '../courses/course-visibility';
 
 /** The whole library is small (tens of items, hundreds one day): it's built once a minute and filtered in memory. */
 const LIBRARY_TTL_MS = 60_000;
 const MAX_ITEMS = 2_000;
 
 /** Course lessons whose recordings are public: a free public course that opted in. */
-const publicCourse = { publicRecordings: true, type: 'FREE', status: { in: [...PUBLIC_COURSE_STATUSES] } } satisfies Prisma.CourseWhereInput;
+const publicCourse = { publicRecordings: true, selfPaced: false, type: 'FREE', status: { in: [...PUBLIC_COURSE_STATUSES] }, ...PUBLIC_LISTING } satisfies Prisma.CourseWhereInput;
 
 interface LibraryItem {
   item: RecordingDto;
@@ -211,7 +212,7 @@ export class ArchiveService {
       OR: [
         { events: { some: { status: { in: ['PUBLISHED', 'CANCELLED'] } } } },
         { coSpeaking: { some: { event: { status: { in: ['PUBLISHED', 'CANCELLED'] } } } } },
-        { courses: { some: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } } } },
+        { courses: { some: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] }, ...PUBLIC_LISTING } } } },
       ],
     };
   }
@@ -236,7 +237,7 @@ export class ArchiveService {
           include: { event: true },
         },
         courses: {
-          where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] } } },
+          where: { course: { status: { in: [...PUBLIC_COURSE_STATUSES] }, ...PUBLIC_LISTING } },
           include: { course: true },
         },
       },
@@ -283,6 +284,7 @@ export class ArchiveService {
           titleAr: c.titleAr || c.titleEn,
           availability: courseAvailability(c, now),
           completed: c.status === 'COMPLETED',
+          selfPaced: c.selfPaced,
           cohortNumber: c.cohortNumber,
           startDate: c.startDate?.toISOString() ?? null,
           endDate: c.endDate?.toISOString() ?? null,

@@ -1,5 +1,5 @@
 import {
-  courseAvailabilityLabels,
+  courseAvailabilityText,
   courseLanguageLabels,
   courseLevelsText,
   deliveryPlatformLabels,
@@ -15,18 +15,20 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RecordingPlayer } from '@/components/archive/RecordingPlayer';
 import { ApplyCta } from '@/components/course/ApplyCta';
-import { availabilityStyle, enrolmentFacts, priceLabel } from '@/components/course/CourseCard';
+import { availabilityStyle, enrolmentFacts, priceLabel, ratingFacts } from '@/components/course/CourseCard';
 import { CourseViewTracker } from '@/components/course/CourseViewTracker';
+import { PrivateCourse } from '@/components/course/PrivateCourse';
 import { LocalTime, ViewerTimezone } from '@/components/course/LocalTime';
 import { Markdown } from '@/components/course/Markdown';
 import { Alert } from '@/components/ui/Alert';
 import { Container } from '@/components/ui/Container';
 import { IconUsers } from '@/components/ui/Icons';
+import { Stars } from '@/components/ui/Stars';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
 import { jsonLd } from '@/lib/jsonld';
 import { alternates, notFoundMetadata } from '@/lib/seo';
-import { serverGet, staticSlugs } from '@/lib/server-api';
+import { serverGet, serverGetOr, staticSlugs } from '@/lib/server-api';
 import { absoluteUrl, community } from '@/lib/site';
 import { durationLabel, isoDuration, speakerPath, youtubeThumbnail } from '@/lib/archive';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -40,13 +42,26 @@ async function load(slug: string): Promise<CourseDetailDto | null> {
   return serverGet<CourseDetailDto>(`/courses/${slug}`);
 }
 
+/**
+ * A course the anonymous fetch can't see may be private (shared with specific accounts): the API
+ * says only that one exists here. Its content is fetched in the browser with the visitor's session.
+ */
+async function isPrivate(slug: string): Promise<boolean> {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return false;
+  return Boolean(await serverGetOr<{ private: true } | null>(`/courses/${slug}/private`, null));
+}
+
 const pick = (locale: Locale, en: string, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   if (!isLocale(locale)) return {};
   const c = await load(slug);
-  if (!c) return notFoundMetadata(locale);
+  if (!c) {
+    // Private: no title or description (they are for the listed accounts only), never indexed.
+    if (await isPrivate(slug)) return { title: createTranslator(locale)('privateCourse.metaTitle'), robots: { index: false, follow: false } };
+    return notFoundMetadata(locale);
+  }
   const title = pick(locale, c.titleEn, c.titleAr);
   const description = pick(locale, c.shortDescriptionEn, c.shortDescriptionAr);
   return {
@@ -88,7 +103,10 @@ export default async function CoursePage({ params }: Props) {
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
   const c = await load(slug);
-  if (!c) notFound();
+  if (!c) {
+    if (await isPrivate(slug)) return <PrivateCourse slug={slug} />;
+    notFound();
+  }
   const t = createTranslator(locale);
   const title = pick(locale, c.titleEn, c.titleAr);
   const price = priceLabel(c, locale);
@@ -142,9 +160,12 @@ export default async function CoursePage({ params }: Props) {
     : [];
   const facts: [string, ReactNode][] = [
     ...(ran ? ([[t('course.ran'), ran]] as [string, ReactNode][]) : []),
-    ...(c.startDate && !completed ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
-    ...(c.durationWeeks ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
-    ...(c.hoursPerWeek ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
+    ...(c.startDate && !completed && !c.selfPaced ? ([[t('course.facts.start'), <LocalTime key="s" iso={c.startDate} style="date" />]] as [string, ReactNode][]) : []),
+    // Self-paced: video lessons whenever the student wants, so no weeks or hours per week (a
+    // converted cohort can still have them set from its live run).
+    ...(c.selfPaced ? ([[t('course.facts.format'), t('course.facts.selfPaced', { count: c.sessions.length })]] as [string, ReactNode][]) : []),
+    ...(c.durationWeeks && !c.selfPaced ? ([[t('course.facts.duration'), t('catalog.weeks', { count: c.durationWeeks })]] as [string, ReactNode][]) : []),
+    ...(c.hoursPerWeek && !c.selfPaced ? ([[t('course.facts.commitment'), t('course.facts.perWeek', { count: c.hoursPerWeek })]] as [string, ReactNode][]) : []),
     [t('course.facts.level'), courseLevelsText(c, locale)],
     ...(comingSoon
       ? []
@@ -153,7 +174,7 @@ export default async function CoursePage({ params }: Props) {
           ReactNode,
         ][])),
     [t('course.facts.price'), price],
-    ...(c.applicationDeadline && !completed
+    ...(c.applicationDeadline && !completed && !c.selfPaced
       ? // In the academy's time zone (with its name), so the closing date reads the same for every visitor.
         ([[t('course.facts.deadline'), formatDateTime(c.applicationDeadline, locale)]] as [string, ReactNode][])
       : []),
@@ -162,6 +183,8 @@ export default async function CoursePage({ params }: Props) {
   // seconds of an enrolment or a withdrawal (the API revalidates this page).
   const enrolment = enrolmentFacts(c, locale);
   const enrolmentParts = [enrolment.enrolled, enrolment.seats].filter((x): x is string => Boolean(x));
+  // The approved ratings' average: null (nothing shown) until RATING_MIN_TO_SHOW are approved.
+  const rating = ratingFacts(c.rating, locale);
 
   // Open courses: apply. Anything else (coming soon, closed, a past cohort): the waiting list.
   const cta = (compact: boolean) => (
@@ -205,21 +228,28 @@ export default async function CoursePage({ params }: Props) {
         }[c.availability],
         url,
       },
+      ...(c.rating
+        ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: c.rating.average, ratingCount: c.rating.count, bestRating: 5, worstRating: 1 } }
+        : {}),
       hasCourseInstance: {
         '@type': 'CourseInstance',
-        courseMode: 'online',
+        courseMode: c.selfPaced ? 'online, self-paced' : 'online',
         location: deliveryPlatformLabels[c.deliveryPlatform].en,
         ...(c.startDate ? { startDate: c.startDate } : {}),
         ...(c.endDate ? { endDate: c.endDate } : lastSession ? { endDate: lastSession.startsAt } : {}),
         // Total effort for the whole course.
-        ...(c.hoursPerWeek && c.durationWeeks ? { courseWorkload: `PT${c.hoursPerWeek * c.durationWeeks}H` } : {}),
-        courseSchedule: {
-          '@type': 'Schedule',
-          repeatFrequency: 'Weekly',
-          ...(c.sessions[0] ? { duration: `PT${c.sessions[0].durationMin}M` } : {}),
-          ...(c.durationWeeks ? { repeatCount: c.durationWeeks } : {}),
-          ...(c.startDate ? { startDate: c.startDate } : {}),
-        },
+        ...(c.selfPaced
+          ? { courseWorkload: `PT${c.sessions.reduce((n, s) => n + s.durationMin, 0)}M` }
+          : {
+              ...(c.hoursPerWeek && c.durationWeeks ? { courseWorkload: `PT${c.hoursPerWeek * c.durationWeeks}H` } : {}),
+              courseSchedule: {
+                '@type': 'Schedule',
+                repeatFrequency: 'Weekly',
+                ...(c.sessions[0] ? { duration: `PT${c.sessions[0].durationMin}M` } : {}),
+                ...(c.durationWeeks ? { repeatCount: c.durationWeeks } : {}),
+                ...(c.startDate ? { startDate: c.startDate } : {}),
+              },
+            }),
         instructor: c.instructors.map((i) => ({
           '@type': 'Person',
           name: i.name,
@@ -290,12 +320,18 @@ export default async function CoursePage({ params }: Props) {
           ) : (
             <p className={`flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${availabilityStyle[c.availability].text}`}>
               <span aria-hidden className={`size-2 rounded-full ${availabilityStyle[c.availability].dot}`} />
-              {courseAvailabilityLabels[c.availability][locale]}
+              {courseAvailabilityText(c, locale)}
               <span aria-hidden>·</span>
               {price}
             </p>
           )}
           <h1 className="max-w-4xl text-[2rem] leading-tight sm:text-[2.75rem] sm:leading-[1.15]">{title}</h1>
+          {rating && c.rating && (
+            <p data-testid="course-rating" className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium text-fg">
+              <Stars value={Math.round(c.rating.average)} label={rating.label} />
+              <span aria-hidden>{rating.text}</span>
+            </p>
+          )}
           {enrolmentParts.length > 0 && (
             <p data-testid="course-enrolment" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] font-medium text-fg">
               <IconUsers className="shrink-0 text-muted" />
@@ -378,8 +414,12 @@ export default async function CoursePage({ params }: Props) {
                         <p className="text-sm font-medium text-primary">{t('course.lesson', { n: s.order })}</p>
                         <h3 className="mt-0.5 text-[1.0625rem] leading-snug">{lessonTitle}</h3>
                         <p className="mt-1 text-sm text-muted">
-                          <time dateTime={s.startsAt}>{formatDate(s.startsAt, locale)}</time>
-                          <span aria-hidden> · </span>
+                          {!c.selfPaced && (
+                            <>
+                              <time dateTime={s.startsAt}>{formatDate(s.startsAt, locale)}</time>
+                              <span aria-hidden> · </span>
+                            </>
+                          )}
                           {durationLabel(s.durationMin, locale)}
                         </p>
                       </div>
@@ -471,7 +511,7 @@ export default async function CoursePage({ params }: Props) {
             </Section>
           )}
 
-          {c.sessions.length > 0 && !completed && (
+          {c.sessions.length > 0 && !completed && !c.selfPaced && (
             <Section id="schedule" title={t('course.schedule')}>
               <p className="-mt-1 mb-5 text-[0.9375rem] text-muted">
                 {t('course.scheduleNote', { tz: '\u0000' }).split('\u0000')[0]}
@@ -499,6 +539,26 @@ export default async function CoursePage({ params }: Props) {
                   </li>
                 ))}
               </ol>
+            </Section>
+          )}
+
+          {c.testimonials.length > 0 && (
+            <Section id="testimonials" title={t('course.testimonials')}>
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {c.testimonials.map((x) => (
+                  <li key={x.id}>
+                    <figure className="h-full rounded-xl border border-line bg-card p-5">
+                      {x.rating !== null && <Stars value={x.rating} label={t('course.rated', { n: x.rating })} className="mb-2" />}
+                      <blockquote dir="auto" className="leading-relaxed whitespace-pre-line text-body">
+                        {x.body}
+                      </blockquote>
+                      <figcaption dir="auto" className="mt-3 text-sm font-medium text-fg">
+                        {pick(locale, x.name, x.nameAr ?? x.name)}
+                      </figcaption>
+                    </figure>
+                  </li>
+                ))}
+              </ul>
             </Section>
           )}
 

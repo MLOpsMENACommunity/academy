@@ -27,10 +27,18 @@ export function currencyLabel(currency: string, locale: Locale): string {
   }
 }
 
+/**
+ * A price as people read it: "EGP 5,000" in English and "5,000 جنيه مصري" in Arabic. Egyptian
+ * pounds are always spelled out in Arabic (never only "ج.م." or "E£"), so a price is never
+ * ambiguous (payment providers check this too).
+ */
 export function formatMoney(amount: number, currency: string, locale: Locale): string {
-  return new Intl.NumberFormat(intlLocale(locale), { style: 'currency', currency, maximumFractionDigits: 0 }).format(
-    amount,
-  );
+  return new Intl.NumberFormat(intlLocale(locale), {
+    style: 'currency',
+    currency,
+    currencyDisplay: locale === 'ar' && currency.toUpperCase() === 'EGP' ? 'name' : 'symbol',
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 /** The viewer's timezone, falling back to Cairo (most students) during SSR. */

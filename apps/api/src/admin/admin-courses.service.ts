@@ -43,6 +43,12 @@ export function enrolledTotals(capacity: number | null, seats: SeatCount): { enr
   return { enrolledCount: seats.enrolled, seatsLeft: capacity === null ? null : Math.max(0, capacity - seats.taken) };
 }
 
+/** Course staff never see who a private course is shared with: only that it is private. */
+function withoutAudience<T extends { visibleToEmails: string[] }>(c: T): Omit<T, 'visibleToEmails'> & { private: boolean } {
+  const { visibleToEmails, ...rest } = c;
+  return { ...rest, private: visibleToEmails.length > 0 };
+}
+
 @Injectable()
 export class AdminCoursesService {
   constructor(
@@ -74,6 +80,8 @@ export class AdminCoursesService {
       capacity: c.capacity,
       enrolledCount: (seats.get(c.id) ?? NO_SEATS).enrolled,
       sessions: c._count.sessions,
+      /** Visible only to listed accounts (the "Private" badge); the list itself is on the course. */
+      private: c.visibleToEmails.length > 0,
       applications: Object.fromEntries(
         APPLICATION_STATUSES.map((s) => [s, counts.find((x) => x.courseId === c.id && x.status === s)?._count._all ?? 0]),
       ),
@@ -195,7 +203,8 @@ export class AdminCoursesService {
    * result is validated again as a whole (e.g. Arabic texts on a published course).
    */
   async updateAsStaff(id: string, input: CourseInput, actor: Actor) {
-    const cur = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, type: true, price: true, currency: true } });
+    // Who may see a private course (visibleToEmails) stays with the admins too.
+    const cur = await this.prisma.course.findUnique({ where: { id }, select: { status: true, slug: true, type: true, price: true, currency: true, visibleToEmails: true } });
     if (!cur) throw new NotFoundException('Course not found');
     const merged = courseInputSchema.safeParse({ ...input, ...cur, instructorIds: await this.instructorIds(id) });
     if (!merged.success) {
@@ -205,7 +214,12 @@ export class AdminCoursesService {
         errors: merged.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
     }
-    return this.update(id, merged.data, actor);
+    return withoutAudience(await this.update(id, merged.data, actor));
+  }
+
+  /** Teaching → {course} → Details: the editor's data without the private-course email list (admin-only). */
+  async getForStaff(id: string) {
+    return withoutAudience(await this.get(id));
   }
 
   /**
@@ -300,6 +314,7 @@ export class AdminCoursesService {
       liveUrl: s.liveUrl ?? null,
       recordingUrl: s.recordingUrl ?? null,
       assignmentUrl: s.assignmentUrl ?? null,
+      optional: s.optional,
       materials: s.materials as Json,
       topics: s.topics,
     };

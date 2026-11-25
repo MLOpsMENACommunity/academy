@@ -232,6 +232,25 @@ enum DeliveryPlatform {
   YOUTUBE_LIVE
 }
 
+/// A testimonial is public only while APPROVED.
+enum TestimonialStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// How a self-paced lesson was completed: the video reached its end, or the student said so.
+enum LessonCompletionSource {
+  WATCHED
+  MANUAL
+}
+
+/// What a certificate states: completing a course, or attending a self-paced one.
+enum CertificateKind {
+  COMPLETION
+  ATTENDANCE
+}
+
 enum RecordingsPlatform {
   YOUTUBE
   GOOGLE_DRIVE
@@ -302,75 +321,90 @@ enum ReminderKind {
 // ======================================================================= Users & auth
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
+  id               String            @id @default(cuid())
+  email            String            @unique
   /// Retired: students can no longer change their login email. Always null; kept so the column stays.
-  pendingEmail    String?
-  passwordHash    String?
-  googleId        String?   @unique
-  emailVerifiedAt DateTime?
-  role            Role      @default(STUDENT)
+  pendingEmail     String?
+  passwordHash     String?
+  googleId         String?           @unique
+  emailVerifiedAt  DateTime?
+  role             Role              @default(STUDENT)
   /// ADMIN accounts only (empty otherwise): what this admin may do. Checked on every request.
   adminPermissions AdminPermission[] @default([])
-  locale          Locale    @default(en)
-  lastLoginAt     DateTime?
+  locale           Locale            @default(en)
+  lastLoginAt      DateTime?
   /// Embedded in access tokens; bumping it invalidates every issued token at once.
-  tokenVersion    Int       @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  tokenVersion     Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   /// Soft delete: login is blocked immediately; PII is anonymised 30 days later.
-  deletedAt       DateTime?
-  anonymizedAt    DateTime?
+  deletedAt        DateTime?
+  anonymizedAt     DateTime?
 
-  profile                 Profile?
-  applications            Application[]
-  enrollments             Enrollment[]
-  notifications           Notification[]
-  announcementsAuthored   Announcement[]           @relation("AnnouncementAuthor")
-  announcementDeliveries  AnnouncementRecipient[]
-  eventRegistrations      EventRegistration[]
-  eventReminders          EventReminderLog[]
-  eventConfirmations      EventConfirmation[]
-  refreshTokens           RefreshToken[]
-  emailVerificationTokens EmailVerificationToken[]
-  passwordResetTokens     PasswordResetToken[]
-  sessionProgress         SessionProgress[]
-  sessionFeedback         SessionFeedback[]
-  submissions             Submission[]             @relation("SubmissionStudent")
-  submissionsGraded       Submission[]             @relation("SubmissionGrader")
-  assessmentsEdited       Assessment[]             @relation("AssessmentEditor")
-  assessmentReminders     AssessmentReminderLog[]
-  pointsEntries           PointsEntry[]            @relation("PointsStudent")
-  pointsAwarded           PointsEntry[]            @relation("PointsAwarder")
-  pointsVoided            PointsEntry[]            @relation("PointsVoider")
-  automationRulesEdited   CourseAutomationRule[]   @relation("AutomationRuleEditor")
-  automationFirings       AutomationFiring[]
-  attendance              SessionAttendance[]      @relation("AttendanceStudent")
-  attendanceUploaded      SessionAttendance[]      @relation("AttendanceUploader")
-  badges                  UserBadge[]              @relation("BadgeHolder")
-  badgesAwarded           UserBadge[]              @relation("BadgeAwarder")
-  leaderboardOptIns       LeaderboardOptIn[]
-  certificatesIssued      Certificate[]            @relation("CertificateIssuer")
-  reminderPreferences     ReminderPreference[]
-  savedFilters            SavedFilter[]
-  auditLogs               AuditLog[]               @relation("AuditActor")
-  reviewedPayments        Payment[]                @relation("PaymentReviewer")
-  adminNotesWritten       AdminNote[]              @relation("AdminNoteAuthor")
-  adminNotesAbout         AdminNote[]              @relation("AdminNoteSubject")
-  statusChanges           ApplicationStatusHistory[]
-  calendarFeed            CalendarFeed?
-  courseInterests         CourseInterest[]
-  courseInvitesSent       CourseInvite[]           @relation("CourseInviteInviter")
-  courseInvitesClaimed    CourseInvite[]           @relation("CourseInviteEnrolled")
-  speakerApplication      SpeakerApplication?      @relation("SpeakerApplicant")
-  speakerReviews          SpeakerApplication[]     @relation("SpeakerReviewer")
-  speakerProfile          Instructor?
-  speakingSlots           SpeakingSlot[]           @relation("SlotBooker")
-  speakingSlotsCreated    SpeakingSlot[]           @relation("SlotCreator")
-  courseStaff             CourseStaff[]
-  outboundEmails          OutboundEmail[]
-  consultationsBooked     ConsultationBooking[]    @relation("ConsultationStudent")
-  consultationsReviewed   ConsultationBooking[]    @relation("ConsultationReviewer")
+  profile                     Profile?
+  applications                Application[]
+  enrollments                 Enrollment[]
+  notifications               Notification[]
+  announcementsAuthored       Announcement[]             @relation("AnnouncementAuthor")
+  announcementDeliveries      AnnouncementRecipient[]
+  eventRegistrations          EventRegistration[]
+  eventReminders              EventReminderLog[]
+  eventConfirmations          EventConfirmation[]
+  refreshTokens               RefreshToken[]
+  emailVerificationTokens     EmailVerificationToken[]
+  passwordResetTokens         PasswordResetToken[]
+  sessionProgress             SessionProgress[]
+  lessonWatches               LessonWatch[]
+  sessionFeedback             SessionFeedback[]
+  testimonials                Testimonial[]              @relation("TestimonialAuthor")
+  testimonialsReviewed        Testimonial[]              @relation("TestimonialReviewer")
+  submissions                 Submission[]               @relation("SubmissionStudent")
+  submissionsGraded           Submission[]               @relation("SubmissionGrader")
+  assessmentsEdited           Assessment[]               @relation("AssessmentEditor")
+  assessmentReminders         AssessmentReminderLog[]
+  pointsEntries               PointsEntry[]              @relation("PointsStudent")
+  pointsAwarded               PointsEntry[]              @relation("PointsAwarder")
+  pointsVoided                PointsEntry[]              @relation("PointsVoider")
+  automationRulesEdited       CourseAutomationRule[]     @relation("AutomationRuleEditor")
+  automationFirings           AutomationFiring[]
+  attendance                  SessionAttendance[]        @relation("AttendanceStudent")
+  attendanceUploaded          SessionAttendance[]        @relation("AttendanceUploader")
+  badges                      UserBadge[]                @relation("BadgeHolder")
+  badgesAwarded               UserBadge[]                @relation("BadgeAwarder")
+  leaderboardOptIns           LeaderboardOptIn[]
+  challengesCreated           Challenge[]                @relation("ChallengeCreator")
+  challengeEntries            ChallengeEntry[]           @relation("ChallengeEntrant")
+  challengeEntriesReviewed    ChallengeEntry[]           @relation("ChallengeReviewer")
+  certificatesIssued          Certificate[]              @relation("CertificateIssuer")
+  earlierCertificates         ExternalCertificate[]      @relation("ExternalCertificateHolder")
+  earlierCertificatesImported ExternalCertificate[]      @relation("ExternalCertificateImporter")
+  reminderPreferences         ReminderPreference[]
+  savedFilters                SavedFilter[]
+  auditLogs                   AuditLog[]                 @relation("AuditActor")
+  reviewedPayments            Payment[]                  @relation("PaymentReviewer")
+  adminNotesWritten           AdminNote[]                @relation("AdminNoteAuthor")
+  adminNotesAbout             AdminNote[]                @relation("AdminNoteSubject")
+  statusChanges               ApplicationStatusHistory[]
+  calendarFeed                CalendarFeed?
+  courseInterests             CourseInterest[]
+  courseInvitesSent           CourseInvite[]             @relation("CourseInviteInviter")
+  courseInvitesClaimed        CourseInvite[]             @relation("CourseInviteEnrolled")
+  speakerApplication          SpeakerApplication?        @relation("SpeakerApplicant")
+  speakerReviews              SpeakerApplication[]       @relation("SpeakerReviewer")
+  speakerProfile              Instructor?
+  speakingSlots               SpeakingSlot[]             @relation("SlotBooker")
+  speakingSlotsCreated        SpeakingSlot[]             @relation("SlotCreator")
+  courseStaff                 CourseStaff[]
+  outboundEmails              OutboundEmail[]
+  consultationsBooked         ConsultationBooking[]      @relation("ConsultationStudent")
+  consultationsReviewed       ConsultationBooking[]      @relation("ConsultationReviewer")
+  questionsAsked              CourseQuestion[]           @relation("QuestionAuthor")
+  questionsHidden             CourseQuestion[]           @relation("QuestionHider")
+  answersWritten              CourseAnswer[]             @relation("AnswerAuthor")
+  answersHidden               CourseAnswer[]             @relation("AnswerHider")
+  questionVotes               QuestionVote[]
+  questionFollows             QuestionFollow[]
+  studyPlans                  StudyPlan[]
 
   @@index([role])
   @@index([createdAt])
@@ -449,12 +483,12 @@ model Profile {
   acceptedTermsAt   DateTime?
 
   // ---- Professional background
-  company         String?
-  industry        Industry?
-  companySize     CompanySize?
+  company           String?
+  industry          Industry?
+  companySize       CompanySize?
   mlExperienceYears ExperienceRange?
-  seniority       Seniority?
-  secondaryAreas  Area[]
+  seniority         Seniority?
+  secondaryAreas    Area[]
 
   // ---- Education
   educationLevel    EducationLevel?
@@ -464,15 +498,15 @@ model Profile {
   currentlyStudying Boolean?
 
   // ---- Skills (ratings live in SkillRating)
-  cloudPlatforms CloudPlatform[]
+  cloudPlatforms  CloudPlatform[]
   productionTools String[]
 
   // ---- Goals & availability
-  learningGoals     LearningGoal[]
-  interestedTopics  Topic[]
-  weeklyHours       WeeklyHours?
-  preferredTimes    SessionTime[]
-  preferredFormat   LearningFormat?
+  learningGoals    LearningGoal[]
+  interestedTopics Topic[]
+  weeklyHours      WeeklyHours?
+  preferredTimes   SessionTime[]
+  preferredFormat  LearningFormat?
 
   // ---- Links & portfolio
   linkedinUrl    String?
@@ -485,16 +519,16 @@ model Profile {
   cvUploadedAt   DateTime?
 
   // ---- Community & consent (explicit, unticked by default)
-  referralSource         ReferralSource?
-  communityMember        Boolean?
-  openToOpportunities    Boolean  @default(false)
-  shareWithPartners      Boolean  @default(false)
-  marketingEmails        Boolean  @default(false)
+  referralSource      ReferralSource?
+  communityMember     Boolean?
+  openToOpportunities Boolean         @default(false)
+  shareWithPartners   Boolean         @default(false)
+  marketingEmails     Boolean         @default(false)
   /// Set when the community step is saved: its Yes/No questions were answered explicitly.
-  communityAnsweredAt    DateTime?
+  communityAnsweredAt DateTime?
   /// Community chat usernames (required to apply; null for students who joined before they were asked).
-  telegramUsername       String?
-  discordUsername        String?
+  telegramUsername    String?
+  discordUsername     String?
 
   /// 0–100, recomputed on every save so it can be filtered and sorted.
   completeness       Int       @default(0)
@@ -534,35 +568,35 @@ model SkillRating {
 
 /// A course instructor or a live-session speaker (one person, one public page at /speakers/{slug}).
 model Instructor {
-  id         String   @id @default(cuid())
+  id            String   @id @default(cuid())
   /// Public page /speakers/{slug}. Null only for rows created before speaker pages existed.
-  slug       String?  @unique
+  slug          String?  @unique
   /// Former slugs: their pages redirect to the current one.
   previousSlugs String[] @default([])
-  name       String
-  nameAr     String?
-  titleEn    String
-  titleAr    String?
-  bioEn      String
-  bioAr      String?
+  name          String
+  nameAr        String?
+  titleEn       String
+  titleAr       String?
+  bioEn         String
+  bioAr         String?
   /// http(s) URL or a site path under /speakers/.
-  photoUrl   String?
-  linkedinUrl String?
-  githubUrl  String?
+  photoUrl      String?
+  linkedinUrl   String?
+  githubUrl     String?
   /// "import" when created by prisma/import-archive.ts; null when created by an admin or the seed.
-  source     String?
+  source        String?
   /// Hash of the imported entry: an unchanged entry is skipped on the next import.
-  importHash String?
+  importHash    String?
   /// The speaker account behind this public profile (speaker portal), if any.
-  userId     String?  @unique
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  userId        String?  @unique
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  courses CourseInstructor[]
+  courses    CourseInstructor[]
   /// Course staff rows that show this profile on a course page (see CourseStaff).
-  staff   CourseStaff[]
-  events  LiveEvent[]
+  staff      CourseStaff[]
+  events     LiveEvent[]
   /// Sessions they hosted or joined as a guest (besides each session's main speaker).
   coSpeaking LiveEventSpeaker[]
   /// 1:1 paid calls with this speaker (Consultations), when an admin set them up.
@@ -572,112 +606,126 @@ model Instructor {
 }
 
 model Course {
-  id                  String             @id @default(cuid())
-  slug                String             @unique
-  titleEn             String
-  titleAr             String
-  shortDescriptionEn  String
-  shortDescriptionAr  String
+  id                       String             @id @default(cuid())
+  slug                     String             @unique
+  titleEn                  String
+  titleAr                  String
+  shortDescriptionEn       String
+  shortDescriptionAr       String
   /// Markdown
-  longDescriptionEn   String
-  longDescriptionAr   String
-  type                CourseType
+  longDescriptionEn        String
+  longDescriptionAr        String
+  type                     CourseType
   /// Whole currency units (EGP has no fractional pricing in practice).
-  price               Int                @default(0)
-  currency            String             @default("EGP")
-  requiresApproval    Boolean            @default(true)
-  capacity            Int?
-  status              CourseStatus       @default(DRAFT)
-  level               CourseLevel        @default(ALL_LEVELS)
+  price                    Int                @default(0)
+  currency                 String             @default("EGP")
+  requiresApproval         Boolean            @default(true)
+  capacity                 Int?
+  status                   CourseStatus       @default(DRAFT)
+  level                    CourseLevel        @default(ALL_LEVELS)
   /// In order, Junior → Lead; empty means all levels.
-  levels              AudienceLevel[]    @default([])
+  levels                   AudienceLevel[]    @default([])
   /// Show the levels as steps up: "Mid to Senior · Senior to Lead".
-  levelProgression    Boolean            @default(false)
-  language            CourseLanguage     @default(BILINGUAL)
-  startDate           DateTime?
+  levelProgression         Boolean            @default(false)
+  language                 CourseLanguage     @default(BILINGUAL)
+  startDate                DateTime?
   /// When the catalog switches from "Opening soon" to "Applications open".
-  applicationsOpenAt  DateTime?
-  applicationDeadline DateTime?
-  durationWeeks       Int?
-  hoursPerWeek        Int?
-  coverImageUrl       String?
+  applicationsOpenAt       DateTime?
+  applicationDeadline      DateTime?
+  durationWeeks            Int?
+  hoursPerWeek             Int?
+  coverImageUrl            String?
   /// Localized markdown blocks: { en, ar }
-  targetAudience      Json
-  notFor              Json
+  targetAudience           Json
+  notFor                   Json
   /// Markdown shown right after the prerequisites ("Before the course starts").
-  preparation         Json     @default("{\"en\":\"\",\"ar\":\"\"}")
+  preparation              Json               @default("{\"en\":\"\",\"ar\":\"\"}")
   /// Localized lists: { en: string[], ar: string[] }
-  learningOutcomes    Json
-  prerequisites       Json
+  learningOutcomes         Json
+  prerequisites            Json
   /// [{ titleEn, titleAr, descriptionEn?, descriptionAr? }]
-  outline             Json
+  outline                  Json
   /// [{ questionEn, questionAr, answerEn, answerAr }]
-  faq                 Json
+  faq                      Json
   /// { liveSessions, recordings, assignments, finalProject, certificate, notesEn?, notesAr? }
-  included            Json
-  deliveryPlatform    DeliveryPlatform   @default(GOOGLE_MEET)
-  recordingsPlatform  RecordingsPlatform @default(YOUTUBE)
+  included                 Json
+  deliveryPlatform         DeliveryPlatform   @default(GOOGLE_MEET)
+  recordingsPlatform       RecordingsPlatform @default(YOUTUBE)
   /// Paid courses only. Must be shared with enrolled Google accounts, never "anyone with the link".
-  driveFolderUrl      String?
-  youtubePlaylistUrl  String?
+  driveFolderUrl           String?
+  youtubePlaylistUrl       String?
   /// Short filter tags, e.g. ["mlops", "docker"].
-  topics              String[]           @default([])
+  topics                   String[]           @default([])
   /// Which run of the course this is (shown as "Cohort 1 · completed").
-  cohortNumber        Int?
+  cohortNumber             Int?
   /// Last day of the cohort (completed courses).
-  endDate             DateTime?
+  endDate                  DateTime?
   /// Set when the cohort ran on another platform, e.g. "zomra.io".
-  externalPlatform    String?
-  externalUrl         String?
+  externalPlatform         String?
+  externalUrl              String?
   /// Session recordings are shown to everyone (public YouTube), not only to enrolled students.
-  publicRecordings    Boolean            @default(false)
+  publicRecordings         Boolean            @default(false)
+  /// Free course taken at the student's own pace: lessons are YouTube videos, completion comes from watching or
+  /// "Mark as complete", and the attendance certificate is issued automatically.
+  selfPaced                Boolean            @default(false)
   /// The course page and cards show "N students enrolled" (only the number, never names).
-  showEnrolledCount   Boolean            @default(true)
+  showEnrolledCount        Boolean            @default(true)
+  /// Private course: only signed-in accounts whose confirmed email is listed (lower-cased) see it; empty = public.
+  /// Admin-only data: never in a public DTO.
+  visibleToEmails          String[]           @default([])
   /// "import" when created by prisma/import-archive.ts.
-  source              String?
-  importHash          String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  archivedAt          DateTime?
+  source                   String?
+  importHash               String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  archivedAt               DateTime?
   /// Certificate rule: minimum share of sessions completed (0–100), null for none.
-  certMinSessionsPercent Int?
+  certMinSessionsPercent   Int?
   /// Certificate rule: every published assessment marked "counts toward certificate" must be passed.
-  certRequireAssessments Boolean       @default(true)
+  certRequireAssessments   Boolean            @default(true)
+  /// Certificate rule: minimum total score (0–100) over every published assessment, null for none.
+  certMinTotalPercent      Int?
+  /// Certificate ID prefix (MLOPS → MLOPS-01-2026-00001, numbered per prefix); null: random MMA- serials.
+  certCode                 String?
   /// Optional wording of the rule shown to students (otherwise generated from the fields above).
-  certRuleEn             String        @default("")
-  certRuleAr             String        @default("")
+  certRuleEn               String             @default("")
+  certRuleAr               String             @default("")
   /// Attendance from Google Meet: PRESENT at or above this share of a session (1–100).
-  attendancePresentPercent Int         @default(50)
+  attendancePresentPercent Int                @default(50)
   /// Attendance points per session for each status.
-  attendancePresentPoints  Int         @default(10)
-  attendancePartialPoints  Int         @default(5)
-  attendanceAbsentPoints   Int         @default(0)
+  attendancePresentPoints  Int                @default(10)
+  attendancePartialPoints  Int                @default(5)
+  attendanceAbsentPoints   Int                @default(0)
   /// Automation rules stop for this course while true (each rule keeps its own on/off).
-  automationPaused         Boolean     @default(false)
+  automationPaused         Boolean            @default(false)
 
   /// Derived from CourseStaff (see there): kept for the old readers (catalog cards, certificates).
-  instructors        CourseInstructor[]
-  staffRoles         CourseRole[]
-  staff              CourseStaff[]
-  screeningQuestions ScreeningQuestion[]
-  sessions           CourseSession[]
-  applications       Application[]
-  enrollments        Enrollment[]
-  feedback           SessionFeedback[]
-  funnelEvents       FunnelEventLog[]
+  instructors         CourseInstructor[]
+  staffRoles          CourseRole[]
+  staff               CourseStaff[]
+  screeningQuestions  ScreeningQuestion[]
+  sessions            CourseSession[]
+  applications        Application[]
+  enrollments         Enrollment[]
+  feedback            SessionFeedback[]
+  testimonials        Testimonial[]
+  funnelEvents        FunnelEventLog[]
   reminderPreferences ReminderPreference[]
   assessments         Assessment[]
   pointsEntries       PointsEntry[]
   userBadges          UserBadge[]
   leaderboardOptIns   LeaderboardOptIn[]
-
-  @@index([status])
   announcements       Announcement[]
   interests           CourseInterest[]
   invites             CourseInvite[]
   /// The speaker booking this course was drafted from, if any.
   speakingSlot        SpeakingSlot?
   automationRules     CourseAutomationRule[]
+  questions           CourseQuestion[]
+  studyPlans          StudyPlan[]
+  challenges          Challenge[]
+
+  @@index([status])
 }
 
 /// Not edited directly any more: rewritten from CourseStaff on every staff change
@@ -729,16 +777,20 @@ model CourseSession {
   /// [{ labelEn, labelAr, url }]
   materials     Json     @default("[]")
   assignmentUrl String?
+  /// Self-paced courses: this video doesn't count toward the certificate.
+  optional      Boolean  @default(false)
   /// Short filter tags for the recordings library.
   topics        String[] @default([])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   progress    SessionProgress[]
+  watches     LessonWatch[]
   feedback    SessionFeedback[]
   reminders   ReminderLog[]
   assessments Assessment[]
   attendance  SessionAttendance[]
+  questions   CourseQuestion[]
 
   @@index([courseId, order])
   @@index([startsAt])
@@ -794,31 +846,31 @@ model ApplicationStatusHistory {
 }
 
 model Payment {
-  id                String        @id @default(cuid())
-  applicationId     String
+  id                  String        @id @default(cuid())
+  applicationId       String
   /// Restrict: payment records are kept for accounting.
-  application       Application   @relation(fields: [applicationId], references: [id], onDelete: Restrict)
-  method            PaymentMethod
-  amount            Int
-  currency          String        @default("EGP")
-  transactionRef    String
+  application         Application   @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  method              PaymentMethod
+  amount              Int
+  currency            String        @default("EGP")
+  transactionRef      String
   /// Upper-case alphanumerics of transactionRef, for duplicate detection.
-  transactionRefKey String        @default("")
-  senderName        String
-  senderPhone       String
-  paidAt            DateTime
+  transactionRefKey   String        @default("")
+  senderName          String
+  senderPhone         String
+  paidAt              DateTime
   /// Random key in the private bucket. Cleared by the retention job; the record stays.
-  screenshotKey     String?
-  screenshotSha256  String?
-  screenshotMime    String?
+  screenshotKey       String?
+  screenshotSha256    String?
+  screenshotMime      String?
   screenshotDeletedAt DateTime?
-  status            PaymentStatus @default(PENDING_REVIEW)
-  verifiedInHistory Boolean       @default(false)
-  reviewedById      String?
-  reviewedBy        User?         @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt        DateTime?
-  rejectionReason   String?
-  createdAt         DateTime      @default(now())
+  status              PaymentStatus @default(PENDING_REVIEW)
+  verifiedInHistory   Boolean       @default(false)
+  reviewedById        String?
+  reviewedBy          User?         @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+  rejectionReason     String?
+  createdAt           DateTime      @default(now())
 
   @@index([status, createdAt])
   @@index([transactionRefKey])
@@ -827,15 +879,15 @@ model Payment {
 }
 
 model Enrollment {
-  id                   String    @id @default(cuid())
+  id                   String       @id @default(cuid())
   userId               String
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Restrict)
   courseId             String
-  course               Course    @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  applicationId        String?   @unique
+  course               Course       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  applicationId        String?      @unique
   application          Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-  enrolledAt           DateTime  @default(now())
-  driveAccessGranted   Boolean   @default(false)
+  enrolledAt           DateTime     @default(now())
+  driveAccessGranted   Boolean      @default(false)
   driveAccessGrantedAt DateTime?
   /// Google address an admin must remove from the Drive folder (old address or deleted account).
   /// Cleared when access is updated or the account is anonymised; kept out of notifications.
@@ -867,29 +919,62 @@ model ProjectSubmission {
 /// issue time so later edits don't change an issued certificate; re-issuing refreshes them.
 /// Restrict: an issued certificate is never deleted with its enrolment (accounts are soft-deleted,
 /// and anonymisation clears the name instead).
+/// A certificate issued before the academy (the n8n workflow and its public verification sheet),
+/// imported so its code keeps verifying here. Not tied to an enrolment; linked to an account by email.
+model ExternalCertificate {
+  id           String          @id @default(cuid())
+  /// The printed code, e.g. MLOPS-01-2026-00023 (upper case).
+  code         String          @unique
+  holderName   String
+  courseTitle  String
+  kind         CertificateKind @default(ATTENDANCE)
+  issuedOn     DateTime        @db.Date
+  revokedAt    DateTime?
+  revokeReason String?
+  /// Lower-case; never shown publicly. Links the certificate to the account with this verified email.
+  email        String?
+  userId       String?
+  user         User?           @relation("ExternalCertificateHolder", fields: [userId], references: [id], onDelete: SetNull)
+  importedById String?
+  importedBy   User?           @relation("ExternalCertificateImporter", fields: [importedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([email])
+  @@index([userId])
+}
+
+/// The next number of each certificate ID prefix (MLOPS-01-2026-00209 → MLOPS). Numbers are never reused.
+model CertificateSequence {
+  code String @id
+  next Int
+}
+
 model Certificate {
-  id                  String     @id @default(cuid())
-  enrollmentId        String     @unique
-  enrollment          Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  id                  String          @id @default(cuid())
+  enrollmentId        String          @unique
+  enrollment          Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
   /// MMA-<year>-<8 random Crockford base32 chars>: printed on the PDF and in the public link.
-  serial              String     @unique
-  issuedAt            DateTime   @default(now())
+  serial              String          @unique
+  issuedAt            DateTime        @default(now())
   issuedById          String?
-  issuedBy            User?      @relation("CertificateIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  issuedBy            User?           @relation("CertificateIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
   revokedAt           DateTime?
   revokeReason        String?
   /// e.g. "Distinction".
   grade               String?
+  /// Set once when issued, and kept by a re-issue.
+  kind                CertificateKind @default(COMPLETION)
   /// The student's English name when issued; emptied when the account is anonymised.
   nameOnCertificate   String
   nameOnCertificateAr String?
   courseTitleEn       String
   courseTitleAr       String
   /// [{ name, nameAr }] in course order.
-  instructorNames     Json       @default("[]")
+  instructorNames     Json            @default("[]")
   /// The generated PDF in the private bucket (certificates/<random>.pdf); null until first downloaded.
   pdfKey              String?
-  updatedAt           DateTime   @updatedAt
+  updatedAt           DateTime        @updatedAt
 
   @@index([issuedAt])
 }
@@ -898,12 +983,32 @@ model Certificate {
 
 model SessionProgress {
   userId      String
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String
+  session     CourseSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  completedAt DateTime                @default(now())
+  /// Set for self-paced lessons only. Null: a live session ticked before that box was retired.
+  source      LessonCompletionSource?
+
+  @@id([userId, sessionId])
+}
+
+/// Where a student stopped in a session's video on the learn page ("Continue at 42:10"). One row
+/// per student per session, saved by the player every ~15 s while playing and on pause. Personal
+/// data: in the data export, deleted on anonymisation, gone with the account. Never public.
+model LessonWatch {
+  userId      String
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessionId   String
   session     CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  completedAt DateTime      @default(now())
+  /// Seconds into the video.
+  positionSec Int
+  /// The video's length in seconds, as the player reported it (null when it didn't).
+  durationSec Int?
+  updatedAt   DateTime      @updatedAt
 
   @@id([userId, sessionId])
+  @@index([sessionId])
 }
 
 /// Who attended a live session, from the Google Meet attendance file (or set by hand). One row
@@ -963,6 +1068,53 @@ model SessionFeedback {
   @@unique([userId, sessionId])
   @@index([courseId, sessionId])
   @@index([userId])
+}
+
+/// A student's words about a self-paced course, one per student per course. Deleted with the account's
+/// personal data. The name shown is read from the profile when the page is built.
+model Testimonial {
+  id           String            @id @default(cuid())
+  userId       String
+  user         User              @relation("TestimonialAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// The words; '' for a review that is stars only.
+  body         String
+  /// 1 to 5 stars (CHECK in the migration); null for a testimonial written before ratings, or words only.
+  rating       Int?
+  status       TestimonialStatus @default(PENDING)
+  /// When the student last agreed to publication with their name.
+  consentAt    DateTime
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?             @relation("TestimonialReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([courseId, status])
+}
+
+/// A student's study plan for a self-paced course (packages/shared/src/study-plan.ts): study weekdays, minutes
+/// per day, a start date and an optional reminder hour. Personal data: in the export, deleted on anonymisation.
+model StudyPlan {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// 0 = Sunday … 6 = Saturday, at least one.
+  weekdays      Int[]
+  /// 15–240.
+  minutesPerDay Int
+  startDate     DateTime @db.Date
+  /// 0–23 in the student's time zone (profile, else Africa/Cairo); null: no reminder.
+  reminderHour  Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([courseId])
 }
 
 model ReminderPreference {
@@ -1062,40 +1214,40 @@ enum SlotStatus {
 
 /// One per speaker account: a rejected application is edited and sent again.
 model SpeakerApplication {
-  id              String                   @id @default(cuid())
-  userId          String                   @unique
-  user            User                     @relation("SpeakerApplicant", fields: [userId], references: [id], onDelete: Cascade)
-  status          SpeakerApplicationStatus @default(SUBMITTED)
-  fullName        String
-  phone           String
-  linkedinUrl     String
-  title           String
-  company         String                   @default("")
-  country         String
-  bio             String
-  photoUrl        String?
-  areas           SpeakerArea[]
-  sessionTitle    String
-  abstract        String
-  format          SpeakerFormat
-  language        CourseLanguage
-  preferredMonths String[]
-  githubUrl       String?
-  kind            SpeakerKind              @default(SESSION)
+  id                 String                   @id @default(cuid())
+  userId             String                   @unique
+  user               User                     @relation("SpeakerApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  status             SpeakerApplicationStatus @default(SUBMITTED)
+  fullName           String
+  phone              String
+  linkedinUrl        String
+  title              String
+  company            String                   @default("")
+  country            String
+  bio                String
+  photoUrl           String?
+  areas              SpeakerArea[]
+  sessionTitle       String
+  abstract           String
+  format             SpeakerFormat
+  language           CourseLanguage
+  preferredMonths    String[]
+  githubUrl          String?
+  kind               SpeakerKind              @default(SESSION)
   /// Null on applications sent before the question existed.
-  referralSource  SpeakerReferralSource?
+  referralSource     SpeakerReferralSource?
   /// The community member who referred them (only with MLOPS_MENA_MEMBER).
   referralMemberName String?
   /// Optional details for the kind (see speakerDetailsSchema in @academy/shared).
-  details         Json                     @default("{}")
-  reviewNote      String?
-  reviewedById    String?
-  reviewedBy      User?                    @relation("SpeakerReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt      DateTime?
-  submissions     Int                      @default(1)
-  submittedAt     DateTime                 @default(now())
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  details            Json                     @default("{}")
+  reviewNote         String?
+  reviewedById       String?
+  reviewedBy         User?                    @relation("SpeakerReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt         DateTime?
+  submissions        Int                      @default(1)
+  submittedAt        DateTime                 @default(now())
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   @@index([status, submittedAt])
 }
@@ -1103,27 +1255,27 @@ model SpeakerApplication {
 /// A time the team offers to speakers. Booking is a conditional update (OPEN -> BOOKED),
 /// so two speakers can never hold the same slot; eventId is unique too.
 model SpeakingSlot {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   startsAt    DateTime
-  durationMin Int        @default(60)
-  status      SlotStatus @default(OPEN)
+  durationMin Int          @default(60)
+  status      SlotStatus   @default(OPEN)
   bookedById  String?
-  bookedBy    User?      @relation("SlotBooker", fields: [bookedById], references: [id], onDelete: SetNull)
+  bookedBy    User?        @relation("SlotBooker", fields: [bookedById], references: [id], onDelete: SetNull)
   bookedAt    DateTime?
   title       String?
   abstract    String?
   /// Set while booked: what the speaker gives, and its optional details.
   kind        SpeakerKind?
   details     Json?
-  eventId     String?    @unique
-  event       LiveEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  eventId     String?      @unique
+  event       LiveEvent?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
   /// A COURSE booking becomes a DRAFT course (instead of a draft session) that the team finishes and publishes.
-  courseId    String?    @unique
-  course      Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseId    String?      @unique
+  course      Course?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
   createdById String?
-  createdBy   User?      @relation("SlotCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdBy   User?        @relation("SlotCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([status, startsAt])
   @@index([bookedById, status])
@@ -1294,52 +1446,52 @@ enum EventSpeakerRole {
 
 /// A standalone free live session (talk, workshop, AMA), not part of a course.
 model LiveEvent {
-  id                String              @id @default(cuid())
-  slug              String              @unique
-  status            EventStatus         @default(DRAFT)
-  titleEn           String
-  titleAr           String              @default("")
+  id                 String              @id @default(cuid())
+  slug               String              @unique
+  status             EventStatus         @default(DRAFT)
+  titleEn            String
+  titleAr            String              @default("")
   /// Markdown.
-  descriptionEn     String              @default("")
-  descriptionAr     String              @default("")
-  speakerName       String              @default("")
-  speakerNameAr     String              @default("")
-  speakerTitleEn    String              @default("")
-  speakerTitleAr    String              @default("")
-  speakerPhotoUrl   String?
+  descriptionEn      String              @default("")
+  descriptionAr      String              @default("")
+  speakerName        String              @default("")
+  speakerNameAr      String              @default("")
+  speakerTitleEn     String              @default("")
+  speakerTitleAr     String              @default("")
+  speakerPhotoUrl    String?
   speakerLinkedinUrl String?
   /// The speaker's profile (page at /speakers/{slug}). The text fields above override it for this session.
-  speakerId         String?
-  speaker           Instructor?         @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  speakerId          String?
+  speaker            Instructor?         @relation(fields: [speakerId], references: [id], onDelete: SetNull)
   /// Short filter tags, e.g. ["docker", "ci-cd"].
-  topics            String[]            @default([])
-  category          EventCategory?
-  startsAt          DateTime
-  durationMin       Int                 @default(60)
-  language          CourseLanguage      @default(BILINGUAL)
-  platform          DeliveryPlatform    @default(GOOGLE_MEET)
+  topics             String[]            @default([])
+  category           EventCategory?
+  startsAt           DateTime
+  durationMin        Int                 @default(60)
+  language           CourseLanguage      @default(BILINGUAL)
+  platform           DeliveryPlatform    @default(GOOGLE_MEET)
   /// Shown to registered people shortly before the start (same reveal window as courses).
-  liveUrl           String?
+  liveUrl            String?
   /// Public once set.
-  recordingUrl      String?
-  coverImageUrl     String?
+  recordingUrl       String?
+  coverImageUrl      String?
   /// Empty = unlimited.
-  capacity          Int?
+  capacity           Int?
   /// { kind: SESSION | COURSE | PODCAST, details: {...} } from a speaker booking or the team; {} = a plain session.
-  details           Json                @default("{}")
+  details            Json                @default("{}")
   /// "import" when created by prisma/import-archive.ts.
-  source            String?
-  importHash        String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  registrations     EventRegistration[]
-  reminders         EventReminderLog[]
-  confirmations     EventConfirmation[]
+  source             String?
+  importHash         String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  registrations      EventRegistration[]
+  reminders          EventReminderLog[]
+  confirmations      EventConfirmation[]
   /// Hosts and guests besides the main speaker, in display order.
-  coSpeakers        LiveEventSpeaker[]
-  speakingSlot      SpeakingSlot?
+  coSpeakers         LiveEventSpeaker[]
+  speakingSlot       SpeakingSlot?
   /// Messages from the session's speakers to its registrants.
-  announcements     Announcement[]
+  announcements      Announcement[]
 
   @@index([status, startsAt])
   @@index([speakerId])
@@ -1528,6 +1680,10 @@ model Assessment {
   revealAnswers        RevealPolicy     @default(AFTER_SUBMIT)
   timeLimitMin         Int?
   shuffle              Boolean          @default(false)
+  /// Quizzes only: each attempt draws this many questions from the bank (null = every question).
+  drawCount            Int?
+  /// With drawCount: the draw takes questions from every topic, in proportion to its size.
+  balanceByTopic       Boolean          @default(false)
   /// Set once, the first time it is published: enrolled students were told (in-app and by email).
   publishedNotifiedAt  DateTime?
   /// Who saved it last (an admin or a teaching speaker): admins see "by {name}".
@@ -1556,6 +1712,8 @@ model QuizQuestion {
   weight        Int              @default(1)
   explanationEn String?
   explanationAr String?
+  /// A short label (≤60 characters) for per-topic scores and balanced draws; null = "General".
+  topic         String?
   options       QuizOption[]
 
   @@index([assessmentId, order])
@@ -1574,37 +1732,40 @@ model QuizOption {
 }
 
 model Submission {
-  id           String     @id @default(cuid())
-  assessmentId String
-  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade)
+  id               String     @id @default(cuid())
+  assessmentId     String
+  assessment       Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade)
   /// 1, 2, 3… per student. Labs and assignments keep one row that resubmissions update.
-  attempt      Int        @default(1)
+  attempt          Int        @default(1)
   /// Quiz answers: { [questionId]: optionId[] }.
-  answers      Json?
-  url          String?
-  fileKey      String?
-  fileName     String?
-  fileDeletedAt DateTime?
-  note         String?
+  answers          Json?
+  /// Quizzes with a draw count: the questions this attempt drew (graded, reviewed and resumed
+  /// with exactly these). Empty = every question of the quiz.
+  drawnQuestionIds String[]   @default([])
+  url              String?
+  fileKey          String?
+  fileName         String?
+  fileDeletedAt    DateTime?
+  note             String?
   /// The student ticked "My repository is public" / "Anyone with the link can view".
-  attested     Boolean    @default(false)
-  repoCheck    RepoCheck?
+  attested         Boolean    @default(false)
+  repoCheck        RepoCheck?
   /// Quizzes: when the attempt was opened (the time limit runs from here).
-  startedAt    DateTime   @default(now())
+  startedAt        DateTime   @default(now())
   /// Null while a quiz attempt is in progress.
-  submittedAt  DateTime?
-  late         Boolean    @default(false)
-  score        Float?
-  maxScore     Int
-  gradedAt     DateTime?
-  gradedById   String?
-  gradedBy     User?      @relation("SubmissionGrader", fields: [gradedById], references: [id], onDelete: SetNull)
-  feedback     String?
-  rubricNotes  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  submittedAt      DateTime?
+  late             Boolean    @default(false)
+  score            Float?
+  maxScore         Int
+  gradedAt         DateTime?
+  gradedById       String?
+  gradedBy         User?      @relation("SubmissionGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+  feedback         String?
+  rubricNotes      String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@unique([assessmentId, userId, attempt])
   @@index([userId])
@@ -1638,6 +1799,8 @@ enum PointsReason {
   ADJUSTMENT
   ATTENDANCE
   AUTOMATION
+  QA_ANSWER
+  CHALLENGE
 }
 
 enum BadgeKind {
@@ -1693,7 +1856,9 @@ model Badge {
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
 
-  awards UserBadge[]
+  awards     UserBadge[]
+  /// The challenge this badge was created for (its approvals award it).
+  challenges Challenge[]
 }
 
 model UserBadge {
@@ -1717,6 +1882,65 @@ model UserBadge {
   @@unique([userId, badgeId, scopeKey])
   @@index([courseId])
   @@index([userId, awardedAt])
+}
+
+/// A time-boxed challenge ("Deploy a model in a week"): students submit a link, staff review it,
+/// and an approval awards the challenge's badge and points (packages/shared/src/challenges.ts).
+model Challenge {
+  id            String           @id @default(cuid())
+  /// Null: open to every signed-in member; otherwise to the enrolled students of this course.
+  courseId      String?
+  course        Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  slug          String           @unique
+  titleEn       String
+  titleAr       String
+  /// Markdown.
+  descriptionEn String
+  descriptionAr String
+  startsAt      DateTime
+  endsAt        DateTime
+  /// 0–500, given on approval (a PointsEntry with source CHALLENGE + the entry id).
+  points        Int              @default(0)
+  /// Created with the challenge (kind AUTO): approvals award it, a later rejection takes it back.
+  badgeId       String
+  badge         Badge            @relation(fields: [badgeId], references: [id], onDelete: Restrict)
+  /// DRAFT, PUBLISHED or ARCHIVED (text with a CHECK constraint, not an enum).
+  status        String           @default("DRAFT")
+  createdById   String?
+  createdBy     User?            @relation("ChallengeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  entries       ChallengeEntry[]
+
+  @@index([status, startsAt])
+  @@index([courseId])
+}
+
+/// One student's entry to a challenge: a link and a note, resubmittable until approved. Personal
+/// data: in the export, and deleted when the account is anonymised.
+model ChallengeEntry {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation("ChallengeEntrant", fields: [userId], references: [id], onDelete: Cascade)
+  /// https only, at most 500 characters.
+  url         String
+  note        String    @default("")
+  /// The student chose to show their name (first name + last initial) on the public challenges page.
+  showName    Boolean   @default(false)
+  /// PENDING, APPROVED or REJECTED (text with a CHECK constraint, not an enum).
+  status      String    @default("PENDING")
+  reviewerId  String?
+  reviewer    User?     @relation("ChallengeReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewedAt  DateTime?
+  feedback    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, status])
+  @@index([userId])
 }
 
 /// A student chose to appear (by first name + last initial) on a course leaderboard. Off by default.
@@ -1749,6 +1973,7 @@ enum CoursePermission {
   ENROL
   ISSUE_CERTIFICATES
   MANAGE_RULES
+  ANSWER_QUESTIONS
 }
 
 enum StaffVisibility {
@@ -1850,21 +2075,21 @@ model OutboundEmail {
 
 /// A speaker who offers paid 1:1 calls (Consultations). Listed only while `enabled`.
 model ConsultantProfile {
-  id             String     @id @default(cuid())
-  instructorId   String     @unique
-  instructor     Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-  enabled        Boolean    @default(false)
+  id                 String     @id @default(cuid())
+  instructorId       String     @unique
+  instructor         Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  enabled            Boolean    @default(false)
   /// EGP; null = that call length isn't offered.
-  price30Egp     Int?
-  price60Egp     Int?
+  price30Egp         Int?
+  price60Egp         Int?
   /// The expert's fixed Meet/Zoom link: only shown on paid bookings.
-  meetingUrl     String     @default("")
+  meetingUrl         String     @default("")
   /// IANA zone the weekly hours are in.
-  timezone       String     @default("Africa/Cairo")
-  minNoticeHours Int        @default(24)
-  horizonDays    Int        @default(30)
+  timezone           String     @default("Africa/Cairo")
+  minNoticeHours     Int        @default(24)
+  horizonDays        Int        @default(30)
   /// Weekly hours: [{ weekday 0-6 (Sunday first), start "HH:MM", end "HH:MM" }] (availabilitySchema).
-  availability   Json       @default("[]")
+  availability       Json       @default("[]")
   /// Google Calendar, when the expert connected it: busy times hide slots, and paid calls get an
   /// event with a Meet link. The refresh token is encrypted (consultations/google-calendar.ts).
   googleRefreshToken String?
@@ -1872,8 +2097,8 @@ model ConsultantProfile {
   googleConnectedAt  DateTime?
   /// Why the connection stopped working (e.g. "EXPIRED"); null while it works.
   googleError        String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   bookings ConsultationBooking[]
 }
@@ -1881,51 +2106,51 @@ model ConsultantProfile {
 /// One paid call, pay first then book: PAYMENT_REVIEW → PAID (approved) → CONFIRMED (a time booked);
 /// or REJECTED, or CANCELLED by the expert or the academy (refunded). Only CONFIRMED holds a slot.
 model ConsultationBooking {
-  id            String            @id @default(cuid())
+  id                  String            @id @default(cuid())
   /// Short code the student quotes, e.g. C-7KQ2MX.
-  reference     String            @unique
-  consultantId  String
+  reference           String            @unique
+  consultantId        String
   /// Restrict: bookings are kept for accounting.
-  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Restrict)
-  studentId     String
-  student       User              @relation("ConsultationStudent", fields: [studentId], references: [id], onDelete: Cascade)
-  durationMin   Int
+  consultant          ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Restrict)
+  studentId           String
+  student             User              @relation("ConsultationStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  durationMin         Int
   /// The price when paid (EGP).
-  priceEgp      Int
+  priceEgp            Int
   /// What the student wants to talk about. Cleared when the account is anonymised.
-  note          String            @default("")
+  note                String            @default("")
   /// "PAYMENT_REVIEW" | "REJECTED" | "PAID" | "CONFIRMED" | "CANCELLED" (CHECK constraint)
-  status        String            @default("PAYMENT_REVIEW")
+  status              String            @default("PAYMENT_REVIEW")
   /// The wallet used: "INSTAPAY" | "VODAFONE_CASH" | "ORANGE_CASH" | "ETISALAT_CASH".
-  method        String
+  method              String
   /// The transfer's reference number, when given. Cleared on anonymisation.
-  transactionRef String           @default("")
+  transactionRef      String            @default("")
   /// Random key in the private bucket. Cleared by the retention job and on anonymisation.
-  screenshotKey     String?
-  screenshotSha256  String?
-  screenshotMime    String?
+  screenshotKey       String?
+  screenshotSha256    String?
+  screenshotMime      String?
   screenshotDeletedAt DateTime?
-  reviewedById  String?
-  reviewedBy    User?             @relation("ConsultationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt    DateTime?
+  reviewedById        String?
+  reviewedBy          User?             @relation("ConsultationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
   /// When the payment was approved.
-  paidAt        DateTime?
-  rejectionReason String?
+  paidAt              DateTime?
+  rejectionReason     String?
   /// The call's time, once the student booked one (CONFIRMED).
-  startsAt      DateTime?
-  endsAt        DateTime?
+  startsAt            DateTime?
+  endsAt              DateTime?
   /// Times the student moved this call (no refunds: they may move it once instead).
-  rescheduleCount Int             @default(0)
+  rescheduleCount     Int               @default(0)
   /// The call's link, set when it is booked: a Meet link made in the expert's Google Calendar, or their fixed link.
-  meetingUrl    String?
+  meetingUrl          String?
   /// The event in the expert's Google Calendar, when one was made.
-  googleEventId String?
-  cancelledAt   DateTime?
+  googleEventId       String?
+  cancelledAt         DateTime?
   /// "student" | "expert" | "admin"
-  cancelledBy   String?
-  cancelReason  String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  cancelledBy         String?
+  cancelReason        String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@index([consultantId, startsAt])
   @@index([studentId, createdAt])
@@ -1977,4 +2202,90 @@ model AutomationFiring {
   @@unique([ruleId, dedupeKey])
   @@index([courseId, createdAt])
   @@index([courseId, type, createdAt])
+}
+
+// ============================================================ Course Q&A
+
+/// A student's question in a course, optionally about one session or lesson. `status` is text with a
+/// CHECK constraint (OPEN | ANSWERED | CLOSED). Hidden questions stay; only their author and the staff
+/// see them. `answerCount` counts visible answers; `voteCount` is "I have this question too".
+model CourseQuestion {
+  id               String         @id @default(cuid())
+  courseId         String
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sessionId        String?
+  session          CourseSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  authorId         String
+  author           User           @relation("QuestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  title            String
+  /// Markdown.
+  body             String
+  /// "OPEN" | "ANSWERED" | "CLOSED"
+  status           String         @default("OPEN")
+  pinned           Boolean        @default(false)
+  hiddenAt         DateTime?
+  hiddenById       String?
+  hiddenBy         User?          @relation("QuestionHider", fields: [hiddenById], references: [id], onDelete: SetNull)
+  acceptedAnswerId String?        @unique
+  acceptedAnswer   CourseAnswer?  @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+  voteCount        Int            @default(0)
+  answerCount      Int            @default(0)
+  lastActivityAt   DateTime       @default(now())
+  /// Last edit by the author (shown as "edited"); updatedAt also moves on pins, counts and moderation.
+  editedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  answers CourseAnswer[]
+  votes   QuestionVote[]
+  follows QuestionFollow[]
+
+  @@index([courseId, status, lastActivityAt])
+  @@index([courseId, sessionId])
+  @@index([authorId])
+}
+
+model CourseAnswer {
+  id          String          @id @default(cuid())
+  questionId  String
+  question    CourseQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User            @relation("AnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  /// Markdown.
+  body        String
+  hiddenAt    DateTime?
+  hiddenById  String?
+  hiddenBy    User?           @relation("AnswerHider", fields: [hiddenById], references: [id], onDelete: SetNull)
+  /// Last edit by the author (shown as "edited").
+  editedAt    DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  acceptedFor CourseQuestion? @relation("AcceptedAnswer")
+
+  @@index([questionId, createdAt])
+  @@index([authorId])
+}
+
+/// "I have this question too".
+model QuestionVote {
+  questionId String
+  question   CourseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@id([questionId, userId])
+  @@index([userId])
+}
+
+/// Told (in the app and by email) about new answers. Asking or answering follows the question.
+model QuestionFollow {
+  questionId String
+  question   CourseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@id([questionId, userId])
+  @@index([userId])
 }

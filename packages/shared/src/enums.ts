@@ -372,7 +372,7 @@ export type RepoCheck = (typeof REPO_CHECKS)[number];
 
 // ---------------------------------------------------------------- Points and badges
 
-export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT', 'ATTENDANCE', 'AUTOMATION'] as const;
+export const POINTS_REASONS = ['ASSESSMENT', 'SESSION_COMPLETED', 'CERTIFICATE', 'MANUAL_COMMUNITY', 'MANUAL_OTHER', 'ADJUSTMENT', 'ATTENDANCE', 'AUTOMATION', 'QA_ANSWER', 'CHALLENGE'] as const;
 export const PointsReason = defineEnum(POINTS_REASONS);
 export type PointsReason = (typeof POINTS_REASONS)[number];
 
@@ -412,6 +412,7 @@ export const COURSE_PERMISSIONS = [
   'ENROL',
   'ISSUE_CERTIFICATES',
   'MANAGE_RULES',
+  'ANSWER_QUESTIONS',
 ] as const;
 export const CoursePermission = defineEnum(COURSE_PERMISSIONS);
 export type CoursePermission = (typeof COURSE_PERMISSIONS)[number];
@@ -425,3 +426,15 @@ export type StaffVisibility = (typeof STAFF_VISIBILITIES)[number];
 export const BUILTIN_COURSE_ROLES = ['MAIN', 'CO', 'MODERATOR'] as const;
 export const BuiltinCourseRole = defineEnum(BUILTIN_COURSE_ROLES);
 export type BuiltinCourseRole = (typeof BUILTIN_COURSE_ROLES)[number];
+
+/** How a self-paced lesson was completed. */
+export const LESSON_COMPLETION_SOURCES = ['WATCHED', 'MANUAL'] as const;
+export type LessonCompletionSource = (typeof LESSON_COMPLETION_SOURCES)[number];
+
+/** A testimonial is public only while APPROVED. */
+export const TESTIMONIAL_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type TestimonialStatus = (typeof TESTIMONIAL_STATUSES)[number];
+
+/** What a certificate states. */
+export const CERTIFICATE_KINDS = ['COMPLETION', 'ATTENDANCE'] as const;
+export type CertificateKind = (typeof CERTIFICATE_KINDS)[number];

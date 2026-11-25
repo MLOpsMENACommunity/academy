@@ -1,12 +1,13 @@
 'use client';
 
-import { PROFILE_REVIEW_DAYS, type MeResponse, type NextSessionDto } from '@academy/shared';
+import { PROFILE_REVIEW_DAYS, type CourseSummaryDto, type MeResponse, type NextSessionDto } from '@academy/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { MyCourses, type CourseMeta } from '@/components/applications/MyCourses';
 import { StatusBadge } from '@/components/applications/StatusBadge';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { TeachingCard } from '@/components/teach/TeachCourses';
+import { priceLabel } from '@/components/course/CourseCard';
 import { MyCertificates } from '@/components/certificates/MyCertificates';
 import { CalendarMenu } from '@/components/learn/CalendarMenu';
 import { RateLastSession } from '@/components/learn/RateLastSession';
@@ -39,6 +40,34 @@ const card = 'rounded-card border border-line bg-card';
 export function Dashboard({ courses, paths }: { courses: Record<string, CourseMeta>; paths: DashboardPath[] }) {
   // Speakers study too: this is their student side ("My learning"); their home stays the speaker portal.
   return <RequireAuth>{(user) => <Home user={user} courses={courses} paths={paths} />}</RequireAuth>;
+}
+
+/** Private courses shared with this account (they never appear in the catalog). Hidden when there are none. */
+function CoursesForYou() {
+  const { locale, t } = useI18n();
+  const [list, setList] = useState<CourseSummaryDto[] | null>(null);
+  useEffect(() => {
+    api<CourseSummaryDto[]>('/me/private-courses', { cache: 'no-store' }).then(setList).catch(() => setList([]));
+  }, []);
+  if (!list?.length) return null;
+  return (
+    <section aria-labelledby="dash-for-you" className={`${card} flex flex-col gap-2 p-5`}>
+      <h2 id="dash-for-you" className="text-[0.8125rem] font-medium text-muted">
+        {t('dashboard.coursesForYou')}
+      </h2>
+      <p className="text-sm text-muted">{t('dashboard.coursesForYouHint')}</p>
+      <ul className="flex flex-col">
+        {list.map((c) => (
+          <li key={c.id}>
+            <Link href={`/${locale}/courses/${c.slug}`} className="flex min-h-11 items-center justify-between gap-3 py-1.5 text-fg hover:text-primary">
+              <span className="min-w-0">{pick(locale, c.titleEn, c.titleAr)}</span>
+              <span className="shrink-0 text-sm font-medium">{priceLabel(c, locale)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 /** The soonest of my course sessions and my registered live sessions. */
@@ -146,6 +175,8 @@ function Home({ user, courses, paths }: { user: MeResponse; courses: Record<stri
           </div>
 
           <NextUp />
+
+          <CoursesForYou />
 
           {/* Near the top on phones too, where the sidebar comes first. */}
           <RateLastSession className={card} />

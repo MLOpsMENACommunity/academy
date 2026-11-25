@@ -136,7 +136,7 @@ test('the admin creates a Teaching assistant role, adds a student account, and t
   await expect(tp.getByText('Your role: Teaching assistant')).toBeVisible();
   await tp.getByRole('link', { name: 'Open course' }).click();
   await expect(tp.getByRole('heading', { level: 1, name: title })).toBeVisible();
-  await expect(tp.getByRole('tab')).toHaveText(['Gradebook', 'Roster']);
+  await expect(tp.getByRole('tab')).toHaveText(['Gradebook', 'Challenges', 'Roster']);
 
   // 5. Grading the lab.
   await tp.getByRole('button', { name: `Gradebook: ${LAB}` }).click();

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CatalogCount, CatalogForm, CatalogItem, CatalogProvider } from '@/components/course/CatalogFilters';
 import { CourseCard } from '@/components/course/CourseCard';
+import { PrivateCatalogCourses } from '@/components/course/PrivateCatalogCourses';
 import { Container } from '@/components/ui/Container';
 import { isLocale } from '@/i18n/config';
 import { createTranslator } from '@/i18n/translator';
@@ -56,6 +57,8 @@ export default async function CatalogPage({ params }: Props) {
       </section>
 
       <Container className="py-10 sm:py-14">
+        {/* Courses shared with the signed-in account only (fetched in the browser; empty for everyone else). */}
+        <PrivateCatalogCourses />
         <CatalogCount />
         {courses.length > 0 && (
           <ul className="mt-5 grid gap-5 sm:gap-7 md:grid-cols-2">

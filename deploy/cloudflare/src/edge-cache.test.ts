@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { API_TTL, browserCacheControl, cacheKind, EDGE_TAG, FEED_TTL, localeCookie, PAGE_TTL, PURGED_TTL, storableCacheControl, storedCopy } from './edge-cache.ts';
+import {
+  API_TTL,
+  browserCacheControl,
+  cacheKind,
+  EDGE_TAG,
+  FEED_TTL,
+  localeCookie,
+  PAGE_TTL,
+  PUBLIC_FILE_TTL,
+  PURGED_TTL,
+  storableCacheControl,
+  storedCopy,
+} from './edge-cache.ts';
 
 const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
   new Request(`https://academy.mlopsmena.com${path}`, init);
@@ -154,6 +166,9 @@ test('the API is never cached for a session, a cross-origin caller, or anything 
     '/api/me/events',
     '/api/me/applications',
     '/api/courses/llmops/my-status',
+    // Private courses: the existence check and my list are never kept at the edge.
+    '/api/courses/llmops/private',
+    '/api/me/private-courses',
     '/api/events/x/calendar.ics',
     '/api/learn/llmops',
     '/api/admin/courses',
@@ -245,4 +260,27 @@ test('a calendar feed is stored FEED_TTL only when the purge can revoke it', () 
   // Calendar apps keep getting the API's own header; the stored copy is purgeable.
   assert.equal(browserCacheControl('feed', `public, max-age=0, s-maxage=${FEED_TTL}`), 'private, max-age=900');
   assert.equal(storedCopy(ics(), 'public, max-age=0, s-maxage=1800', 'feed').headers.get('cache-tag'), EDGE_TAG);
+});
+
+test("the site's own public files are cached for everyone, a day at the edge", () => {
+  for (const p of ['/logo.svg', '/logo-mark.png', '/favicon.ico', '/favicon-32.png', '/apple-touch-icon.png', '/speakers/sameh-amin.webp']) {
+    assert.equal(cacheKind(req(p)), 'file', p);
+    assert.equal(cacheKind(req(p, { headers: { cookie: 'has_session=1; access_token=x' } })), 'file', p);
+  }
+  for (const p of ['/logo.svg?v=2', '/speakers/x.png', '/other.svg', '/logo.png', '/speakers/']) {
+    assert.equal(cacheKind(req(p)), null, p);
+  }
+  assert.equal(cacheKind(req('/logo.svg', { method: 'POST' })), null);
+  const img = (type: string, status = 200, headers: Record<string, string> = {}) =>
+    new Response('x', { status, headers: { 'content-type': type, 'cache-control': 'public, max-age=0', ...headers } });
+  assert.equal(storableCacheControl('file', img('image/svg+xml')), `public, max-age=0, s-maxage=${PUBLIC_FILE_TTL}`);
+  assert.equal(storableCacheControl('file', img('image/webp')), `public, max-age=0, s-maxage=${PUBLIC_FILE_TTL}`);
+  // A 404 page, an error or anything that sets a cookie is never stored.
+  assert.equal(storableCacheControl('file', img('text/html', 404)), null);
+  assert.equal(storableCacheControl('file', img('text/html')), null);
+  assert.equal(storableCacheControl('file', img('image/png', 500)), null);
+  assert.equal(storableCacheControl('file', img('image/png', 200, { 'set-cookie': 'a=1' })), null);
+  assert.equal(browserCacheControl('file', 'public, max-age=0'), 'public, max-age=3600');
+  // Not tagged: an admin edit doesn't change them.
+  assert.equal(storedCopy(img('image/png'), 'x', 'file').headers.get('cache-tag'), null);
 });

@@ -164,6 +164,23 @@ const optionalImage = z
   .nullish()
   .or(z.literal('').transform(() => null));
 
+/** A private course is shown only to these accounts: at most this many addresses. */
+export const MAX_COURSE_VISIBLE_EMAILS = 50;
+
+/**
+ * "Visible only to these accounts" (Course.visibleToEmails): email addresses, trimmed,
+ * lower-cased and de-duplicated. Empty means a normal public course. The form sends one
+ * address per line; the list may come as an array or as that text.
+ */
+export const courseVisibleEmailsSchema = z
+  .union([z.array(z.string().max(320)).max(500), z.string().max(50_000)])
+  .transform((v) => [...new Set((typeof v === 'string' ? v.split(/[\s,;]+/) : v).map((e) => e.trim().toLowerCase()).filter(Boolean))])
+  .pipe(
+    z
+      .array(z.string().email('Not an email address').max(254))
+      .max(MAX_COURSE_VISIBLE_EMAILS, `At most ${MAX_COURSE_VISIBLE_EMAILS} addresses`),
+  );
+
 export const courseInputSchema = z
   .object({
     slug,
@@ -216,8 +233,12 @@ export const courseInputSchema = z
     externalPlatform: z.string().trim().max(80).nullish().or(z.literal('').transform(() => null)),
     externalUrl: optionalUrl,
     publicRecordings: z.boolean().default(false),
+    /** Video lessons at the student's own pace, with an automatic attendance certificate. */
+    selfPaced: z.boolean().default(false),
     /** Course page and cards show "N students enrolled" (the number only). */
     showEnrolledCount: z.boolean().default(true),
+    /** Private course: only these accounts see it (admin-only data, never in public DTOs). Empty: public. */
+    visibleToEmails: courseVisibleEmailsSchema.default([]),
   })
   .superRefine((c, ctx) => {
     if (c.status !== 'DRAFT' && c.status !== 'ARCHIVED') {
@@ -230,6 +251,9 @@ export const courseInputSchema = z
     if (c.type === 'PAID' && c.price <= 0 && c.status === 'OPEN') ctx.addIssue({ code: 'custom', path: ['price'], message: 'Paid courses need a price' });
     if (c.type === 'FREE' && c.price !== 0) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Free courses have price 0' });
     // Recordings are enrolled-only; only a free course with YouTube recordings may show them to everyone.
+    if (c.selfPaced && (c.type !== 'FREE' || c.requiresApproval)) {
+      ctx.addIssue({ code: 'custom', path: ['selfPaced'], message: 'Self-paced courses must be free with no approval step' });
+    }
     if (c.publicRecordings && (c.type !== 'FREE' || c.recordingsPlatform !== 'YOUTUBE')) {
       ctx.addIssue({ code: 'custom', path: ['publicRecordings'], message: 'Only free courses with YouTube recordings can make them public' });
     }
@@ -276,6 +300,8 @@ export const sessionInputSchema = z.object({
   liveUrl: optionalUrl,
   recordingUrl: optionalUrl,
   assignmentUrl: optionalUrl,
+  /** Self-paced courses: this video doesn't count toward the certificate. */
+  optional: z.boolean().default(false),
   materials: z.array(materialSchema).max(20).default([]),
   topics: topicsSchema.default([]),
 });

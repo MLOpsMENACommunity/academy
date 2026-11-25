@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CertificateTag, CourseResults } from './assessments';
+import type { CertificateKind } from './enums';
 
 /**
  * Completion certificates: one per student per course, issued by the course team.
@@ -15,10 +16,23 @@ export const SERIAL_RANDOM_LENGTH = 8;
 /** e.g. MMA-2026-7KQ4XM2P: the year it was issued, then 40 random bits. */
 export const SERIAL_PATTERN = /^MMA-\d{4}-[0-9A-HJKMNP-TV-Z]{8}$/;
 
+/** A course's certificate ID prefix: a letter, then up to 9 letters or digits (e.g. MLOPS, K8S). */
+export const CERT_CODE_PATTERN = /^[A-Z][A-Z0-9]{1,9}$/;
+/**
+ * Serials of courses with a prefix: {PREFIX}-{cohort, 2 digits}-{year}-{number, 5+ digits}, e.g.
+ * MLOPS-01-2026-00209, the format of the certificates issued before the academy.
+ */
+export const COURSE_SERIAL_PATTERN = /^[A-Z][A-Z0-9]{1,9}-\d{2}-\d{4}-\d{5,}$/;
+
 /** A serial as typed or pasted (lowercase, spaces) in its canonical form, or null if it can't be one. */
 export function normalizeSerial(raw: string): string | null {
   const s = raw.trim().toUpperCase();
-  return SERIAL_PATTERN.test(s) ? s : null;
+  return SERIAL_PATTERN.test(s) || COURSE_SERIAL_PATTERN.test(s) ? s : null;
+}
+
+/** e.g. formatCourseSerial('MLOPS', 1, 2026, 209) → MLOPS-01-2026-00209. A missing cohort number is 01. */
+export function formatCourseSerial(code: string, cohort: number | null, year: number, n: number): string {
+  return `${code}-${String(cohort ?? 1).padStart(2, '0')}-${year}-${String(n).padStart(5, '0')}`;
 }
 
 /** Builds a serial from random bytes (at least SERIAL_RANDOM_LENGTH of them; the API passes crypto bytes). */
@@ -37,15 +51,23 @@ export interface CertificateRule {
   minSessionsPercent: number | null;
   /** Every published assessment marked mandatory for the certificate (countsForCertificate) must be passed. */
   requireAssessments: boolean;
+  /**
+   * Total score, 0–100: points earned ÷ points of every published assessment (work not submitted or
+   * not yet graded counts as 0); null: no requirement.
+   */
+  minTotalPercent: number | null;
+  /** Prefix of the course's certificate IDs (MLOPS → MLOPS-01-2026-00001); null: random MMA- serials. */
+  codePrefix: string | null;
   /** Optional wording shown to students instead of the generated sentence. */
   textEn: string;
   textAr: string;
 }
 
-export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, textEn: '', textAr: '' };
+export const DEFAULT_CERTIFICATE_RULE: CertificateRule = { minSessionsPercent: null, requireAssessments: true, minTotalPercent: null, codePrefix: null, textEn: '', textAr: '' };
 
 /** The course team wrote or configured a rule beyond the defaults. */
-export const ruleIsSet = (r: Pick<CertificateRule, 'minSessionsPercent' | 'textEn' | 'textAr'>): boolean => r.minSessionsPercent !== null || Boolean(r.textEn || r.textAr);
+export const ruleIsSet = (r: Pick<CertificateRule, 'minSessionsPercent' | 'minTotalPercent' | 'textEn' | 'textAr'>): boolean =>
+  r.minSessionsPercent !== null || r.minTotalPercent !== null || Boolean(r.textEn || r.textAr);
 
 /** Whether students see the course's certificate (the learn page's card): it's included, a rule is set, or one was issued. */
 export function certificateOffered(rule: CertificateRule, included: { certificate?: boolean } | null | undefined, issued = false): boolean {
@@ -65,6 +87,16 @@ export function certificateTag(rule: CertificateRule, included: { certificate?: 
 export const certificateRuleSchema = z.object({
   minSessionsPercent: z.number().int().min(1).max(100).nullable(),
   requireAssessments: z.boolean(),
+  /** Absent (older clients): no total-score requirement. */
+  minTotalPercent: z.number().int().min(1).max(100).nullable().default(null),
+  /** Absent or empty: random MMA- serials. Typed in any case. */
+  codePrefix: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .nullish()
+    .transform((v) => v || null)
+    .refine((v) => v === null || CERT_CODE_PATTERN.test(v), { message: 'A letter, then up to 9 letters or digits (e.g. MLOPS)' }),
   textEn: z.string().trim().max(500).default(''),
   textAr: z.string().trim().max(500).default(''),
 });
@@ -77,6 +109,11 @@ export interface EligibilityInput {
   results: Pick<CourseResults, 'assessments' | 'total' | 'certificate'>;
   /** Assessment ids that are course-level labs or assignments counting toward the certificate (the capstone). */
   capstoneIds?: string[];
+  /**
+   * Self-paced courses need at least one required assessment (watching alone never earns the
+   * certificate), and each one passed with at least SELF_PACED_PASS_PERCENT.
+   */
+  selfPaced?: boolean;
 }
 
 export interface Eligibility {
@@ -85,20 +122,34 @@ export interface Eligibility {
   assessments: { required: number; passed: number; pending: number; ok: boolean; needed: boolean };
   /** Average over every published assessment (points earned ÷ points available). */
   averagePercent: number | null;
+  /** The total-score requirement: the student's total (null with no published assessment) against the rule. */
+  total: { percent: number | null; required: number | null; ok: boolean };
   /** The capstone's state, when the course has one; null otherwise. */
   capstone: CapstoneState | null;
 }
 
+/**
+ * Self-paced courses: the score every required assessment needs for the Certificate of Attendance,
+ * whatever lower pass mark the quiz itself has. Exactly 80% passes.
+ */
+export const SELF_PACED_PASS_PERCENT = 80;
+
 const percentOf = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
 /** Whether a student meets the course's certificate rule, with each signal for the admin table and the student card. */
-export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsPercent' | 'requireAssessments'>, input: EligibilityInput): Eligibility {
+export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsPercent' | 'requireAssessments' | 'minTotalPercent'>, input: EligibilityInput): Eligibility {
   const { completed, total } = input.sessions;
   const percent = percentOf(completed, total);
   const sessionsOk = rule.minSessionsPercent === null || (total > 0 && percent >= rule.minSessionsPercent);
   const required = input.results.assessments.filter((a) => a.countsForCertificate);
   const pending = required.filter((a) => !a.passed && a.pending).length;
-  const assessmentsOk = !rule.requireAssessments || input.results.certificate.allPassed;
+  // Self-paced: each required assessment also needs SELF_PACED_PASS_PERCENT (the quiz's own pass mark can be lower).
+  const passed = input.selfPaced ? required.filter((a) => a.passed && a.percent !== null && a.percent + 1e-9 >= SELF_PACED_PASS_PERCENT).length : input.results.certificate.passed;
+  const allPassed = input.selfPaced ? passed === required.length : input.results.certificate.allPassed;
+  const assessmentsOk = (!rule.requireAssessments || allPassed) && !(input.selfPaced && required.length === 0);
+  const totalPercent = input.results.total.possible ? input.results.total.percent : null;
+  // Exactly the threshold passes; a course with no published assessment can't meet a total requirement.
+  const totalOk = rule.minTotalPercent === null || (totalPercent !== null && totalPercent + 1e-9 >= rule.minTotalPercent);
   const capstones = required.filter((a) => (input.capstoneIds ?? []).includes(a.assessmentId));
   const capstone: CapstoneState | null = !capstones.length
     ? null
@@ -110,10 +161,11 @@ export function certificateEligibility(rule: Pick<CertificateRule, 'minSessionsP
           ? 'NOT_PASSED'
           : 'MISSING';
   return {
-    eligible: sessionsOk && assessmentsOk,
+    eligible: sessionsOk && assessmentsOk && totalOk,
     sessions: { completed, total, percent, required: rule.minSessionsPercent, ok: sessionsOk },
-    assessments: { required: input.results.certificate.required, passed: input.results.certificate.passed, pending, ok: assessmentsOk, needed: rule.requireAssessments },
-    averagePercent: input.results.total.possible ? input.results.total.percent : null,
+    assessments: { required: input.results.certificate.required, passed, pending, ok: assessmentsOk, needed: rule.requireAssessments },
+    averagePercent: totalPercent,
+    total: { percent: totalPercent, required: rule.minTotalPercent, ok: totalOk },
     capstone,
   };
 }
@@ -124,6 +176,8 @@ export function describeRule(rule: CertificateRule, locale: 'en' | 'ar'): string
   if (own) return own;
   const parts: string[] = [];
   if (rule.requireAssessments) parts.push(locale === 'ar' ? 'اجتياز كل التقييمات المطلوبة للشهادة' : 'pass every assessment required for the certificate');
+  if (rule.minTotalPercent !== null)
+    parts.push(locale === 'ar' ? `الحصول على ${rule.minTotalPercent}٪ على الأقل من مجموع درجات الدورة` : `score at least ${rule.minTotalPercent}% of the course's total points`);
   if (rule.minSessionsPercent !== null)
     parts.push(locale === 'ar' ? `إكمال ${rule.minSessionsPercent}٪ على الأقل من الجلسات` : `complete at least ${rule.minSessionsPercent}% of the sessions`);
   if (!parts.length) return locale === 'ar' ? 'يصدر فريق الدورة الشهادة عند إتمامها.' : 'The course team issues the certificate when you complete the course.';
@@ -168,6 +222,8 @@ export type CertificateStatus = 'VALID' | 'REVOKED';
 export interface InstructorName {
   name: string;
   nameAr: string | null;
+  /** Professional title, printed under the name on the certificate (snapshots since the template design). */
+  title?: string | null;
 }
 
 export interface AdminCertificateSummary {
@@ -208,16 +264,21 @@ export interface MyCertificateDto {
   status: CertificateStatus;
   issuedAt: string;
   grade: string | null;
-  courseSlug: string;
+  /** Null for a certificate issued before the academy (no course page here). */
+  courseSlug: string | null;
   courseTitleEn: string;
   courseTitleAr: string;
   nameOnCertificate: string;
+  /** Whether a PDF can be downloaded (certificates issued before the academy have none here). */
+  pdf: boolean;
 }
 
 /** The learn page's "How to earn the certificate" card. */
 export interface LearnCertificateDto {
   /** Whether the course awards a certificate at all (shows the card). */
   offered: boolean;
+  /** Self-paced: the certificate is issued automatically once the rule is met. */
+  selfPaced: boolean;
   rule: CertificateRule;
   eligibility: Eligibility;
   certificate: MyCertificateDto | null;
@@ -228,16 +289,20 @@ export type PublicCertificateDto =
   | { status: 'UNAVAILABLE'; serial: string }
   | {
       status: CertificateStatus;
+      kind: CertificateKind;
       serial: string;
       name: string;
       nameAr: string | null;
-      courseSlug: string;
+      /** Null for a certificate issued before the academy (no course page here). */
+      courseSlug: string | null;
       courseTitleEn: string;
       courseTitleAr: string;
       instructors: InstructorName[];
       issuedAt: string;
       grade: string | null;
       revokedAt: string | null;
+      /** Whether the PDF can be downloaded (certificates issued before the academy have none here). */
+      pdf: boolean;
     };
 
 // ------------------------------------------------------------------ LinkedIn

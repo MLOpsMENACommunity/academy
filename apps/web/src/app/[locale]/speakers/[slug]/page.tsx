@@ -1,5 +1,5 @@
 import {
-  courseAvailabilityLabels,
+  courseAvailabilityText,
   eventSpeakerRoleLabels,
   type PublicSpeakerDto,
 } from '@academy/shared';
@@ -224,8 +224,8 @@ export default async function SpeakerPage({ params }: Props) {
                       ? c.cohortNumber
                         ? t('course.completedBadge', { n: c.cohortNumber })
                         : t('course.completed')
-                      : courseAvailabilityLabels[c.availability][locale]}
-                    {c.startDate && (
+                      : courseAvailabilityText(c, locale)}
+                    {c.startDate && !c.selfPaced && (
                       <>
                         {' · '}
                         {c.endDate

@@ -51,9 +51,12 @@
     "policies": "Policies",
     "privacy": "Privacy Policy",
     "terms": "Terms of Use",
-    "refund": "Refund Policy",
+    "refund": "Refund & Cancellation Policy",
+    "delivery": "Delivery & Shipping Policy",
+    "aboutUs": "About us",
     "conduct": "Code of Conduct",
     "contact": "Contact & support",
+    "verify": "Verify a certificate",
     "community": "Community",
     "rights": "© {year} MLOps MENA Community",
     "academy": "Academy"
@@ -153,6 +156,7 @@
     "errors": {
       "INVALID_CREDENTIALS": "That email and password don't match.",
       "EMAIL_TAKEN": "An account with this email already exists. Try logging in.",
+      "REVIEW_NOT_FINISHED": "You can rate this course once you have finished it.",
       "TOKEN_INVALID": "This link is invalid or has expired.",
       "WRONG_PASSWORD": "Your current password is incorrect.",
       "google_unavailable": "Google sign-in isn't available right now. Use email and password.",
@@ -227,7 +231,11 @@
       "ALREADY_REVIEWED": "This payment has already been reviewed.",
       "PROFILE_HAS_ACCOUNT": "This speaker profile already has an account. Unlink it first.",
       "ACCOUNT_HAS_PROFILE": "This account is already linked to another speaker profile.",
-      "PROFILE_CHANGED": "This speaker profile or account just changed. Reload and try again."
+      "PROFILE_CHANGED": "This speaker profile or account just changed. Reload and try again.",
+      "CHALLENGE_NOT_STARTED": "This challenge hasn't started yet.",
+      "CHALLENGE_CLOSED": "This challenge has ended.",
+      "CHALLENGE_APPROVED": "Your entry is already approved.",
+      "CHALLENGE_NOT_ELIGIBLE": "This challenge is for the students of its course."
     },
     "termsNotice": "By creating an account you agree to the {terms} and {privacy}.",
     "googleHint": "If you signed up with Google, use “Continue with Google”.",
@@ -379,6 +387,8 @@
     }
   },
   "dashboard": {
+    "coursesForYou": "Courses for you",
+    "coursesForYouHint": "Shared with your account only.",
     "title": "Dashboard",
     "hello": "Hi {name}",
     "helloAnon": "Welcome",
@@ -446,7 +456,10 @@
     "details": "Details and how to apply",
     "detailsOnly": "Details",
     "applyBy": "Apply by {date}",
-    "notifyCta": "Get notified when it opens"
+    "rating": "{average} ★ ({count, plural, one {# rating} other {# ratings}})",
+    "ratingLabel": "Rated {average} out of 5 from {count, plural, one {# rating} other {# ratings}}",
+    "notifyCta": "Get notified when it opens",
+    "selfPaced": "Self-paced"
   },
   "course": {
     "fullInstant": "Seats are full: you'll join the waitlist.",
@@ -477,7 +490,8 @@
       "price": "Price",
       "format": "Format",
       "schedule": "Schedule",
-      "certificate": "Certificate"
+      "certificate": "Certificate",
+      "selfPaced": "{count, plural, one {# video lesson} other {# video lessons}} at your own pace"
     },
     "inc": {
       "liveSessions": "Live sessions on {platform}",
@@ -514,6 +528,8 @@
     "externalNote": "This cohort ran on {platform}.",
     "recordings": "Recordings",
     "recordingsNote": "Every lesson of this cohort, free to watch.",
+    "rated": "Rated {n} out of 5",
+    "testimonials": "What students say",
     "noRecording": "No public recording for this lesson.",
     "lesson": "Lesson {n}",
     "team": "Course team"
@@ -622,12 +638,37 @@
     "helpNoContact": "Questions about payment? See"
   },
   "admin": {
+    "earlierCertificates": {
+      "pageTitle": "Certificates",
+      "pageIntro": "Certificates are issued per course, in each course's Certificates tab (by hand, or automatically with the course's automation). Here you import the certificates issued before the academy, so their codes keep verifying here and appear in the students' dashboards.",
+      "verifyLink": "Open the public verify page",
+      "importTitle": "Import earlier certificates",
+      "importHint": "A CSV with a header row: code, holder_name, course, issued_on (YYYY/MM/DD), and optionally status (valid or revoked), email and kind (attendance or completion). Rows are matched on the code: new codes are added, known ones updated, nothing is deleted. An email links the certificate to the account with that confirmed address, now or when the student signs up. Check the file first; a file with any error isn't saved.",
+      "chooseFile": "Choose a CSV file",
+      "fileTooLarge": "The file is larger than 2 MB.",
+      "check": "Check the file",
+      "line": "Line {line}",
+      "hasErrors": "{count, plural, one {# problem} other {# problems}} to fix in the file. Nothing was saved.",
+      "summary": "{rows} rows: {created} new, {updated} changed, {unchanged} unchanged. {linked} will be linked to existing accounts.",
+      "save": "Import",
+      "imported": "Imported: {created} new and {updated} changed, {linked} linked to accounts. {total} earlier certificates in total."
+    },
+    "reviews": {
+      "title": "Reviews",
+      "intro": "Students' star ratings and reviews of every course. Nothing appears on the site until you approve it; a course shows its average once it has {min} approved ratings. If a student edits a review, it comes back here.",
+      "filter": "Show",
+      "empty": "Nothing here.",
+      "starsOnly": "Stars only, no words.",
+      "noRating": "No stars, words only.",
+      "limit": "Showing the first {count}."
+    },
     "title": "Admin",
     "nav": {
       "dashboard": "Dashboard",
       "payments": "Payments",
       "applications": "Applications",
       "students": "Students",
+      "certificates": "Certificates",
       "talents": "Talents",
       "courses": "Courses",
       "settings": "Settings",
@@ -636,7 +677,9 @@
       "speakers": "Speakers",
       "media": "Media",
       "team": "Team",
-      "consultations": "Consultations"
+      "consultations": "Consultations",
+      "challenges": "Challenges",
+      "reviews": "Reviews"
     },
     "payments": {
       "title": "Payment review",
@@ -980,6 +1023,12 @@
         "resendCount": "Resent {count} of {max}"
       },
       "feedback": "Feedback",
+      "testimonials": "Testimonials",
+      "testimonialsHint": "Only approved ratings and testimonials appear on the public course page, with the student's name, and only approved stars count in the course's average. If a student edits one, it comes back here for review.",
+      "testimonialsEmpty": "No testimonials yet.",
+      "testimonialApprove": "Approve and publish",
+      "testimonialReject": "Don't publish",
+      "testimonialStatus": { "PENDING": "To review", "APPROVED": "Published", "REJECTED": "Not published" },
       "automation": "Automation",
       "basics": "Basics",
       "content": "Course page content",
@@ -1051,8 +1100,14 @@
         "externalPlatformHint": "The platform it ran on, if not the academy. Leave empty if it ran here.",
         "externalUrl": "Link to it on that platform",
         "publicRecordings": "Recordings are public: shown on the course page and in the Recordings library once each lesson has ended",
+        "selfPaced": "Self-paced course",
+        "selfPacedHint": "Students enrol instantly, watch the YouTube videos at their own pace, and get an attendance certificate automatically after every required video, every required quiz passed with 80% or more. Quizzes in this course get a pass mark of at least 80% when saved. The videos are shown to enrolled students only. Needs a free course with no approval step and status Open. The certificate rule below is not used.",
         "showEnrolledCount": "Show enrolled count publicly",
         "showEnrolledCountHint": "The course page and its cards say how many students are enrolled (the number only, never names).",
+        "visibleToEmails": "Visible only to these accounts",
+        "visibleToEmailsHint": "One email address per line (at most {max}). Only signed-in accounts with a confirmed email on this list see the course; it never appears in the catalog. Leave empty for a public course.",
+        "visibleToEmailsError": "Enter one valid email address per line, at most {max}.",
+        "private": "Private",
         "sessionTags": "Tags (Recordings filter)"
       },
       "driveWarning": "Share this folder ONLY with enrolled students' Google accounts. Never use \"Anyone with the link\": one student could forward it to everyone.",
@@ -1099,6 +1154,8 @@
       "instructorBio": "Instructor bio (English)",
       "badgeLive": "Live link",
       "badgeRecording": "Recording",
+      "badgeOptional": "Optional",
+      "sessionOptional": "Optional video: students can skip it and still earn the certificate (self-paced courses)",
       "badgeAssignment": "Assignment",
       "badgeMaterials": "{count, plural, one {# material} other {# materials}}",
       "minutes": "{count} min",
@@ -1575,12 +1632,19 @@
           "someCorrect": "Mark at least one correct answer.",
           "twoOptions": "A true/false question has exactly two options.",
           "lateWithReveal": "Answers shown after the due date need late work turned off.",
-          "practiceCertificate": "A practice quiz (unlimited attempts, answers after each) can't count toward the certificate."
+          "practiceCertificate": "A practice quiz (unlimited attempts, answers after each) can't count toward the certificate.",
+          "drawCount": "Draw at most {max} questions: that is how many this quiz has."
         },
         "title": "Title",
         "instructions": "Instructions (Markdown)",
         "englishOnly": "Assessments are written in English only. Students using the Arabic site see the same English text.",
-        "hasArabic": "This assessment also has Arabic text written earlier. Students using Arabic still see that text; your edits here change the English only."
+        "hasArabic": "This assessment also has Arabic text written earlier. Students using Arabic still see that text; your edits here change the English only.",
+        "practicePreset": "Use the practice exam preset",
+        "practicePresetHint": "Unlimited attempts, answers after each attempt, best attempt counts, not for the certificate; each attempt draws 20 questions balanced across topics, with a 30-minute timer. You can change the count and the timer afterwards.",
+        "practicePresetApplied": "Practice exam settings applied. Check the draw count and the time limit, then save.",
+        "drawCount": "Questions per attempt",
+        "drawCountHint": "Empty = every question. Otherwise each attempt draws this many from the questions below (a question bank).",
+        "balanceByTopic": "Balance the draw across topics (each topic in proportion to its number of questions)"
       },
       "builder": {
         "title": "Questions",
@@ -1611,7 +1675,13 @@
         "prompt": "Question",
         "option": "Option {n}",
         "explanation": "Explanation (optional, shown with the answers)",
-        "tfHint": "Students see True and False in their own language."
+        "tfHint": "Students see True and False in their own language.",
+        "topic": "Topic (optional)",
+        "topicHint": "Up to 60 characters, e.g. \"Networking\". Students see their score per topic.",
+        "topicsTitle": "Topics",
+        "topicCount": "{topic}: {count, plural, one {# question} other {# questions}}",
+        "general": "General",
+        "drawSummary": "Each attempt draws {draw} of {total} questions."
       },
       "book": {
         "title": "Gradebook",
@@ -1672,7 +1742,7 @@
       "upload": {
         "title": "Upload questions from Excel or CSV",
         "intro": "One question per row. Download the template, fill it in Excel, Google Sheets or Numbers, then upload it here (.xlsx or .csv, up to {max} questions).",
-        "columns": "Columns: type (single, multiple or true_false), question, option1 to option6, correct (an option number such as 2, several such as 1,3, letters such as B, or true/false), weight (the question’s points, a whole number from 1 to 100; 1 if empty. A question with weight 2 counts twice as much as one with weight 1) and explanation (optional).",
+        "columns": "Columns: type (single, multiple or true_false), question, option1 to option6, correct (an option number such as 2, several such as 1,3, letters such as B, or true/false), weight (the question’s points, a whole number from 1 to 100; 1 if empty. A question with weight 2 counts twice as much as one with weight 1), explanation (optional) and topic (optional, up to 60 characters, for the score by topic and balanced draws).",
         "templateXlsx": "Download the template (.xlsx)",
         "templateCsv": "Template (.csv)",
         "choose": "Choose a file",
@@ -1771,7 +1841,8 @@
         }
       },
       "lastEditedBy": "Last edited by {name}",
-      "preview": "Preview"
+      "preview": "Preview",
+      "draws": "Draws {count} per attempt"
     },
     "points": {
       "nav": "Points & badges",
@@ -1792,7 +1863,7 @@
       "fixErrors": "Fix the rows with errors in the file, then preview again.",
       "apply": "Import {count} rows ({points} points)",
       "imported": "Imported {count} rows ({points} points).",
-      "badgesHint": "Automatic badges are awarded by the hourly job and the course rules. Manual badges are awarded from a student's page. An inactive badge is no longer awarded or shown on leaderboards.",
+      "badgesHint": "Automatic badges are awarded by the scheduled jobs (hourly while the site is in use, at least every 4 hours) and the course rules. Manual badges are awarded from a student's page. An inactive badge is no longer awarded or shown on leaderboards.",
       "auto": "Automatic",
       "manual": "Manual",
       "awardedCount": "{count, plural, one {Awarded once} other {Awarded # times}}",
@@ -1854,6 +1925,12 @@
         "minSessionsHint": "Leave empty for no minimum.",
         "requireAssessments": "Students must pass every mandatory assessment",
         "requireAssessmentsHint": "Mark assessments as mandatory or optional in the Assessments tab.",
+        "minTotal": "Total score (minimum %)",
+        "minTotalHint": "Points earned ÷ points of every published quiz, lab and assignment. Work not submitted or not graded yet counts as 0. Leave empty for no minimum.",
+        "autoIssueHint": "To issue certificates automatically when the course ends, turn on \"Certificate earned\" with \"Issue\" in the Automation tab. It issues to every eligible student who has none yet, and again after later grades.",
+        "codePrefix": "Certificate ID prefix",
+        "codePrefixHint": "Letters and digits, starting with a letter (up to 10), e.g. MLOPS: IDs become MLOPS-01-2026-00001, with the cohort number and a running number shared by every course with this prefix. Leave empty for random IDs (MMA-2026-…). Changing it affects only certificates issued afterwards.",
+        "codePrefixError": "Use a letter, then up to 9 letters or digits (e.g. MLOPS).",
         "textEn": "Rule shown to students (English)",
         "textAr": "Rule shown to students (Arabic)",
         "textHint": "Leave empty to show a sentence generated from the settings above.",
@@ -2159,7 +2236,8 @@
         "ENROL": "Enrol students",
         "ISSUE_CERTIFICATES": "Issue certificates",
         "VIEW_FEEDBACK": "See session feedback",
-        "MANAGE_RULES": "Manage automation rules"
+        "MANAGE_RULES": "Manage automation rules",
+        "ANSWER_QUESTIONS": "Answer questions"
       },
       "permHint": {
         "MANAGE_ASSESSMENTS": "Create, edit, publish and upload quizzes and assignments.",
@@ -2175,7 +2253,8 @@
         "ENROL": "Enrol by email and invites, and the waiting list.",
         "ISSUE_CERTIFICATES": "Issue, revoke and re-issue certificates, and the rule.",
         "VIEW_FEEDBACK": "Students’ feedback on each session.",
-        "MANAGE_RULES": "Rules that act on their own in this course."
+        "MANAGE_RULES": "Rules that act on their own in this course.",
+        "ANSWER_QUESTIONS": "The course Q&A: answer, pin, close and reopen, hide and unhide questions and answers."
       },
       "saveRole": "Save role",
       "createRole": "Create role",
@@ -2185,7 +2264,7 @@
     },
     "automation": {
       "title": "Automation rules",
-      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked every hour.",
+      "help": "Rules that act on their own for this course. Each one stays off until you turn it on, and the ones that are on are checked hourly while the site is in use, and at least every 4 hours.",
       "safe": "Rules only send messages, alert the team, award points or flag students. They never remove a student or change an application.",
       "recommended": "Turn on the recommended set",
       "pause": "Pause all rules",
@@ -2245,7 +2324,8 @@
         "percent": "percent",
         "times": "times",
         "ratings": "ratings",
-        "stars": "stars"
+        "stars": "stars",
+        "items": "items"
       },
       "actions": {
         "message": "Message",
@@ -2273,7 +2353,8 @@
         "firstDays": "First reminder after",
         "secondDays": "Second reminder and team alert after",
         "telegramUrl": "Telegram group link",
-        "discordUrl": "Discord server link"
+        "discordUrl": "Discord server link",
+        "items": "Items behind"
       },
       "options": {
         "review": "Alert the team to review and issue",
@@ -2295,6 +2376,10 @@
         "FULL_ATTENDANCE_MIDWAY": {
           "title": "Perfect attendance at halfway",
           "desc": "When attendance for the first half of the sessions is recorded, gives bonus points and a message to students who attended all of them."
+        },
+        "STUDY_PLAN_BEHIND": {
+          "title": "Behind the study plan",
+          "desc": "Self-paced courses: nudges a student whose own study plan says they are behind by at least the set number of lessons and quizzes, at most once a week. Students without a plan get nothing."
         },
         "OFTEN_LATE": {
           "title": "Often joins late",
@@ -2399,11 +2484,82 @@
         "WEEKLY_SUMMARY": {
           "title": "Weekly points summary",
           "desc": "Each week while the course runs, tells students who earned points the week before how many and their rank."
+        },
+        "QUESTION_UNANSWERED": {
+          "title": "Question waiting for an answer",
+          "desc": "Alerts the team about questions in the course Q&A that nobody has answered after the set number of hours."
         }
       }
     }
   },
   "learn": {
+    "studyPlan": {
+      "title": "Study plan",
+      "pitch": "Pick the days and how long you can study. We spread the remaining lessons and quizzes over those days, show when you will finish and remind you on study days.",
+      "start": "Make a study plan",
+      "weekdays": "Study days",
+      "weekdaysHint": "Pick at least one day.",
+      "days": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "minutes": "Time per day",
+      "startDate": "Start date",
+      "reminder": "Reminder",
+      "reminderHint": "An email and a notification on each study day at this time ({zone} time).",
+      "zoneDefault": "Your profile has no time zone, so times use the academy's time zone ({zone}). You can set yours in your profile.",
+      "noReminder": "No reminder",
+      "save": "Save plan",
+      "cancel": "Cancel",
+      "edit": "Edit plan",
+      "delete": "Delete plan",
+      "saved": "Plan saved.",
+      "deleted": "Plan deleted.",
+      "nextDay": "Next study day: {date}",
+      "today": "today",
+      "finishBy": "Finish by {date}",
+      "onTrack": "On track",
+      "behind": "{count, plural, one {Behind by # item} other {Behind by # items}}",
+      "allDone": "You have finished every lesson and quiz in the plan. Well done!",
+      "quiz": "Quiz: {title}",
+      "part": "{title} (part {part} of {parts})",
+      "summary": "{days} · {minutes} a day",
+      "reminderAt": "Reminder at {time}",
+      "calendarNote": "Study days are in your calendar feed too:",
+      "errorDays": "Pick at least one study day.",
+      "errorDate": "Pick a start date."
+    },
+    "testimonial": {
+      "title": "How would you rate this course?",
+      "intro": "Your stars and a few words help other engineers decide. This is optional and doesn't affect your certificate.",
+      "label": "Your review (optional)",
+      "hint": "Optional if you choose stars. Otherwise between {min} and {max} characters.",
+      "consent": "I agree that MLOps MENA can publish this on the course page with my name. I can remove it at any time.",
+      "send": "Send review",
+      "update": "Save changes",
+      "remove": "Remove my review",
+      "ratingLegend": "Your rating",
+      "clearRating": "Clear stars",
+      "needOne": "Choose a star rating or write a few words.",
+      "status": {
+        "PENDING": "Thank you! The team will review it before it appears.",
+        "APPROVED": "Published on the course page. If you change it, it is reviewed again.",
+        "REJECTED": "The team didn't publish this one. You can edit it and send it again."
+      }
+    },
+    "selfPacedProgress": "{completed} of {total, plural, one {# required video} other {# required videos}} finished",
+    "lessonOf": "Video {n} of {total}",
+    "optionalLesson": "Optional",
+    "markComplete": "Mark as complete",
+    "undoComplete": "Undo",
+    "lessonHint": "This video is ticked automatically when it reaches the end, or you can mark it yourself.",
+    "lessonWatched": "Completed: you watched this video to the end",
+    "lessonMarked": "Completed: you marked this video as complete",
     "progress": "{completed} of {total, plural, one {# session} other {# sessions}} attended",
     "sessions": "Sessions",
     "session": "Session {n}",
@@ -2476,7 +2632,11 @@
     "sessionNav": "Previous and next session",
     "nextSession": "Next: {n}. {title}",
     "confirmEmailFirst": "Were you added to this course by email? Confirm your email address first (we sent you a link) and you'll be enrolled automatically.",
-    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way."
+    "profileNudge": "Help the course team get to know you: your profile isn't complete yet. It takes two minutes, and the course stays open to you either way.",
+    "stoppedAt": "You stopped at {time}. The video continues from there.",
+    "continueLesson": "Continue video {n} at {time}",
+    "continueSession": "Continue the recording of session {n} at {time}",
+    "qaTab": "Q&A"
   },
   "speakerAnnouncements": {
     "title": "My courses & sessions",
@@ -2820,9 +2980,27 @@
     }
   },
   "policy": {
+    "businessEmail": "Email",
+    "businessPhone": "Phone",
+    "businessLocation": "Location",
+    "businessName": "Run by",
     "contactPage": "our contact page",
     "communityBelow": "the community channels below",
     "whatsapp": "For payment questions:"
+  },
+  "privateCourse": {
+    "badge": "Private course",
+    "loading": "Loading the course…",
+    "signInTitle": "This course is private",
+    "signInBody": "It is shared with specific accounts only. Sign in with the email address it was shared with to see it.",
+    "signIn": "Sign in",
+    "notAvailableTitle": "This course isn't available to your account",
+    "notAvailableBody": "It is shared with specific accounts only. If it was shared with you, sign in with that email address and make sure it is confirmed, or contact us.",
+    "contact": "Contact us",
+    "error": "We couldn't load this course. Try again in a moment.",
+    "price": "Price",
+    "about": "About this course",
+    "metaTitle": "Private course"
   },
   "waitlist": {
     "cta": "Notify me when it opens",
@@ -2879,7 +3057,11 @@
     "blog": "Blog on mlopsmena.com",
     "blogDesc": "Articles, guides and roadmaps",
     "courseCount": "{count, plural, one {# course} other {# courses}}",
-    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}"
+    "openCount": "{count, plural, one {# taking applications} other {# taking applications}}",
+    "takePart": "Take part",
+    "challenges": "Challenges",
+    "challengesDesc": "Build something in a week, earn a badge",
+    "featuredSelfPaced": "Start any time · at your own pace"
   },
   "whatsNew": {
     "title": "What's new",
@@ -3052,7 +3234,14 @@
       "explanation": "Why",
       "attempt": "Attempt {n}",
       "history": "Your attempts",
-      "counted": "Counts"
+      "counted": "Counts",
+      "topicsCaption": "Score by topic, attempt {n}",
+      "topic": "Topic",
+      "topicScore": "Points",
+      "topicPercent": "Score",
+      "general": "General",
+      "overall": "Overall",
+      "weightOf": "{earned} of {possible}"
     },
     "work": {
       "yourSubmission": "Your submission",
@@ -3096,7 +3285,9 @@
       "url": "Enter a full link starting with https://"
     },
     "true": "True",
-    "false": "False"
+    "false": "False",
+    "practice": "Practice exam",
+    "drawnFromBank": "Each attempt draws different questions from a bank."
   },
   "points": {
     "title": "Points & badges",
@@ -3117,7 +3308,9 @@
       "sessionUndone": "Session unmarked: {title}",
       "certificate": "Certificate: {course}",
       "attendance": "Attendance: {title}",
-      "attendanceUpdated": "Attendance updated: {title}"
+      "attendanceUpdated": "Attendance updated: {title}",
+      "challenge": "Challenge: {title}",
+      "challengeUndone": "Challenge points taken back: {title}"
     },
     "reasons": {
       "ASSESSMENT": "Assessment",
@@ -3127,7 +3320,9 @@
       "MANUAL_OTHER": "Other",
       "ADJUSTMENT": "Correction",
       "ATTENDANCE": "Attendance",
-      "AUTOMATION": "Automation bonus"
+      "AUTOMATION": "Automation bonus",
+      "CHALLENGE": "Challenge",
+      "QA_ANSWER": "Accepted answer in the Q&A"
     }
   },
   "badges": {
@@ -3181,6 +3376,7 @@
       "notYet": "Not yet",
       "sessions": "Sessions completed: {completed} of {total} ({percent}%, at least {required}% needed)",
       "assessments": "Required assessments passed: {passed} of {required}",
+      "total": "Total score: {percent}% (at least {required}% needed)",
       "pending": "{count, plural, one {# is waiting to be graded} other {# are waiting to be graded}}",
       "capstone": {
         "PASSED": "Capstone passed",
@@ -3190,12 +3386,38 @@
       },
       "average": "Your average score so far: {percent}%",
       "eligible": "You meet the requirements. The course team issues certificates after the course ends.",
+      "lessons": "{completed} of {total, plural, one {# required video} other {# required videos}} finished",
+      "selfPacedRule": "Finish every required video and score 80% or more on every required quiz. Your Certificate of Attendance is then issued automatically and emailed to you.",
+      "selfPacedAssessments": "Required quizzes passed with 80% or more: {passed} of {required}",
+      "selfPacedEligible": "You meet the requirements and your certificate is on its way. If it doesn't appear, check that your full name is on your profile.",
       "keepGoing": "Keep going: your status updates as you complete sessions and assessments are graded."
     },
+    "verifier": {
+      "metaTitle": "Verify a certificate",
+      "metaDescription": "Check that an MLOps MENA certificate is genuine: type its ID or scan its QR code.",
+      "title": "Verify a certificate",
+      "intro": "Type the certificate ID, or scan the QR code printed on the certificate, to check that MLOps MENA issued it.",
+      "label": "Certificate ID",
+      "manualTab": "Type the ID",
+      "scanTab": "Scan the QR code",
+      "verify": "Verify",
+      "hint": "Printed under the QR code, e.g. MLOPS-01-2026-00023.",
+      "invalidFormat": "That doesn't look like a certificate ID. Check it and try again.",
+      "scanning": "Point your camera at the QR code on the certificate.",
+      "scanStop": "Stop scanning",
+      "cameraDenied": "The camera couldn't be used. Allow camera access, or type the ID instead.",
+      "cameraMissing": "No camera found on this device. Type the ID instead.",
+      "notCertificateQr": "This QR code isn't from an MLOps MENA certificate. Type the ID instead."
+    },
     "verify": {
+      "another": "Verify another certificate",
+      "notFound": "No certificate with this ID",
+      "notFoundBody": "Check the ID on the certificate and try again. IDs look like MLOPS-01-2026-00023 or MMA-2026-7KQ4XM2P.",
       "metaTitle": "Certificate verification",
       "metaNamed": "{name}: certificate for {course}",
       "metaDescription": "{name} completed {course} at MLOps MENA Academy. Verify this certificate.",
+      "metaDescriptionAttendance": "{name} attended {course} at MLOps MENA Academy. Verify this certificate.",
+      "headingAttendance": "Certificate of attendance",
       "academy": "MLOps MENA Academy",
       "heading": "Certificate of completion",
       "valid": "Valid certificate",
@@ -3369,6 +3591,97 @@
     "saveEdit": "Save the change",
     "confirmRemove": "Remove the points"
   },
+  "qa": {
+    "title": "Questions and answers",
+    "intro": "Ask the course team and your classmates about the course or one lesson, and help others with what you know. Be kind, and don't share private details or solutions to graded work.",
+    "introTeach": "Students' questions in this course. Answer them, accept the best answer, pin useful threads, close finished ones and hide what breaks the course rules. Hidden posts stay visible to their author.",
+    "ask": "Ask a question",
+    "askTitle": "Ask a question",
+    "filterLabel": "Show questions",
+    "filters": {
+      "all": "All",
+      "unanswered": "Unanswered",
+      "mine": "Mine",
+      "following": "Following",
+      "lesson": "This lesson"
+    },
+    "search": "Search questions",
+    "searchButton": "Search",
+    "count": "{count, plural, =0 {No questions} one {# question} other {# questions}}",
+    "empty": "No questions yet. Be the first to ask.",
+    "emptyFiltered": "No questions match.",
+    "pages": "Pages of questions",
+    "prev": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pages}",
+    "courseTeam": "Course team",
+    "formerStudent": "Former student",
+    "you": "you",
+    "pinned": "Pinned",
+    "status": {
+      "OPEN": "Unanswered",
+      "ANSWERED": "Answered",
+      "CLOSED": "Closed"
+    },
+    "acceptedBadge": "Has an accepted answer",
+    "hidden": "Hidden",
+    "answers": "{count, plural, =0 {No answers} one {# answer} other {# answers}}",
+    "votes": "{count, plural, =0 {Nobody else asked} one {# has this question too} other {# have this question too}}",
+    "questionTitle": "Your question",
+    "questionTitleHint": "One sentence, 5 to 150 characters.",
+    "details": "Details",
+    "markdownHint": "Markdown works: **bold**, `code`, ``` for code blocks, and links. Up to 5,000 characters.",
+    "lesson": "Lesson or session",
+    "wholeCourse": "The whole course",
+    "post": "Post the question",
+    "cancel": "Cancel",
+    "save": "Save",
+    "invalid": {
+      "title": "Write a question of 5 to 150 characters.",
+      "body": "Write up to 5,000 characters.",
+      "sessionId": "Choose a lesson from the list."
+    },
+    "notFound": "This question isn't available. It may have been hidden by the course team.",
+    "back": "All questions",
+    "aboutLesson": "About {lesson}",
+    "hiddenNote": "The course team hid this question: only you can still see it.",
+    "hiddenNoteStaff": "Hidden: only its author and the course team see it.",
+    "edited": "Edited",
+    "sameQuestion": "{count, plural, =0 {I have this question too} other {I have this question too (#)}}",
+    "follow": "Follow",
+    "unfollow": "Stop following",
+    "followHint": "You'll be told about new answers in the app and by email (course reminder emails).",
+    "edit": "Edit",
+    "moderation": "Course team",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "close": "Close the question",
+    "reopen": "Reopen",
+    "hideQuestion": "Hide the question",
+    "unhideQuestion": "Show the question",
+    "hideAnswer": "Hide",
+    "unhideAnswer": "Show",
+    "noAnswers": "No answers yet.",
+    "closedNote": "This question is closed: no new answers.",
+    "accepted": "Accepted answer",
+    "accept": "Accept this answer",
+    "unaccept": "Remove acceptance",
+    "answerTitle": "Your answer",
+    "yourAnswer": "Answer",
+    "postAnswer": "Post the answer",
+    "errors": {
+      "NOT_ENROLLED": "Questions are for the students enrolled in this course.",
+      "QUESTION_CLOSED": "This question is closed: no new answers.",
+      "EDIT_WINDOW_OVER": "Posts can be edited for 30 minutes after posting.",
+      "OWN_QUESTION": "This is your own question.",
+      "NOT_YOUR_POST": "Only its author can edit this.",
+      "NOT_YOUR_QUESTION": "Only the person who asked, or the course team, can accept an answer.",
+      "COURSE_PERMISSION": "Your role in this course doesn't include this.",
+      "QUESTION_NOT_FOUND": "This question isn't available.",
+      "ANSWER_NOT_FOUND": "This answer isn't available.",
+      "SESSION_NOT_FOUND": "That lesson isn't in this course."
+    }
+  },
   "teach": {
     "title": "Teaching",
     "intro": "The courses you help run. What you can do in each depends on your role there.",
@@ -3397,7 +3710,9 @@
       "applications": "Applications",
       "enrolment": "Enrolment",
       "certificates": "Certificates",
-      "automation": "Automation"
+      "automation": "Automation",
+      "challenges": "Challenges",
+      "qa": "Q&A"
     },
     "details": {
       "adminOnly": "The status, address, price and who teaches the course stay with the academy team."
@@ -3613,6 +3928,116 @@
         "permissions": "Google Calendar wasn't connected: please allow both calendar permissions on Google's page.",
         "failed": "Google Calendar couldn't be connected. Try again."
       }
+    }
+  },
+  "challenges": {
+    "title": "Challenges",
+    "detailTitle": "Challenge",
+    "intro": "Time-boxed challenges from the community, like deploying a model in a week. Send a link to your work; the team reviews it, and an approved entry earns a badge and points.",
+    "empty": "No challenges yet. Check back soon.",
+    "notFound": "This challenge doesn't exist or isn't published.",
+    "all": "All challenges",
+    "groups": {
+      "active": "Open now",
+      "upcoming": "Coming up",
+      "past": "Past challenges"
+    },
+    "phase": {
+      "open": "Open",
+      "upcoming": "Coming up",
+      "closed": "Ended"
+    },
+    "forCourse": "Students of {course}",
+    "forEveryone": "Open to every member",
+    "reward": "Earn {points} points and the {badge} badge",
+    "rewardBadge": "Earn the {badge} badge",
+    "finishers": "{count, plural, =0 {No finishers yet} one {# finisher} other {# finishers}}",
+    "finishersTitle": "Finishers",
+    "starts": "Starts",
+    "ends": "Ends",
+    "brief": "What to do",
+    "signInToEnter": "Sign in to send your entry.",
+    "signIn": "Sign in",
+    "myEntry": "Your entry",
+    "submittedAt": "Sent {date}",
+    "entryStatus": {
+      "PENDING": "Waiting for review",
+      "APPROVED": "Approved",
+      "REJECTED": "Needs changes"
+    },
+    "entryHelp": {
+      "PENDING": "The team will review your entry. You can still change it while the challenge is open.",
+      "APPROVED": "Well done: the badge and the points are yours.",
+      "REJECTED": "Read the feedback, fix your work and send it again while the challenge is open."
+    },
+    "feedback": "Feedback from the team",
+    "url": "Link to your work",
+    "urlHint": "A repository or a live demo. It must start with https://",
+    "note": "Note for the reviewers",
+    "noteHint": "What you built, how to run it, anything the team should know (up to 1,000 characters).",
+    "showName": "Show my name on the public challenges page",
+    "showNameHint": "Only your first name and last initial, and only once your entry is approved. You can change this any time.",
+    "submit": "Send my entry",
+    "resubmit": "Send it again",
+    "sent": "Sent. The team will review it.",
+    "visibilitySaved": "Saved.",
+    "httpsOnly": "Use a link that starts with https://",
+    "blocked": {
+      "NOT_ELIGIBLE": "This challenge is for the students of its course.",
+      "NOT_STARTED": "This challenge hasn't started yet.",
+      "CLOSED": "This challenge has ended.",
+      "NOT_PUBLISHED": "This challenge isn't open."
+    },
+    "seeCourse": "See the course",
+    "manage": {
+      "pageTitle": "Challenges",
+      "pageIntro": "Time-boxed challenges, open to every member or to one course's students. Approving an entry gives the student the challenge's badge and points; rejecting an approved entry takes both back.",
+      "pendingTotal": "{count, plural, one {# entry to review} other {# entries to review}}",
+      "nothingPending": "Nothing to review.",
+      "new": "New challenge",
+      "empty": "No challenges yet.",
+      "pointsValue": "{points} points",
+      "status": {
+        "DRAFT": "Draft",
+        "PUBLISHED": "Published",
+        "ARCHIVED": "Archived"
+      },
+      "pendingCount": "{count} to review",
+      "approvedCount": "{count} approved",
+      "entries": "Entries",
+      "newTitle": "New challenge",
+      "editTitle": "Edit challenge",
+      "formIntro": "Its badge is created with it, named after the title. Students can send entries while it is published and between its start and end.",
+      "course": "Course",
+      "courseHint": "Leave empty to open it to every signed-in member. Can't be changed later.",
+      "slug": "Address",
+      "slugHint": "Lowercase letters, numbers and dashes, e.g. deploy-a-model. Can't be changed later.",
+      "slugFixed": "The address can't be changed.",
+      "slugTaken": "A challenge or badge with this address exists.",
+      "titleEn": "Title (English)",
+      "titleAr": "Title (Arabic)",
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "points": "Points",
+      "pointsHint": "0 to 500, given when an entry is approved.",
+      "icon": "Badge icon",
+      "iconHint": "An emoji, e.g. 🚀",
+      "statusLabel": "Status",
+      "descriptionEn": "What to do (English, Markdown)",
+      "descriptionAr": "What to do (Arabic, Markdown)",
+      "back": "Back to challenges",
+      "entriesTitle": "Entries: {title}",
+      "noEntries": "No entries yet.",
+      "feedback": "Feedback for the student",
+      "feedbackHint": "Required to ask for changes. The student sees it.",
+      "feedbackNeeded": "Say what to change before you ask for changes.",
+      "updated": "Last sent {date}",
+      "reviewed": "reviewed {date} by {who}",
+      "theTeam": "the team",
+      "approve": "Approve",
+      "approveAgain": "Save feedback",
+      "reject": "Ask for changes",
+      "rejectAfterApprove": "Asking for changes now takes back the badge and the points."
     }
   }
 }

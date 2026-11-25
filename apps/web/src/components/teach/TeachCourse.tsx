@@ -14,6 +14,8 @@ import { EnrolByEmail } from '@/components/admin/EnrolByEmail';
 import { Waitlist } from '@/components/admin/Waitlist';
 import { AttendancePanel } from '@/components/attendance/AttendancePanel';
 import { RequireAuth } from '@/components/auth/RequireAuth';
+import { ChallengesManager } from '@/components/challenges/ChallengesManager';
+import { CourseQA } from '@/components/learn/CourseQA';
 import { TeachingGradebook } from '@/components/speakers/teaching/TeachingGradebook';
 import { TeachingMaterials } from '@/components/speakers/teaching/TeachingMaterials';
 import { TeachingPoints } from '@/components/speakers/teaching/TeachingPoints';
@@ -62,6 +64,7 @@ function Course({ courseId }: { courseId: string }) {
       .catch((err: unknown) => setError(err instanceof ApiError && (err.status === 403 || err.status === 404) ? 'forbidden' : 'generic'));
   }, [base]);
 
+  // Switching tabs drops a Q&A thread's ?q= with the rest of the query.
   const go = (next: TeachTab) => router.replace(`/${locale}/teach/courses/${courseId}${next === tabs[0] ? '' : `?tab=${next}`}`, { scroll: false });
   const onKey = (e: KeyboardEvent) => {
     if (!tab || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
@@ -140,6 +143,9 @@ function Course({ courseId }: { courseId: string }) {
               />
             )}
             {tab === 'gradebook' && <TeachingGradebook courseId={course.id} endpoints={endpoints} />}
+            {tab === 'challenges' && (
+              <ChallengesManager apiBase={`${base}/challenges`} canManage={course.permissions.includes('MANAGE_ASSESSMENTS')} canReview={course.permissions.includes('GRADE')} />
+            )}
             {tab === 'materials' && <TeachingMaterials courseId={course.id} sessions={course.sessions} onChange={updateSession} />}
             {tab === 'attendance' && (
               <AttendancePanel
@@ -152,6 +158,7 @@ function Course({ courseId }: { courseId: string }) {
             {tab === 'points' && <TeachingPoints courseId={course.id} />}
             {tab === 'roster' && <TeachRoster courseId={course.id} />}
             {tab === 'announcements' && <TeachAnnouncements courseId={course.id} title={title} />}
+            {tab === 'qa' && <CourseQA slug={course.slug} sessions={course.sessions} mode="teach" headingId="teach-qa" />}
             {tab === 'feedback' && <FeedbackPanel courseId={course.id} apiBase={base} />}
             {tab === 'details' && <TeachDetails courseId={course.id} />}
             {tab === 'sessions' && <TeachSessions courseId={course.id} canAttendance={course.permissions.includes('UPLOAD_ATTENDANCE')} />}

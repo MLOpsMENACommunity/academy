@@ -122,8 +122,19 @@ export class AccountService {
           },
         },
         sessionProgress: true,
+        // Where they stopped in each video (the learn page's "Continue at 42:10").
+        lessonWatches: {
+          select: { positionSec: true, durationSec: true, updatedAt: true, session: { select: { order: true, titleEn: true, course: { select: { slug: true } } } } },
+          orderBy: { updatedAt: 'asc' },
+        },
         sessionFeedback: true,
+        testimonials: { select: { courseId: true, body: true, rating: true, status: true, consentAt: true, createdAt: true } },
+        challengeEntries: {
+          select: { url: true, note: true, showName: true, status: true, feedback: true, reviewedAt: true, createdAt: true, updatedAt: true, challenge: { select: { slug: true, titleEn: true } } },
+        },
+        earlierCertificates: { select: { code: true, holderName: true, courseTitle: true, issuedOn: true, revokedAt: true, revokeReason: true } },
         reminderPreferences: true,
+        studyPlans: { select: { weekdays: true, minutesPerDay: true, startDate: true, reminderHour: true, createdAt: true, updatedAt: true, course: { select: { slug: true, titleEn: true } } } },
         // The link itself is a credential: only whether it exists and when it was used.
         calendarFeed: { select: { createdAt: true, rotatedAt: true, lastFetchedAt: true } },
         notifications: { select: { titleEn: true, bodyEn: true, createdAt: true, readAt: true } },
@@ -154,6 +165,17 @@ export class AccountService {
           },
           orderBy: { startsAt: 'asc' },
         },
+        // Course Q&A: what they asked and answered (votes and follows are only markers).
+        questionsAsked: {
+          select: { title: true, body: true, status: true, createdAt: true, editedAt: true, hiddenAt: true, course: { select: { slug: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        answersWritten: {
+          select: { body: true, createdAt: true, editedAt: true, hiddenAt: true, acceptedFor: { select: { id: true } }, question: { select: { title: true, course: { select: { slug: true } } } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        questionVotes: { select: { createdAt: true, question: { select: { title: true } } } },
+        questionFollows: { select: { createdAt: true, question: { select: { title: true } } } },
         submissions: {
           select: {
             attempt: true,
@@ -249,15 +271,48 @@ export class AccountService {
           revokeReason: c!.revokeReason,
           verify: this.email.url(user.locale, `/certificates/${c!.serial}`),
         })),
+      // Certificates issued before the academy, linked to this account by its email.
+      earlierCertificates: user.earlierCertificates.map((c) => ({
+        code: c.code,
+        name: c.holderName,
+        courseTitle: c.courseTitle,
+        issuedOn: c.issuedOn,
+        status: c.revokedAt ? 'revoked' : 'valid',
+        revokedAt: c.revokedAt,
+        revokeReason: c.revokeReason,
+        verify: this.email.url(user.locale, `/certificates/${c.code}`),
+      })),
       sessionProgress: user.sessionProgress,
+      videoPositions: user.lessonWatches.map((w) => ({
+        course: w.session.course.slug,
+        session: w.session.order,
+        sessionTitle: w.session.titleEn,
+        positionSec: w.positionSec,
+        durationSec: w.durationSec,
+        savedAt: w.updatedAt,
+      })),
       feedback: user.sessionFeedback,
+      testimonials: user.testimonials,
+      // Links, notes, the review's outcome and feedback (the reviewer stays the team).
+      challengeEntries: user.challengeEntries.map(({ challenge, ...e }) => ({ challenge, ...e })),
       reminderPreferences: user.reminderPreferences,
+      studyPlans: user.studyPlans.map(({ startDate, ...p }) => ({ ...p, startDate: startDate.toISOString().slice(0, 10) })),
       calendarFeed: user.calendarFeed,
       notifications: user.notifications,
       liveSessionRegistrations: user.eventRegistrations.map((r) => ({ session: r.event, registeredAt: r.createdAt })),
       speakerApplication: user.speakerApplication,
       speakerProfile: user.speakerProfile,
       speakerBookings: user.speakingSlots,
+      courseQuestions: user.questionsAsked.map(({ course, hiddenAt, ...q }) => ({ course: course.slug, ...q, hiddenByTeam: Boolean(hiddenAt) })),
+      courseAnswers: user.answersWritten.map(({ question, acceptedFor, hiddenAt, ...a }) => ({
+        course: question.course.slug,
+        question: question.title,
+        ...a,
+        accepted: Boolean(acceptedFor),
+        hiddenByTeam: Boolean(hiddenAt),
+      })),
+      questionVotes: user.questionVotes.map((x) => ({ question: x.question.title, at: x.createdAt })),
+      questionsFollowed: user.questionFollows.map((x) => ({ question: x.question.title, at: x.createdAt })),
       consultations: user.consultationsBooked.map(({ consultant, ...c }) => ({ expert: consultant.instructor, ...c })),
       // Quizzes, labs and assignments: answers, links, grades and feedback (uploaded PDFs by name only).
       assessmentSubmissions: user.submissions.map(({ assessment, ...s }) => ({ assessment: assessment.titleEn, type: assessment.type, course: assessment.course.slug, ...s })),
@@ -430,7 +485,11 @@ export class AccountService {
     }
 
     const applicationIds = user.applications.map((a) => a.id);
+    // Course Q&A: their questions and answers stay (shown as "Former student"); votes and follows go.
+    const voted = await this.prisma.questionVote.findMany({ where: { userId }, select: { questionId: true } });
     await this.prisma.$transaction([
+      this.prisma.questionVote.deleteMany({ where: { userId } }),
+      this.prisma.questionFollow.deleteMany({ where: { userId } }),
       this.prisma.payment.updateMany({
         where: { applicationId: { in: applicationIds } },
         data: {
@@ -467,6 +526,8 @@ export class AccountService {
       // Every invite for the address goes, including the one they enrolled through (the audit log keeps ids only).
       this.prisma.courseInvite.deleteMany({ where: { OR: [{ enrolledUserId: userId }, { email: user.email.toLowerCase() }] } }),
       this.prisma.sessionFeedback.updateMany({ where: { userId }, data: { comment: null } }),
+      this.prisma.testimonial.deleteMany({ where: { userId } }),
+      this.prisma.studyPlan.deleteMany({ where: { userId } }),
       // The speaker application (phone, bio, …) goes; the public speaker profile is the team's
       // page about past sessions and stays, but no longer points at this account.
       this.prisma.speakerApplication.deleteMany({ where: { userId } }),
@@ -488,11 +549,17 @@ export class AccountService {
       this.prisma.pointsEntry.deleteMany({ where: { userId } }),
       // Attendance (minutes per session) is personal too; course counts never included deleted accounts.
       this.prisma.sessionAttendance.deleteMany({ where: { userId } }),
+      // Where they stopped in each video: personal, and of no use to anyone else.
+      this.prisma.lessonWatch.deleteMany({ where: { userId } }),
       this.prisma.userBadge.deleteMany({ where: { userId } }),
       this.prisma.leaderboardOptIn.deleteMany({ where: { userId } }),
+      // Challenge entries (links, notes, feedback) go with the points and badges they earned; finisher counts never included deleted accounts.
+      this.prisma.challengeEntry.deleteMany({ where: { userId } }),
       // Certificates stay on record (serial, course, dates: the public page says "no longer
       // available"); the printed name and the PDF go.
       this.prisma.certificate.updateMany({ where: { enrollment: { userId } }, data: { nameOnCertificate: '', nameOnCertificateAr: null, pdfKey: null, revokeReason: null } }),
+      // The same for certificates issued before the academy and linked to this account; the email that linked them goes too.
+      this.prisma.externalCertificate.updateMany({ where: { userId }, data: { holderName: '', email: null, revokeReason: null } }),
       this.prisma.user.update({
         where: { id: userId },
         data: {
@@ -504,6 +571,11 @@ export class AccountService {
         },
       }),
     ]);
+    // The questions they had voted for count one vote fewer.
+    for (const { questionId } of voted) {
+      const voteCount = await this.prisma.questionVote.count({ where: { questionId } });
+      await this.prisma.courseQuestion.update({ where: { id: questionId }, data: { voteCount } });
+    }
     await this.audit.log({ actorId: null, action: 'account.anonymised', entityType: 'User', entityId: userId });
   }
 

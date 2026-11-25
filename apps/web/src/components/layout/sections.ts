@@ -4,7 +4,7 @@ import { LEARNING_PATHS } from '@/lib/paths';
 import { blogUrl, community } from '@/lib/site';
 import type { MenuData } from './menu';
 
-export type MenuIcon = 'courses' | 'path' | 'map' | 'play' | 'calendar' | 'users' | 'chat' | 'article';
+export type MenuIcon = 'courses' | 'path' | 'map' | 'play' | 'calendar' | 'users' | 'chat' | 'article' | 'flag';
 /** Soft logo tints, each with one meaning: cyan = learning, green = open/done, amber = recordings and "soon", orange = community and free open-source material. */
 export type MenuTint = 'cyan' | 'green' | 'amber' | 'orange';
 
@@ -104,6 +104,10 @@ export function menuSections(t: Translate, locale: Locale, data: MenuData): Menu
             { href: community.linkedin, label: 'LinkedIn', desc: t('menu.linkedinDesc'), icon: 'users', tint: 'amber', external: true },
             { href: community.youtube, label: 'YouTube', desc: t('menu.youtubeDesc'), icon: 'play', tint: 'orange', external: true },
           ],
+        },
+        {
+          heading: t('menu.takePart'),
+          links: [{ href: l('/challenges'), label: t('menu.challenges'), desc: t('menu.challengesDesc'), icon: 'flag', tint: 'orange' }],
         },
         {
           heading: t('menu.readHeading'),

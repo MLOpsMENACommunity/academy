@@ -9,6 +9,7 @@ import request from 'supertest';
 import { ANY_STAFF, COURSE_CAN_KEY } from '../src/course-access/course-permission.guard';
 import { EmailService } from '../src/email/email.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { TeachChallengesController } from '../src/challenges/teach-challenges.controller';
 import { TeachManageController } from '../src/teaching/teach-manage.controller';
 import { TeachingController } from '../src/teaching/teaching.controller';
 import { createCourse, createTestApp, createUser } from './helpers';
@@ -28,7 +29,7 @@ const message = () => ({ subjectEn: 'Room change', bodyEn: 'We meet in the other
 /** Every Teaching route with its @CourseCan tag, read from the controllers (so a new route is covered too). */
 function teachRoutes(): { method: string; path: string; can: string[] }[] {
   const out: { method: string; path: string; can: string[] }[] = [];
-  for (const cls of [TeachingController, TeachManageController]) {
+  for (const cls of [TeachingController, TeachManageController, TeachChallengesController]) {
     const base = Reflect.getMetadata(PATH_METADATA, cls) as string | string[];
     const prefix = Array.isArray(base) ? base[0]! : base;
     for (const key of Object.getOwnPropertyNames(cls.prototype)) {

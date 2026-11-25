@@ -11,6 +11,7 @@ import {
   courseStatusLabels,
   courseTypeLabels,
   DELIVERY_PLATFORMS,
+  MAX_COURSE_VISIBLE_EMAILS,
   deliveryPlatformLabels,
   RECORDINGS_PLATFORMS,
   recordingsPlatformLabels,
@@ -94,7 +95,9 @@ export const EMPTY_COURSE: CourseFormValue = {
   externalPlatform: null,
   externalUrl: null,
   publicRecordings: false,
+  selfPaced: false,
   showEnrolledCount: true,
+  visibleToEmails: [],
 };
 
 function Fieldset({ title, children }: { title: string; children: ReactNode }) {
@@ -122,6 +125,8 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [instructors, setInstructors] = useState<InstructorDto[]>([]);
+  // "Visible only to these accounts": the textarea's own text (one address per line), checked on save.
+  const [audience, setAudience] = useState(initial.visibleToEmails.join('\n'));
   const f = (k: string) => t(`admin.courses.fields.${k}`);
   const set = <K extends keyof CourseFormValue>(k: K) => (val: CourseFormValue[K]) => {
     setV((p) => ({ ...p, [k]: val }));
@@ -145,6 +150,7 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
       applicationsOpenAt: fromLocalInput(v.applicationsOpenAt),
       applicationDeadline: fromLocalInput(v.applicationDeadline),
       endDate: fromLocalInput(v.endDate),
+      visibleToEmails: audience.split('\n'),
     };
     const parsed = courseInputSchema.safeParse(payload);
     if (!parsed.success) {
@@ -229,6 +235,20 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
           <TextField label={f('capacity')} type="number" min={1} value={v.capacity?.toString() ?? ''} onChange={(x) => set('capacity')(x ? Number(x) : null)} />
         </div>
         <CheckboxField label={f('showEnrolledCount')} hint={f('showEnrolledCountHint')} checked={v.showEnrolledCount} onChange={set('showEnrolledCount')} />
+        {!staff && (
+          <TextAreaField
+            label={f('visibleToEmails')}
+            hint={t('admin.courses.fields.visibleToEmailsHint', { max: MAX_COURSE_VISIBLE_EMAILS })}
+            dir="ltr"
+            rows={4}
+            value={audience}
+            onChange={(x) => {
+              setAudience(x);
+              setSaved(false);
+            }}
+            error={Object.keys(errors).some((k) => k === 'visibleToEmails' || k.startsWith('visibleToEmails.')) ? t('admin.courses.fields.visibleToEmailsError', { max: MAX_COURSE_VISIBLE_EMAILS }) : undefined}
+          />
+        )}
       </Fieldset>
 
       <Fieldset title={t('admin.courses.pastCohort')}>
@@ -243,6 +263,7 @@ export function CourseForm({ initial, courseId, onSaved, staffEndpoint }: { init
           </div>
         </div>
         <CheckboxField label={f('publicRecordings')} checked={v.publicRecordings} onChange={set('publicRecordings')} />
+        <CheckboxField label={f('selfPaced')} hint={f('selfPacedHint')} checked={v.selfPaced} onChange={set('selfPaced')} error={errors.selfPaced} />
       </Fieldset>
 
       <Fieldset title={t('admin.courses.delivery')}>

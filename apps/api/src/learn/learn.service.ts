@@ -1,7 +1,12 @@
-import { ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
 import { completedSessionsBy } from '../attendance/completed-sessions';
 import {
+  isRequiredLesson,
+  isVideoLesson,
+  type LessonCompletionInput,
+  type LessonPositionInput,
   liveLinkVisible,
+  resumeStart,
   recordingKind,
   sessionPhase,
   youtubeId,
@@ -16,10 +21,13 @@ import {
   hasAdminPermission,
 } from '@academy/shared';
 import type { Course } from '@prisma/client';
+import { CertificatesService } from '../certificates/certificates.service';
+import { CourseAccessService } from '../course-access/course-access.service';
 import type { AuthUser } from '../common/decorators';
 import { courseKey, SignedInCache } from '../common/signed-in-cache';
 import { PrismaService } from '../prisma/prisma.service';
 import { PointsService } from '../points/points.service';
+import { reviewEligibility } from '../testimonials/eligibility';
 import { SettingsService } from '../settings/settings.service';
 import { buildIcs } from './ics';
 import { courseSessionEvent } from './session-event';
@@ -39,6 +47,8 @@ export class LearnService {
     private readonly settings: SettingsService,
     private readonly points: PointsService,
     private readonly cache: SignedInCache,
+    private readonly certificates: CertificatesService,
+    private readonly courseAccess: CourseAccessService,
   ) {}
 
   /**
@@ -73,7 +83,7 @@ export class LearnService {
 
   async course(user: AuthUser, slug: string, now = new Date()): Promise<LearnCourseDto> {
     const { course, enrollment } = await this.accessWithEnrolment(user, slug);
-    const [sessions, feedback, pref, profile, s, announcements, attendance] = await Promise.all([
+    const [sessions, feedback, pref, profile, s, announcements, attendance, watches, canModerateQA] = await Promise.all([
       this.prisma.courseSession.findMany({ where: { courseId: course.id }, orderBy: { order: 'asc' } }),
       this.prisma.sessionFeedback.findMany({ where: { userId: user.id, courseId: course.id } }),
       this.prisma.reminderPreference.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } } }),
@@ -82,6 +92,13 @@ export class LearnService {
       this.announcementsOf(user, course.id, LEARN_PAGE_ANNOUNCEMENTS),
       // Their own attendance only (from the Meet file or set by the team).
       this.prisma.sessionAttendance.findMany({ where: { userId: user.id, session: { courseId: course.id } }, select: { sessionId: true, status: true, minutes: true, percent: true } }),
+      // Where they stopped in each video ("Continue at 42:10"), newest first: one read for the course.
+      this.prisma.lessonWatch.findMany({
+        where: { userId: user.id, session: { courseId: course.id } },
+        select: { sessionId: true, positionSec: true, durationSec: true },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.courseAccess.can(user, course.id, 'ANSWER_QUESTIONS'),
     ]);
     const attended = new Map(attendance.map((a) => [a.sessionId, { status: a.status, minutes: a.minutes, percent: a.percent }]));
     // Progress is attendance (Present or Partial), plus sessions marked done before that box was retired.
@@ -90,13 +107,34 @@ export class LearnService {
     const courseFb = feedback.find((f) => !f.sessionId) ?? null;
     const reveal = s.liveLinkRevealMinutes;
     const isPaidDrive = course.type === 'PAID' && course.recordingsPlatform === 'GOOGLE_DRIVE';
-    const completed = sessions.filter((x) => done.has(x.id)).length;
+    // Self-paced: completion comes from the lesson player, and optional videos don't count toward progress.
+    const lessons = course.selfPaced
+      ? await this.prisma.sessionProgress.findMany({ where: { userId: user.id, session: { courseId: course.id }, source: { not: null } }, select: { sessionId: true, source: true } })
+      : [];
+    const lessonSource = new Map(lessons.map((l) => [l.sessionId, l.source]));
+    // Their own review, and whether they may write one (enrolled and finished the course).
+    const [testimonial, eligibility] = enrollment
+      ? await Promise.all([
+          this.prisma.testimonial.findUnique({ where: { userId_courseId: { userId: user.id, courseId: course.id } }, select: { body: true, rating: true, status: true } }),
+          reviewEligibility(this.prisma, user.id, course, now),
+        ])
+      : [null, null];
+    const isDone = (id: string) => (course.selfPaced ? lessonSource.has(id) : done.has(id));
+    // Only a self-paced lesson's completion restarts its video: a live session's attendance says
+    // nothing about how much of the recording they have watched.
+    const resumeOf = (w: (typeof watches)[number]) => resumeStart(w.positionSec, w.durationSec, course.selfPaced && lessonSource.has(w.sessionId));
+    const watchBySession = new Map(watches.map((w) => [w.sessionId, w]));
+    const last = watches.find((w) => resumeOf(w) > 0) ?? null;
+    const counted = course.selfPaced ? sessions.filter(isRequiredLesson) : sessions;
+    const completed = counted.filter((x) => isDone(x.id)).length;
 
     return {
       slug: course.slug,
       titleEn: course.titleEn,
       titleAr: course.titleAr,
       type: course.type,
+      selfPaced: course.selfPaced,
+      canTrackProgress: Boolean(enrollment),
       deliveryPlatform: course.deliveryPlatform,
       recordingsPlatform: course.recordingsPlatform,
       youtubePlaylistUrl: course.youtubePlaylistUrl,
@@ -105,9 +143,13 @@ export class LearnService {
       driveAccessGranted: enrollment?.driveAccessGranted ?? false,
       liveLinkRevealMinutes: reveal,
       emailReminders: pref?.emailReminders ?? true,
-      progress: { completed, total: sessions.length, percent: sessions.length ? Math.round((completed / sessions.length) * 100) : 0 },
+      progress: { completed, total: counted.length, percent: counted.length ? Math.round((completed / counted.length) * 100) : 0 },
       courseFeedback: courseFb ? { rating: courseFb.rating, comment: courseFb.comment } : null,
+      testimonial,
+      canReview: eligibility?.canReview ?? false,
       announcements,
+      lastWatched: last ? { sessionId: last.sessionId, positionSec: last.positionSec } : null,
+      canModerateQA,
       sessions: sessions.map((x) => {
         const visible = hasAdminPermission(user, ['ACADEMIC']) || liveLinkVisible(x.startsAt, x.durationMin, reveal, now);
         const fb = fbBySession.get(x.id);
@@ -120,7 +162,8 @@ export class LearnService {
           descriptionAr: x.descriptionAr,
           startsAt: x.startsAt.toISOString(),
           durationMin: x.durationMin,
-          phase: sessionPhase(x.startsAt, x.durationMin, now),
+          // A self-paced lesson is available from the start, whatever date the row carries.
+          phase: course.selfPaced ? 'ended' : sessionPhase(x.startsAt, x.durationMin, now),
           liveLinkAt: new Date(x.startsAt.getTime() - reveal * 60_000).toISOString(),
           liveUrl: visible ? x.liveUrl : null,
           recording: x.recordingUrl
@@ -128,9 +171,12 @@ export class LearnService {
             : null,
           materials: (x.materials as Material[] | null) ?? [],
           assignmentUrl: x.assignmentUrl,
-          completed: done.has(x.id),
+          completed: isDone(x.id),
+          optional: x.optional,
+          lessonCompletion: lessonSource.get(x.id) ?? null,
           attendance: attended.get(x.id) ?? null,
           myFeedback: fb ? { rating: fb.rating, comment: fb.comment } : null,
+          resumeAt: watchBySession.has(x.id) ? resumeOf(watchBySession.get(x.id)!) : null,
         };
       }),
     };
@@ -180,19 +226,53 @@ export class LearnService {
     throw new GoneException({ code: 'PROGRESS_RETIRED', message: 'Sessions are counted from attendance now' });
   }
 
+  /** Self-paced lessons: completes one (a video that reached its end outranks a manual tick) or undoes it. */
+  async setLessonCompletion(user: AuthUser, slug: string, sessionId: string, input: LessonCompletionInput): Promise<void> {
+    const { course, session } = await this.sessionOf(user, slug, sessionId, 'write');
+    if (!course.selfPaced || !isVideoLesson(session)) {
+      throw new ConflictException({ code: 'NOT_A_LESSON', message: 'This is not a video lesson of a self-paced course' });
+    }
+    const key = { userId_sessionId: { userId: user.id, sessionId: session.id } };
+    if (!input.completed) {
+      await this.prisma.sessionProgress.deleteMany({ where: { userId: user.id, sessionId: session.id, source: { not: null } } });
+      return;
+    }
+    const existing = await this.prisma.sessionProgress.findUnique({ where: key, select: { source: true } });
+    const source = existing?.source === 'WATCHED' ? 'WATCHED' : input.source;
+    await this.prisma.sessionProgress.upsert({ where: key, update: { source }, create: { userId: user.id, sessionId: session.id, source } });
+    await this.certificates.issueIfEarned(course.id, user.id);
+  }
+
+  /**
+   * Where the student stopped in a session's video (saved by the player every ~15 s while playing,
+   * on pause and on leaving the page). Only a position: completion keeps its own rules.
+   */
+  async setPosition(user: AuthUser, slug: string, sessionId: string, input: LessonPositionInput): Promise<void> {
+    const { session } = await this.sessionOf(user, slug, sessionId, 'write');
+    if (!isVideoLesson(session)) {
+      throw new ConflictException({ code: 'NO_VIDEO', message: 'This session has no video to resume' });
+    }
+    const data = { positionSec: input.positionSec, durationSec: input.durationSec ?? null };
+    await this.prisma.lessonWatch.upsert({
+      where: { userId_sessionId: { userId: user.id, sessionId: session.id } },
+      update: data,
+      create: { ...data, userId: user.id, sessionId: session.id },
+    });
+  }
+
   async setFeedback(user: AuthUser, slug: string, input: FeedbackInput, now = new Date()): Promise<void> {
     const course = await this.access(user, slug, 'write');
     let sessionId: string | null = null;
     if (!input.sessionId) {
       // End-of-course feedback opens once the last session has started.
       const last = await this.prisma.courseSession.findFirst({ where: { courseId: course.id }, orderBy: { startsAt: 'desc' } });
-      if (last && last.startsAt > now) {
+      if (!course.selfPaced && last && last.startsAt > now) {
         throw new ForbiddenException({ code: 'NOT_STARTED', message: 'Course feedback opens at the last session' });
       }
     }
     if (input.sessionId) {
       const { session } = await this.sessionOf(user, slug, input.sessionId, 'write');
-      if (session.startsAt > now) {
+      if (!course.selfPaced && session.startsAt > now) {
         throw new ForbiddenException({ code: 'NOT_STARTED', message: 'Feedback opens once the session has started' });
       }
       sessionId = session.id;

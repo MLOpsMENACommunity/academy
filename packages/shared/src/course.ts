@@ -1,3 +1,4 @@
+import type { CourseRatingDto, PublicTestimonialDto } from './testimonials';
 import { z } from 'zod';
 import {
   APPLICATION_STATUSES,
@@ -158,6 +159,27 @@ export interface InstructorDto {
   githubUrl: string | null;
 }
 
+/**
+ * Private courses (Course.visibleToEmails): an empty list is a normal public course; otherwise
+ * only a signed-in account with a confirmed email in the list sees it (catalog, course page,
+ * applying). Admins see every course in Admin.
+ */
+export function isPrivateCourse(c: { visibleToEmails: readonly string[] }): boolean {
+  return c.visibleToEmails.length > 0;
+}
+
+/** Whether this viewer (their confirmed account email, or null when anonymous/unconfirmed) may see the course. */
+export function courseVisibleTo(c: { visibleToEmails: readonly string[] }, viewerEmail: string | null | undefined): boolean {
+  if (!isPrivateCourse(c)) return true;
+  const email = viewerEmail?.trim().toLowerCase();
+  return Boolean(email) && c.visibleToEmails.includes(email!);
+}
+
+/** GET /courses/:slug/private: only says that a private course exists at this address. */
+export interface PrivateCourseFlagDto {
+  private: true;
+}
+
 export interface CourseSummaryDto {
   id: string;
   slug: string;
@@ -191,6 +213,8 @@ export interface CourseSummaryDto {
   /** Seats still free, only while applications are open and the course has a capacity (0 = full); otherwise null. */
   seatsLeft: number | null;
   instructorNames: string[];
+  /** Video lessons at the student's own pace: no schedule, dates or weeks to show; "Start any time" while open. */
+  selfPaced: boolean;
   /** A past cohort kept public (status COMPLETED): no applications, recordings instead. */
   completed: boolean;
   /**
@@ -201,6 +225,8 @@ export interface CourseSummaryDto {
   cohortNumber: number | null;
   endDate: string | null;
   topics: string[];
+  /** Average of the approved star ratings; null until RATING_MIN_TO_SHOW are approved. */
+  rating: CourseRatingDto | null;
 }
 
 /** Public schedule entry: never includes live links or materials. */
@@ -252,6 +278,8 @@ export interface CourseDetailDto extends CourseSummaryDto {
   externalPlatform: string | null;
   externalUrl: string | null;
   publicRecordings: boolean;
+  /** Approved by the team and with words (rating-only reviews only count in `rating`), newest first. */
+  testimonials: PublicTestimonialDto[];
   /** The course's instructors (Main and Co-instructor roles with a public speaker profile, SHOWN only). */
   instructors: InstructorDto[];
   /** Everyone in a SHOWN course role, grouped by role, Main instructor first. Never anonymous staff or emails. */

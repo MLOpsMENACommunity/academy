@@ -1,6 +1,7 @@
 import { applicationStatusLabels, applicationStatusMessages, type ApplicationStatus, type Locale } from '@academy/shared';
 import { Link } from '@react-email/components';
 import type { ReactElement } from 'react';
+import { CertificateEmail } from './CertificateEmail';
 import { Layout } from './Layout';
 
 /** Every email the academy sends, with the data each one needs. */
@@ -106,6 +107,11 @@ export type EmailTemplate =
   /** A quiz, lab or assignment was published (sent once per assessment), to enrolled students who get course reminders. */
   | { name: 'assessmentPublished'; courseTitle: string; title: string; kind: 'QUIZ' | 'LAB' | 'ASSIGNMENT'; dueAt: string | null; url: string; unsubscribeUrl: string }
   /**
+   * Course Q&A: a new answer to a question the student asked or follows (through the outbox, under the
+   * course's reminders opt-out). `excerpt` is plain text, already cut short; the answer stays on the site.
+   */
+  | { name: 'qaAnswer'; courseTitle: string; questionTitle: string; excerpt: string; byTeam: boolean; url: string; unsubscribeUrl: string }
+  /**
    * After every course session (30 minutes to 72 hours after it ends), one per student and session.
    * `courseUrl` is set at the last session: the same email then also asks for the course rating.
    * `unsubscribeUrl`: the tokened "stop feedback emails for this course" page (no login).
@@ -119,6 +125,12 @@ export type EmailTemplate =
       courseUrl?: string | null;
       unsubscribeUrl: string;
     }
+  /**
+   * Self-paced study plan: the reminder on a study day, at the hour the student chose (their time
+   * zone). `items` are today's lessons and quizzes, already in their language.
+   * `unsubscribeUrl`: the tokened "stop reminder emails for this course" page (no login).
+   */
+  | { name: 'studyPlanReminder'; courseTitle: string; minutes: number; items: string[]; url: string; unsubscribeUrl: string }
   /** A course automation rule's message to a student (apps/api/src/automation/texts.ts), already in their language. */
   | {
       name: 'automationMessage';
@@ -156,7 +168,21 @@ export type EmailTemplate =
       courseUrl: string;
     }
   /** Certificates: issued (or re-issued) by the course team. Links to the public page, the PDF and LinkedIn. */
-  | { name: 'certificateIssued'; courseTitle: string; serial: string; verifyUrl: string; downloadUrl: string; linkedInUrl: string }
+  | {
+      name: 'certificateIssued';
+      attendance?: boolean;
+      /** The name printed on the certificate. */
+      holderName: string;
+      courseTitle: string;
+      serial: string;
+      /** Already formatted in the student's language. */
+      issuedOn: string;
+      verifyUrl: string;
+      downloadUrl: string;
+      linkedInUrl: string;
+      /** Self-paced courses: where the student can write a testimonial. */
+      testimonialUrl?: string;
+    }
   /** Consultations: the student's payment proof was received, approved (book a time) or rejected (why). */
   | {
       name: 'consultationPayment';
@@ -991,30 +1017,28 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
       };
     }
     case 'certificateIssued': {
-      const subject = ar ? `شهادتك في ${t.courseTitle} جاهزة` : `Your ${t.courseTitle} certificate is ready`;
+      const subject = t.attendance
+        ? ar
+          ? `أتممت ${t.courseTitle}: شهادتك جاهزة`
+          : `You've completed ${t.courseTitle}: your certificate is ready`
+        : ar
+          ? `شهادتك في ${t.courseTitle} جاهزة`
+          : `Your certificate for ${t.courseTitle} is ready`;
       return {
         subject,
         element: (
-          <Layout
+          <CertificateEmail
             {...base}
             preview={subject}
-            banner={{ text: ar ? 'مبروك!' : 'Congratulations!', tone: 'success' }}
-            heading={subject}
-            paragraphs={[
-              ar
-                ? `أصدر فريق الدورة شهادة إتمامك لدورة ${t.courseTitle}. رقمها التسلسلي ${t.serial}، ويمكن لأي شخص التحقق منها عبر الرابط العام.`
-                : `The course team has issued your certificate of completion for ${t.courseTitle}. Its serial number is ${t.serial}, and anyone can verify it at its public link.`,
-              <>
-                <Link href={t.downloadUrl} style={{ textDecoration: 'underline' }}>
-                  {ar ? 'نزّل الشهادة (PDF)' : 'Download the PDF'}
-                </Link>
-                {' · '}
-                <Link href={t.linkedInUrl} style={{ textDecoration: 'underline' }}>
-                  {ar ? 'أضفها إلى LinkedIn' : 'Add it to LinkedIn'}
-                </Link>
-              </>,
-            ]}
-            cta={{ label: ar ? 'اعرض الشهادة' : 'View your certificate', url: t.verifyUrl }}
+            attendance={Boolean(t.attendance)}
+            holderName={t.holderName}
+            courseTitle={t.courseTitle}
+            serial={t.serial}
+            issuedOn={t.issuedOn}
+            verifyUrl={t.verifyUrl}
+            downloadUrl={t.downloadUrl}
+            linkedInUrl={t.linkedInUrl}
+            testimonialUrl={t.testimonialUrl}
           />
         ),
       };
@@ -1187,6 +1211,26 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
         ),
       };
     }
+    case 'qaAnswer': {
+      const subject = ar ? `إجابة جديدة: ${t.questionTitle}` : `New answer: ${t.questionTitle}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={subject}
+            heading={ar ? 'إجابة جديدة على سؤال تتابعه' : 'A new answer to a question you follow'}
+            paragraphs={[
+              ar ? `في ${t.courseTitle}، على السؤال «${t.questionTitle}»:` : `In ${t.courseTitle}, on "${t.questionTitle}":`,
+              t.excerpt,
+              t.byTeam ? (ar ? 'الإجابة من فريق الدورة.' : 'The answer is from the course team.') : ar ? 'الإجابة من زميل في الدورة.' : 'The answer is from a classmate.',
+            ]}
+            cta={{ label: ar ? 'شاهد الإجابة' : 'See the answer', url: t.url }}
+            noteLink={{ label: ar ? 'أوقف رسائل التذكير لهذه الدورة' : 'Stop reminder emails for this course', url: t.unsubscribeUrl }}
+          />
+        ),
+      };
+    }
     case 'feedbackPrompt': {
       // No "today" or "tonight": sessions run in the Cairo evening and this can arrive the next
       // morning, in another time zone, or two days later after a late deploy.
@@ -1220,6 +1264,29 @@ export function buildEmail(t: EmailTemplate, locale: Locale): Built {
             cta={{ label: ar ? 'قيّم الجلسة' : 'Rate the session', url: t.url }}
             secondaryCta={t.courseUrl ? { label: ar ? 'قيّم الدورة' : 'Rate the course', url: t.courseUrl } : undefined}
             noteLink={{ label: ar ? 'أوقف رسائل التقييم لهذه الدورة' : 'Stop feedback emails for this course', url: t.unsubscribeUrl }}
+          />
+        ),
+      };
+    }
+    case 'studyPlanReminder': {
+      // Sent within a few hours of the student's own reminder time on the study day, so "today" holds.
+      const subject = ar ? `يوم دراسة: ${t.courseTitle}` : `Study day: ${t.courseTitle}`;
+      return {
+        subject,
+        element: (
+          <Layout
+            {...base}
+            preview={ar ? `خطة اليوم: ${t.items[0] ?? ''}` : `Today's plan: ${t.items[0] ?? ''}`}
+            heading={ar ? 'اليوم يوم دراسة' : 'Today is a study day'}
+            paragraphs={[
+              ar
+                ? `حسب خطة الدراسة التي وضعتها لـ ${t.courseTitle}، هذا ما عليك اليوم (نحو ${t.minutes} دقيقة).`
+                : `Your study plan for ${t.courseTitle} has this for today (about ${t.minutes} minutes).`,
+            ]}
+            list={{ title: ar ? 'خطة اليوم' : "Today's plan", items: t.items }}
+            after={[ar ? 'يمكنك تعديل أيام الدراسة أو وقت التذكير أو إيقافه من صفحة الدورة.' : 'You can change your study days or reminder time, or turn the reminder off, on the course page.']}
+            cta={{ label: ar ? 'ابدأ الدراسة' : 'Start studying', url: t.url }}
+            noteLink={{ label: ar ? 'أوقف رسائل التذكير لهذه الدورة' : 'Stop reminder emails for this course', url: t.unsubscribeUrl }}
           />
         ),
       };
