@@ -59,6 +59,7 @@
     "verify": "Verify a certificate",
     "community": "Community",
     "rights": "© {year} MLOps MENA Community",
+    "poweredBy": "Powered by Opsedia AI LLC",
     "academy": "Academy"
   },
   "home": {

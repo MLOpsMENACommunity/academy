@@ -95,7 +95,10 @@ export function Footer({ locale }: { locale: Locale }) {
         ))}
       </div>
       <div className="mx-auto flex w-full max-w-[75rem] flex-wrap items-center justify-between gap-3 px-5 pb-8 sm:px-6 lg:px-10">
-        <p className="w-full border-t border-line-soft pt-6 text-sm text-muted sm:w-auto sm:border-0 sm:pt-0">{t('footer.rights', { year: new Date().getFullYear() })}</p>
+        <div className="w-full border-t border-line-soft pt-6 text-sm text-muted sm:w-auto sm:border-0 sm:pt-0">
+          <p>{t('footer.rights', { year: new Date().getFullYear() })}</p>
+          <p className="mt-1">{t('footer.poweredBy')}</p>
+        </div>
         <LanguageSwitcher className="-ms-3 sm:ms-0" />
       </div>
     </footer>
