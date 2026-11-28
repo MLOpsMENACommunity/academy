@@ -1,6 +1,7 @@
 import { Container } from '@cloudflare/containers';
 import { fetchContainer, timeoutFor } from './container-fetch';
 import { browserCacheControl, cacheKind, EDGE_TAG, localeCookie, storableCacheControl, storedCopy, type CacheKind } from './edge-cache';
+import { emailEnv } from './email';
 import { isInternalApiPath, isManualJobsTick, shouldTick, stateAfterTick, tokenMatches, type TickState } from './jobs';
 import { MAIN_INSTANCE, webInstanceCount, webInstanceName } from './instances';
 import { isRevalidateRequest, purgeRequest, REVALIDATE_HEADER, REVALIDATE_PATH, revalidateToken, WEB_REVALIDATE_URL } from './revalidate';
@@ -56,6 +57,9 @@ export interface Env {
   /** Optional: lets the community bot read /api/bot/v1/activity. */
   BOT_API_TOKEN?: string;
   RESEND_API_KEY: string;
+  /** Optional: Cloudflare Email Service instead of Resend, once both are set (email.ts). */
+  CLOUDFLARE_EMAIL_API_TOKEN?: string;
+  CLOUDFLARE_EMAIL_ACCOUNT_ID?: string;
   S3_ENDPOINT: string;
   S3_ACCESS_KEY_ID: string;
   S3_SECRET_ACCESS_KEY: string;
@@ -132,9 +136,9 @@ export class ApiContainer extends Container<Env> {
       ...(env.BOT_API_TOKEN ? { BOT_API_TOKEN: env.BOT_API_TOKEN } : {}),
       // In-process cron is off: the Worker's Cron Trigger drives jobs.
       JOBS_ENABLED: 'false',
-      EMAIL_PROVIDER: 'resend',
       EMAIL_FROM: env.EMAIL_FROM,
-      RESEND_API_KEY: env.RESEND_API_KEY,
+      // Cloudflare Email Service once its secrets are set, otherwise Resend (email.ts).
+      ...emailEnv(env),
       S3_ENDPOINT: env.S3_ENDPOINT,
       S3_REGION: 'auto',
       S3_BUCKET: env.S3_BUCKET,

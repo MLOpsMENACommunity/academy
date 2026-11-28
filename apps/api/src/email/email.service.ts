@@ -60,7 +60,8 @@ export class EmailService {
     private readonly transport: EmailTransport,
     @Inject(ENV) private readonly env: Env,
   ) {
-    this.minIntervalMs = env.EMAIL_MIN_INTERVAL_MS ?? (env.EMAIL_PROVIDER === 'resend' ? 550 : 0);
+    // Cloudflare publishes no per-second limit: 5 a second stays well clear of its 429s.
+    this.minIntervalMs = env.EMAIL_MIN_INTERVAL_MS ?? (env.EMAIL_PROVIDER === 'resend' ? 550 : env.EMAIL_PROVIDER === 'cloudflare' ? 200 : 0);
   }
 
   /** Absolute link into the web app, e.g. url('en', '/dashboard'). */

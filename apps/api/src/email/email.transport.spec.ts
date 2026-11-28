@@ -1,4 +1,4 @@
-import { classifySendError, EmailSendError, EmailTransport, GuardedTransport, ResendTransport, type EmailMessage } from './email.transport';
+import { classifySendError, CloudflareTransport, EmailSendError, EmailTransport, GuardedTransport, parseFrom, ResendTransport, type EmailMessage } from './email.transport';
 
 class FakeTransport extends EmailTransport {
   sent: EmailMessage[] = [];
@@ -103,5 +103,70 @@ describe('GuardedTransport keeps send options', () => {
     const guard = new GuardedTransport(inner, { allowlist: '', redirectTo: 'admin@mlopsmena.com' });
     await guard.send(message('student@gmail.com'), { idempotencyKey: 'outbox/1' });
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ to: 'admin@mlopsmena.com' }), { idempotencyKey: 'outbox/1' });
+  });
+});
+
+describe('CloudflareTransport', () => {
+  const ACCOUNT = 'a'.repeat(32);
+  const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  const ok = { success: true, errors: [], result: { delivered: ['x'], permanent_bounces: [], queued: [] } };
+  const failure = (status: number, code: number, message = 'nope') => reply(status, { success: false, errors: [{ code, message }], result: null });
+  const transport = (res: Response | Error) => {
+    const fetchFn = jest.fn(async () => {
+      if (res instanceof Error) throw res;
+      return res;
+    });
+    return { fetchFn, t: new CloudflareTransport(ACCOUNT, 'token-123', 'MLOps MENA Academy <academy@mlopsmena.com>', fetchFn) };
+  };
+
+  it('posts one email to the account send endpoint, sender split into name and address', async () => {
+    const { fetchFn, t } = transport(reply(200, ok));
+    await t.send({ ...message('student@gmail.com'), headers: { 'List-Unsubscribe': '<https://x>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/email/sending/send`);
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer token-123');
+    expect(JSON.parse(init.body as string)).toEqual({
+      from: { address: 'academy@mlopsmena.com', name: 'MLOps MENA Academy' },
+      to: ['student@gmail.com'],
+      subject: 'Welcome',
+      html: '<p>hi</p>',
+      text: 'hi',
+      headers: { 'List-Unsubscribe': '<https://x>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    });
+  });
+
+  it('sorts failures the way the outbox expects', async () => {
+    const kind = async (res: Response | Error) => {
+      try {
+        await transport(res).t.send(message('s@x.com'));
+        return 'sent';
+      } catch (err) {
+        return classifySendError(err);
+      }
+    };
+    expect(await kind(failure(429, 10004, 'Too many requests'))).toBe('retryable');
+    expect(await kind(failure(429, 10004, 'Daily sending limit exceeded'))).toBe('quota');
+    expect(await kind(failure(403, 10203, 'Sending disabled'))).toBe('retryable');
+    expect(await kind(failure(403, 10207, 'Account paused'))).toBe('retryable');
+    expect(await kind(failure(400, 10001, 'Invalid recipient'))).toBe('permanent');
+    expect(await kind(failure(500, 10000, 'Internal'))).toBe('retryable');
+    expect(await kind(new TypeError('fetch failed'))).toBe('retryable');
+    expect(await kind(reply(200, { ...ok, result: { delivered: [], permanent_bounces: ['s@x.com'], queued: [] } }))).toBe('permanent');
+    expect(await kind(reply(200, { ...ok, result: { delivered: [], permanent_bounces: [], queued: [], suppressed_recipients: ['s@x.com'] } }))).toBe('permanent');
+    expect(await kind(reply(200, ok))).toBe('sent');
+  });
+
+  it('never puts the recipient or the token in the error message', async () => {
+    const err = await transport(failure(400, 10001, 'Invalid recipient s@x.com')).t.send(message('s@x.com')).catch((e: Error) => e);
+    expect(String(err)).not.toContain('s@x.com');
+    expect(String(err)).not.toContain('token-123');
+  });
+});
+
+describe('parseFrom', () => {
+  it('splits "Name <address>" and keeps a bare address', () => {
+    expect(parseFrom('MLOps MENA Academy <academy@mlopsmena.com>')).toEqual({ name: 'MLOps MENA Academy', address: 'academy@mlopsmena.com' });
+    expect(parseFrom('"Academy (staging)" <a@b.com>')).toEqual({ name: 'Academy (staging)', address: 'a@b.com' });
+    expect(parseFrom('a@b.com')).toEqual({ address: 'a@b.com' });
   });
 });
