@@ -53,8 +53,8 @@ jobs:
       - name: Check target
         run: |
           case "$TARGET" in
-            staging|production) ;;
-            *) echo "::error::Unknown environment '$TARGET' (expected staging or production)"; exit 1 ;;
+            production) ;;
+            *) echo "::error::Unknown environment '$TARGET' (only production exists; staging was removed on 28 Nov 2026)"; exit 1 ;;
           esac
           [[ "$REF" == v* ]] || { echo "::error::Only v* tags are deployed (got '$REF')"; exit 1; }
 

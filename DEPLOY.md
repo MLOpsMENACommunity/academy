@@ -24,23 +24,23 @@ placeholder courses.
 
 ## Environments
 
-Both environments are built from `deploy/cloudflare/wrangler.jsonc`: production is the
-top level, staging is `env.staging`. Staging has its own Worker, containers, Durable
-Objects, database (and database role), bucket (and R2 token), JWT secret and jobs token,
-and it never emails real people. It shares two credentials with production: the
-Cloudflare API token (Cloudflare can't limit a token to one Worker) and the Resend key.
+There is one environment, **production**, built from `deploy/cloudflare/wrangler.jsonc`.
+Staging (`academy-staging.mlopsmena.com`, Worker `mlops-academy-staging`) was removed on
+28 November 2026: its two containers were awake all month and made up a large share of
+the container bill. Test changes locally (`pnpm dev`, `pnpm e2e`) and in CI instead. The
+staging database `academy_staging` and bucket `academy-staging-private` were kept (they cost
+nothing while idle) in case staging is ever rebuilt.
 
-| | Production | Staging |
-|---|---|---|
-| URL | https://academy.mlopsmena.com | https://academy-staging.mlopsmena.com |
-| GitHub environment | `production` (only `v*` tags may deploy) | `staging` (`v*` tags and `main`) |
-| Worker | `mlops-academy` | `mlops-academy-staging` |
-| Containers | `mlops-academy-apicontainer`, `mlops-academy-webcontainer` | `mlops-academy-staging-apicontainer`, `mlops-academy-staging-webcontainer` |
-| Database (Neon, same project) | `neondb` | `academy_staging`, owned by the role `academy_staging`, which can't read production |
-| R2 bucket | `academy-private` | `academy-staging-private` |
-| Secrets file on your laptop | `~/.config/mlops-academy/deploy.env` | `~/.config/mlops-academy/staging.env` |
-| Email | Real recipients | Everyone not on `EMAIL_ALLOWLIST` is redirected to `EMAIL_REDIRECT_TO` (`admin@mlopsmena.com`), with the original recipient in the subject |
-| Sentry environment | `production` | `staging` |
+| | Production |
+|---|---|
+| URL | https://academy.mlopsmena.com |
+| GitHub environment | `production` (only `v*` tags may deploy) |
+| Worker | `mlops-academy` |
+| Containers | `mlops-academy-apicontainer`, `mlops-academy-webcontainer` |
+| Database (Neon) | `neondb` |
+| R2 bucket | `academy-private` |
+| Secrets file on your laptop | `~/.config/mlops-academy/deploy.env` |
+| Sentry environment | `production` |
 
 A third GitHub environment, `production-backup`, holds only what the nightly database
 backup needs (see [OPERATIONS.md](OPERATIONS.md#backups-and-restore)).
@@ -57,14 +57,13 @@ would create new Durable Objects and containers instead of updating the live one
 > have done that and switched the GitHub workflows off (its step 7), the tag flow below is
 > still the way to release. After the switch, use [Releasing with Workers Builds](#releasing-with-workers-builds).
 
-Every change reaches production the same way: **tag → staging → test → promote that tag.**
-Nothing deploys from a branch, and production only accepts a tag that has already
-been released to staging.
+Every change reaches production the same way: **merge to `main` → tag → release that tag.**
+Nothing deploys from a branch.
 
 **Tags** are dated: `vYYYY.MM.DD-N`, where `N` counts the releases of that day
 (`v2026.10.08-1`, `v2026.10.08-2`, …). Tag a commit on `main`.
 
-1. **Release to staging.** Tag the commit and push the tag:
+1. **Tag the commit** and push the tag:
 
    ```bash
    git checkout main && git pull
@@ -72,20 +71,7 @@ been released to staging.
    git push origin v2026.10.08-1
    ```
 
-   The **Release to staging** workflow starts on its own. It reuses the CI run of that
-   commit on `main` (waiting for it if it's still running), or runs CI on the tag if
-   there is none. Then it deploys the tag to staging, smoke-tests it, and records it as
-   a successful staging release. The run summary has the link.
-
-   To re-deploy an existing tag to staging: **Actions → Release to staging → Run
-   workflow**, and enter the tag.
-
-2. **Test it** on https://academy-staging.mlopsmena.com. Sign in as `SEED_ADMIN_EMAIL`
-   with the `SEED_ADMIN_PASSWORD` from `staging.env`. Emails arrive at
-   `EMAIL_REDIRECT_TO`.
-
-3. **Promote the same tag to production.** **Actions → Release to production → Run
-   workflow**:
+2. **Release it.** **Actions → Release to production → Run workflow**:
    - **Use workflow from:** switch to **Tags** and pick the tag (the production
      environment only accepts `v*` tags, so a run from `main` is refused);
    - **tag:** the same tag.
@@ -97,17 +83,16 @@ been released to staging.
      --ref v2026.10.08-1 -f tag=v2026.10.08-1
    ```
 
-   The workflow refuses a tag whose commit has no successful staging release. It
-   deploys that exact commit to production, smoke-tests https://academy.mlopsmena.com,
-   and creates a GitHub Release for the tag with generated notes.
-
-New features always reach staging first. A fix for production is a new tag too: tag
-it, let it reach staging, check it, promote it.
+   The workflow reuses the passing CI run of that commit (the pull request's CI when the
+   tag is its merge commit), or runs CI on the tag if there is none, and refuses to deploy
+   if CI fails. It then deploys that exact commit to production, smoke-tests
+   https://academy.mlopsmena.com, and creates a GitHub Release for the tag with generated
+   notes.
 
 **Approvals.** Required reviewers on the `production` environment need a paid GitHub
 plan (or a public repo), which the organisation doesn't have yet. Until then the gates
 are: only people with write access can run the workflow, only `v*` tags can deploy to
-production, and only tags already released to staging are accepted. Once the plan
+production, and only commits whose CI passed are deployed. Once the plan
 allows it, add a reviewer and every production run waits for approval:
 
 ```bash
@@ -118,8 +103,8 @@ JSON
 
 ### Roll back
 
-Run **Release to production** again with the previous tag (it was released to staging
-before, so it's accepted). The GitHub Release of that tag already exists and is left as
+Run **Release to production** again with the previous tag (its CI already passed, so it's
+accepted). The GitHub Release of that tag already exists and is left as
 it is.
 
 For the fastest possible rollback, Cloudflare dashboard → Workers & Pages →

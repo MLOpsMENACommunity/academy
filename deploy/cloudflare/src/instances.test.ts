@@ -15,7 +15,7 @@ test('WEB_INSTANCES is capped at max_instances; anything invalid means only main
 
 test('MAX_WEB_INSTANCES matches the WebContainer max_instances, and WEB_INSTANCES fits in it', () => {
   const { config } = ts.parseConfigFileTextToJson('wrangler.jsonc', readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));
-  for (const block of [config, config.env.staging]) {
+  for (const block of [config]) {
     const web = block.containers.find((c: { class_name: string }) => c.class_name === 'WebContainer');
     const n = Number(block.vars.WEB_INSTANCES ?? '1');
     assert.ok(n <= web.max_instances, `${block.name}: WEB_INSTANCES ${n} > max_instances ${web.max_instances}`);
