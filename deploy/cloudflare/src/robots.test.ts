@@ -33,12 +33,11 @@ test('withNoindex tags any response, including immutable redirects, and keeps th
   assert.equal(withNoindex(new Response('', { headers: { 'x-robots-tag': 'all' } })).headers.get('x-robots-tag'), NOINDEX);
 });
 
-test('wrangler.jsonc marks production as production and staging as not, for the Worker and the web build', () => {
+test('wrangler.jsonc marks production as production, for the Worker and the web build', () => {
   const { config } = ts.parseConfigFileTextToJson('wrangler.jsonc', readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));
   const web = (block: { containers: { class_name: string; image_vars?: Record<string, string> }[] }) =>
     block.containers.find((c) => c.class_name === 'WebContainer')!.image_vars ?? {};
   assert.equal(config.vars.ACADEMY_ENVIRONMENT, 'production');
   assert.equal(web(config).NEXT_PUBLIC_ACADEMY_ENVIRONMENT, 'production');
-  assert.equal(config.env.staging.vars.ACADEMY_ENVIRONMENT, 'staging');
-  assert.equal(web(config.env.staging).NEXT_PUBLIC_ACADEMY_ENVIRONMENT, 'staging');
+  assert.equal(config.env, undefined, 'no staging environment (removed 28 Nov 2026)');
 });

@@ -1,13 +1,15 @@
 name: Release to production
 
-# Step 2 of a release: promote a tag that is already tested on staging.
+# Releases a v* tag to production (there is no staging environment since 28 Nov 2026).
+#   git tag v2026.10.08-1 && git push origin v2026.10.08-1
 #   Actions → Release to production → Run workflow
 #     Use workflow from: Tags → v2026.10.08-1   (the production environment only accepts v* tags)
 #     tag: v2026.10.08-1
 # or: gh workflow run release-production.yml --ref v2026.10.08-1 -f tag=v2026.10.08-1
 #
-# Refuses unless the tag's commit has a successful "Release to staging" run. Deploys the
-# exact same commit to production, then creates a GitHub Release for the tag.
+# The tag's commit must pass CI first: an existing green CI run (the PR's, or one on the
+# commit) is reused, otherwise CI runs here on the tag. Then it deploys that exact commit to
+# production and creates a GitHub Release for the tag.
 # Roll back by running this again with the previous tag (see DEPLOY.md, "Roll back").
 on:
   workflow_dispatch:
@@ -25,60 +27,94 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: Verify the tag was released to staging
+  resolve:
+    name: Resolve tag and check CI
     runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
     permissions:
       contents: read
-      deployments: read
+      actions: read
     outputs:
-      sha: ${{ steps.verify.outputs.sha }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      ci_passed: ${{ steps.ci.outputs.passed }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
     steps:
-      - name: Verify
-        id: verify
+      - name: Resolve tag
+        id: resolve
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
           TAG: ${{ inputs.tag }}
           RUN_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           [[ "$TAG" =~ ^v[0-9A-Za-z._+-]+$ ]] || { echo "::error::'$TAG' is not a v* release tag"; exit 1; }
           sha=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha) \
-            || { echo "::error::Tag $TAG does not exist"; exit 1; }
+            || { echo "::error::Tag $TAG not found. Push it first: git push origin $TAG"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
           if [ "$RUN_REF" != "refs/tags/$TAG" ]; then
             echo "::error::Run this workflow from the tag itself: Use workflow from → Tags → $TAG (it was run from $RUN_REF). The production environment only accepts v* tags."
             exit 1
           fi
-          # Any successful staging release of this exact commit (older ones are marked
-          # inactive by newer releases, so look at every status, not just the latest).
-          ok=false
-          for id in $(gh api "repos/$REPO/deployments?environment=staging&task=release:staging&sha=$sha&per_page=100" --jq '.[].id'); do
-            if gh api "repos/$REPO/deployments/$id/statuses?per_page=100" --jq '[.[].state] | index("success") != null' | grep -q true; then
-              ok=true; break
+          echo "Releasing $TAG ($sha) to production"
+
+      - name: Find a passing CI run for this commit
+        id: ci
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          passed=false
+          # 1) A CI run on this exact commit (e.g. a re-release, or a manual run) is reused.
+          runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&per_page=20" --jq '.workflow_runs')
+          if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then passed=true; fi
+          # 2) The usual case: the tag is the merge commit of a pull request whose CI passed.
+          #    That CI tested the PR head merged onto main, so it covers this commit exactly when
+          #    main hadn't moved since (first parent = main when the run started, i.e. the run
+          #    started after that commit landed) and the PR head is the second parent.
+          if [ "$passed" = false ]; then
+            commit=$(gh api "repos/$REPO/commits/$SHA")
+            if [ "$(jq '.parents | length' <<<"$commit")" = 2 ]; then
+              base=$(jq -r '.parents[0].sha' <<<"$commit"); head=$(jq -r '.parents[1].sha' <<<"$commit")
+              base_at=$(gh api "repos/$REPO/commits/$base" --jq '.commit.committer.date')
+              pr_runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$head&event=pull_request&per_page=20" --jq '.workflow_runs')
+              if jq -e --arg t "$base_at" 'any(.[]; .conclusion == "success" and .created_at >= $t)' <<<"$pr_runs" >/dev/null; then
+                passed=true
+                echo "Reusing the pull request CI run for $head (merged onto $base, unchanged since)"
+              fi
             fi
-          done
-          if [ "$ok" != true ]; then
-            echo "::error::$TAG ($sha) has no successful staging release. Push the tag (or run Release to staging with it), test it on staging, then promote it."
-            exit 1
           fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "$TAG ($sha) was released to staging: promoting it to production"
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+          if [ "$passed" = true ]; then echo "CI already passed for $SHA"; else echo "No passing CI run covers $SHA: running CI on the tag"; fi
+
+  ci:
+    name: CI on the tag
+    needs: resolve
+    if: needs.resolve.outputs.ci_passed != 'true'
+    permissions:
+      contents: read
+      actions: write # gha build cache
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
 
   deploy:
     name: Deploy
-    needs: verify
+    needs: [resolve, ci]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
     uses: ./.github/workflows/deploy-cloudflare.yml
     with:
       environment: production
       ref: ${{ inputs.tag }}
-      sha: ${{ needs.verify.outputs.sha }}
+      sha: ${{ needs.resolve.outputs.sha }}
     # A called workflow sees no secrets (not even its environment's) unless they're inherited.
     secrets: inherit
 
   release:
     name: GitHub Release
-    needs: [verify, deploy]
+    needs: [resolve, deploy]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
     runs-on: ubuntu-24.04 # pinned: ubuntu-latest moves to 26.04 from 19 Oct 2026
     permissions:
       contents: write
@@ -87,7 +123,7 @@ jobs:
       REPO: ${{ github.repository }}
       TAG: ${{ inputs.tag }}
       URL: ${{ needs.deploy.outputs.url }}
-      SHA: ${{ needs.verify.outputs.sha }}
+      SHA: ${{ needs.resolve.outputs.sha }}
     steps:
       - name: Create the release (skipped when re-promoting, e.g. a rollback)
         run: |

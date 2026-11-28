@@ -27,12 +27,10 @@ test('only POST to the manual tick path counts', () => {
   assert.equal(isManualJobsTick(at(`${MANUAL_TICK_PATH}/x`)), false);
 });
 
-test('staging has no Cron Trigger (it only wakes when used); production checks every 15 minutes', () => {
+test('production checks every 15 minutes', () => {
   const { config } = ts.parseConfigFileTextToJson('wrangler.jsonc', readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));
   // The trigger itself wakes nothing: shouldTick decides whether the API is called.
   assert.deepEqual(config.triggers.crons, ['*/15 * * * *']);
-  // An env without "triggers" would inherit production's crons: it must say [] explicitly.
-  assert.deepEqual(config.env.staging.triggers, { crons: [] });
 });
 
 test('internal API paths are blocked whatever their case (Express routes ignore case)', () => {

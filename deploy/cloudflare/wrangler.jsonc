@@ -1,11 +1,8 @@
 // Cloudflare deployment of MLOps MENA Academy. See DEPLOY.md.
 //
-// Two Workers from one file:
-//   top level    -> PRODUCTION: Worker "mlops-academy" on academy.mlopsmena.com
-//                   (`wrangler deploy`)
-//   env.staging  -> STAGING: Worker "mlops-academy-staging" on academy-staging.mlopsmena.com
-//                   (`wrangler deploy --env staging`), with its own containers, Durable
-//                   Objects and R2 bucket, and (from its GitHub environment) its own database.
+// One Worker: PRODUCTION, "mlops-academy" on academy.mlopsmena.com (`wrangler deploy`).
+// The staging Worker (env.staging, academy-staging.mlopsmena.com) was removed on 28 Nov 2026:
+// its containers were awake all month and doubled the container bill.
 //
 // Never rename the production Worker or its container classes: that would create new
 // Durable Object namespaces and containers instead of updating the live ones.
@@ -79,61 +76,6 @@
   // Scheduled jobs (anonymisation, retention, reminders, profile reviews). The trigger fires every
   // 15 minutes but wakes nothing by itself: the API is called only when something is due, when it
   // is awake anyway, or every 4 hours at most (shouldTick in src/jobs.ts). Each call wakes the API
-  // (and the database) for about SLEEP_AFTER. Staging has none, see env.staging.
-  "triggers": { "crons": ["*/15 * * * *"] },
-
-  "env": {
-    "staging": {
-      "name": "mlops-academy-staging",
-      "vars": {
-        // Not production: noindex everywhere, robots.txt "Disallow: /".
-        "ACADEMY_ENVIRONMENT": "staging",
-        "ACADEMY_HOSTNAME": "academy-staging.mlopsmena.com",
-        "EMAIL_FROM": "MLOps MENA Academy (staging) <academy@mlopsmena.com>",
-        "S3_BUCKET": "academy-staging-private",
-        "SENTRY_ENVIRONMENT": "staging",
-        // Staging never emails real people: mail to anyone not on EMAIL_ALLOWLIST goes to
-        // EMAIL_REDIRECT_TO instead, with the original recipient in the subject.
-        // EMAIL_ALLOWLIST is comma-separated addresses or "@domain" entries.
-        "EMAIL_REDIRECT_TO": "admin@mlopsmena.com",
-        "EMAIL_ALLOWLIST": "",
-        // Staging stays small and cheap: one basic container each, asleep unless someone uses it.
-        "WEB_INSTANCES": "1",
-        "SLEEP_AFTER": "5m"
-      },
-      "routes": [{ "pattern": "academy-staging.mlopsmena.com", "custom_domain": true }],
-      "containers": [
-        {
-          "name": "mlops-academy-staging-apicontainer",
-          "class_name": "ApiContainer",
-          "image": "../../apps/api/Dockerfile",
-          "image_build_context": "../..",
-          "instance_type": "basic",
-          "constraints": { "regions": ["WEUR"] },
-          "max_instances": 1
-        },
-        {
-          "name": "mlops-academy-staging-webcontainer",
-          "class_name": "WebContainer",
-          "image": "../../apps/web/Dockerfile",
-          "image_build_context": "../..",
-          "image_vars": { "NEXT_PUBLIC_SITE_URL": "https://academy-staging.mlopsmena.com", "NEXT_PUBLIC_ACADEMY_ENVIRONMENT": "staging" },
-          "instance_type": "basic",
-          "constraints": { "regions": ["WEUR"] },
-          "max_instances": 1
-        }
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "API", "class_name": "ApiContainer" },
-          { "name": "WEB", "class_name": "WebContainer" }
-        ]
-      },
-      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
-      // No Cron Trigger: staging's containers only wake when someone uses staging (an hourly
-      // tick woke both for nothing, 24 times a day). Must be an explicit [], or staging would
-      // inherit production's crons. Run the jobs on demand with POST /_jobs/tick (src/jobs.ts).
-      "triggers": { "crons": [] }
-    }
-  }
+  // (and the database) for about SLEEP_AFTER.
+  "triggers": { "crons": ["*/15 * * * *"] }
 }
